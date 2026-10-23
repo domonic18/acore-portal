@@ -1,0 +1,63 @@
+{
+  "name": "acore-portal",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "db:generate": "pnpm run db:generate:business && pnpm run db:generate:auth && pnpm run db:generate:characters && pnpm run db:generate:world && pnpm run db:generate:eluna",
+    "db:generate:business": "prisma generate --schema prisma/schema-business/schema.prisma",
+    "db:generate:auth": "prisma generate --schema prisma/schema-auth/schema.prisma",
+    "db:generate:characters": "prisma generate --schema prisma/schema-characters/schema.prisma",
+    "db:generate:world": "prisma generate --schema prisma/schema-world/schema.prisma",
+    "db:generate:eluna": "prisma generate --schema prisma/schema-eluna/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema prisma/schema-business/schema.prisma",
+    "db:deploy": "prisma migrate deploy --schema prisma/schema-business/schema.prisma",
+    "db:seed": "tsx scripts/dev/seed.ts",
+    "soap:mock": "node scripts/dev/soap-mock.mjs",
+    "verify:sc001": "tsx --conditions=react-server scripts/verify/sc001-login.ts",
+    "verify:soap": "tsx scripts/verify/soap-check.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.7.0",
+    "bcryptjs": "^3.0.2",
+    "ioredis": "^5.4.1",
+    "jose": "^5.9.6",
+    "next": "^14.2.5",
+    "node-soap": "^1.0.0",
+    "nodemailer": "^7.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "server-only": "^0.0.1",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.1.0",
+    "@playwright/test": "^1.50.0",
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "^22.10.0",
+    "@types/nodemailer": "^7.0.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "dotenv": "^16.4.5",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.5",
+    "eslint-plugin-boundaries": "^5.0.0",
+    "prettier": "^3.3.3",
+    "prisma": "^6.7.0",
+    "tailwindcss": "^4.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
+  }
+}

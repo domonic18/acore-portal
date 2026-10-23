@@ -1,0 +1,13 @@
+node_modules/
+.next/
+src/generated/
+workspace/
+coverage/
+playwright-report/
+test-results/
+.env*
+*.log
+.git/
+.specify/
+docs/
+specs/
