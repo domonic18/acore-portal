@@ -23,9 +23,6 @@ importers:
       next:
         specifier: ^14.2.5
         version: 14.2.35(@playwright/test@1.64.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      node-soap:
-        specifier: ^1.0.0
-        version: 1.0.1
       nodemailer:
         specifier: ^7.0.0
         version: 7.0.13
@@ -1964,9 +1961,6 @@ packages:
 
   node-fetch-native@1.6.7:
     resolution: {integrity: sha512-g9yhqoedzIUm0nTnTqAQvueMPVOuIY16bqgAJJC8XOOubYFNwz6IER9qs0Gq2Xd0+CecCKFjtdDTMA4u4xG06Q==}
-
-  node-soap@1.0.1:
-    resolution: {integrity: sha512-KXMlBuYQemd3A21bkJT9cVKbZLm5k+wYk618XKXX6tRzFYNx62i7AdxoM5wCytDVex1nabQkWzXtYtr9YMgo6A==}
 
   nodemailer@7.0.13:
     resolution: {integrity: sha512-PNDFSJdP+KFgdsG3ZzMXCgquO7I6McjY2vlqILjtJd0hy8wEvtugS9xKRF2NWlPNGxvLCXlTNIae4serI7dinw==}
@@ -4521,8 +4515,6 @@ snapshots:
       semver: 6.3.1
 
   node-fetch-native@1.6.7: {}
-
-  node-soap@1.0.1: {}
 
   nodemailer@7.0.13: {}
 

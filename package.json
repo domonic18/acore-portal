@@ -26,7 +26,7 @@
     "db:seed": "tsx scripts/dev/seed.ts",
     "soap:mock": "node scripts/dev/soap-mock.mjs",
     "verify:sc001": "tsx --conditions=react-server scripts/verify/sc001-login.ts",
-    "verify:soap": "tsx scripts/verify/soap-check.ts"
+    "verify:soap": "tsx --conditions=react-server scripts/verify/soap-check.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.7.0",
@@ -34,7 +34,6 @@
     "ioredis": "^5.4.1",
     "jose": "^5.9.6",
     "next": "^14.2.5",
-    "node-soap": "^1.0.0",
     "nodemailer": "^7.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
