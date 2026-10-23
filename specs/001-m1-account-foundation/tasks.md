@@ -196,11 +196,11 @@
 
 ## Phase 10: Polish & 横切
 
-- [ ] T056 quickstart.md S1-S7 全量走查并记录结果
-- [ ] T057 [P] 安全复查：全链路日志/审计/响应 grep 无密码/令牌/明文敏感值（宪法 VI）；生产哈希与凭据确认不入 git
-- [ ] T058 [P] 文档与状态同步：AGENTS.md Setup commands 回填实际 scripts；development-plan M1 状态流转；飞书需求池条目更新（与用户协作）
-- [ ] T059 `make check` 全绿 + CodeReview 三维度（规范性/封装性/架构合理性）问题清零
-- [ ] T060 SC-001 正式验收：`scripts/verify/sc001-login.ts` 全量执行（**前置：100 组凭据收集完成，research R12；≥20 组可先跑首轮**）
+- [x] T056 quickstart.md S1-S7 全量走查并记录结果（2026-10-23：S1-S4/S6/S7 全绿；S5 邀请码后台 N/A（P2 后置）。证据：4 容器 healthy、boot 自检 5 库+SOAP OK、make check 63 用例、E2E 17/17、verify:soap success 47ms）
+- [x] T057 [P] 安全复查：全链路日志/审计/响应 grep 无密码/令牌/明文敏感值（宪法 VI）；生产哈希与凭据确认不入 git（2026-10-23：日志/审计仅元数据；仓库内仅 seed 合成密码（R10 设计使然）；.env 与 workspace/verify-credentials.txt 均已 gitignore。发现一项 M2+ 加固建议：mail_outbox.payload_json 为重试保留含明文令牌的链接，可在补发时轮换或对已发送行清理，不阻塞 M1）
+- [x] T058 [P] 文档与状态同步：AGENTS.md Setup commands 回填实际 scripts；development-plan M1 状态流转；飞书需求池条目更新（与用户协作）（2026-10-23：AGENTS Setup 已核对 package.json/Makefile 回填 13 条已验证命令；development-plan M1 →「进行中(收尾)」；飞书需求池 13 条 M1 条目备注写入实现状态，状态流转待 SC-001 验收后统一置「已验收」。范围缺口上报：飞书池「登录态双菜单导航」「多级菜单结构」标 M1 但不在 tasks.md 任何 US 内，待用户裁决）
+- [x] T059 `make check` 全绿 + CodeReview 三维度（规范性/封装性/架构合理性）问题清零（2026-10-23：make check 63 用例全绿；CodeReview 86/100，2W+4S 全部修复（services/account 抽取 e7ca160/3d497af、SOAP env 收口 e7ca160）或沉淀为 AGENTS.md 目录规范六条 8c79e6b）
+- [ ] T060 SC-001 正式验收：`scripts/verify/sc001-login.ts` 全量执行（**前置：100 组凭据收集完成，research R12；≥20 组可先跑首轮**）（2026-10-23 决策：暂缓本地凭据收集，验收方式调整为**测试环境部署后邀请部分玩家真实登录验证**；脚本与流程保留待用，可作为测试环境验收的辅助工具）
 
 ---
 
