@@ -68,6 +68,14 @@ docs/            # 文档中心
 
 **依赖方向（强制）**: `app → server → lib → constants`；`components → lib`；`constants` 不引用任何业务层。禁止反向 import、禁止循环依赖；客户端组件禁止 import `server/`（用 `server-only` 包强制）。
 
+**目录规范（2026-10-23 CodeReview 沉淀，借鉴 acore-manager/ai-invest）**:
+1. **目录即架构**：新增一级/域目录须先修订本节（借鉴 acore-manager《代码目录结构规范》守门做法）
+2. **services 分域**：`services/` 根目录禁新增平文件，新域一律 `services/<域>/`（现有 auth/ 即此模式）；跨域基础服务（审计/outbox/token/账本/路由映射）入 `services/shared/`（借鉴 ai-invest 按子域分包、根目录禁平文件）；M2 开工时现有平文件（characters/ledger 等）迁移归位
+3. **RSC 页面禁直连 prisma**：app/ 下页面只做 校验/会话/编排，数据组装收敛 service 层（页面私有取数函数放 `services/<域>/`）
+4. **components 准入**：`components/ui/` 只收 ≥2 个消费者的通用组件；页面私有组件与 page 同目录（colocation）；域组件入 `components/<域>/`
+5. **业务域服务禁互引**：`services/auth` 与 `services/shop` 等域间不直接 import，经 `services/shared/` 或上层编排（防循环依赖，借鉴 ai-invest）
+6. **外部通道 env 收口**：SOAP/SMTP/游戏库等外部通道的环境变量读取与缺失校验统一在 `lib/env.ts`，散点直读 `process.env` 仅限框架约定场景（middleware 的 SESSION_SECRET）
+
 ## Code style
 
 - **通用**: KISS / YAGNI / DRY；SOLID 相关时应用；优先行业标准库而非自定义实现；现代框架特性优先
