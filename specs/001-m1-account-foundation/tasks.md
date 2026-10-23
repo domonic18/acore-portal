@@ -186,9 +186,9 @@
 
 ### Implementation for US7
 
-- [ ] T053 [P] [US7] route_map 服务 `src/server/services/route-map.ts`：规范化键（`p:123`/`page_id:79`/`cat:4`）查询；进程内全量缓存+写时失效（research R8）
-- [ ] T054 [US7] middleware 兼容层：`/wp-login.php`→302 `/login`（`action=register`→`/register`、`action=lostpassword`→`/forgot-password`，硬编码不查表）；`?p=`/`?page_id=`/`?cat=`→route_map 命中 301/未命中 404（不做模糊猜测，FR-026）；`/shop` `/cart` `/checkout` `/my-account` 不变（FR-027）
-- [ ] T055 [US7] 集成测试 `tests/integration/route-compat.test.ts`：quickstart S7（含映射增删后缓存失效断言，SC-005 机制部分）
+- [x] T053 [P] [US7] route_map 服务 `src/server/services/route-map.ts`：规范化键（`p:123`/`page_id:79`/`cat:4`）查询；进程内全量缓存+写时失效（research R8）（规范化在 `src/constants/legacy-routes.ts` 供 edge middleware 复用；绕过服务的直改 DB 需重启/手动失效才可见，M3 后台必须走本服务）
+- [x] T054 [US7] middleware 兼容层：`/wp-login.php`→302 `/login`（`action=register`→`/register`、`action=lostpassword`→`/forgot-password`，硬编码不查表）；`?p=`/`?page_id=`/`?cat=`→route_map 命中 301/未命中 404（不做模糊猜测，FR-026）；`/shop` `/cart` `/checkout` `/my-account` 不变（FR-027）（偏差：middleware 只做规范化+rewrite，查表在 Node 路由 `app/legacy-redirect/[key]/route.ts` 承接（edge 无 Prisma；**Next 14 rewrite 会丢弃目标 URL 查询参数，键改走路径段 `/legacy-redirect/p:123` 实测踩坑**）；库不可达返回 503）
+- [x] T055 [US7] 集成测试 `tests/integration/route-compat.test.ts`：quickstart S7（含映射增删后缓存失效断言，SC-005 机制部分）（偏差：缓存断言用「绕服务直改 DB 读值不变=缓存生效」的功能性陈旧性证明，Prisma delegate 对 vi.spyOn 不透传不可计数；E2E `tests/e2e/route-compat.spec.ts` 4 用例覆盖 S7 HTTP 面，p:999 由 playwright globalSetup 在 webServer 启动前播种——服务端缓存是进程内快照，长驻 dev server 播种前已加载则 301 用例显式跳过提示重启）
 
 **Checkpoint**: quickstart S7 全绿
 
