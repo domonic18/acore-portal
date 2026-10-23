@@ -80,18 +80,18 @@
 
 ### Tests for US2
 
-- [ ] T024 [P] [US2] 集成测试 `tests/integration/register.test.ts`：模拟游戏库失败→整体回滚 0 半成品账号（SC-004）；并发相同用户名仅一成功（FR-009）；`SUM(amount)=balance` 重算断言（宪法 III）（撞码并发用例随邀请码迭代顺延）
+- [x] T024 [P] [US2] 集成测试 `tests/integration/register.test.ts`：模拟游戏库失败→整体回滚 0 半成品账号（SC-004）；并发相同用户名仅一成功（FR-009）；`SUM(amount)=balance` 重算断言（宪法 III）（撞码并发用例随邀请码迭代顺延）。附:激活/重发/占位过期回收 9 用例
 
 ### Implementation for US2
 
 - [ ] T025 [US2][延后→P2 邀请码迭代] 邀请码服务 `src/server/services/invitation.ts`：实时状态判定 `status=available AND (expires_at IS NULL OR expires_at>NOW()) AND used_count<max_uses`（FR-001/002，expired 不落库）；消费=事务内 `SELECT...FOR UPDATE`→判定→`used_count+1`+use 行
-- [ ] T026 [US2] 注册编排事务 `src/server/services/auth/register.ts`：单事务完成 user(占位)+游戏端 account 创建+积分入账+activate token+outbox 邮件；**任一失败整体回滚**；两侧查重+唯一索引冲突→409 可读文案；`503 GAME_DB_UNAVAILABLE`（邀请码消费步骤随 T025 一并延后）
-- [ ] T027 [US2] 账本服务 `src/server/services/ledger.ts`：入账（流水+余额同事务，`balance_after` 快照）+ `recalculate(userId)` 重算函数（供测试/对账/日终任务复用）
-- [ ] T028 [US2] `POST /api/auth/register`：校验顺序 用户名格式（2-32 位、禁 `@`，FR-003）→两侧占用（FR-004）；202 受理；错误码按 contracts/api-auth.md（邀请码校验随 T025 延后）
-- [ ] T029 [US2] `POST /api/auth/set-password`：token 一次性 24h+密码复杂度（≥8 且含字母与数字且 ≠username，FR-006）；签发 `$wp$` bcrypt + 游戏端 `SHA1(UPPER(username):UPPER(password))`（research R3）；激活即登录；审计 `account_activated`
-- [ ] T030 [US2] 激活邮件重发端点（Redis 限速 ≥60s ≤5 次/天，FR-010）
-- [ ] T031 [US2] 注册页+设密页 `src/app/(auth)/register/`、`register/set-password/`：**注册页无密码输入**（FR-005）；token 过期引导重发
-- [ ] T032 [US2] E2E `tests/e2e/register.spec.ts`：quickstart S1 全流程（注册→Mailpit 收件→弱密码拒绝→设密→双端同密验证→积分 +2→5 分钟内，SC-002）（后台生成码步骤随邀请码迭代顺延）
+- [x] T026 [US2] 注册编排事务 `src/server/services/auth/register.ts`：单事务完成 user(占位)+游戏端 account 创建+积分入账+activate token+outbox 邮件；**任一失败整体回滚**；两侧查重+唯一索引冲突→409 可读文案；`503 GAME_DB_UNAVAILABLE`（邀请码消费步骤随 T025 一并延后）
+- [x] T027 [US2] 账本服务 `src/server/services/ledger.ts`：入账（流水+余额同事务，`balance_after` 快照）+ `recalculate(userId)` 重算函数（供测试/对账/日终任务复用）
+- [x] T028 [US2] `POST /api/auth/register`：校验顺序 用户名格式（2-32 位、禁 `@`，FR-003）→两侧占用（FR-004）；202 受理；错误码按 contracts/api-auth.md（邀请码校验随 T025 延后）
+- [x] T029 [US2] `POST /api/auth/set-password`：token 一次性 24h+密码复杂度（≥8 且含字母与数字且 ≠username，FR-006）；签发 `$wp$` bcrypt + 游戏端 `SHA1(UPPER(username):UPPER(password))`（research R3）；激活即登录；审计 `account_activated`
+- [x] T030 [US2] 激活邮件重发端点（Redis 限速 ≥60s ≤5 次/天，FR-010）
+- [x] T031 [US2] 注册页+设密页 `src/app/(auth)/register/`、`register/set-password/`：**注册页无密码输入**（FR-005）；token 过期引导重发
+- [x] T032 [US2] E2E `tests/e2e/register.spec.ts`：quickstart S1 全流程(注册→Mailpit 收件→弱密码拒绝→设密→激活即登录→双端同密→积分 +2 库内断言,SUM=balance)。偏差:邀请码步骤随范围调整跳过;积分页断言改库内(积分页属 US4)
 
 **Checkpoint**: quickstart S1 全绿
 
