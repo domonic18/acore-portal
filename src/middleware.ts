@@ -1,33 +1,63 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { SESSION } from "@/constants/session";
+import { normalizeLegacyKey } from "@/constants/legacy-routes";
 
 /**
- * 路由守卫(edge runtime,无 redis):仅做 JWT 浅校验(jti 吊销态由 RSC/API 深校验)。
- * /account/* 需任意有效会话;/admin/* 需 admin 角色;未登录 → /login?next=
+ * edge 兼容层(edge runtime,无 Prisma):
+ * ① 旧 WP 登录类地址硬编码 302,不查表(FR-025);
+ * ② 旧内容地址 ?p=/?page_id=/?cat= 规范化后 rewrite 到 Node 处理器查 route_map(FR-026);
+ * ③ /account/* 会话浅校验、/admin/* 角色校验(吊销态由 RSC/API 深校验兜底)。
  */
 export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  const token = req.cookies.get(SESSION.ACCESS_COOKIE)?.value;
+  const { pathname, searchParams } = req.nextUrl;
 
-  if (token) {
-    try {
-      const secret = new TextEncoder().encode(process.env.SESSION_SECRET);
-      const { payload } = await jwtVerify(token, secret);
-      if (pathname.startsWith("/account")) return NextResponse.next();
-      if (pathname.startsWith("/admin") && payload.role === "admin") {
-        return NextResponse.next();
-      }
-    } catch {
-      // 签名/过期问题 → 走登录引导
-    }
+  if (pathname === "/wp-login.php") {
+    const action = searchParams.get("action");
+    const dest =
+      action === "register"
+        ? "/register"
+        : action === "lostpassword"
+          ? "/forgot-password"
+          : "/login";
+    return NextResponse.redirect(new URL(dest, req.url), 302);
   }
 
-  const login = new URL("/login", req.url);
-  login.searchParams.set("next", pathname);
-  return NextResponse.redirect(login);
+  if (pathname === "/" || pathname === "/index.php") {
+    const key = normalizeLegacyKey(
+      searchParams.get("p"),
+      searchParams.get("page_id"),
+      searchParams.get("cat"),
+    );
+    if (key) {
+      // 键走路径段:Next 14 rewrite 会丢弃目标 URL 的查询参数(实测踩坑)
+      return NextResponse.rewrite(new URL(`/legacy-redirect/${key}`, req.url));
+    }
+    return NextResponse.next();
+  }
+
+  if (pathname.startsWith("/account") || pathname.startsWith("/admin")) {
+    const token = req.cookies.get(SESSION.ACCESS_COOKIE)?.value;
+    if (token) {
+      try {
+        const secret = new TextEncoder().encode(process.env.SESSION_SECRET);
+        const { payload } = await jwtVerify(token, secret);
+        if (pathname.startsWith("/account")) return NextResponse.next();
+        if (pathname.startsWith("/admin") && payload.role === "admin") {
+          return NextResponse.next();
+        }
+      } catch {
+        // 签名/过期问题 → 走登录引导
+      }
+    }
+    const login = new URL("/login", req.url);
+    login.searchParams.set("next", pathname);
+    return NextResponse.redirect(login);
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/account/:path*", "/admin/:path*"],
+  matcher: ["/", "/index.php", "/wp-login.php", "/account/:path*", "/admin/:path*"],
 };
