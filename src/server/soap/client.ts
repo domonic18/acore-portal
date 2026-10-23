@@ -1,22 +1,12 @@
 import "server-only";
+import { env } from "@/lib/env";
 
 /**
  * AzerothCore SOAP 传输层:urn:AC executeCommand 是单一固定操作,
  * 零依赖 fetch 直封协议(超时经 AbortSignal 精确可控),不引入 WSDL 客户端。
  * 偏差注记:npm `node-soap` 实为无 WSDL/无超时的迷你包,与契约设想 API 不符,已弃用。
+ * 连接配置经 lib/env.ts 收口(缺失/非法在模块加载即 fail-fast)。
  */
-
-export type SoapConfig = { url: string; user: string; password: string };
-
-export function soapConfig(): SoapConfig {
-  const url = process.env.SOAP_URL;
-  const user = process.env.SOAP_USER;
-  const password = process.env.SOAP_PASSWORD;
-  if (!url || !user || !password) {
-    throw new Error("SOAP 配置缺失:SOAP_URL / SOAP_USER / SOAP_PASSWORD 未设置");
-  }
-  return { url, user, password };
-}
 
 function escapeXml(text: string): string {
   return text
@@ -60,7 +50,7 @@ export async function rawExecuteCommand(
   command: string,
   timeoutMs: number,
 ): Promise<string> {
-  const { url, user, password } = soapConfig();
+  const { SOAP_URL: url, SOAP_USER: user, SOAP_PASSWORD: password } = env;
   const auth = Buffer.from(`${user}:${password}`, "utf8").toString("base64");
   const envelope =
     `<?xml version="1.0" encoding="utf-8"?>` +
