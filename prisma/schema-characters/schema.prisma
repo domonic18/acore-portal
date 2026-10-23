@@ -28,3 +28,13 @@ model Characters {
 
   @@map("characters")
 }
+
+/// 待恢复物品(生产模块表,M1 只读;与旧站 acore-wp-plugin 同源)
+model RecoveryItem {
+  id        Int @id @default(autoincrement()) @db.UnsignedInt @map("Id")
+  guid      Int @default(0) @db.UnsignedInt @map("Guid")
+  itemEntry Int @default(0) @db.UnsignedInt @map("ItemEntry")
+
+  @@index([guid], map: "idx_guid")
+  @@map("recovery_item")
+}

@@ -120,3 +120,19 @@ INSERT INTO `characters` (`guid`, `account`, `name`, `race`, `class`, `gender`, 
   (10, 1, 'Oldwarrior', 1, 4, 0, 60, 0, 1519, 0, 4200),
   (11, 1, 'Oldmage', 7, 8, 1, 60, 0, 1519, 0, 2900),
   (12, 1, 'Oldpriest', 10, 5, 0, 47, 1, 215, 0, 1900);
+
+-- ===== acore_characters.recovery_item(物品恢复只读列表,与生产模块表同构) =====
+-- 旧站 acore-wp-plugin 同源:SELECT Id, ItemEntry FROM recovery_item WHERE Guid = ?
+CREATE TABLE IF NOT EXISTS `recovery_item` (
+  `Id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `Guid` INT UNSIGNED NOT NULL DEFAULT 0,
+  `ItemEntry` INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (`Id`),
+  KEY `idx_guid` (`Guid`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '待恢复物品(合成种子,无生产数据)';
+
+-- 合成种子:Oldwarrior(guid=10)2 件可恢复物品;Oldmage(guid=11)1 件
+INSERT INTO `recovery_item` (`Guid`, `ItemEntry`) VALUES
+  (10, 19019),
+  (10, 17182),
+  (11, 22630);

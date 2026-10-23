@@ -1,4 +1,5 @@
 import "server-only";
+import type { NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSessionFromToken, type SessionPayload } from "@/lib/auth/session";
@@ -13,4 +14,9 @@ export async function requireSession(): Promise<SessionPayload> {
   const session = token ? await getSessionFromToken(token) : null;
   if (!session) redirect("/login");
   return session;
+}
+
+/** Route Handler 深校验(不重定向;401 语义由调用方表达) */
+export async function getApiSession(req: NextRequest): Promise<SessionPayload | null> {
+  return getSessionFromToken(req.cookies.get(SESSION.ACCESS_COOKIE)?.value);
 }
