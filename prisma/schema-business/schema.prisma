@@ -1,0 +1,253 @@
+// 业务库 acore_portal:Prisma migrations 唯一 schema 真相源(宪法 V)
+// 约束照录 data-model.md §1;forward-only,合并后禁止修改
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../src/generated/business"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== 枚举 =====
+
+enum PasswordAlgo {
+  phpass
+  bcrypt_wp
+
+  @@map("password_algo")
+}
+
+enum UserRole {
+  user
+  admin
+
+  @@map("user_role")
+}
+
+enum UserStatus {
+  active
+  banned
+
+  @@map("user_status")
+}
+
+enum InvitationStatus {
+  available
+  disabled
+  finish
+
+  @@map("invitation_status")
+}
+
+enum PointTxType {
+  register_reward // M1 仅此;M2 扩展消费/充值/手调
+
+  @@map("point_tx_type")
+}
+
+enum TokenType {
+  activate
+  password_reset
+  email_change
+
+  @@map("token_type")
+}
+
+enum MailStatus {
+  pending
+  sent
+  failed
+
+  @@map("mail_status")
+}
+
+enum SoapStatus {
+  pending
+  success
+  failed
+
+  @@map("soap_status")
+}
+
+enum AuditCategory {
+  soap
+  mail
+  security
+
+  @@map("audit_category")
+}
+
+// ===== 表 =====
+
+/// 站点用户(= 游戏账号名,铁律①)
+model User {
+  id            BigInt       @id @default(autoincrement())
+  username      String       @unique @db.VarChar(32)
+  email         String       @unique @db.VarChar(255)
+  passwordHash  String       @map("password_hash") @db.VarChar(255)
+  passwordAlgo  PasswordAlgo @map("password_algo")
+  nickname      String?      @db.VarChar(64)
+  role          UserRole     @default(user)
+  status        UserStatus   @default(active)
+  registerCodeId BigInt?     @map("register_code_id")
+  wpUserId      Int?         @unique @map("wp_user_id") // M3 迁移填充,M1 仅建列
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  registerCode     InvitationCode?  @relation("UserRegisterCode", fields: [registerCodeId], references: [id])
+  generatedCodes   InvitationCode[] @relation("InvitationCodeCreator")
+  invitationUses   InvitationCodeUse[]
+  pointAccount     PointAccount?
+  pointTransactions PointTransaction[]
+  tokens           UserToken[]
+  outboxMails      MailOutbox[]
+
+  @@map("user")
+}
+
+/// 邀请码;expired 不落库,消费时刻实时推导(data-model §1.2)
+model InvitationCode {
+  id        BigInt           @id @default(autoincrement())
+  code      String           @unique @db.VarChar(64)
+  prefix    String           @db.VarChar(16)
+  length    Int
+  maxUses   Int              @map("max_uses")
+  usedCount Int              @default(0) @map("used_count")
+  expiresAt DateTime?        @map("expires_at") // NULL = 永不过期
+  status    InvitationStatus @default(available)
+  createdBy BigInt           @map("created_by")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  createdByUser   User               @relation("InvitationCodeCreator", fields: [createdBy], references: [id])
+  uses            InvitationCodeUse[]
+  registeredUsers User[]             @relation("UserRegisterCode")
+
+  @@map("invitation_code")
+}
+
+/// 邀请码使用者关联(修复旧系统 users 逗号串溢出缺陷)
+model InvitationCodeUse {
+  id     BigInt   @id @default(autoincrement())
+  codeId BigInt   @map("code_id")
+  userId BigInt   @map("user_id")
+  usedAt DateTime @map("used_at")
+
+  code InvitationCode @relation(fields: [codeId], references: [id])
+  user User           @relation(fields: [userId], references: [id])
+
+  @@unique([codeId, userId])
+  @@map("invitation_code_use")
+}
+
+/// 积分余额(缓存,可由流水重算,宪法 III)
+model PointAccount {
+  userId    BigInt   @id @map("user_id")
+  balance   Int      @default(0)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("point_account")
+}
+
+/// 积分流水(真相源)
+model PointTransaction {
+  id           BigInt      @id @default(autoincrement())
+  userId       BigInt      @map("user_id")
+  type         PointTxType
+  amount       Int // 正负保留
+  balanceAfter Int         @map("balance_after")
+  remark       String?     @db.VarChar(255)
+  refType      String?     @map("ref_type") @db.VarChar(32)
+  refId        BigInt?     @map("ref_id")
+  createdAt    DateTime    @default(now()) @map("created_at") @db.DateTime(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("point_transaction")
+}
+
+/// 激活/重置/换邮箱凭证(库存 SHA-256,明文仅进邮件链接,research R11)
+model UserToken {
+  id        BigInt    @id @default(autoincrement())
+  userId    BigInt    @map("user_id")
+  type      TokenType
+  tokenHash String    @unique @map("token_hash") @db.Char(64)
+  payload   String?   @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, type])
+  @@map("user_token")
+}
+
+/// 事务邮件发件箱(失败可见可重发,宪法 II / research R7)
+model MailOutbox {
+  id             BigInt     @id @default(autoincrement())
+  toEmail        String     @map("to_email") @db.VarChar(255)
+  template       String     @db.VarChar(64) // activate / password_reset / email_change
+  payloadJson    Json       @map("payload_json")
+  status         MailStatus @default(pending)
+  attempts       Int        @default(0)
+  lastError      String?    @map("last_error") @db.VarChar(500)
+  relatedUserId  BigInt?    @map("related_user_id")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  sentAt         DateTime?  @map("sent_at")
+
+  user User? @relation(fields: [relatedUserId], references: [id])
+
+  @@index([status, createdAt])
+  @@map("mail_outbox")
+}
+
+/// SOAP 调用记录与幂等(宪法 II,research R6)
+model SoapCall {
+  id             BigInt     @id @default(autoincrement())
+  idempotencyKey String     @unique @map("idempotency_key") @db.VarChar(64)
+  command        String     @db.VarChar(64)
+  argsJson       Json       @map("args_json")
+  status         SoapStatus @default(pending)
+  attempts       Int        @default(0) // ≤3
+  resultDigest   String?    @map("result_digest") @db.VarChar(500)
+  lastError      String?    @map("last_error") @db.VarChar(500)
+  durationMs     Int?       @map("duration_ms")
+  requestedBy    String     @map("requested_by") @db.VarChar(64)
+  createdAt      DateTime   @default(now()) @map("created_at")
+  finishedAt     DateTime?  @map("finished_at")
+
+  @@index([status, createdAt])
+  @@map("soap_call")
+}
+
+/// 审计事件(脱敏:不记密码/令牌/明文敏感值,宪法 VI)
+model AuditLog {
+  id          BigInt        @id @default(autoincrement())
+  category    AuditCategory
+  action      String        @db.VarChar(64)
+  actorUserId BigInt?       @map("actor_user_id")
+  payloadJson Json          @map("payload_json")
+  ip          String?       @db.VarChar(45)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.DateTime(3)
+
+  @@index([category, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("audit_log")
+}
+
+/// 旧→新路由映射(机制 M1,数据 M3 填充;进程内缓存+写时失效,research R8)
+model RouteMap {
+  id        BigInt   @id @default(autoincrement())
+  oldKey    String   @unique @map("old_key") @db.VarChar(64) // p:123 / page_id:79 / cat:4
+  newPath   String   @map("new_path") @db.VarChar(255)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("route_map")
+}

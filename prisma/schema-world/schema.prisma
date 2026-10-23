@@ -1,0 +1,18 @@
+// 游戏库 acore_world:只读,M1 仅连接自检(FR-022 四库均可达),无表交互
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../src/generated/world"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("GAME_DB_WORLD_URL")
+}
+
+// 连接探针:被 @@ignore 排除,不生成查询类型,仅为 schema 合法性占位
+model ConnectionProbe {
+  id Int @id
+
+  @@map("_connection_probe")
+  @@ignore
+}

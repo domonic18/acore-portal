@@ -1,0 +1,30 @@
+// 游戏库 acore_characters:只读 introspect,零 DDL(宪法 V)
+// M1 只读投影:characters(account=本人服务端过滤,FR-017)
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../src/generated/characters"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("GAME_DB_CHARACTERS_URL")
+}
+
+model Characters {
+  guid     Int    @id @default(0) @db.UnsignedInt
+  account  Int    @default(0) @db.UnsignedInt
+  name     String @default("") @db.VarChar(12)
+  slot     Int    @default(0) @db.UnsignedTinyInt
+  race     Int    @default(0) @db.UnsignedTinyInt
+  class    Int    @default(0) @db.UnsignedTinyInt
+  gender   Int    @default(0) @db.UnsignedTinyInt
+  level    Int    @default(0) @db.UnsignedTinyInt
+  xp       Int    @default(0) @db.UnsignedInt
+  money    Int    @default(0) @db.UnsignedInt
+  map      Int    @default(0) @db.UnsignedSmallInt
+  zone     Int    @default(0) @db.UnsignedSmallInt
+  online   Int    @default(0) @db.UnsignedTinyInt
+  health   Int    @default(0) @db.UnsignedInt
+
+  @@map("characters")
+}
