@@ -77,7 +77,7 @@ function verifySitePassword(storedHash: string, password: string): boolean {
 }
 
 /** per-user 锁:跨库双写串行化,防并发交错产生双端不一致 */
-async function withPasswordLock<T>(
+export async function withPasswordLock<T>(
   userId: bigint,
   fn: () => Promise<T>,
   onLocked: () => T,

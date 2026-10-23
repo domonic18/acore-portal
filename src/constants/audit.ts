@@ -20,6 +20,7 @@ export const AUDIT_ACTION = {
   MAIL_SEND_FAILED: "mail_send_failed",
   PASSWORD_DUAL_WRITE_FAILED: "password_dual_write_failed",
   PASSWORD_DUAL_WRITE_RECOVERED: "password_dual_write_recovered",
+  ACCOUNT_DUAL_WRITE_FAILED: "account_dual_write_failed",
   SOAP_ATTEMPT: "soap_attempt",
   INVITATION_GENERATED: "invitation_codes_generated",
   INVITATION_DISABLED: "invitation_code_disabled",

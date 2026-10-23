@@ -17,3 +17,6 @@ export const PHPASS_PREFIX = "$P$";
 
 /** FR-006:长度 ≥8 且含字母与数字且 ≠username */
 export const PASSWORD_MIN_LENGTH = 8;
+
+/** 注册占位哈希前缀:激活前不可登录(verify 前缀分派双不命中→false) */
+export const PENDING_HASH_PREFIX = "!pending:";
