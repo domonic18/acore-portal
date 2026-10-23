@@ -1,4 +1,7 @@
-export default function AccountOverviewPage() {
+import { requireSession } from "@/server/session-guard";
+
+export default async function AccountOverviewPage() {
+  await requireSession();
   return (
     <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-4 p-8">
       <h1 className="text-2xl font-bold">账号总览</h1>
