@@ -1,0 +1,23 @@
+# 开发: 只起本地依赖(MySQL 业务库 + Redis),应用本体本地运行
+# 数据落 workspace/(宿主机持久化,重置=删 workspace/<dir> 目录)
+# 注意: 游戏四库(acore_auth/characters/world/eluna)不在本地 compose 内,
+#       M1 开发时按 research/01 §2 决定连本地恢复副本或生产只读从库
+services:
+  mysql:
+    image: mysql:8.4
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: acore_portal
+      MYSQL_USER: acore_portal
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-acore_portal}
+    volumes:
+      - ../workspace/mysql-dev:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - ../workspace/redis-dev:/data
