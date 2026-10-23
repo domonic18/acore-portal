@@ -72,9 +72,13 @@ async function changePassword(
     .filter({ has: page.getByRole("heading", { name: "修改密码" }) });
   await form.getByLabel("当前密码").fill(current);
   await form.getByLabel(/^新密码/).fill(next);
-  await form.getByRole("button", { name: "修改密码" }).click();
-  await expect(page.locator("p[role=status]")).toContainText("密码已更新");
-  await expect(page).toHaveURL(/\/login$/);
+  // 以 POST 200 为准(成功后 1.5s 跳登录页,提示语短暂;dev HMR 亦可能打断)
+  const [res] = await Promise.all([
+    page.waitForResponse((r) => r.url().includes("/api/account/change-password")),
+    form.getByRole("button", { name: "修改密码" }).click(),
+  ]);
+  expect(res.status()).toBe(200);
+  await expect(page).toHaveURL(/\/login$/, { timeout: 15_000 });
 }
 
 test.beforeAll(async () => {
