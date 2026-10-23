@@ -127,11 +127,11 @@
 
 ### Implementation for US4
 
-- [ ] T039 [P] [US4] 角色投影服务 `src/server/services/characters.ts`：`characters.account = 本人游戏账号 id` 服务端强制过滤（FR-017）；race/class 60 年代枚举与头像映射进 `src/constants/`；`GET /api/account/characters`（503 不白屏）
-- [ ] T040 [P] [US4] 数据端点：`GET /api/account/points`（余额+流水分页）、`GET /api/account/restore-items?guid=`（**归属校验→403 CHARACTER_NOT_OWNED+审计 ownership_violation**）、`GET /api/account/raf`（结构就绪空态）
-- [ ] T041 [US4] 布局与 8 页 `src/app/account/{overview,characters,points,orders,item-restore,raf,settings,address}/page.tsx`：orders/address 空态框架页（FR-018）；未登录→`/login` 引导（FR-016）；积分页余额真实数据
-- [ ] T042 [US4] `PATCH /api/account/profile`（nickname 2-64）
-- [ ] T043 [US4] E2E `tests/e2e/account.spec.ts`：quickstart S4（8 页可达/仅本人角色/越权 403+审计/未登录引导，SC-007）
+- [x] T039 [P] [US4] 角色投影服务 `src/server/services/characters.ts`：`characters.account = 本人游戏账号 id` 服务端强制过滤（FR-017）；race/class 60 年代枚举与头像映射进 `src/constants/`；`GET /api/account/characters`（503 不白屏）〔偏差:恢复列表源=生产模块表 recovery_item,补 introspect 模型+dev fixture(业务连接跨库,游戏端只读 R5)〕
+- [x] T040 [P] [US4] 数据端点：`GET /api/account/points`（余额+流水分页）、`GET /api/account/restore-items?guid=`（**归属校验→403 CHARACTER_NOT_OWNED+审计 ownership_violation**）、`GET /api/account/raf`（结构就绪空态）〔偏差:M1 不连 world.item_template,items.name/quality 返回 null,前端回退「物品 #entry」〕
+- [x] T041 [US4] 布局与 8 页 `src/app/account/{overview,characters,points,orders,item-restore,raf,settings,address}/page.tsx`：orders/address 空态框架页（FR-018）；未登录→`/login` 引导（FR-016）；积分页余额真实数据〔偏差:深校验收口到 (account) 布局层 requireSession 一次覆盖 8 页;settings 拆服务端壳+client 表单;积分页首页 RSC+客户端翻页走 API〕
+- [x] T042 [US4] `PATCH /api/account/profile`（nickname 2-64）（settings 页新增昵称表单）
+- [x] T043 [US4] E2E `tests/e2e/account.spec.ts`：quickstart S4（8 页可达/仅本人角色/越权 403+审计/未登录引导，SC-007）〔偏差:增补昵称保存+服务端 422;playwright outputDir 移出仓库——next dev 监听仓库根,产物写入触发 HMR 打断在跑用例〕
 
 **Checkpoint**: quickstart S4 全绿
 
