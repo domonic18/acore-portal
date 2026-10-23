@@ -39,15 +39,21 @@
 ## Setup commands
 
 ```bash
-pnpm install                                        # 安装依赖
-docker compose -f docker/docker-compose.dev.yml up -d   # 本地 MySQL + Redis(数据落 workspace/)
-cp .env.example .env                                # 环境变量
-pnpm prisma migrate dev                             # 业务库迁移(就绪后)
-pnpm dev                                            # 开发服务器(就绪后)
-make check                                          # lint + typecheck + test 一键检查(就绪后固化)
+pnpm install                                   # 安装依赖
+cp .env.example .env                           # 环境变量(SOAP/SMTP/游戏库凭据不入库)
+make up                                        # 本地 MySQL(1 实例 5 逻辑库) + Redis + Mailpit + SOAP mock
+pnpm db:generate                               # 生成 5 个 Prisma client(business/auth/characters/world/eluna)
+pnpm db:migrate                                # 业务库迁移
+pnpm db:seed                                   # 开发种子数据(scripts/dev/seed.ts)
+pnpm soap:mock                                 # 本地 SOAP worldserver 模拟(开发/联调用)
+pnpm dev                                       # 开发服务器
+make check                                     # 质量门禁: lint + typecheck + vitest(63 用例)
+pnpm test:e2e                                  # Playwright E2E(17 场景, 含路由兼容 301)
+pnpm verify:soap                               # SOAP 通道连通性自检(连真实 worldserver 或 mock)
+pnpm verify:sc001                              # SC-001 老用户双格式登录验收(读 workspace/verify-credentials.txt)
 ```
 
-命令就绪前以实际 package.json scripts 为准；本节随选型定稿回填，禁止在文档中留未验证的命令。
+以上命令均已验证可用（M1 收口 2026-10-23 核对 package.json scripts 与 Makefile）。`db:deploy` 供生产/CI 用 `migrate deploy`。
 
 ## Project structure（规划）
 
