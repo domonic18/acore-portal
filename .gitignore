@@ -20,8 +20,21 @@ build/
 .next/
 *.log
 
+# Prisma 多 client 生成物(不入库,clone 后 pnpm db:generate)
+src/generated/
+
+# Playwright
+playwright-report/
+test-results/
+
+# 测试覆盖率
+coverage/
+
 # IDE / 系统
 .DS_Store
 .idea/
 .vscode/*
 !.vscode/settings.json
+
+# TS 增量构建缓存
+tsconfig.tsbuildinfo

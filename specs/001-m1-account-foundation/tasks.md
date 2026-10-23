@@ -19,11 +19,11 @@
 
 **Purpose**: 项目初始化与工具链
 
-- [ ] T001 Next.js 单体脚手架：pnpm + Next.js(App Router) + React 18 + TypeScript strict + Tailwind；按 plan.md 建 `src/{app,server,components,lib,constants,styles}`、`prisma/`、`scripts/`、`tests/{unit,integration,e2e}`；单文件 ≤350 行
-- [ ] T002 [P] 工具链与质量门禁：ESLint + Prettier + Vitest + Playwright；根 `Makefile` 固化 `make check`（lint+typecheck+test 全绿，宪法 VIII）
-- [ ] T003 [P] 环境变量加载器 `src/lib/env.ts`：Zod 校验 `.env` 全量键（业务库/游戏四库 URL、REDIS_URL、SOAP_*、SMTP_*、SESSION_SECRET），启动 fail-fast；凭据不入日志
-- [ ] T004 [P] 依赖方向守护：引入 `server-only` 包强制客户端组件禁 import `server/`；ESLint import 边界规则（app→server→lib→constants）
-- [ ] T005 dev 环境四件套（research R10）：扩展 `docker/docker-compose.dev.yml` 加 Mailpit(8025) 与 SOAP mock；`scripts/dev/init-game-schemas.sql` 从备份库提取 acore_auth/acore_characters **仅结构**+合成种子（无生产数据入库）；`scripts/dev/soap-mock.ts` 三态开关（正常/超时/失败）
+- [x] T001 Next.js 单体脚手架：pnpm + Next.js(App Router) + React 18 + TypeScript strict + Tailwind；按 plan.md 建 `src/{app,server,components,lib,constants,styles}`、`prisma/`、`scripts/`、`tests/{unit,integration,e2e}`；单文件 ≤350 行
+- [x] T002 [P] 工具链与质量门禁：ESLint + Prettier + Vitest + Playwright；根 `Makefile` 固化 `make check`（lint+typecheck+test 全绿，宪法 VIII）
+- [x] T003 [P] 环境变量加载器 `src/lib/env.ts`：Zod 校验 `.env` 全量键（业务库/游戏四库 URL、REDIS_URL、SOAP_*、SMTP_*、SESSION_SECRET），启动 fail-fast；凭据不入日志
+- [x] T004 [P] 依赖方向守护：引入 `server-only` 包强制客户端组件禁 import `server/`；ESLint import 边界规则（app→server→lib→constants）
+- [x] T005 dev 环境四件套（research R10）：扩展 `docker/docker-compose.dev.yml` 加 Mailpit(8025) 与 SOAP mock；`scripts/dev/init-game-schemas.sql` 从备份库提取 acore_auth/acore_characters **仅结构**+合成种子（无生产数据入库）；`scripts/dev/soap-mock.ts` 三态开关（正常/超时/失败）
 
 ---
 
@@ -31,16 +31,16 @@
 
 **⚠️ CRITICAL**: 本阶段完成前不得开始任何用户故事
 
-- [ ] T006 Prisma 多数据源骨架与业务库初始 migration：`prisma/schema-{business,auth,characters,world,eluna}/` 五目录；业务库 10 表一次建齐（data-model §1）——约束照录：`user.username`/`email` UNIQUE 且 username 禁 `@`、`password_algo ENUM('phpass','bcrypt_wp')`、`wp_user_id` UNIQUE NULL；`invitation_code_use(code_id,user_id)` UNIQUE；`soap_call.idempotency_key` UNIQUE；`route_map.old_key` UNIQUE；`user_token.token_hash` UNIQUE；`point_transaction` 含 `balance_after`；migration forward-only
-- [ ] T007 [P] 游戏四库 introspect 与收口：四库 `db pull` 生成只读类型；`src/lib/db/` 导出 5 client；**auth client 仅暴露 `createAccount`/`updateAccountCredential`/`findByUsername` 三个契约方法**；附 MySQL 权限脚本（游戏库连接用户仅 SELECT；auth 库仅 account 表 INSERT/UPDATE + 其余 SELECT——防写根本防线，research R5）
-- [ ] T008 [P] 常量单点 `src/constants/`：PASSWORD_ALGO、INVITATION_STATUS(available/disabled/finish，expired 实时推导不落库)、POINT_TX_TYPE(M1 仅 register_reward)、AUDIT_CATEGORY(soap/mail/security)、TOKEN_TYPE(activate 24h / password_reset 30min / email_change)、SOAP_COMMANDS 白名单（M1 仅 `server info`）
-- [ ] T009 [P] Redis client `src/lib/redis/`：会话存储 + 通用计数限速封装（供邮件重发/预留登录限速）
-- [ ] T010 [P] API 响应与错误约定：统一 `{ error: { code, message } }` helper + Zod 边界校验封装（`src/server/http.ts`）；对外文案不暴露内部细节
-- [ ] T011 [P] 审计服务 `src/server/services/audit.ts`：category/action/actor_user_id/payload_json/ip；**脱敏铁律——不记密码/令牌/明文敏感值**（宪法 VI）
-- [ ] T012 [P] 邮件 outbox 服务：`src/server/services/mail-outbox.ts` + `src/lib/mail/`（nodemailer；模板 activate/password_reset/email_change；pending→sent/failed；失败可见可重发；重发限速 ≥60s 间隔 ≤5 次/天，Redis 计数）
-- [ ] T013 [P] 密码域 `src/lib/auth/`：`wp-bcrypt.ts`——目标格式签发（`$wp` + bcrypt(base64(HMAC-SHA384(key='wp-sha384', msg=password)), cost 12)，research R1 方案 Y）与校验（对照 `hash.slice(3)`，**无 trim**，与生产 verify 行为一致）；`phpass.ts`——过渡垫片自实现（迭代 MD5，itoa64，`B`=13→8,192 次，**无 trim**），零运行时依赖
-- [ ] T014 会话框架：`src/lib/auth/session.ts`（JWT HttpOnly 2h + Redis `session:{userId}:{jti}` 支持吊销；remember=30d refresh token 每次使用轮换、单次有效、重放全吊销，research R4）+ `src/middleware.ts`（会话解析/轮换、路由守卫入口）
-- [ ] T015 [P] 密码域黄金向量测试：`tests/unit/phpass.test.ts`（WP 公开测试向量锁定）+ `tests/unit/wp-bcrypt.test.ts`（自哈希自校验 + 算法注释引用 research R2；生产凭据/哈希不入 git）
+- [x] T006 Prisma 多数据源骨架与业务库初始 migration：`prisma/schema-{business,auth,characters,world,eluna}/` 五目录；业务库 10 表一次建齐（data-model §1）——约束照录：`user.username`/`email` UNIQUE 且 username 禁 `@`、`password_algo ENUM('phpass','bcrypt_wp')`、`wp_user_id` UNIQUE NULL；`invitation_code_use(code_id,user_id)` UNIQUE；`soap_call.idempotency_key` UNIQUE；`route_map.old_key` UNIQUE；`user_token.token_hash` UNIQUE；`point_transaction` 含 `balance_after`；migration forward-only
+- [x] T007 [P] 游戏四库 introspect 与收口：四库 `db pull` 生成只读类型；`src/lib/db/` 导出 5 client；**auth client 仅暴露 `createAccount`/`updateAccountCredential`/`findByUsername` 三个契约方法**；附 MySQL 权限脚本（游戏库连接用户仅 SELECT；auth 库仅 account 表 INSERT/UPDATE + 其余 SELECT——防写根本防线，research R5）
+- [x] T008 [P] 常量单点 `src/constants/`：PASSWORD_ALGO、INVITATION_STATUS(available/disabled/finish，expired 实时推导不落库)、POINT_TX_TYPE(M1 仅 register_reward)、AUDIT_CATEGORY(soap/mail/security)、TOKEN_TYPE(activate 24h / password_reset 30min / email_change)、SOAP_COMMANDS 白名单（M1 仅 `server info`）
+- [x] T009 [P] Redis client `src/lib/redis/`：会话存储 + 通用计数限速封装（供邮件重发/预留登录限速）
+- [x] T010 [P] API 响应与错误约定：统一 `{ error: { code, message } }` helper + Zod 边界校验封装（`src/server/http.ts`）；对外文案不暴露内部细节
+- [x] T011 [P] 审计服务 `src/server/services/audit.ts`：category/action/actor_user_id/payload_json/ip；**脱敏铁律——不记密码/令牌/明文敏感值**（宪法 VI）
+- [x] T012 [P] 邮件 outbox 服务：`src/server/services/mail-outbox.ts` + `src/lib/mail/`（nodemailer；模板 activate/password_reset/email_change；pending→sent/failed；失败可见可重发；重发限速 ≥60s 间隔 ≤5 次/天，Redis 计数）
+- [x] T013 [P] 密码域 `src/lib/auth/`：`wp-bcrypt.ts`——目标格式签发（`$wp` + bcrypt(base64(HMAC-SHA384(key='wp-sha384', msg=password)), cost 12)，research R1 方案 Y）与校验（对照 `hash.slice(3)`，**无 trim**，与生产 verify 行为一致）；`phpass.ts`——过渡垫片自实现（迭代 MD5，itoa64，`B`=13→8,192 次，**无 trim**），零运行时依赖
+- [x] T014 会话框架：`src/lib/auth/session.ts`（JWT HttpOnly 2h + Redis `session:{userId}:{jti}` 支持吊销；remember=30d refresh token 每次使用轮换、单次有效、重放全吊销，research R4）+ `src/middleware.ts`（会话解析/轮换、路由守卫入口）
+- [x] T015 [P] 密码域黄金向量测试：`tests/unit/phpass.test.ts`（WP 公开测试向量锁定）+ `tests/unit/wp-bcrypt.test.ts`（自哈希自校验 + 算法注释引用 research R2；生产凭据/哈希不入 git）
 
 **Checkpoint**: 五库 client 可连、密码域向量测试绿——用户故事可并行开工
 
@@ -54,17 +54,17 @@
 
 ### Tests for US1
 
-- [ ] T016 [P] [US1] 集成测试 `tests/integration/login.test.ts`：phpass 登录→`bcrypt_wp` 重写+`hash_upgraded` 审计；`$wp$` 登录→哈希**原样未动**；错误密码统一 401 模糊文案；remember 会话次日有效
+- [x] T016 [P] [US1] 集成测试 `tests/integration/login.test.ts`：phpass 登录→`bcrypt_wp` 重写+`hash_upgraded` 审计；`$wp$` 登录→哈希**原样未动**；错误密码统一 401 模糊文案；remember 会话次日有效
 
 ### Implementation for US1
 
-- [ ] T017 [US1] 登录服务 `src/server/services/auth/login.ts`：按 `password_algo` 分派（phpass→phpass.ts / bcrypt_wp→wp-bcrypt.ts）；`$P$` 通过→重哈希 cost 12 写回+审计 `hash_upgraded`（一人一次，纯站点侧不碰游戏端）；**竞态防护**：校验失败且 algo=phpass 时重读哈希再试一次（并发透明升级，风险清单 #4）
-- [ ] T018 [US1] remember 轮换接入 login 流程（T014 机制的故事级装配）
-- [ ] T019 [US1] `POST /api/auth/login` Route Handler：401 INVALID_CREDENTIALS 统一模糊（哈希损坏→文案附"找回密码"引导，不锁号 FR-013/边缘场景4）；审计 `login_failed` 含真实原因（仅审计可见）；429 语义预留（M4 实装）
-- [ ] T020 [US1] 登录页 `src/app/(auth)/login/page.tsx`：用户名/密码/记住登录；失败展示统一文案
-- [ ] T021 [US1] 种子脚本 `scripts/dev/seed.ts`：phpass（公开向量）与 `$wp$`（自哈希）存量测试账号、管理员 1（role=admin）、邀请码 2（available/disabled 各 1）
-- [ ] T022 [US1] E2E `tests/e2e/login.spec.ts`：双格式登录→用户中心；二次登录（新哈希路径）；`$wp$` 哈希未动断言
-- [ ] T023 [US1] SC-001 验收脚本 `scripts/verify/sc001-login.ts`：读 `workspace/verify-credentials.txt`（gitignore，不入库不入 git，research R12）逐账号登录断言 100% 成功+哈希已升级；**前置外部依赖：凭据收集需提前启动**
+- [x] T017 [US1] 登录服务 `src/server/services/auth/login.ts`：按 `password_algo` 分派（phpass→phpass.ts / bcrypt_wp→wp-bcrypt.ts）；`$P$` 通过→重哈希 cost 12 写回+审计 `hash_upgraded`（一人一次，纯站点侧不碰游戏端）；**竞态防护**：校验失败且 algo=phpass 时重读哈希再试一次（并发透明升级，风险清单 #4）
+- [x] T018 [US1] remember 轮换接入 login 流程（T014 机制的故事级装配）
+- [x] T019 [US1] `POST /api/auth/login` Route Handler：401 INVALID_CREDENTIALS 统一模糊（哈希损坏→文案附"找回密码"引导，不锁号 FR-013/边缘场景4）；审计 `login_failed` 含真实原因（仅审计可见）；429 语义预留（M4 实装）
+- [x] T020 [US1] 登录页 `src/app/(auth)/login/page.tsx`：用户名/密码/记住登录；失败展示统一文案
+- [x] T021 [US1] 种子脚本 `scripts/dev/seed.ts`：phpass（公开向量）与 `$wp$`（自哈希）存量测试账号、管理员 1（role=admin）、邀请码 2（available/disabled 各 1）
+- [x] T022 [US1] E2E `tests/e2e/login.spec.ts`：双格式登录→用户中心；二次登录（新哈希路径）；`$wp$` 哈希未动断言
+- [x] T023 [US1] SC-001 验收脚本 `scripts/verify/sc001-login.ts`：读 `workspace/verify-credentials.txt`（gitignore，不入库不入 git，research R12）逐账号登录断言 100% 成功+哈希已升级；**前置外部依赖：凭据收集需提前启动**
 
 **Checkpoint**: quickstart S2 本地预演全绿 → MVP 里程碑锚点路径已通
 
