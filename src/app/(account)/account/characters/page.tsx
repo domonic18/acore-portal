@@ -1,25 +1,16 @@
-import { prisma } from "@/lib/db";
 import { requireSession } from "@/server/session-guard";
 import { characterAvatar, className, raceName } from "@/constants/characters";
-import {
-  GameDbError,
-  listOwnCharacters,
-  resolveGameAccountId,
-} from "@/server/services/characters";
+import { GameDbError } from "@/server/services/characters";
+import { listAccountCharacters } from "@/server/services/account/characters";
 
 /** 契约:角色只读投影(account=本人服务端过滤);503 错误面板不白屏 */
 export default async function CharactersPage() {
   const session = await requireSession();
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: BigInt(session.userId) },
-    select: { username: true },
-  });
 
   let error: string | null = null;
-  let characters: Awaited<ReturnType<typeof listOwnCharacters>> = [];
+  let characters: Awaited<ReturnType<typeof listAccountCharacters>> = [];
   try {
-    const accountId = await resolveGameAccountId(user.username);
-    characters = accountId === null ? [] : await listOwnCharacters(accountId);
+    characters = await listAccountCharacters(BigInt(session.userId));
   } catch (err) {
     if (err instanceof GameDbError) {
       error = "游戏数据暂时不可用,请稍后重试。";

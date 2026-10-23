@@ -1,37 +1,14 @@
-import { prisma } from "@/lib/db";
 import { requireSession } from "@/server/session-guard";
 import { characterAvatar } from "@/constants/characters";
 import { ACCOUNT_NAV } from "@/constants/navigation";
 import { formatDateTime } from "@/lib/format";
-import {
-  GameDbError,
-  listOwnCharacters,
-  resolveGameAccountId,
-} from "@/server/services/characters";
+import { getAccountOverview } from "@/server/services/account/overview";
 
 /** 契约:概览 = user + 角色计数 + 最近积分流水(503 局部错误,不白屏) */
 export default async function AccountOverviewPage() {
   const session = await requireSession();
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: BigInt(session.userId) },
-    select: { id: true, username: true, nickname: true, email: true },
-  });
-
-  const recent = await prisma.pointTransaction.findMany({
-    where: { userId: user.id },
-    orderBy: { id: "desc" },
-    take: 5,
-    select: { id: true, type: true, amount: true, remark: true, createdAt: true },
-  });
-
-  let characterCount: number | null = null;
-  try {
-    const accountId = await resolveGameAccountId(user.username);
-    characterCount =
-      accountId === null ? 0 : (await listOwnCharacters(accountId)).length;
-  } catch (err) {
-    if (!(err instanceof GameDbError)) throw err;
-  }
+  const { user, characterCount, recentTransactions: recent } =
+    await getAccountOverview(BigInt(session.userId));
 
   const avatar = characterAvatar(user.nickname ?? user.username, 0);
 
