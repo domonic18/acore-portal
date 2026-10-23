@@ -70,26 +70,28 @@
 
 ---
 
-## Phase 4: US2 — 新玩家邀请码注册 (Priority: P1)
+## Phase 4: US2 — 新玩家注册（范围调整 2026-10-23） (Priority: P1)
 
-**Goal**: 邀请码注册→邮件激活→设密→站点+游戏端同时建号，注册奖励 +2 入账
+> **范围调整（2026-10-23 用户决策，同步飞书需求池）**：「注册-邀请码必填」恢复入池但降为 **P2 后续迭代**——注册流程**不要求邀请码**；本阶段仅保留注册核心链路（用户名=游戏账号/邮箱激活设密/双端建号/奖励积分）。T025 邀请码服务及其在 T024/T026/T028/T032 中的占用与撞码用例顺延至邀请码迭代实施。
 
-**Independent Test**: 一个可用邀请码走完全流程；验证占用、奖励流水、游戏端账号存在、跨库失败回滚
+**Goal**: 注册→邮件激活→设密→站点+游戏端同时建号，注册奖励 +2 入账（无邀请码门槛）
+
+**Independent Test**: 注册走完全流程；验证奖励流水、游戏端账号存在、跨库失败回滚
 
 ### Tests for US2
 
-- [ ] T024 [P] [US2] 集成测试 `tests/integration/register.test.ts`：模拟游戏库失败→整体回滚 0 半成品账号（SC-004）；并发相同用户名仅一成功（FR-009）；并发撞码账目一致（边缘场景5）；`SUM(amount)=balance` 重算断言（宪法 III）
+- [ ] T024 [P] [US2] 集成测试 `tests/integration/register.test.ts`：模拟游戏库失败→整体回滚 0 半成品账号（SC-004）；并发相同用户名仅一成功（FR-009）；`SUM(amount)=balance` 重算断言（宪法 III）（撞码并发用例随邀请码迭代顺延）
 
 ### Implementation for US2
 
-- [ ] T025 [US2] 邀请码服务 `src/server/services/invitation.ts`：实时状态判定 `status=available AND (expires_at IS NULL OR expires_at>NOW()) AND used_count<max_uses`（FR-001/002，expired 不落库）；消费=事务内 `SELECT...FOR UPDATE`→判定→`used_count+1`+use 行
-- [ ] T026 [US2] 注册编排事务 `src/server/services/auth/register.ts`：单事务完成 user(占位)+游戏端 account 创建+邀请码消费+积分入账+activate token+outbox 邮件；**任一失败整体回滚**；两侧查重+唯一索引冲突→409 可读文案；`503 GAME_DB_UNAVAILABLE`
+- [ ] T025 [US2][延后→P2 邀请码迭代] 邀请码服务 `src/server/services/invitation.ts`：实时状态判定 `status=available AND (expires_at IS NULL OR expires_at>NOW()) AND used_count<max_uses`（FR-001/002，expired 不落库）；消费=事务内 `SELECT...FOR UPDATE`→判定→`used_count+1`+use 行
+- [ ] T026 [US2] 注册编排事务 `src/server/services/auth/register.ts`：单事务完成 user(占位)+游戏端 account 创建+积分入账+activate token+outbox 邮件；**任一失败整体回滚**；两侧查重+唯一索引冲突→409 可读文案；`503 GAME_DB_UNAVAILABLE`（邀请码消费步骤随 T025 一并延后）
 - [ ] T027 [US2] 账本服务 `src/server/services/ledger.ts`：入账（流水+余额同事务，`balance_after` 快照）+ `recalculate(userId)` 重算函数（供测试/对账/日终任务复用）
-- [ ] T028 [US2] `POST /api/auth/register`：校验顺序 邀请码状态机→用户名格式（2-32 位、禁 `@`，FR-003）→两侧占用（FR-004）；202 受理；错误码按 contracts/api-auth.md
+- [ ] T028 [US2] `POST /api/auth/register`：校验顺序 用户名格式（2-32 位、禁 `@`，FR-003）→两侧占用（FR-004）；202 受理；错误码按 contracts/api-auth.md（邀请码校验随 T025 延后）
 - [ ] T029 [US2] `POST /api/auth/set-password`：token 一次性 24h+密码复杂度（≥8 且含字母与数字且 ≠username，FR-006）；签发 `$wp$` bcrypt + 游戏端 `SHA1(UPPER(username):UPPER(password))`（research R3）；激活即登录；审计 `account_activated`
 - [ ] T030 [US2] 激活邮件重发端点（Redis 限速 ≥60s ≤5 次/天，FR-010）
 - [ ] T031 [US2] 注册页+设密页 `src/app/(auth)/register/`、`register/set-password/`：**注册页无密码输入**（FR-005）；token 过期引导重发
-- [ ] T032 [US2] E2E `tests/e2e/register.spec.ts`：quickstart S1 全流程（后台生成码→注册→Mailpit 收件→弱密码拒绝→设密→双端同密验证→积分 +2→5 分钟内，SC-002）
+- [ ] T032 [US2] E2E `tests/e2e/register.spec.ts`：quickstart S1 全流程（注册→Mailpit 收件→弱密码拒绝→设密→双端同密验证→积分 +2→5 分钟内，SC-002）（后台生成码步骤随邀请码迭代顺延）
 
 **Checkpoint**: quickstart S1 全绿
 
@@ -103,15 +105,15 @@
 
 ### Tests for US3
 
-- [ ] T033 [P] [US3] 集成测试 `tests/integration/password.test.ts`：双写一致（SC-003）；游戏端失败→不标记完成+可见重试状态+审计告警（FR-014）；token 一次性/过期/再签作废；改密后旧会话全部吊销
+- [x] T033 [P] [US3] 集成测试 `tests/integration/password.test.ts`：双写一致（SC-003）；游戏端失败→不标记完成+可见重试状态+审计告警（FR-014）；token 一次性/过期/再签作废；改密后旧会话全部吊销
 
 ### Implementation for US3
 
-- [ ] T034 [US3] 密码变更服务 `src/server/services/auth/password.ts`：双写（`$wp$` bcrypt + 游戏端 sha_pass_hash）；双写失败语义=变更不标记完成+留待重试+审计告警；成功后吊销全部既有会话
-- [ ] T035 [US3] user_token 服务 `src/server/services/user-token.ts`：签发（明文仅进邮件链接，库存 SHA-256）；消费（`used_at IS NULL AND expires_at>NOW()`）；同 user+type 再签发作废旧 token（research R11）
-- [ ] T036 [US3] 端点：`POST /api/auth/forgot-password`（**恒定 202 不泄露邮箱存在性**+限速）、`/api/auth/reset-password`、`/api/account/change-password`、`/api/account/change-email` + `/api/account/confirm-email`（FR-015/021）
-- [ ] T037 [US3] UI：`forgot-password`/`reset-password` 页 + settings 页改密/换邮箱入口
-- [ ] T038 [US3] E2E `tests/e2e/password.spec.ts`：quickstart S3（含游戏端写入失败注入→可见重试→恢复后重试成功）
+- [x] T034 [US3] 密码变更服务 `src/server/services/auth/password.ts`：双写（`$wp$` bcrypt + 游戏端 sha_pass_hash）；双写失败语义=变更不标记完成+留待重试+审计告警；成功后吊销全部既有会话
+- [x] T035 [US3] user_token 服务 `src/server/services/user-token.ts`：签发（明文仅进邮件链接，库存 SHA-256）；消费（`used_at IS NULL AND expires_at>NOW()`）；同 user+type 再签发作废旧 token（research R11）
+- [x] T036 [US3] 端点：`POST /api/auth/forgot-password`（**恒定 202 不泄露邮箱存在性**+限速）、`/api/auth/reset-password`、`/api/account/change-password`、`/api/account/change-email` + `/api/account/confirm-email`（FR-015/021）
+- [x] T037 [US3] UI：`forgot-password`/`reset-password` 页 + settings 页改密/换邮箱入口
+- [x] T038 [US3] E2E `tests/e2e/password.spec.ts`：quickstart S3 主链路(改密→吊销→重登;Mailpit 收信→重置→复用失效)。偏差:游戏端失败注入放集成层(vi.spyOn,E2E 无法 mock 服务层)
 
 **Checkpoint**: quickstart S3 全绿
 
