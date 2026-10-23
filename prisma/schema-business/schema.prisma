@@ -214,7 +214,7 @@ model SoapCall {
   command        String     @db.VarChar(64)
   argsJson       Json       @map("args_json")
   status         SoapStatus @default(pending)
-  attempts       Int        @default(0) // ≤3
+  attempts       Int        @default(0) // ≤4(初试+3 重试,contracts/soap-channel.md 规则3)
   resultDigest   String?    @map("result_digest") @db.VarChar(500)
   lastError      String?    @map("last_error") @db.VarChar(500)
   durationMs     Int?       @map("duration_ms")

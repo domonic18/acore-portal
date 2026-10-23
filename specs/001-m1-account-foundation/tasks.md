@@ -165,14 +165,14 @@
 
 ### Tests for US6
 
-- [ ] T048 [P] [US6] 集成测试 `tests/integration/soap.test.ts`：成功/超时重试全留痕（US6 场景2）、幂等键重复投递返回首次结果（边缘场景8）、白名单外命令拒绝
+- [x] T048 [P] [US6] 集成测试 `tests/integration/soap.test.ts`：成功/超时重试全留痕（US6 场景2）、幂等键重复投递返回首次结果（边缘场景8）、白名单外命令拒绝（6 用例：另补非幂等失败不重试与 Fault 态幂等重试）
 
 ### Implementation for US6
 
-- [ ] T049 [US6] SOAP 命令层 `src/server/soap/`：`execute(command, args, {idempotencyKey, idempotent, requestedBy, timeoutMs=5000})`——**落库先行**（soap_call pending，唯一键防重复投递）；幂等命令自动重试 ≤3 次指数退避 1s/2s/4s，非幂等失败不重试转调用方；每次尝试写 audit_log(category=soap)；命令白名单外拒绝（contracts/soap-channel.md）
-- [ ] T050 [US6] 健康自检：五 client + SOAP 连接检查；启动时四库可达断言（FR-022 场景3）；SOAP 未开→degraded 标记不阻塞启动
-- [ ] T051 [US6] 通道验证入口：CLI 脚本 `scripts/verify/soap-check.ts` 执行 `.server info` 展示结果/耗时/审计 id
-- [ ] T052 [US6] quickstart S6 场景脚本化验证（mock 三态切换走查）
+- [x] T049 [US6] SOAP 命令层 `src/server/soap/`：`execute(command, args, {idempotencyKey, idempotent, requestedBy, timeoutMs=5000})`——**落库先行**（soap_call pending，唯一键防重复投递）；幂等命令自动重试 ≤3 次指数退避 1s/2s/4s，非幂等失败不重试转调用方；每次尝试写 audit_log(category=soap)；命令白名单外拒绝（contracts/soap-channel.md）【偏差①：npm `node-soap` 实为无 WSDL/无超时的迷你包（与官方 `soap` 包名撞车），传输层改为零依赖 fetch 直封 urn:AC 协议，误装依赖已移除；偏差②：「重试 ≤3 次」= 初试+3 重试共 4 次尝试（契约 1s/2s/4s 三段退避的忠实读法，schema 注释「≤3」已勘误）；偏差③：execute 增加测试注入 `retryDelaysMs`；同键撞 pending 时轮询等首调终态（上限 30s）后回放首次结果】
+- [x] T050 [US6] 健康自检：五 client + SOAP 连接检查；启动时四库可达断言（FR-022 场景3）；SOAP 未开→degraded 标记不阻塞启动【`src/instrumentation.ts` + next.config `experimental.instrumentationHook`（Next 14 实验特性）；build 阶段 worker 跳过探测】
+- [x] T051 [US6] 通道验证入口：CLI 脚本 `scripts/verify/soap-check.ts` 执行 `.server info` 展示结果/耗时/审计 id（`pnpm verify:soap`，审计 id 按 payload key 回查 audit_log）
+- [x] T052 [US6] quickstart S6 场景脚本化验证（mock 三态切换走查）【偏差：人工走查归并为集成测试断言（`/__mode` 切态编程化验证），S6-4 启动自检由 `[boot]` 日志实测验证】
 
 **Checkpoint**: quickstart S6 全绿
 
