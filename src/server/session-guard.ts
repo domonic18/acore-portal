@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSessionFromToken, type SessionPayload } from "@/lib/auth/session";
 import { SESSION } from "@/constants/session";
+import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
+import { writeAudit } from "@/server/services/audit/audit";
 
 /**
  * RSC 深校验守卫(middleware 浅校验之外的吊销态兜底,FR-014):
@@ -19,4 +21,37 @@ export async function requireSession(): Promise<SessionPayload> {
 /** Route Handler 深校验(不重定向;401 语义由调用方表达) */
 export async function getApiSession(req: NextRequest): Promise<SessionPayload | null> {
   return getSessionFromToken(req.cookies.get(SESSION.ACCESS_COOKIE)?.value);
+}
+
+/** 后台 RSC 守卫(FR-125):仅 admin 可达;moderator/user/未登录拒绝,越权记审计 */
+export async function requireAdmin(): Promise<SessionPayload> {
+  const session = await requireSession();
+  if (session.role !== "admin") {
+    await writeAudit({
+      category: AUDIT_CATEGORY.SECURITY,
+      action: AUDIT_ACTION.ADMIN_ACCESS_VIOLATION,
+      actorUserId: BigInt(session.userId),
+      payload: { role: session.role, surface: "page" },
+    });
+    redirect("/");
+  }
+  return session;
+}
+
+/** 后台 API 守卫(admin 或 null;非 admin 由调用方回 403,审计在此统一落) */
+export async function getApiAdminSession(req: NextRequest): Promise<SessionPayload | null> {
+  const session = await getSessionFromToken(req.cookies.get(SESSION.ACCESS_COOKIE)?.value);
+  if (!session || session.role !== "admin") {
+    if (session) {
+      await writeAudit({
+        category: AUDIT_CATEGORY.SECURITY,
+        action: AUDIT_ACTION.ADMIN_ACCESS_VIOLATION,
+        actorUserId: BigInt(session.userId),
+        payload: { role: session.role, surface: "api", path: new URL(req.url).pathname },
+        ip: req.headers.get("x-forwarded-for"),
+      });
+    }
+    return null;
+  }
+  return session;
 }

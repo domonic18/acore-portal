@@ -93,7 +93,23 @@ async function main() {
   );
 }
 
+/** 积分规则种子(data-model §2.6):register=2 保持 M1 行为;badge_grant=0 后台可调 */
+async function seedPointRules() {
+  const rules = [
+    { event: "register", amount: 2, remark: "注册奖励" },
+    { event: "badge_grant", amount: 0, remark: "徽章授予奖励分值(后台按需调整)" },
+  ];
+  for (const rule of rules) {
+    await prisma.pointRule.upsert({
+      where: { event: rule.event },
+      update: {},
+      create: { event: rule.event, amount: rule.amount, enabled: true, remark: rule.remark },
+    });
+  }
+}
+
 main()
+  .then(seedPointRules)
   .catch((err) => {
     console.error(err);
     process.exitCode = 1;

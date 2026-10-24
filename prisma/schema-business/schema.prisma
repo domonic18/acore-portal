@@ -21,6 +21,7 @@ enum PasswordAlgo {
 
 enum UserRole {
   user
+  moderator // M3 论坛预留;M2 仅守卫识别(moderator ≠ admin,不可访问后台)
   admin
 
   @@map("user_role")
@@ -42,7 +43,12 @@ enum InvitationStatus {
 }
 
 enum PointTxType {
-  register_reward // M1 仅此;M2 扩展消费/充值/手调
+  register_reward // 注册奖励(存量 ref: registration)
+  badge_reward // 徽章授予(存量 ref: badge_reward)
+  shop_payment // 商城结账扣减,允许负值=退款回补(存量 ref: woocommerce_payment)
+  manual_adjust // 管理员手调/迁移对账调整 D7(存量 ref: manual)
+  recurring // 定期发放(仅存量迁移入账,运行期不自动产生)
+  visitor_referral // 访问推荐(仅存量迁移入账)
 
   @@map("point_tx_type")
 }
@@ -75,8 +81,48 @@ enum AuditCategory {
   soap
   mail
   security
+  shop // M2:商品/订单/发货域事件(越权加购/发货无处理器等)
+  admin // M2:后台敏感操作(补发/退款/积分手调/徽章/邀请码/复核)
+  points // M2:积分账务调整域(D7 迁移补录)
 
   @@map("audit_category")
+}
+
+// ===== M2 商城枚举(data-model §1.3) =====
+
+enum ProductType {
+  game_item
+  service
+
+  @@map("product_type")
+}
+
+enum ProductStatus {
+  draft
+  published
+
+  @@map("product_status")
+}
+
+/// 订单状态机 7 态(data-model §3;delivering=短瞬态,completed/cancelled/refunded=终态)
+enum OrderStatus {
+  pending
+  paid
+  delivering
+  completed
+  delivery_failed
+  cancelled
+  refunded
+
+  @@map("order_status")
+}
+
+enum OrderItemDeliveryStatus {
+  pending
+  delivered
+  failed
+
+  @@map("order_item_delivery_status")
 }
 
 // ===== 表 =====
@@ -103,6 +149,10 @@ model User {
   pointTransactions PointTransaction[]
   tokens           UserToken[]
   outboxMails      MailOutbox[]
+  cartItems        CartItem[]
+  orders           Order[]
+  badgeGrantsReceived BadgeGrant[]  @relation("BadgeGrantRecipient")
+  badgeGrantsGranted  BadgeGrant[]  @relation("BadgeGrantIssuer")
 
   @@map("user")
 }
@@ -153,6 +203,17 @@ model PointAccount {
   @@map("point_account")
 }
 
+/// 积分规则表(获取类事件→分值,FR-104/research R10;消费与手调为固定账务路径不经此表)
+model PointRule {
+  id      BigInt  @id @default(autoincrement())
+  event   String  @unique @db.VarChar(32) // register / badge_grant(constants/points POINT_RULE_EVENT)
+  amount  Int
+  enabled Boolean @default(true)
+  remark  String? @db.VarChar(128)
+
+  @@map("point_rule")
+}
+
 /// 积分流水(真相源)
 model PointTransaction {
   id           BigInt      @id @default(autoincrement())
@@ -166,6 +227,7 @@ model PointTransaction {
   createdAt    DateTime    @default(now()) @map("created_at") @db.DateTime(3)
 
   user User @relation(fields: [userId], references: [id])
+  badgeGrants BadgeGrant[]
 
   @@index([userId, createdAt])
   @@map("point_transaction")
@@ -222,6 +284,8 @@ model SoapCall {
   createdAt      DateTime   @default(now()) @map("created_at")
   finishedAt     DateTime?  @map("finished_at")
 
+  orderItems OrderItem[]
+
   @@index([status, createdAt])
   @@map("soap_call")
 }
@@ -260,4 +324,173 @@ model SystemConfig {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("system_config")
+}
+
+// ===== M2 商城域(data-model §2) =====
+
+/// 商品分类(存量 14 分类平铺;parentId 留树扩展)
+model ProductCategory {
+  id       BigInt  @id @default(autoincrement())
+  name     String  @db.VarChar(64)
+  slug     String  @unique @db.VarChar(64)
+  parentId BigInt? @map("parent_id")
+  sort     Int     @default(0)
+
+  parent   ProductCategory?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children ProductCategory[] @relation("CategoryTree")
+  products Product[]
+
+  @@index([parentId])
+  @@map("product_category")
+}
+
+/// 商品(物品类 gameItemId→world.item_template.entry 只读校验;服务类 sku=处理器路由键)
+model Product {
+  id                BigInt        @id @default(autoincrement())
+  type              ProductType
+  sku               String        @unique @db.VarChar(64) // itemsend_{id} 或处理器键(FR-126 保存校验)
+  name              String        @db.VarChar(128)
+  slug              String        @unique @db.VarChar(128)
+  description       String        @db.Text
+  categoryId        BigInt        @map("category_id")
+  status            ProductStatus @default(draft)
+  listed            Boolean       @default(true) // false=目录隐藏,直链可达(FR-127)
+  price             Int // 原价(积分)
+  salePrice         Int?          @map("sale_price") // 促销价须 < 原价
+  saleStart         DateTime?     @map("sale_start") // null=不限端
+  saleEnd           DateTime?     @map("sale_end")
+  stockEnabled      Boolean       @default(false) @map("stock_enabled")
+  stock             Int? // enabled 时必填;0=售罄(推导态,research R3)
+  lowStockThreshold Int?          @map("low_stock_threshold")
+  gameItemId        Int?          @map("game_item_id")
+  legacyWpProductId Int?          @unique @map("legacy_wp_product_id") // 存量映射幂等键
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  category   ProductCategory @relation(fields: [categoryId], references: [id])
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([categoryId, status])
+  @@index([status, listed])
+  @@map("product")
+}
+
+/// 购物车行(无唯一约束:同商品不同参数=独立行,同参数合并为应用层行为,research R6)
+model CartItem {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt   @map("user_id")
+  productId BigInt   @map("product_id")
+  qty       Int // ≥1
+  params    Json // { characterGuid?, restoreItemEntry?, destAccount?, guildName?, unlockName? }
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([userId])
+  @@map("cart_item")
+}
+
+/// 订单(表名规避保留字 → shop_order;状态机 data-model §3)
+model Order {
+  id              BigInt      @id @default(autoincrement())
+  orderNo         String      @unique @map("order_no") @db.VarChar(32) // M2{YYYYMMDD}{6位序列}
+  userId          BigInt      @map("user_id")
+  status          OrderStatus @default(pending)
+  pointCost       Int         @map("point_cost") // 结算时刻生效价×数量
+  paidAt          DateTime?   @map("paid_at")
+  deliveringAt    DateTime?   @map("delivering_at")
+  completedAt     DateTime?   @map("completed_at")
+  cancelledAt     DateTime?   @map("cancelled_at")
+  refundedAt      DateTime?   @map("refunded_at")
+  deliveryError   String?     @map("delivery_error") @db.VarChar(255) // 最近一次失败摘要
+  legacyWpOrderId Int?        @unique @map("legacy_wp_order_id") // 存量映射幂等键
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  user  User        @relation(fields: [userId], references: [id])
+  items OrderItem[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("shop_order")
+}
+
+/// 订单行(商品快照,商品可下架行不受影响;id=发货幂等键,research R2/R12)
+model OrderItem {
+  id                  BigInt                   @id @default(autoincrement())
+  orderId             BigInt                   @map("order_id")
+  productId           BigInt                   @map("product_id")
+  sku                 String                   @db.VarChar(64) // 下单时刻快照
+  name                String                   @db.VarChar(128)
+  unitPrice           Int                      @map("unit_price") // 生效价快照
+  qty                 Int
+  params              Json // 由购物车行 params 落定,发货处理器读取
+  deliveryStatus      OrderItemDeliveryStatus  @default(pending) @map("delivery_status")
+  deliveredAt         DateTime?                @map("delivered_at")
+  soapCallId          BigInt?                  @map("soap_call_id") // 最近一次发货审计引用
+  legacyWpOrderItemId Int?                     @unique @map("legacy_wp_order_item_id")
+  createdAt           DateTime                 @default(now()) @map("created_at")
+
+  order    Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product  Product   @relation(fields: [productId], references: [id])
+  soapCall SoapCall? @relation(fields: [soapCallId], references: [id])
+
+  @@index([orderId])
+  @@map("order_item")
+}
+
+/// 徽章定义(授予产生 badge_reward 流水,amount 读 point_rule event=badge_grant)
+model Badge {
+  id          BigInt  @id @default(autoincrement())
+  name        String  @unique @db.VarChar(64)
+  level       Int
+  description String? @db.VarChar(255)
+
+  grants BadgeGrant[]
+
+  @@map("badge")
+}
+
+/// 徽章授予记录(unique 每徽章一人一次,重复授予 409)
+model BadgeGrant {
+  id                 BigInt   @id @default(autoincrement())
+  badgeId            BigInt   @map("badge_id")
+  userId             BigInt   @map("user_id")
+  grantedBy          BigInt   @map("granted_by") // 操作管理员
+  pointTransactionId BigInt?  @map("point_transaction_id") // 授予产生的流水回引
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  badge            Badge             @relation(fields: [badgeId], references: [id])
+  user             User              @relation("BadgeGrantRecipient", fields: [userId], references: [id])
+  grantedByUser    User              @relation("BadgeGrantIssuer", fields: [grantedBy], references: [id])
+  pointTransaction PointTransaction? @relation(fields: [pointTransactionId], references: [id])
+
+  @@unique([badgeId, userId])
+  @@map("badge_grant")
+}
+
+/// 图片资产映射(旧站 uploads → COS/CDN,FR-132;oldUrl=幂等键,前台渲染经此重写)
+model ImageAssetMap {
+  id        BigInt   @id @default(autoincrement())
+  oldUrl    String   @unique @map("old_url") @db.VarChar(512) // 归一化旧路径或全 URL
+  newUrl    String   @map("new_url") @db.VarChar(512) // COS/CDN 地址
+  fileHash  String?  @map("file_hash") @db.VarChar(64) // sha256 幂等上传键
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("image_asset_map")
+}
+
+/// D3 人工复核清单(扣分与金额不符的存量单;独立于订单状态机,research R1)
+model MigrationReviewItem {
+  id              BigInt    @id @default(autoincrement())
+  legacyWpOrderId Int       @unique @map("legacy_wp_order_id")
+  reason          String    @db.VarChar(128) // 如 amount_mismatch
+  detail          Json // 扣分流水 vs 订单金额对比
+  resolvedAt      DateTime? @map("resolved_at")
+  resolvedBy      BigInt?   @map("resolved_by")
+
+  @@map("migration_review_item")
 }

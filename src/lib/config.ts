@@ -33,6 +33,16 @@ const configSchema = z.object({
     world: z.string().url(),
     eluna: z.string().url(),
   }),
+  // COS 对象存储(M2 US6 图片迁移;未配置=功能未启用,不阻塞启动,US6 首用时报错)
+  cos: z
+    .object({
+      bucket: z.string().min(1),
+      region: z.string().min(1),
+      secretId: z.string().min(1),
+      secretKey: z.string().min(1),
+      cdnBase: z.string().url(),
+    })
+    .optional(),
 });
 
 export type SystemConfig = z.infer<typeof configSchema>;
@@ -62,6 +72,15 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       world: flat["gamedb.world"],
       eluna: flat["gamedb.eluna"],
     },
+    cos: flat["cos.bucket"]
+      ? {
+          bucket: flat["cos.bucket"],
+          region: flat["cos.region"],
+          secretId: flat["cos.secretId"],
+          secretKey: flat["cos.secretKey"],
+          cdnBase: flat["cos.cdnBase"],
+        }
+      : undefined,
   };
 }
 

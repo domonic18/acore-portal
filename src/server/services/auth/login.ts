@@ -14,7 +14,7 @@ export type LoginUser = {
   id: bigint;
   username: string;
   email: string;
-  role: "user" | "admin";
+  role: "user" | "moderator" | "admin";
 };
 
 export type LoginOutcome =

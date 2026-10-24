@@ -16,7 +16,7 @@ export const AUDIT_ACTION = {
   ACCOUNT_ACTIVATED: "account_activated",
   TOKEN_CONSUMED: "token_consumed",
   OWNERSHIP_VIOLATION: "ownership_violation",
-  ADMIN_FORBIDDEN: "admin_forbidden",
+  ADMIN_ACCESS_VIOLATION: "admin_access_violation",
   MAIL_SEND_FAILED: "mail_send_failed",
   PASSWORD_DUAL_WRITE_FAILED: "password_dual_write_failed",
   PASSWORD_DUAL_WRITE_RECOVERED: "password_dual_write_recovered",
