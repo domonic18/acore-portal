@@ -7,10 +7,18 @@ import { normalizeLegacyKey } from "@/constants/legacy-routes";
  * edge 兼容层(edge runtime,无 Prisma):
  * ① 旧 WP 登录类地址硬编码 302,不查表(FR-025);
  * ② 旧内容地址 ?p=/?page_id=/?cat= 规范化后 rewrite 到 Node 处理器查 route_map(FR-026);
- * ③ /account/* 会话浅校验、/admin/* 角色校验(吊销态由 RSC/API 深校验兜底)。
+ * ③ 旧 WooCommerce 账户地址 /my-account 301 到 /account(路径结构同构,子路径透传,FR-109);
+ * ④ /account/* 会话浅校验、/admin/* 角色校验(吊销态由 RSC/API 深校验兜底)。
  */
 export async function middleware(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl;
+
+  if (pathname === "/my-account" || pathname.startsWith("/my-account/")) {
+    return NextResponse.redirect(
+      new URL(pathname.replace(/^\/my-account/, "/account"), req.url),
+      301,
+    );
+  }
 
   if (pathname === "/wp-login.php") {
     const action = searchParams.get("action");
@@ -59,5 +67,12 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/index.php", "/wp-login.php", "/account/:path*", "/admin/:path*"],
+  matcher: [
+    "/",
+    "/index.php",
+    "/wp-login.php",
+    "/my-account/:path*",
+    "/account/:path*",
+    "/admin/:path*",
+  ],
 };
