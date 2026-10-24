@@ -117,8 +117,8 @@ test.describe("US4 用户中心(quickstart S4)", () => {
     expect(options).toHaveLength(3);
     expect(options.join()).toContain("Oldwarrior");
     expect(options.join()).not.toContain("Notmine");
-    // 首个角色自动加载恢复列表(Oldwarrior guid=10 → 2 件)
-    await expect(page.getByText("物品 #19019")).toBeVisible();
+    // 首个角色自动加载恢复列表(Oldwarrior guid=10 → 2 件;T040 起有模板显名/缺模板回退)
+    await expect(page.getByText("测试坐骑·限量")).toBeVisible();
     await expect(page.getByText("物品 #17182")).toBeVisible();
   });
 

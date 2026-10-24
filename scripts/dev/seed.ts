@@ -108,8 +108,18 @@ async function seedPointRules() {
   }
 }
 
+/** 默认商品分类:商品新建表单下拉依赖至少一个分类(空库 categoryId 无默认可选) */
+async function seedDefaultCategory() {
+  await prisma.productCategory.upsert({
+    where: { slug: "general" },
+    update: {},
+    create: { name: "通用", slug: "general", sort: 1 },
+  });
+}
+
 main()
   .then(seedPointRules)
+  .then(seedDefaultCategory)
   .catch((err) => {
     console.error(err);
     process.exitCode = 1;
