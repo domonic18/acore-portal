@@ -30,9 +30,6 @@ export const POINT_TX_TYPE_LABEL: Record<PointTxTypeValue, string> = {
   visitor_referral: "访问推荐",
 };
 
-/** M1 注册奖励(spec FR-008 裁决:选 A,+2 随 M1 落地;M2 T013 迁移为规则表驱动后退役) */
-export const REGISTER_REWARD_AMOUNT = 2;
-
 /** 积分获取类事件 → point_rule.event 取值(research R10:仅获取类经规则表) */
 export const POINT_RULE_EVENT = {
   REGISTER: "register",

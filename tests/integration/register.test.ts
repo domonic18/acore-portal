@@ -6,7 +6,6 @@ import { verifyWpBcrypt } from "@/lib/auth/wp-bcrypt";
 import { gameShaPassHash } from "@/lib/auth/game-hash";
 import { PASSWORD_ALGO, PENDING_HASH_PREFIX } from "@/constants/password";
 import { AUDIT_ACTION } from "@/constants/audit";
-import { REGISTER_REWARD_AMOUNT } from "@/constants/points";
 import { redis } from "@/lib/redis";
 import { getSessionFromToken } from "@/lib/auth/session";
 import { registerAccount, activateAccount, resendActivation } from "@/server/services/auth/register";
@@ -75,17 +74,17 @@ describe("US2 注册受理(T026/T027/T028)", () => {
     expect(user.passwordHash.startsWith(PENDING_HASH_PREFIX)).toBe(true);
     expect(user.passwordAlgo).toBe(PASSWORD_ALGO.BCRYPT_WP);
 
-    // 账本:流水 +2、balance_after 快照、SUM=balance(宪法 III)
+    // 账本:规则表 seed register=2 → 流水 +2、balance_after 快照、SUM=balance(宪法 III)
     const txs = await prisma.pointTransaction.findMany({ where: { userId: user.id } });
     expect(txs).toHaveLength(1);
     const tx = txs[0]!;
-    expect(tx.amount).toBe(REGISTER_REWARD_AMOUNT);
-    expect(tx.balanceAfter).toBe(REGISTER_REWARD_AMOUNT);
+    expect(tx.amount).toBe(2);
+    expect(tx.balanceAfter).toBe(2);
     expect(tx.remark).toBe("注册奖励");
     const account = await prisma.pointAccount.findUniqueOrThrow({
       where: { userId: user.id },
     });
-    expect(account.balance).toBe(REGISTER_REWARD_AMOUNT);
+    expect(account.balance).toBe(2);
     const recalc = await recalculateLedger(user.id);
     expect(recalc.sum).toBe(recalc.balance);
 

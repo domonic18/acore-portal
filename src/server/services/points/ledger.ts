@@ -10,6 +10,14 @@ import { POINT_TX_TYPE, type PointTxTypeValue } from "@/constants/points";
 
 type Tx = Prisma.TransactionClient;
 
+/** 账本域错误(路由层按 code 映射响应,如 INSUFFICIENT_BALANCE → 402) */
+export class LedgerError extends Error {
+  constructor(public code: "INSUFFICIENT_BALANCE") {
+    super(`ledger_error: ${code}`);
+    this.name = "LedgerError";
+  }
+}
+
 export async function creditLedger(
   tx: Tx,
   input: {
@@ -31,6 +39,46 @@ export async function creditLedger(
       userId: input.userId,
       type: input.type ?? POINT_TX_TYPE.REGISTER_REWARD,
       amount: input.amount,
+      balanceAfter: account.balance,
+      remark: input.remark,
+      refType: input.refType,
+      refId: input.refId,
+    },
+  });
+  return account.balance;
+}
+
+/**
+ * 扣减(research R3):updateMany WHERE balance>=amount 条件更新即行锁,
+ * count=0(无账户或余额不足)→ LedgerError,零写入;流水记负额。
+ */
+export async function debitLedger(
+  tx: Tx,
+  input: {
+    userId: bigint;
+    amount: number;
+    type?: PointTxTypeValue;
+    remark?: string;
+    refType?: string;
+    refId?: bigint;
+  },
+): Promise<number> {
+  const result = await tx.pointAccount.updateMany({
+    where: { userId: input.userId, balance: { gte: input.amount } },
+    data: { balance: { decrement: input.amount } },
+  });
+  if (result.count === 0) {
+    throw new LedgerError("INSUFFICIENT_BALANCE");
+  }
+  const account = await tx.pointAccount.findUniqueOrThrow({
+    where: { userId: input.userId },
+    select: { balance: true },
+  });
+  await tx.pointTransaction.create({
+    data: {
+      userId: input.userId,
+      type: input.type ?? POINT_TX_TYPE.SHOP_PAYMENT,
+      amount: -input.amount,
       balanceAfter: account.balance,
       remark: input.remark,
       refType: input.refType,
