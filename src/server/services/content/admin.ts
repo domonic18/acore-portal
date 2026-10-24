@@ -343,6 +343,7 @@ export async function saveArticleCategory(input: {
   name: string;
   slug: string;
   sort: number;
+  actorUserId: bigint;
 }): Promise<{ id: bigint }> {
   const clash = await prisma.articleCategory.findFirst({
     where: { slug: input.slug, ...(input.id ? { id: { not: input.id } } : {}) },
@@ -355,11 +356,23 @@ export async function saveArticleCategory(input: {
       data: { name: input.name, slug: input.slug, sort: input.sort },
     });
     if (hit.count === 0) throw new ContentAdminError("NOT_FOUND", "分类不存在。");
+    await writeAudit({
+      category: AUDIT_CATEGORY.CONTENT,
+      action: AUDIT_ACTION.CONTENT_TAXONOMY_SAVED,
+      actorUserId: input.actorUserId,
+      payload: { type: "category", id: input.id.toString(), slug: input.slug },
+    });
     return { id: input.id };
   }
   const created = await prisma.articleCategory.create({
     data: { name: input.name, slug: input.slug, sort: input.sort },
     select: { id: true },
+  });
+  await writeAudit({
+    category: AUDIT_CATEGORY.CONTENT,
+    action: AUDIT_ACTION.CONTENT_TAXONOMY_SAVED,
+    actorUserId: input.actorUserId,
+    payload: { type: "category", id: created.id.toString(), slug: input.slug },
   });
   return { id: created.id };
 }
@@ -391,7 +404,12 @@ export async function listAdminTags() {
   }));
 }
 
-export async function saveTag(input: { id?: bigint; name: string; slug: string }): Promise<{ id: bigint }> {
+export async function saveTag(input: {
+  id?: bigint;
+  name: string;
+  slug: string;
+  actorUserId: bigint;
+}): Promise<{ id: bigint }> {
   const clash = await prisma.tag.findFirst({
     where: {
       OR: [{ name: input.name }, { slug: input.slug }],
@@ -411,11 +429,23 @@ export async function saveTag(input: { id?: bigint; name: string; slug: string }
       data: { name: input.name, slug: input.slug },
     });
     if (hit.count === 0) throw new ContentAdminError("NOT_FOUND", "标签不存在。");
+    await writeAudit({
+      category: AUDIT_CATEGORY.CONTENT,
+      action: AUDIT_ACTION.CONTENT_TAXONOMY_SAVED,
+      actorUserId: input.actorUserId,
+      payload: { type: "tag", id: input.id.toString(), slug: input.slug },
+    });
     return { id: input.id };
   }
   const created = await prisma.tag.create({
     data: { name: input.name, slug: input.slug },
     select: { id: true },
+  });
+  await writeAudit({
+    category: AUDIT_CATEGORY.CONTENT,
+    action: AUDIT_ACTION.CONTENT_TAXONOMY_SAVED,
+    actorUserId: input.actorUserId,
+    payload: { type: "tag", id: created.id.toString(), slug: input.slug },
   });
   return { id: created.id };
 }

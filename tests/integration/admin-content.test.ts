@@ -201,7 +201,7 @@ describe("文章 CRUD(T029 FR-215)", () => {
       ),
     ).resolves.toBe("CATEGORY_NOT_FOUND");
 
-    const tag = await saveTag({ name: `T29 标签 ${RUN}`, slug: `${TAG_PREFIX}-main` });
+    const tag = await saveTag({ name: `T29 标签 ${RUN}`, slug: `${TAG_PREFIX}-main`, actorUserId: guardUids[0]! });
     const { id } = await makeArticle(`${ART_PREFIX}del`);
     await setArticleTags(id, [tag.id], guardUids[0]!);
     expect(
@@ -226,22 +226,32 @@ describe("文章 CRUD(T029 FR-215)", () => {
 });
 
 describe("标签与分类(T029 FR-215)", () => {
-  it("标签同名/同 slug → DUPLICATE;更新走 id", async () => {
-    const tag = await saveTag({ name: `T29 标签A ${RUN}`, slug: `${TAG_PREFIX}-a` });
-    await expect(errCode(saveTag({ name: `T29 标签A ${RUN}`, slug: `${TAG_PREFIX}-b` }))).resolves.toBe("DUPLICATE");
-    await expect(errCode(saveTag({ name: `T29 标签B ${RUN}`, slug: `${TAG_PREFIX}-a` }))).resolves.toBe("DUPLICATE");
-    const renamed = await saveTag({ id: tag.id, name: `T29 标签A2 ${RUN}`, slug: `${TAG_PREFIX}-a` });
+  it("标签同名/同 slug → DUPLICATE;更新走 id;保存审计(T048 补口径)", async () => {
+    const tag = await saveTag({ name: `T29 标签A ${RUN}`, slug: `${TAG_PREFIX}-a`, actorUserId: guardUids[0]! });
+    await expect(errCode(saveTag({ name: `T29 标签A ${RUN}`, slug: `${TAG_PREFIX}-b`, actorUserId: guardUids[0]! }))).resolves.toBe("DUPLICATE");
+    await expect(errCode(saveTag({ name: `T29 标签B ${RUN}`, slug: `${TAG_PREFIX}-a`, actorUserId: guardUids[0]! }))).resolves.toBe("DUPLICATE");
+    const renamed = await saveTag({ id: tag.id, name: `T29 标签A2 ${RUN}`, slug: `${TAG_PREFIX}-a`, actorUserId: guardUids[0]! });
     expect(renamed.id).toBe(tag.id);
+    const audit = await lastAudit(guardUids[0]!, AUDIT_ACTION.CONTENT_TAXONOMY_SAVED);
+    expect(audit.category).toBe(AUDIT_CATEGORY.CONTENT);
+    expect((audit.payloadJson as { type?: string }).type).toBe("tag");
   });
 
-  it("分类删除有引用 → CATEGORY_IN_USE;无引用放行;slug 冲突 → SLUG_CONFLICT", async () => {
+  it("分类删除有引用 → CATEGORY_IN_USE;无引用放行;slug 冲突 → SLUG_CONFLICT;保存审计(T048 补口径)", async () => {
     await makeArticle(`${ART_PREFIX}catref`);
     await expect(errCode(deleteArticleCategory(catId, guardUids[0]!))).resolves.toBe("CATEGORY_IN_USE");
     await deleteArticleCategory(cat2Id, guardUids[0]!); // 无引用放行
     await expect(
-      errCode(saveArticleCategory({ name: "T29 撞名", slug: CAT_SLUG, sort: 9 })),
+      errCode(saveArticleCategory({ name: "T29 撞名", slug: CAT_SLUG, sort: 9, actorUserId: guardUids[0]! })),
     ).resolves.toBe("SLUG_CONFLICT");
     await lastAudit(guardUids[0]!, AUDIT_ACTION.CONTENT_TAXONOMY_DELETED);
+    const cat3 = await saveArticleCategory({
+      name: `T29 分类三 ${RUN}`, slug: `${CAT_SLUG}-3`, sort: 8, actorUserId: guardUids[0]!,
+    });
+    const saveAudit = await lastAudit(guardUids[0]!, AUDIT_ACTION.CONTENT_TAXONOMY_SAVED);
+    expect(saveAudit.category).toBe(AUDIT_CATEGORY.CONTENT);
+    expect((saveAudit.payloadJson as { type?: string }).type).toBe("category");
+    await deleteArticleCategory(cat3.id, guardUids[0]!);
   });
 });
 

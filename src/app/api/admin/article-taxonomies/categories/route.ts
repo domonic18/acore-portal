@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       name: parsed.data.name,
       slug: parsed.data.slug,
       sort: parsed.data.sort,
+      actorUserId: BigInt(guard.session.userId),
     });
     return apiOk({ id: id.toString() }, 201);
   } catch (err) {

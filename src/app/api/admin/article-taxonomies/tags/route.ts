@@ -18,7 +18,11 @@ export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, tagSchema);
   if (!parsed.ok) return parsed.response;
   try {
-    const { id } = await saveTag({ name: parsed.data.name, slug: parsed.data.slug });
+    const { id } = await saveTag({
+      name: parsed.data.name,
+      slug: parsed.data.slug,
+      actorUserId: BigInt(guard.session.userId),
+    });
     return apiOk({ id: id.toString() }, 201);
   } catch (err) {
     return mapContentError(err);

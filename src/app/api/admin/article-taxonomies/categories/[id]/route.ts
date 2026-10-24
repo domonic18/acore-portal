@@ -23,6 +23,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       name: parsed.data.name,
       slug: parsed.data.slug,
       sort: parsed.data.sort,
+      actorUserId: BigInt(guard.session.userId),
     });
     return apiOk({ id: id.toString() });
   } catch (err) {
