@@ -41,6 +41,20 @@ export const tagSchema = z.object({
   slug: z.string().min(1).max(64).regex(/^[a-z0-9-]+$/),
 });
 
+/** 渐进节点(T048 契约补全;phaseDate yyyy-MM-dd,null=未定档) */
+export const progressionSchema = z.object({
+  title: z.string().min(1).max(128),
+  phaseDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "日期格式 yyyy-MM-dd")
+    .nullable()
+    .optional(),
+  imageUrl: z.string().max(500).nullable().optional(),
+  bodyMd: z.string().nullable().optional(),
+  status: z.enum(["locked", "open"]),
+  sort: z.coerce.number().int().min(0).max(9999),
+});
+
 /** 内容域错误码 → HTTP(api-admin-m3 契约:422=冲突/校验,404=不存在) */
 export function mapContentError(err: unknown) {
   if (err instanceof ContentAdminError) {
