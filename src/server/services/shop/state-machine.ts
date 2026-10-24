@@ -9,13 +9,13 @@ import { ORDER_STATUS, type OrderStatusValue } from "@/constants/shop";
 
 const S = ORDER_STATUS;
 
-/** 合法迁移表(与 data-model §3 图一一对应;终态出边为空) */
+/** 合法迁移表(与 data-model §3 图对应;completed 可后台退款=api-admin 契约+quickstart S5.4) */
 export const TRANSITIONS: Record<OrderStatusValue, readonly OrderStatusValue[]> = {
   [S.PENDING]: [S.PAID],
   [S.PAID]: [S.DELIVERING, S.CANCELLED, S.REFUNDED],
   [S.DELIVERING]: [S.COMPLETED, S.DELIVERY_FAILED],
   [S.DELIVERY_FAILED]: [S.DELIVERING, S.REFUNDED],
-  [S.COMPLETED]: [],
+  [S.COMPLETED]: [S.REFUNDED],
   [S.CANCELLED]: [],
   [S.REFUNDED]: [],
 };

@@ -19,7 +19,7 @@ const LEGAL: [OrderStatusValue, OrderStatusValue[]][] = [
   [S.PAID, [S.DELIVERING, S.CANCELLED, S.REFUNDED]],
   [S.DELIVERING, [S.COMPLETED, S.DELIVERY_FAILED]],
   [S.DELIVERY_FAILED, [S.DELIVERING, S.REFUNDED]],
-  [S.COMPLETED, []],
+  [S.COMPLETED, [S.REFUNDED]], // api-admin 契约+quickstart S5.4:completed 可后台退款
   [S.CANCELLED, []],
   [S.REFUNDED, []],
 ];
@@ -56,7 +56,7 @@ describe("订单状态机(T027)", () => {
       [S.DELIVERY_FAILED, S.COMPLETED],
       [S.DELIVERY_FAILED, S.PAID],
       [S.COMPLETED, S.DELIVERING],
-      [S.COMPLETED, S.REFUNDED],
+      [S.COMPLETED, S.PAID],
       [S.CANCELLED, S.PAID],
       [S.REFUNDED, S.DELIVERING],
       [S.PAID, S.PAID],
@@ -75,8 +75,8 @@ describe("订单状态机(T027)", () => {
     expect(statusTimestampField(S.DELIVERY_FAILED)).toBeNull();
   });
 
-  test("终态判定:completed/cancelled/refunded 为终态,其余非终态", () => {
-    expect(isTerminal(S.COMPLETED)).toBe(true);
+  test("终态判定:refunded/cancelled 为不可逆终态;completed 保留退款出边", () => {
+    expect(isTerminal(S.COMPLETED)).toBe(false);
     expect(isTerminal(S.CANCELLED)).toBe(true);
     expect(isTerminal(S.REFUNDED)).toBe(true);
     expect(isTerminal(S.PENDING)).toBe(false);

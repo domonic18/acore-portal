@@ -165,11 +165,11 @@ moderator 为 M3 论坛预留；M2 仅要求守卫识别（moderator ≠ admin�
 ## 3. 订单状态机
 
 ```text
-pending ──支付事务成功──▶ paid ──发货发起──▶ delivering ──回执成功──▶ completed（终态A）
-                           │                    │
-                           │                    └──回执失败──▶ delivery_failed
-                           │                                      │ ├─重试/后台补发──▶ delivering
-   (cart)                 │                                      │ └─后台退款──────▶ refunded（终态B）
+pending ──支付事务成功──▶ paid ──发货发起──▶ delivering ──回执成功──▶ completed ──后台退款──▶ refunded（终态B）
+                           │                    │                         （US5 实施修订：completed
+                           │                    └──回执失败──▶ delivery_failed  非严格终态，api-admin
+                           │                                      │ ├─重试/后台补发──▶ delivering  契约+quickstart S5.4
+   (cart)                 │                                      │ └─后台退款──────▶ refunded（终态B）  要求可退款）
                            ├──后台取消（未发货）──▶ cancelled（终态C）
                            └──后台退款（已扣分未发货）──▶ refunded（终态B）
 ```

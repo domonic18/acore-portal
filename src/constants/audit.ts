@@ -32,6 +32,11 @@ export const AUDIT_ACTION = {
   POINTS_ADJUST: "points_adjust",
   /** M2 发货:SKU 未注册处理器防御性拒绝(soap-delivery 契约 §2) */
   DELIVERY_NO_HANDLER: "delivery_no_handler",
+  /** M2 后台敏感操作(US5,api-admin 契约:补发/退款/徽章授予/复核落定) */
+  ORDER_REDELIVER: "order_redeliver",
+  ORDER_REFUND: "order_refund",
+  BADGE_GRANT: "badge_grant",
+  REVIEW_RESOLVED: "review_resolved",
 } as const;
 
 export type AuditActionValue = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];
