@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getArticleBySlug } from "@/server/services/content/articles";
 import { renderMarkdown } from "@/lib/markdown";
+import { getCdnHosts } from "@/lib/config";
+import { MARKDOWN_BODY_CLS } from "@/constants/content";
 import { SiteSidebar } from "@/app/_components/sidebar/sidebar";
 import { ViewCounter } from "@/components/content/view-counter";
 import { WowheadTooltips } from "@/components/content/wowhead-tooltips";
@@ -27,7 +29,7 @@ export default async function PostPage({
 }) {
   const article = await getArticleBySlug(decodeURIComponent(params.slug));
   if (!article) notFound();
-  const { html, toc } = await renderMarkdown(article.bodyMd);
+  const { html, toc } = await renderMarkdown(article.bodyMd, { cdnHosts: await getCdnHosts() });
 
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 lg:flex-row">
@@ -76,7 +78,7 @@ export default async function PostPage({
         )}
 
         <div
-          className="prose-invert mt-6 max-w-none space-y-4 text-sm leading-7 text-[#c7d2e0] [&_h2]:border-b [&_h2]:border-[#1e2a3d] [&_h2]:pb-1 [&_h2]:pt-4 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-[#e6d8a8] [&_h3]:pt-3 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-[#e6d8a8] [&_h4]:font-bold [&_h4]:text-[#c7d2e0] [&_img]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-[#0d1728] [&_pre]:p-3 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-[#1e2a3d] [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-[#1e2a3d] [&_th]:px-2 [&_th]:py-1"
+          className={MARKDOWN_BODY_CLS}
           dangerouslySetInnerHTML={{ __html: html }}
         />
       </article>

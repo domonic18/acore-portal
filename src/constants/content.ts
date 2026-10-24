@@ -131,3 +131,7 @@ export const DOWNLOAD_LINKS = {
   addon: { label: "插件下载", href: "/tutorial", note: "整合包" },
   yy: { label: "YY 频道", href: "#", note: "频道号见公告" },
 } as const;
+
+/** Markdown 渲染体共享样式(前台详情/静态页与后台编辑器预览同源,所见即所得) */
+export const MARKDOWN_BODY_CLS =
+  "prose-invert mt-6 max-w-none space-y-4 text-sm leading-7 text-[#c7d2e0] [&_h2]:border-b [&_h2]:border-[#1e2a3d] [&_h2]:pb-1 [&_h2]:pt-4 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-[#e6d8a8] [&_h3]:pt-3 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-[#e6d8a8] [&_h4]:font-bold [&_h4]:text-[#c7d2e0] [&_img]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-[#0d1728] [&_pre]:p-3 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-[#1e2a3d] [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-[#1e2a3d] [&_th]:px-2 [&_th]:py-1";

@@ -1,4 +1,5 @@
 import { renderMarkdown } from "@/lib/markdown";
+import { getCdnHosts } from "@/lib/config";
 import {
   listProgressionTimeline,
   resolveProgressionPosition,
@@ -19,7 +20,7 @@ export default async function ProgressionPage() {
   const items = await Promise.all(
     nodes.map(async (n) => ({
       ...n,
-      html: n.bodyMd ? (await renderMarkdown(n.bodyMd)).html : null,
+      html: n.bodyMd ? (await renderMarkdown(n.bodyMd, { cdnHosts: await getCdnHosts() })).html : null,
     })),
   );
   const currentId = position.current?.id;

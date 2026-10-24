@@ -115,3 +115,9 @@ export async function reloadSystemConfig(): Promise<SystemConfig> {
   cache = await loadSystemConfig();
   return cache;
 }
+
+/** 图片域白名单(renderMarkdown cdnHosts):cos.cdnBase 主机名;未配置=仅站内相对路径放行 */
+export async function getCdnHosts(): Promise<string[]> {
+  const cos = (await getConfig()).cos;
+  return cos ? [new URL(cos.cdnBase).hostname] : [];
+}
