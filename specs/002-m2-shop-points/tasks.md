@@ -135,21 +135,21 @@
 
 **Tests（先写先失败）**:
 
-- [ ] T044 [P] [US5] 集成：`tests/integration/admin-guard.test.ts` — 未登录 401/user/moderator 403 + `admin_access_violation` 审计（quickstart S5.1）
-- [ ] T045 [P] [US5] 集成：`tests/integration/admin-products.test.ts` — SKU 保存校验（gameItemId world 不存在 422 `SKU_GAME_ITEM_NOT_FOUND`/服务类未绑处理器 422 `SKU_HANDLER_UNBOUND`/促销价≥原价 422/sku·slug 重复 409/world 不可达 503 拒绝保存）（FR-126）
-- [ ] T046 [P] [US5] 集成：`tests/integration/admin-orders-users.test.ts` — 补发幂等（幂等键不变）/退款回补（shop_payment 负值流水 remark=「订单退款 #orderNo」+库存回补+状态 refunded+审计含前后余额）/积分手调 402 负余额拦截/徽章重复授予 409（api-admin 契约）
+- [x] T044 [P] [US5] 集成：`tests/integration/admin-guard.test.ts` — 未登录 401/user/moderator 403 + `admin_access_violation` 审计（quickstart S5.1） — 实施:guard 拆两层:新增 requireApiAdmin(req) 返回 {ok,status 401|403,code,message} 供全部后台路由统一入口;审计断言 surface/path/role
+- [x] T045 [P] [US5] 集成：`tests/integration/admin-products.test.ts` — SKU 保存校验（gameItemId world 不存在 422 `SKU_GAME_ITEM_NOT_FOUND`/服务类未绑处理器 422 `SKU_HANDLER_UNBOUND`/促销价≥原价 422/sku·slug 重复 409/world 不可达 503 拒绝保存）（FR-126） — 实施:fixture 商品为测试期临时数据,重复冲突改为用例内自建冲突对;RUN 后缀 SKU 隔离;vi.mock sku-check 模拟 world 不可达(GameDbError→503)
+- [x] T046 [P] [US5] 集成：`tests/integration/admin-orders-users.test.ts` — 补发幂等（幂等键不变）/退款回补（shop_payment 负值流水 remark=「订单退款 #orderNo」+库存回补+状态 refunded+审计含前后余额）/积分手调 402 负余额拦截/徽章重复授予 409（api-admin 契约） — 实施:实施修订:completed→refunded 加入状态机(契约+quickstart S5.4 优先,data-model §3 已注记);退款流水为 shop_payment 正向回补(负值违反 SUM 不变式),remark=「订单退款 #orderNo」照录;低库存=应用层 stock≤threshold(R3 推导)
 
 **实现**:
 
-- [ ] T047 [US5] 后台布局守卫：`src/app/admin/layout.tsx` requireAdmin() + 后台导航（低库存/`delivery_failed` 计数标记，FR-128 提醒）
-- [ ] T048 [US5] `services/catalog/admin.ts`：商品/分类管理服务（保存校验接 sku-check+resolveHandler；上下架/目录隐藏/低库存查询 stock≤threshold）
-- [ ] T049 [US5] 页面 + API：`/admin/products`（列表/新建/编辑）、`/admin/categories`；POST·PATCH `/api/admin/products`、`/[id]/status`、GET `?lowStock=1`（契约照录 api-admin.md）
-- [ ] T050 [US5] `services/orders/admin.ts`：订单状态筛选列表/补发（redeliver：逐失败行重发，幂等键不变，审计 `order_redeliver`）/退款（refund：前置 paid|delivery_failed|completed，回补积分+库存+refunded+审计 `order_refund`）；D3 复核 resolve 服务（approve→completed/驳回→cancelled，FR-129）
-- [ ] T051 [US5] 页面：`/admin/orders`（筛选）+ `/admin/orders/[id]`（详情/补发/退款入口）
-- [ ] T052 [US5] `services/users-admin/`：用户模糊搜索分页；积分手调 API（接 US1 `points/adjust.ts`）；徽章 CRUD+授予（`badge_reward` 流水 amount 读 point_rule event=badge_grant，重复 409）
-- [ ] T053 [US5] 页面：`/admin/users` + `/admin/users/[id]`（积分手调/徽章授予入口，FR-130）
-- [ ] T054 [US5] 邀请码后台：`/admin/invitation-codes` 批量生成（count 1-200）/列表（状态/已用次数/使用者）/启停 PATCH——复用 M1 invitation_code 表与状态机（M1 spec 遗留能力，注册侧消费仍后置）
-- [ ] T055 [US5] E2E：`tests/e2e/admin.spec.ts` — 非管理员 403；商品新建合法+非法 SKU；失败订单补发→completed；积分手调流水断言（SC-107）
+- [x] T047 [US5] 后台布局守卫：`src/app/admin/layout.tsx` requireAdmin() + 后台导航（低库存/`delivery_failed` 计数标记，FR-128 提醒） — 实施:布局含 ADMIN_NAV 五入口+低库存(amber)/发货异常(red)计数角标;总览页 4 卡片(含迁移复核待办计数,页面 US6 落地)
+- [x] T048 [US5] `services/catalog/admin.ts`：商品/分类管理服务（保存校验接 sku-check+resolveHandler；上下架/目录隐藏/低库存查询 stock≤threshold） — 实施:分类管理并入本文件(listAdminCategories/saveCategory);creditLedger 拆出 creditLedgerDetailed(BadgeGrant.pointTransactionId 回引流水)
+- [x] T049 [US5] 页面 + API：`/admin/products`（列表/新建/编辑）、`/admin/categories`；POST·PATCH `/api/admin/products`、`/[id]/status`、GET `?lowStock=1`（契约照录 api-admin.md） — 实施:全部后台变更路由统一 requireApiAdmin 前置;zod 边界校验(宪法 VI);GameDbError→503 拒绝保存
+- [x] T050 [US5] `services/orders/admin.ts`：订单状态筛选列表/补发（redeliver：逐失败行重发，幂等键不变，审计 `order_redeliver`）/退款（refund：前置 paid|delivery_failed|completed，回补积分+库存+refunded+审计 `order_refund`）；D3 复核 resolve 服务（approve→completed/驳回→cancelled，FR-129） — 实施:照录;resolveMigrationReview 存量单走 updateMany 条件守卫(notIn refunded/cancelled 防覆盖终态)
+- [x] T051 [US5] 页面：`/admin/orders`（筛选）+ `/admin/orders/[id]`（详情/补发/退款入口） — 实施:补发/退款入口仅按状态条件渲染,window.confirm 二次确认
+- [x] T052 [US5] `services/users-admin/`：用户模糊搜索分页；积分手调 API（接 US1 `points/adjust.ts`）；徽章 CRUD+授予（`badge_reward` 流水 amount 读 point_rule event=badge_grant，重复 409） — 实施:points-adjust 响应偏差:契约 {balance,transactionId},实际 {balance}(adjust 流水 id 未回传,流水可审计追溯;UI 无需)
+- [x] T053 [US5] 页面：`/admin/users` + `/admin/users/[id]`（积分手调/徽章授予入口，FR-130） — 实施:用户详情含徽章/近 10 条流水;手调增减双按钮同一 reason 输入
+- [x] T054 [US5] 邀请码后台：`/admin/invitation-codes` 批量生成（count 1-200）/列表（状态/已用次数/使用者）/启停 PATCH——复用 M1 invitation_code 表与状态机（M1 spec 遗留能力，注册侧消费仍后置） — 实施:随机段≥4 校验、字符表去易混字符(M1 规则复用);expired 不落库实时推导
+- [x] T055 [US5] E2E：`tests/e2e/admin.spec.ts` — 非管理员 403；商品新建合法+非法 SKU；失败订单补发→completed；积分手调流水断言（SC-107） — 实施:越权场景实测为 middleware edge 层拦回 /login?next=(RSC 深校验 redirect /+审计由集成覆盖);E2E 4 场景全绿
 
 **Checkpoint（quickstart S5）**: 越权 0 成功全审计；非法 SKU 0 通过；退款/补发/手调全留痕。
 
