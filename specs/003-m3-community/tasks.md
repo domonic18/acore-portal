@@ -148,14 +148,19 @@
 
 **Tests（先写先失败）**:
 
-- [ ] T042 [P] [US6] 集成：`tests/integration/server-status.test.ts` — mock 正常态 11 字段契约/降级注入 degraded+缓存保留/冷启动失败数字 null/峰值 max 语义/配置 PUT 后 reloadSystemConfig 即时生效+审计（SC-208）
+- [x] T042 [P] [US6] 集成：`tests/integration/server-status.test.ts` — mock 正常态 11 字段契约/降级注入 degraded+缓存保留/冷启动失败数字 null/峰值 max 语义/配置 PUT 后 reloadSystemConfig 即时生效+审计（SC-208）
+  - 偏差:降级回退测试驱动出契约盲点——status:probe 被清后旧值需独立存档,落地为 `status:probe:lastok` 消费一次回退位(消费后即冷启动口径出 null,防陈旧长挂);fixture 走业务连接跨库直写 characters(game DB 只读 R5)
 
 **实现**:
 
-- [ ] T043 [US6] `services/status/`：探针聚合（SOAP `.server info` 解析+characters 只读统计+Redis 25s 缓存+峰值日键+降级，R7）+ `/api/status`（契约照录 server-status.md）
-- [ ] T044 [US6] 状态卡组件：`components/site/status-card.tsx`（两态渲染+30s 轮询+维护模式徽标+数据延迟降级）接线首页区块（US3 占位转正）+ US3 首页状态卡 enable 开关整卡隐藏
-- [ ] T045 [US6] 后台配置：`/admin/server-status` 页 + `/api/admin/status-config`（PUT 三键+reloadSystemConfig+审计 status_config_change 前后值）；渐进计划指针失效回退+审计 warn（quickstart S6.5）
-- [ ] T046 [US6] E2E：`tests/e2e/server-status.spec.ts` — 状态卡正常渲染/轮询刷新/mock 降级徽标（SC-208 渲染半，注入半已由集成覆盖）
+- [x] T043 [US6] `services/status/`：探针聚合（SOAP `.server info` 解析+characters 只读统计+Redis 25s 缓存+峰值日键+降级，R7）+ `/api/status`（契约照录 server-status.md）
+  - 偏差:失败即全空(SC-208 收紧)——SOAP 与统计任一失败数字字段全 null,不出半真数据;characters 模型补 `createDate @map("create_date")`(今日新注册口径,dev/test 库+initdb DDL 同步,真机核对项入 launch-checklist)
+- [x] T044 [US6] 状态卡组件：`components/site/status-card.tsx`（两态渲染+30s 轮询+维护模式徽标+数据延迟降级）接线首页区块（US3 占位转正）+ US3 首页状态卡 enable 开关整卡隐藏
+  - 偏差:契约类型抽至 `lib/status-types`(boundaries 规则 components 禁 import server);轮询 fetch no-store,失败保留上次渲染
+- [x] T045 [US6] 后台配置：`/admin/server-status` 页 + `/api/admin/status-config`（PUT 三键+reloadSystemConfig+审计 status_config_change 前后值）；渐进计划指针失效回退+审计 warn（quickstart S6.5）
+  - 偏差:页面按 p15 字段二分渲染实时读数只读区;表单初值经 `getRawStatusConfig()`(原始指针,不经运行期回退);ADMIN_NAV 追加「状态配置」入口
+- [x] T046 [US6] E2E：`tests/e2e/server-status.spec.ts` — 状态卡正常渲染/轮询刷新/mock 降级徽标（SC-208 渲染半，注入半已由集成覆盖）
+  - 偏差:轮询用 page.clock fake timer 推进 30s(S6 建议项);补冷启动失败两态渲染断言(--/N/A/离线);admin 配置即时生效流由 T042 集成覆盖(saveStatusConfig+reload),未走 admin UI E2E
 
 **Checkpoint（quickstart S6）**: SC-208 两态渲染+配置实时生效留痕。
 
