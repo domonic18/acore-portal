@@ -1,4 +1,4 @@
-/** 审计域常量(宪法 VI:记事件不记敏感值);M2 增 shop/admin/points 域分组(T005 枚举对齐) */
+/** 审计域常量(宪法 VI:记事件不记敏感值);M2 增 shop/admin/points,M3 增 content/forum(T004 枚举对齐) */
 export const AUDIT_CATEGORY = {
   SOAP: "soap",
   MAIL: "mail",
@@ -6,6 +6,8 @@ export const AUDIT_CATEGORY = {
   SHOP: "shop",
   ADMIN: "admin",
   POINTS: "points",
+  CONTENT: "content",
+  FORUM: "forum",
 } as const;
 
 export type AuditCategoryValue = (typeof AUDIT_CATEGORY)[keyof typeof AUDIT_CATEGORY];
@@ -37,6 +39,24 @@ export const AUDIT_ACTION = {
   ORDER_REFUND: "order_refund",
   BADGE_GRANT: "badge_grant",
   REVIEW_RESOLVED: "review_resolved",
+  /** M3 内容域后台操作(category=content;只记 id/slug 不记正文,T048 脱敏口径) */
+  CONTENT_ARTICLE_SAVED: "content_article_saved",
+  CONTENT_ARTICLE_DELETED: "content_article_deleted",
+  CONTENT_PAGE_SAVED: "content_page_saved",
+  CONTENT_PAGE_DELETED: "content_page_deleted",
+  CONTENT_TAXONOMY_SAVED: "content_taxonomy_saved",
+  CONTENT_TAXONOMY_DELETED: "content_taxonomy_deleted",
+  CONTENT_MEDIA_DELETED: "content_media_deleted",
+  CONTENT_PROGRESSION_SAVED: "content_progression_saved",
+  CONTENT_PROGRESSION_DELETED: "content_progression_deleted",
+  /** M3 状态人工配置变更(category=admin;payload 含前后值,FR-221) */
+  STATUS_CONFIG_CHANGE: "status_config_change",
+  /** M3 论坛版主操作与越权(category=forum,Q3 字段化流转,SC-207) */
+  FORUM_THREAD_PIN: "forum_thread_pin",
+  FORUM_THREAD_CLOSE: "forum_thread_close",
+  FORUM_THREAD_LABEL: "forum_thread_label",
+  FORUM_THREAD_DELETE: "forum_thread_delete",
+  FORUM_MODERATION_VIOLATION: "forum_moderation_violation",
 } as const;
 
 export type AuditActionValue = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];
