@@ -55,7 +55,17 @@ pnpm verify:sc001                              # SC-001 老用户双格式登录
 
 以上命令均已验证可用（M1 收口 2026-10-23 核对 package.json scripts 与 Makefile）。`db:deploy` 供生产/CI 用 `migrate deploy`。
 
-## Project structure（规划）
+测试环境（Mac Mini 常驻栈,公网 dev.17aitech.com → frpc → 宿主 9000）：
+
+```bash
+docker compose -f docker/docker-compose.test.yml up -d --build   # 起栈(mysql 3308/redis 6382 均只绑 127.0.0.1,web 0.0.0.0:9000)
+cp .env.test.example .env.test                                   # 环境变量(gitignore 永不入库)
+DATABASE_URL="mysql://acore_portal:acore_portal@127.0.0.1:3308/acore_portal" pnpm db:deploy   # 业务库迁移
+docker exec -i acore-portal-test-mysql-1 sh -c 'mysql -uroot -p$MYSQL_ROOT_PASSWORD acore_portal' < scripts/dev/initdb/init-system-config.sql   # 系统配置种子(宿主机默认值,容器内栈按文件尾注释 UPDATE;真实 SMTP 凭据不入库)
+docker exec -i acore-portal-test-mysql-1 sh -c 'mysql -uroot -p$MYSQL_ROOT_PASSWORD' < scripts/migrate/wp-users-import.sql   # 存量用户导入(先 gzcat 备份 dump 导 wp_legacy 临时库,见 SQL 头注释)
+```
+
+## Project structure
 
 ```
 prisma/          # schema + migrations（业务库唯一 schema 真相源）
@@ -66,7 +76,11 @@ src/
 ├── lib/         # 基础设施：db/(prisma clients×5) redis/ auth/(phpass+session) mail/ captcha/
 ├── constants/   # 全局枚举与常量（订单状态/积分类型/SKU 前缀/SOAP 命令名），被所有层引用
 └── styles/
-scripts/         # 数据迁移脚本（WP→新库清洗/对账脚本放这里）
+scripts/         # 宿主机侧脚本,按用途分子域
+├── dev/         # 开发辅助(seed/initdb fixture/SOAP mock)
+├── verify/      # 验收自检(soap-check/sc001-login)
+└── migrate/     # WP→新库数据迁移(清洗/对账 SQL 与脚本)
+docker/          # 部署资产:Dockerfile + compose(dev 本地/test Mac Mini 测试栈;生产 compose 上线时同置于此)
 tests/           # 测试
 workspace/       # 宿主机持久化数据（gitignore 不入库）
 docs/            # 文档中心
@@ -80,7 +94,7 @@ docs/            # 文档中心
 3. **RSC 页面禁直连 prisma**：app/ 下页面只做 校验/会话/编排，数据组装收敛 service 层（页面私有取数函数放 `services/<域>/`）
 4. **components 准入**：`components/ui/` 只收 ≥2 个消费者的通用组件；页面私有组件与 page 同目录（colocation）；域组件入 `components/<域>/`
 5. **业务域服务禁互引**：`services/auth` 与 `services/shop` 等域间不直接 import，经 `services/shared/` 或上层编排（防循环依赖，借鉴 ai-invest）
-6. **外部通道 env 收口**：SOAP/SMTP/游戏库等外部通道的环境变量读取与缺失校验统一在 `lib/env.ts`，散点直读 `process.env` 仅限框架约定场景（middleware 的 SESSION_SECRET）
+6. **配置分域收口**（宪法 v1.0.2）：env 仅存引导级凭据（业务库/Redis 连接串 + SESSION_SECRET），统一经 `lib/env.ts` 校验；游戏四库连接串与业务通道配置（SMTP/SOAP/app.url/Turnstile/COS 等）存业务库 `system_config` 表，统一经 `lib/config.ts` 读取（启动预热 + 进程内缓存；游戏库 client 惰性建连，改连接需重启；管理端改通道配置后调 `reloadSystemConfig`），禁止散点直读 `process.env`、禁止在新代码引入 env 版业务配置
 
 ## Code style
 
@@ -118,7 +132,7 @@ docs/            # 文档中心
 ## Security
 
 - 永远不信任外部输入，边界处校验（Zod 或同级别 schema 校验，定稿时确认）
-- 秘钥仅存 env；日志记事件不记敏感值（令牌/密码/个人信息）；安全事件（登录失败/限速/越权尝试）记审计日志
+- 配置分域（宪法 v1.0.2）：env 仅存引导级凭据（业务库/Redis 连接串、SESSION_SECRET）；游戏库连接串与业务通道配置存 `system_config` 表（`lib/config.ts` 收口），凭据值禁止打印/落日志/入文档；日志记事件不记敏感值（令牌/密码/个人信息）；安全事件（登录失败/限速/越权尝试）记审计日志
 - 服务端强制校验：角色归属（防越权下单他人角色）、SKU↔物品存在性、邀请码状态机
 - Turnstile 人机验证 + 登录限速为登录/注册硬性要求
 
