@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PinnedBadge, ThreadStatusBadge } from "@/app/_components/forum/thread-badge";
+import { ModeratorActions } from "@/app/_components/forum/moderator-actions";
 import { renderLegacyHtml } from "@/lib/markdown";
 import { getCdnHosts } from "@/lib/config";
+import { getServerSession } from "@/server/session-guard";
 import { FORUM_POST_PAGE_SIZE, incrementThreadViews } from "@/server/services/forum/browse";
 import {
   getForumThread,
@@ -42,6 +44,9 @@ export default async function ForumThreadPage({
   const floors = await Promise.all(
     items.map(async (p) => ({ ...p, html: await renderLegacyHtml(p.contentHtml, { cdnHosts }) })),
   );
+  const session = await getServerSession();
+  const canModerate =
+    session?.role === "moderator" || session?.role === "admin";
 
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-4 p-4">
@@ -66,6 +71,16 @@ export default async function ForumThreadPage({
           {thread.closedAt && " · 已关闭(不可回复)"}
         </p>
       </header>
+
+      {canModerate && (
+        <ModeratorActions
+          threadId={thread.id.toString()}
+          pinned={thread.pinned}
+          closed={thread.closedAt != null}
+          statusLabel={thread.statusLabel}
+          boardSlug={thread.board.slug}
+        />
+      )}
 
       <ul className="flex flex-col gap-3">
         {floors.map((p) => (

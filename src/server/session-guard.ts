@@ -22,6 +22,12 @@ export async function requireSession(): Promise<SessionPayload> {
   return session;
 }
 
+/** RSC 只读会话(不重定向;页面按角色条件渲染用,如论坛版主操作条) */
+export async function getServerSession(): Promise<SessionPayload | null> {
+  const token = cookies().get(SESSION.ACCESS_COOKIE)?.value;
+  return token ? getSessionFromToken(token) : null;
+}
+
 /** Route Handler 深校验(不重定向;401 语义由调用方表达) */
 export async function getApiSession(req: NextRequest): Promise<SessionPayload | null> {
   return getSessionFromToken(req.cookies.get(SESSION.ACCESS_COOKIE)?.value);
