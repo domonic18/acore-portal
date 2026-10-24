@@ -10,11 +10,12 @@ export const ACCOUNT_NAV = [
   { href: "/account/address", label: "收货地址" },
 ] as const;
 
-/** 运营后台导航(M2 US5 最小集;低库存/发货异常计数由布局注入,FR-128) */
+/** 运营后台导航(M2 US5 最小集+US6 复核;低库存/发货异常计数由布局注入,FR-128) */
 export const ADMIN_NAV = [
   { href: "/admin/products", label: "商品" },
   { href: "/admin/categories", label: "分类" },
   { href: "/admin/orders", label: "订单" },
+  { href: "/admin/review-items", label: "迁移复核" },
   { href: "/admin/users", label: "用户" },
   { href: "/admin/invitation-codes", label: "邀请码" },
 ] as const;

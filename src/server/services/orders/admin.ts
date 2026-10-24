@@ -89,6 +89,78 @@ export async function getAdminOrderDetail(id: bigint) {
   });
 }
 
+/** D3 复核清单(api-admin 契约;T062):resolved=0 待复核(默认)/1 已落定/all 全部 */
+export async function listMigrationReviews(opts: {
+  resolved?: "0" | "1" | "all";
+  page?: number;
+}): Promise<{
+  items: {
+    id: string;
+    legacyWpOrderId: number;
+    reason: string;
+    detail: unknown;
+    resolvedAt: string | null;
+    orderNo: string | null;
+    username: string | null;
+    orderStatus: string | null;
+    pointCost: number | null;
+  }[];
+  page: number;
+  totalPages: number;
+  total: number;
+}> {
+  const page = Number.isInteger(opts.page) && opts.page! > 0 ? opts.page! : 1;
+  const resolved =
+    opts.resolved === "1" ? true : opts.resolved === "all" ? undefined : false;
+  const where = resolved === undefined ? {} : { resolvedAt: resolved ? { not: null } : null };
+  const total = await prisma.migrationReviewItem.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / ADMIN_ORDER_PAGE_SIZE));
+  const rows = await prisma.migrationReviewItem.findMany({
+    where,
+    orderBy: { id: "asc" },
+    skip: (page - 1) * ADMIN_ORDER_PAGE_SIZE,
+    take: ADMIN_ORDER_PAGE_SIZE,
+    select: {
+      id: true,
+      legacyWpOrderId: true,
+      reason: true,
+      detail: true,
+      resolvedAt: true,
+    },
+  });
+  // 存量单可能已被脚本外途径清理:order 缺行时列表仍展示(review 行为真相源)
+  const orderRows = await prisma.order.findMany({
+    where: { legacyWpOrderId: { in: rows.map((r) => r.legacyWpOrderId) } },
+    select: {
+      legacyWpOrderId: true,
+      orderNo: true,
+      status: true,
+      pointCost: true,
+      user: { select: { username: true } },
+    },
+  });
+  const orderMap = new Map(orderRows.map((o) => [o.legacyWpOrderId, o]));
+  return {
+    page,
+    totalPages,
+    total,
+    items: rows.map((r) => {
+      const o = orderMap.get(r.legacyWpOrderId);
+      return {
+        id: r.id.toString(),
+        legacyWpOrderId: r.legacyWpOrderId,
+        reason: r.reason,
+        detail: r.detail,
+        resolvedAt: r.resolvedAt?.toISOString() ?? null,
+        orderNo: o?.orderNo ?? null,
+        username: o?.user.username ?? null,
+        orderStatus: o?.status ?? null,
+        pointCost: o ? o.pointCost : null,
+      };
+    }),
+  };
+}
+
 /** delivery_failed 订单补发:重驱动→按行返回最新状态;审计 order_redeliver */
 export async function redeliverOrder(
   orderId: bigint,
