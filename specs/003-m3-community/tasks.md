@@ -47,16 +47,16 @@
 
 **Tests（先写先失败）**:
 
-- [ ] T011 [P] [US2] 单测：`tests/unit/content-convert.test.ts` — HTML→MD 转换器（turndown 封装）：图片 URL 经 image_asset_map 重写、wowhead 短代码规范化为标准链接、空 slug 生成回退 `legacy-{id}`、excerpt 纯文本截取 500
-- [ ] T012 [P] [US2] 集成：`tests/integration/content-import.test.ts` — 测试内建 wp_posts/wp_terms/wp_post_views mini fixture（≤10 行覆盖各分支）→ 跑导入函数 → 行数/字段/幂等重跑零新增/views 列对列一致断言
+- [x] T011 [P] [US2] 单测：`tests/unit/content-convert.test.ts` — HTML→MD 转换器（turndown 封装）：图片 URL 经 image_asset_map 重写、wowhead 短代码规范化为标准链接、空 slug 生成回退 `legacy-{id}`、excerpt 纯文本截取 500
+- [x] T012 [P] [US2] 集成：`tests/integration/content-import.test.ts` — 测试内建 wp_posts/wp_terms/wp_post_views mini fixture（≤10 行覆盖各分支）→ 跑导入函数 → 行数/字段/幂等重跑零新增/views 列对列一致断言
 
 **实现**:
 
-- [ ] T013 [US2] `scripts/migrate/content-import.mjs`：wp_posts(post)→article（111 篇，bodyMd 转换+图片重写+views 初始化）、wp_posts(page)→content_page（20 页）、wp_terms→article_category/tag（4 分类）+ 关联、渐进计划 29 档源摸底→progression_node；全部 ODKU/legacy 键幂等；尾部内嵌对账断言（M2 套路）
-- [ ] T014 [US2] `scripts/migrate/route-map-m3.sql`：`p:{id}→/post/{slug}`、`page_id:{id}→/{slug}`、`cat:{id}→/{categorySlug}` 全量 INSERT SELECT（幂等 ODKU）；跑后 route_map 行数断言
-- [ ] T015 [US2] 死链扫描扩展：复用 M2 脚本扫描面扩 article.bodyMd/content_page.bodyMd/progression_node.imageUrl；dev 库真实数据全流程演练（wp_legacy 已在 dev 库）产出 migration-report 草稿（正式报告 Polish 阶段定稿）
+- [x] T013 [US2] `scripts/migrate/content-import.mjs`：wp_posts(post)→article（111 篇，bodyMd 转换+图片重写+views 初始化）、wp_posts(page)→content_page（20 页）、wp_terms→article_category/tag（4 分类）+ 关联、渐进计划 29 档源摸底→progression_node；全部 ODKU/legacy 键幂等；尾部内嵌对账断言（M2 套路）
+- [x] T014 [US2] `scripts/migrate/route-map-m3.sql`：`p:{id}→/post/{slug}`、`page_id:{id}→/{slug}`、`cat:{id}→/{categorySlug}` 全量 INSERT SELECT（幂等 ODKU）；跑后 route_map 行数断言
+- [x] T015 [US2] 死链扫描扩展：复用 M2 脚本扫描面扩 article.bodyMd/content_page.bodyMd/progression_node.imageUrl；dev 库真实数据全流程演练（wp_legacy 已在 dev 库）产出 migration-report 草稿（正式报告 Polish 阶段定稿）
 
-**Checkpoint（quickstart S2 内容半）**: dev 库演练 111+20+4 分类+29 节点全量入库；幂等重跑零新增；views 对账零差异；p/page_id/cat 301 全量生效；死链 0。
+**Checkpoint（quickstart S2 内容半）**: dev 库演练 110 文章+4 页+3 分类+28 节点全量入库（口径偏差见 migration-report §3）；幂等重跑零新增；views 对账零差异（源数据全零，见报告）；p/page_id/cat 301 全量生效（route_map 124 行）；死链 0。
 
 ---
 
