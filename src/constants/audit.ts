@@ -30,6 +30,8 @@ export const AUDIT_ACTION = {
   EMAIL_CHANGE_CONFIRMED: "email_change_confirmed",
   /** M2 积分手调(US5 后台;payload 含调整前后余额) */
   POINTS_ADJUST: "points_adjust",
+  /** M2 发货:SKU 未注册处理器防御性拒绝(soap-delivery 契约 §2) */
+  DELIVERY_NO_HANDLER: "delivery_no_handler",
 } as const;
 
 export type AuditActionValue = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];

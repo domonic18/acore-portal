@@ -2,7 +2,9 @@
 // 三态开关: normal(正常) / timeout(挂起不响应) / failure(SOAP Fault)
 // 运行态切换: GET /__mode            -> 查询当前态
 //             GET /__mode?mode=...   -> 切换(normal|timeout|failure)
-// 命令处理: 仅认识 `.server info`,其余命令返回错误文本(供白名单/非幂等路径测试)
+// 按命令失败注入: GET /__fail?command=.send%20items&on=1|0  -> 命中命令返回 Fault
+// 已执行命令: GET /__executed -> JSON 列表(调试/测试断言)
+// 命令处理: `.server info` / 发货 `.send items` / US4 服务占位(.character *、.guild change)
 // 零依赖纯 Node http,compose 与 `pnpm soap:mock` 共用本文件
 import http from "node:http";
 
@@ -11,6 +13,13 @@ const USER = process.env.SOAP_MOCK_USER ?? "soaper";
 const PASSWORD = process.env.SOAP_MOCK_PASSWORD ?? "change-me";
 
 let mode = "normal";
+const failCommands = new Set();
+const executed = [];
+
+/** 命令前缀(前两个 token,如 ".send items"),注入与路由共用 */
+function commandKey(command) {
+  return command.split(/\s+/).slice(0, 2).join(" ");
+}
 
 function extractCommand(xml) {
   // AzerothCore 风格:<command>...</command>(CDATA 或转义文本)
@@ -107,6 +116,24 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // 按命令失败注入(dev only)
+  if (url.pathname === "/__fail") {
+    const command = url.searchParams.get("command") ?? "";
+    const on = url.searchParams.get("on") === "1";
+    if (on) failCommands.add(command);
+    else failCommands.delete(command);
+    console.log(`[soap-mock] fail(${command}) -> ${on}`);
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ failCommands: [...failCommands] }));
+    return;
+  }
+
+  if (url.pathname === "/__executed") {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ executed }));
+    return;
+  }
+
   if (!basicAuthOk(req)) {
     res.writeHead(401, { "WWW-Authenticate": 'Basic realm="AC"' });
     res.end();
@@ -141,10 +168,34 @@ const server = http.createServer((req, res) => {
     }
 
     const command = extractCommand(body);
+    if (command !== "") executed.push({ at: new Date().toISOString(), command });
+    const key = commandKey(command);
+
+    if (failCommands.has(command) || failCommands.has(key)) {
+      res.writeHead(500, { "content-type": "text/xml" });
+      res.end(soapEnvelope(faultString("mock injected failure")));
+      return;
+    }
+
     let result;
     if (command === ".server info") {
       result =
         "AzerothCore rev. mock 2026-10-23 (Unix, Static) \nConnected players: 0. Character in world: 0.\n";
+    } else if (key === ".send items") {
+      // .send items --{char} "{subject}" "{text}" {itemId}:{count} → 确定性成功回执
+      const m = command.match(/^\.send\s+items\s+--(\S+)\s+"([^"]*)"\s+"([^"]*)"\s+(\d+):(\d+)$/);
+      if (!m) {
+        result = `[mock] .send items usage error: ${command}`;
+      } else {
+        const [, char, , , itemId, count] = m;
+        result = `Item sent to player: ${char} (item ${itemId} x${count})\n`;
+      }
+    } else if (
+      /^\.character (changerace|changefaction|customize|rename|clone|transfer)\b/.test(command) ||
+      /^\.guild change\b/.test(command)
+    ) {
+      // US4 服务类占位:成功回执,细节随各处理器契约补齐
+      result = `[mock] command accepted: ${key}\n`;
     } else if (command === "") {
       res.writeHead(500, { "content-type": "text/xml" });
       res.end(soapEnvelope(faultString("missing command")));
