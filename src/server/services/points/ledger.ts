@@ -29,12 +29,28 @@ export async function creditLedger(
     refId?: bigint;
   },
 ): Promise<number> {
+  const { balance } = await creditLedgerDetailed(tx, input);
+  return balance;
+}
+
+/** 同 creditLedger,另回流水 id(BadgeGrant.pointTransactionId 回引用,US5) */
+export async function creditLedgerDetailed(
+  tx: Tx,
+  input: {
+    userId: bigint;
+    amount: number;
+    type?: PointTxTypeValue;
+    remark?: string;
+    refType?: string;
+    refId?: bigint;
+  },
+): Promise<{ balance: number; transactionId: bigint }> {
   const account = await tx.pointAccount.upsert({
     where: { userId: input.userId },
     create: { userId: input.userId, balance: input.amount },
     update: { balance: { increment: input.amount } },
   });
-  await tx.pointTransaction.create({
+  const row = await tx.pointTransaction.create({
     data: {
       userId: input.userId,
       type: input.type ?? POINT_TX_TYPE.REGISTER_REWARD,
@@ -44,8 +60,9 @@ export async function creditLedger(
       refType: input.refType,
       refId: input.refId,
     },
+    select: { id: true },
   });
-  return account.balance;
+  return { balance: account.balance, transactionId: row.id };
 }
 
 /**

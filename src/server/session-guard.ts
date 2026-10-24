@@ -55,3 +55,20 @@ export async function getApiAdminSession(req: NextRequest): Promise<SessionPaylo
   }
   return session;
 }
+
+export type ApiAdminGuard =
+  | { ok: true; session: SessionPayload }
+  | { ok: false; status: 401 | 403; code: string; message: string };
+
+/** API 路由统一入口(quickstart S5.1:未登录 401,登录非 admin 403+审计) */
+export async function requireApiAdmin(req: NextRequest): Promise<ApiAdminGuard> {
+  const session = await getApiSession(req);
+  if (!session) {
+    return { ok: false, status: 401, code: "UNAUTHORIZED", message: "请先登录。" };
+  }
+  const admin = await getApiAdminSession(req);
+  if (!admin) {
+    return { ok: false, status: 403, code: "FORBIDDEN", message: "需要管理员权限。" };
+  }
+  return { ok: true, session: admin };
+}
