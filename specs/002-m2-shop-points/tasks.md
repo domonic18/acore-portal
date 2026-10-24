@@ -66,21 +66,21 @@
 
 **Tests（先写先失败）**:
 
-- [ ] T017 [P] [US2] 单测：`tests/unit/effective-price.test.ts` — 档期内=促销价/过期恢复原价/开始与结束瞬间边界（vitest 时间注入；服务端 now() 判定，FR-115）
-- [ ] T018 [P] [US2] 集成：`tests/integration/cart.test.ts` — 加购校验链：published→SKU 参数 schema（缺参数 422，FR-120 未选恢复物品不得加购）→角色归属 403+`ownership_violation` 审计→售罄 409→同商品同参数合并行；PATCH qty（售罄增数 409）/DELETE 404 防枚举（quickstart S2.3-5）
+- [x] T017 [P] [US2] 单测：`tests/unit/effective-price.test.ts` — 档期内=促销价/过期恢复原价/开始与结束瞬间边界（vitest 时间注入；服务端 now() 判定，FR-115）
+- [x] T018 [P] [US2] 集成：`tests/integration/cart.test.ts` — 加购校验链：published→SKU 参数 schema（缺参数 422，FR-120 未选恢复物品不得加购）→角色归属 403+`ownership_violation` 审计→售罄 409→同商品同参数合并行；PATCH qty（售罄增数 409）/DELETE 404 防枚举（quickstart S2.3-5）（实施偏差：服务层直测而非 HTTP 层，状态码映射在 API 路由薄封装；游戏 fixture 经业务连接自建 auth 账号+characters 行，guid 段按 RUN 隔离）
 
 **实现**:
 
-- [ ] T019 [US2] `services/catalog/products.ts` + `categories.ts`：列表查询（published+listed 过滤/分类筛选/price_asc|price_desc|newest 排序/分页 size 24）、详情（draft→404、listed=false 直链可达带标记）、`effectivePrice(now)`；`services/catalog/sku-check.ts`：gameItemId→world.item_template SELECT 存在性校验（只读，FR-126 复用）
-- [ ] T020 [US2] 页面 `/shop`：`src/app/shop/page.tsx` 分类筛选/排序/分页（RSC 直读）+ 商品卡片（图/名/价/分类，FR-109 路径不变）
-- [ ] T021 [US2] 页面 `/shop/[slug]`：图集/描述/划线价/Wowhead 浮窗（物品类，离线降级纯文本，Assumptions）+ 登录态角色下拉（复用 account/characters 投影；游戏库不可达降级提示不阻塞浏览）
-- [ ] T022 [US2] `services/shop/cart.ts` + API：POST `/api/cart`（校验链照录 contracts/api-shop.md）/ PATCH·DELETE `/api/cart/[id]`（仅本人行，越权记审计）
-- [ ] T023 [US2] SKU 参数矩阵：`src/server/services/shop/param-schemas.ts` 按 SKU 定义 Zod schema（characterGuid 必填/restoreItemEntry/destAccount/guildName/unlockName——与 soap-delivery 处理器 validateSchema 同源，US4 复用）；未注册 SKU 的服务类商品加购拒绝
-- [ ] T024 [US2] 页面 `/cart`：行参数复核/数量调整/移除/小计；未登录加购引导登录（FR-111/112）
-- [ ] T025 [US2] 角色选择组件：`src/components/shop/character-select.tsx`（仅本人角色、服务端归属校验入口、参数随购物车行持久化）
-- [ ] T026 [US2] E2E：`tests/e2e/shop.spec.ts` — 列表筛选→详情→选角色→加购→复核→移除全流程；游客加购跳登录；越权直发他人 characterGuid 403
+- [x] T019 [US2] `services/catalog/products.ts` + `categories.ts`：列表查询（published+listed 过滤/分类筛选/price_asc|price_desc|newest 排序/分页 size 24）、详情（draft→404、listed=false 直链可达带标记）、`effectivePrice(now)`；`services/catalog/sku-check.ts`：gameItemId→world.item_template SELECT 存在性校验（只读，FR-126 复用）（实施偏差：列表 99 商品规模在应用层排序/分页，SQL 窗口排序属过度设计〔宪法 VII〕；item_template 模型+initdb fixture 已补落 dev/test 双库）
+- [x] T020 [US2] 页面 `/shop`：`src/app/shop/page.tsx` 分类筛选/排序/分页（RSC 直读）+ 商品卡片（图/名/价/分类，FR-109 路径不变）（实施偏差：商品卡图用占位图形，Product 无图列〔data-model 权威〕，真图管线延 US6 COS）
+- [x] T021 [US2] 页面 `/shop/[slug]`：图集/描述/划线价/Wowhead 浮窗（物品类，离线降级纯文本，Assumptions）+ 登录态角色下拉（复用 account/characters 投影；游戏库不可达降级提示不阻塞浏览）（实施偏差：单占位主图替代图集；未注册 SKU 服务类商品呈现"暂不支持在线购买"）
+- [x] T022 [US2] `services/shop/cart.ts` + API：POST `/api/cart`（校验链照录 contracts/api-shop.md）/ PATCH·DELETE `/api/cart/[id]`（仅本人行，越权记审计）
+- [x] T023 [US2] SKU 参数矩阵：`src/server/services/shop/param-schemas.ts` 按 SKU 定义 Zod schema（characterGuid 必填/restoreItemEntry/destAccount/guildName/unlockName——与 soap-delivery 处理器 validateSchema 同源，US4 复用）；未注册 SKU 的服务类商品加购拒绝
+- [x] T024 [US2] 页面 `/cart`：行参数复核/数量调整/移除/小计；未登录加购引导登录（FR-111/112）
+- [x] T025 [US2] 角色选择组件：`src/components/shop/character-select.tsx`（仅本人角色、服务端归属校验入口、参数随购物车行持久化）
+- [x] T026 [US2] E2E：`tests/e2e/shop.spec.ts` — 列表筛选→详情→选角色→加购→复核→移除全流程；游客加购跳登录；越权直发他人 characterGuid 403
 
-**Checkpoint（quickstart S2）**: 促销价生效/过期恢复；售罄可见禁购；购物车行参数逐行可见。
+**Checkpoint（quickstart S2）**: 促销价生效/过期恢复；售罄可见禁购；购物车行参数逐行可见。（✅ make check 83 测试全绿+E2E 4/4；另落地实施注记：`characters-game.ts` 整体上收 `services/shared/game-identity.ts`〔AGENTS 业务域禁互引〕，5 消费方改导入）
 
 ---
 
