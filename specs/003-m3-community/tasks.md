@@ -127,16 +127,16 @@
 
 **Tests（先写先失败）**:
 
-- [ ] T035 [P] [US5] 单测：`tests/unit/forum-convert.test.ts` — 状态前缀剥离（【规范】【已解决】【已关闭】→statusLabel+净标题，剥离失败保留原文）、楼层分配（早序 floor 连续、1=主贴）
-- [ ] T036 [P] [US5] 集成：`tests/integration/forum-import.test.ts` + `tests/integration/forum-moderation.test.ts` — mini fixture 导入幂等/作者双字段快照（未映射行 authorName 保留）；版主操作：pin/close/label/delete+审计断言、label=closed 直传 422、软删后浏览不可见（SC-207）
+- [x] T035 [P] [US5] 单测：`tests/unit/forum-convert.test.ts` — 状态前缀剥离（【规范】【已解决】【已关闭】→statusLabel+净标题，剥离失败保留原文）、楼层分配（早序 floor 连续、1=主贴）（偏差：真实高频前缀【已处理】【测试结果】【任务攻略】【精】按 Q3 契约保留原文,label=none）
+- [x] T036 [P] [US5] 集成：`tests/integration/forum-import.test.ts` + `tests/integration/forum-moderation.test.ts` — mini fixture 导入幂等/作者双字段快照（未映射行 authorName 保留）；版主操作：pin/close/label/delete+审计断言、label=closed 直传 422、软删后浏览不可见（SC-207）
 
 **实现**:
 
-- [ ] T037 [US5] `scripts/migrate/forum-import.mjs`：board 5/thread 259/post 722（作者映射+前缀剥离+楼层+附件重写）+ `route-map-m3.sql` 扩 `topic:{id}`/`forum:{id}` 两键；尾部对账（映射率报告）
-- [ ] T038 [US5] `services/forum/`（浏览查询 boards/threads/posts + 版主操作 pin/close/label/delete 全审计）
-- [ ] T039 [US5] 论坛前台：`app/forum/page.tsx`（版块列表）+ `app/forum/[board]/page.tsx`（主题列表 20/页，pinned desc+lastPostAt desc）+ `app/forum/thread/[id]/page.tsx`（楼层 20/页+状态标签徽标+已关闭态）
-- [ ] T040 [US5] 版主 API：`/api/forum/moderate/thread/[id]/{pin,close,label}` + `DELETE`（requireApiModerator，契约照录 api-forum.md）；版主操作按钮内嵌论坛页（moderator 角色服务端渲染可见）
-- [ ] T041 [US5] E2E：`tests/e2e/forum.spec.ts` — 游客浏览三层路由+未映射作者快照渲染/user 越权 403+审计/moderator 操作全链路/moderator 访问 /admin 403/`/bbs` 与 `?topic=` 301（SC-201/207）
+- [x] T037 [US5] `scripts/migrate/forum-import.mjs`：board 5/thread 259/post 730（作者映射+前缀剥离+楼层+附件重写）+ `route-map-m3.sql` 扩 `topic:{id}`/`forum:{id}` 两键；尾部对账（偏差：post 730=259 主贴+471 回复全量（估算 722 漏计主贴行）；wp draft/pending/spam/trash→deletedAt 软隐藏（259 中可见 255、730 中可见 721）；wp post_status='closed' 102 题→closedAt+statusLabel 双写（历史锁态保真）；映射率 100%（259/259 主题、730/730 楼层）；对账 diff 0/0）
+- [x] T038 [US5] `services/forum/`（浏览查询 boards/threads/posts + 版主操作 pin/close/label/delete 全审计）
+- [x] T039 [US5] 论坛前台：`app/forum/page.tsx`（版块列表）+ `app/forum/[board]/page.tsx`（主题列表 20/页，pinned desc+lastPostAt desc）+ `app/forum/thread/[id]/page.tsx`（楼层 20/页+状态标签徽标+已关闭态）（偏差：存量 HTML 的 XSS 白名单收口在渲染层 `renderLegacyHtml` 单点（rehype-parse→图片域白名单→sanitize），迁移层仅做图片 URL 重写）
+- [x] T040 [US5] 版主 API：`/api/forum/moderate/thread/[id]/{pin,close,label}` + `DELETE`（requireApiModerator，契约照录 api-forum.md）；版主操作按钮内嵌论坛页（moderator 角色服务端渲染可见）（实现：新增 `getServerSession()` 只读会话供 RSC 条件渲染；label 传 closed 命中服务层 422 LABEL_INVALID 而非 zod 泛化错误）
+- [x] T041 [US5] E2E：`tests/e2e/forum.spec.ts` — 游客浏览三层路由+未映射作者快照渲染/user 越权 403+审计/moderator 操作全链路/moderator 访问 /admin 403/`/bbs` 与 `?topic=` 301（SC-201/207）（偏差：moderator 访问 /admin 页面被 edge middleware 先拦回 `/login?next=%2Fadmin`（与 T034/M2 口径一致，非页面 403），admin API 层 403 已另断言；`/bbs/` 尾斜杠先 308 归一化再 301；55/55 通过）
 
 **Checkpoint（quickstart S5）**: SC-201 论坛半（存量可访问+301 生效）、SC-207 版主越权 0 成功全审计。
 
