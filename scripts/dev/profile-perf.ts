@@ -75,7 +75,7 @@ async function main() {
   });
   const category = await prisma.productCategory.create({
     data: { name: "PERF 分类", slug: `perf-${RUN}`, sort: 99 },
-    select: { id: true },
+    select: { id: true, slug: true },
   });
   const product = await prisma.product.create({
     data: {
