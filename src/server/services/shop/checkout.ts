@@ -5,22 +5,31 @@ import { PRODUCT_STATUS } from "@/constants/shop";
 import { POINT_TX_TYPE } from "@/constants/points";
 import { effectivePrice } from "@/server/services/catalog/products";
 import { debitLedger, LedgerError } from "@/server/services/points/ledger";
+import { resolveGameAccountId } from "@/server/services/shared/game-identity";
+import { validateCartParams } from "./param-schemas";
+import type { ValidatedCartParams } from "./param-schemas";
+import { resolveHandler } from "./handlers/registry";
 
 /**
  * 结账单事务(research R2/契约 POST /api/checkout):
- * 用户行 FOR UPDATE 互斥(data-model §5)→ 条件扣余额+shop_payment 流水(LedgerError→402 不建单)
- * → 建 Order(paid)+行快照 → 条件扣库存(超卖 409 整体回滚)→ 清车。
+ * 支付前处理器 precheck(FR-120/123:离线恢复/占用名/目标账号不存在等 422 零写入)
+ * → 用户行 FOR UPDATE 互斥(data-model §5)→ 条件扣余额+shop_payment 流水
+ * (LedgerError→402 不建单)→ 建 Order(paid)+行快照 → 条件扣库存(超卖 409 整体回滚)→ 清车。
  * 促销价以事务内服务端 now() 生效价取值(FR-115);发货在事务外异步驱动。
  */
 
 export type CheckoutErrorCode =
   | "CART_EMPTY"
   | "PRODUCT_UNAVAILABLE"
-  | "OUT_OF_STOCK";
+  | "OUT_OF_STOCK"
+  | "PRECHECK_FAILED";
 
 export class CheckoutError extends Error {
-  constructor(public code: CheckoutErrorCode) {
-    super(`checkout_error: ${code}`);
+  constructor(
+    public code: CheckoutErrorCode,
+    message?: string,
+  ) {
+    super(message ?? `checkout_error: ${code}`);
     this.name = "CheckoutError";
   }
 }
@@ -48,7 +57,67 @@ async function nextOrderNo(tx: Tx): Promise<string> {
 
 const ORDER_NO_COLLISION_RETRIES = 3;
 
+/**
+ * 支付前关(FR-120/123,quickstart S4):全部行参数复核(schema 双重把关)+
+ * 带 precheck 的处理器逐行前置(失败→PRECHECK_FAILED,结账响应携带处理器话术)。
+ * 在事务外先行,零写入;发货时 driver 侧会再拦一次(双拦纵深)。
+ */
+async function runCheckoutPrechecks(userId: bigint): Promise<void> {
+  const rows = await prisma.cartItem.findMany({
+    where: { userId },
+    include: { product: { select: { sku: true } } },
+  });
+  for (const row of rows) {
+    if (!validateCartParams(row.product.sku, row.params).ok) {
+      throw new CheckoutError(
+        "PRECHECK_FAILED",
+        "购物车中存在参数不完整的商品,请移除后重新加购。",
+      );
+    }
+  }
+
+  const prechecks: {
+    sku: string;
+    params: unknown;
+    run: (ctx: {
+      userId: bigint;
+      username: string;
+      gameAccountId: number;
+      params: ValidatedCartParams;
+    }) => Promise<void>;
+  }[] = [];
+  for (const row of rows) {
+    const precheck = resolveHandler(row.product.sku)?.precheck;
+    if (precheck) prechecks.push({ sku: row.product.sku, params: row.params, run: precheck });
+  }
+  if (prechecks.length === 0) return;
+
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { username: true },
+  });
+  const gameAccountId = await resolveGameAccountId(user.username);
+  if (gameAccountId === null) {
+    throw new CheckoutError("PRECHECK_FAILED", "游戏账号不存在,无法办理该服务。");
+  }
+  for (const { sku, params, run } of prechecks) {
+    const parsed = validateCartParams(sku, params);
+    if (!parsed.ok) {
+      throw new CheckoutError("PRECHECK_FAILED", "商品参数不完整,请重新加购。");
+    }
+    try {
+      await run({ userId, username: user.username, gameAccountId, params: parsed.params });
+    } catch (err) {
+      throw new CheckoutError(
+        "PRECHECK_FAILED",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+}
+
 export async function checkoutCart(userId: bigint): Promise<CheckoutResult> {
+  await runCheckoutPrechecks(userId);
   // 单号由当日序生成,跨用户并发可能撞 unique:整体重试(重读购物车,幂等安全)
   let lastError: unknown;
   for (let attempt = 0; attempt < ORDER_NO_COLLISION_RETRIES; attempt += 1) {

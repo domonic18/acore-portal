@@ -72,10 +72,30 @@ export async function driveOrderDelivery(orderId: bigint): Promise<void> {
       continue;
     }
 
+    const params = item.params as ValidatedCartParams;
+    // 处理器前置(结账时已拦过一次,发货侧兜底):失败→行 failed 可补发
+    if (handler.precheck) {
+      try {
+        await handler.precheck({
+          userId: order.userId,
+          username: order.user.username,
+          gameAccountId,
+          params,
+        });
+      } catch (err) {
+        errors.push(`${item.sku}: ${err instanceof Error ? err.message : String(err)}`);
+        await prisma.orderItem.update({
+          where: { id: item.id },
+          data: { deliveryStatus: ORDER_ITEM_DELIVERY_STATUS.FAILED },
+        });
+        continue;
+      }
+    }
+
     const ctx: OrderItemCtx = {
       item,
       order,
-      params: item.params as ValidatedCartParams,
+      params,
       gameAccountId,
       idempotencyKey: await nextAttemptKey(item.id),
     };

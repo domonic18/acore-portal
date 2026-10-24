@@ -1,7 +1,8 @@
 import "server-only";
-import { getCharactersDb } from "@/lib/db/characters";
 import { ITEMSEND_SKU_PREFIX } from "@/constants/shop";
+import { ITEM_SEND_PARAM_SCHEMA } from "@/server/services/shop/param-schemas";
 import { executeDeliveryCommand } from "@/server/soap/delivery";
+import { resolveCharacterName } from "./character";
 import type { DeliveryHandler } from "./registry";
 
 /**
@@ -9,21 +10,9 @@ import type { DeliveryHandler } from "./registry";
  * .send items --{char} "{subject}" "{text}" {itemId}:{count}
  * 角色名按 guid+账号实查 characters 库(发货时刻名册为准);物品 id 取 SKU 快照后缀。
  */
-
-async function resolveCharacterName(guid: number, accountId: number): Promise<string | null> {
-  try {
-    const row = await (await getCharactersDb()).characters.findFirst({
-      where: { guid, account: accountId },
-      select: { name: true },
-    });
-    return row?.name ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export const itemSendHandler: DeliveryHandler = {
   skuKey: `${ITEMSEND_SKU_PREFIX}*`,
+  validateSchema: ITEM_SEND_PARAM_SCHEMA,
 
   async execute({ item, order, params, gameAccountId, idempotencyKey }) {
     const itemId = Number(item.sku.slice(ITEMSEND_SKU_PREFIX.length));

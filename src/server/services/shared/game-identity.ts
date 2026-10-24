@@ -1,5 +1,6 @@
 import "server-only";
 import { getCharactersDb } from "@/lib/db/characters";
+import { getWorldDb } from "@/lib/db/world";
 import { authDb } from "@/lib/db/auth";
 
 /**
@@ -80,11 +81,14 @@ export type RestorableItem = {
   name: string | null;
   quality: number | null;
   count: number;
+  /** world.item_template 命中;数据缺失的行不可恢复(T041 M2 语义) */
+  restorable: boolean;
 };
 
 /**
  * 只读恢复列表(recovery_item 表,旧站同源)。
- * M1 不连 world.item_template,名称留 null 由前端回退「物品 #entry」。
+ * M2 起 join world.item_template 补名称/质量色并给 restorable 标记
+ * (模板缺失行可展示但不可恢复);world 不可达与角色库同视为 GameDbError。
  */
 export async function listRestorableItems(guid: number): Promise<RestorableItem[]> {
   try {
@@ -93,9 +97,27 @@ export async function listRestorableItems(guid: number): Promise<RestorableItem[
       select: { itemEntry: true },
       orderBy: { id: "asc" },
     });
-    return rows.map((r) => ({ entry: r.itemEntry, name: null, quality: null, count: 1 }));
+    if (rows.length === 0) return [];
+    const entries = [...new Set(rows.map((r) => r.itemEntry))];
+    const templates = await (
+      await getWorldDb()
+    ).itemTemplate.findMany({
+      where: { entry: { in: entries } },
+      select: { entry: true, name: true, quality: true },
+    });
+    const byEntry = new Map(templates.map((t) => [t.entry, t]));
+    return rows.map((r) => {
+      const t = byEntry.get(r.itemEntry);
+      return {
+        entry: r.itemEntry,
+        name: t?.name ?? null,
+        quality: t?.quality ?? null,
+        count: 1,
+        restorable: t !== undefined,
+      };
+    });
   } catch (err) {
     console.error("[game-identity] restorable items failed", err);
-    throw new GameDbError("角色库不可用");
+    throw new GameDbError("游戏数据暂不可用");
   }
 }
