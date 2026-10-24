@@ -1,4 +1,4 @@
-# M2 上线前置清单(T067)
+# 上线前置清单(M2 T067 / M3 T049 扩)
 
 > M2 验收在 soap-mock 下全链路完成(make check 137 vitest + 28 E2E 全绿);以下为切生产/公网前的硬性门槛。
 > 状态真相源:docs/plan/development-plan.md;本文档只列前置项与操作入口。
@@ -36,3 +36,9 @@
 
 - [ ] 新旧并行观察期(读新写旧,M4 验收口径);1,897 存量订单页抽查与旧站对拍
 - [ ] 复核清单 `/admin/review-items` 值守:切换日 D3 若出现金额不符单,人工 approve/驳回留痕
+
+## 7. M3 内容/状态域前置项(T049 扩)
+
+- [ ] SOAP `.server info` 真机解析核对:uptime 行/登录队列行解析正则 vs 真机输出(mock 固定样例先行,解析失败置 null 前台 N/A;在线数走 characters 库 `online=1` 计数不走文本解析,契约 specs/003 contracts/server-status.md)
+- [ ] characters 今日新注册口径核对:`create_date`(unix 秒,M1 迁移既有字段)在真机库的语义确认为账号建号时间,避免状态卡统计口径漂移(T043 偏差注记)
+- [ ] 内容迁移正式跑清单(切换日全幂等,先于/随后 M2 §4 管线):①`route-map-m3.sql`(p/page_id/cat 三键 124 行,断言见文件尾;topic/forum 两键随 forum-import 扩充) ②`content-import.mjs`(article/content_page/progression_node 三落地表+正文死链扫描) ③`forum-import.mjs`(版块/主题/帖子,contentHtml 附件重写查 image_asset_map) ④`cos-upload.mjs` 扫描面增量核对(M2 全量 4.4G/972 附件已扫,M3 新增 forum_post.contentHtml/progression_node.imageUrl 引用),死链报告复跑归零
