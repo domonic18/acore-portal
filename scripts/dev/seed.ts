@@ -314,6 +314,25 @@ async function seedForum() {
       data: { replyCount: 1 },
     });
   }
+  // 301 兼容层 fixture(route_map 进程内快照,须在 webServer 启动前落库)
+  for (const b of boardSeed) {
+    await prisma.routeMap.upsert({
+      where: { oldKey: `forum:${b.slug === "guild-hall" ? 1000 : 1001}` },
+      create: { oldKey: `forum:${b.slug === "guild-hall" ? 1000 : 1001}`, newPath: `/forum/${b.slug}` },
+      update: { newPath: `/forum/${b.slug}`, enabled: true },
+    });
+  }
+  const seeded = await prisma.forumThread.findMany({
+    where: { legacyWpTopicId: { in: [2001, 2002] } },
+    select: { id: true, legacyWpTopicId: true },
+  });
+  for (const t of seeded) {
+    await prisma.routeMap.upsert({
+      where: { oldKey: `topic:${t.legacyWpTopicId}` },
+      create: { oldKey: `topic:${t.legacyWpTopicId}`, newPath: `/forum/thread/${t.id}` },
+      update: { newPath: `/forum/thread/${t.id}`, enabled: true },
+    });
+  }
 }
 
 main()

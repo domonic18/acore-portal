@@ -48,9 +48,27 @@ FROM wp_legacy.wp_terms t
 WHERE t.term_id IN (1, 83, 68)
 ON DUPLICATE KEY UPDATE route_map.id = route_map.id;
 
--- 尾部断言:行数对列(108 p + 13 page_id + 3 cat = 124;缺行即红)
+
+-- ⑤ 论坛(T037):topic:{wpTopicId} → /forum/thread/{id}(forum_thread 自增 id,导入后运行)
+INSERT INTO acore_portal.route_map (old_key, new_path)
+SELECT CONCAT('topic:', f.legacy_wp_topic_id), CONCAT('/forum/thread/', f.id)
+FROM acore_portal.forum_thread f
+WHERE f.legacy_wp_topic_id IS NOT NULL
+ON DUPLICATE KEY UPDATE route_map.id = route_map.id;
+
+-- ⑥ 论坛版块:forum:{wpForumId} → /forum/{slug}(slug 固定映射,forum-import 同源)
+INSERT INTO acore_portal.route_map (old_key, new_path)
+SELECT CONCAT('forum:', b.legacy_wp_forum_id), CONCAT('/forum/', b.slug)
+FROM acore_portal.forum_board b
+WHERE b.legacy_wp_forum_id IS NOT NULL
+ON DUPLICATE KEY UPDATE route_map.id = route_map.id;
+
+-- 尾部对账:真实存量 108 p + 13 page_id + 3 cat + 259 topic + 5 forum = 388;
+-- dev 库另有 seed fixture(topic:2001/2002、forum:1000/1001)→ total 392 属正常
 SELECT
   (SELECT COUNT(*) FROM acore_portal.route_map) AS total,
   (SELECT COUNT(*) FROM acore_portal.route_map WHERE old_key LIKE 'p:%') AS posts,
   (SELECT COUNT(*) FROM acore_portal.route_map WHERE old_key LIKE 'page_id:%') AS pages,
-  (SELECT COUNT(*) FROM acore_portal.route_map WHERE old_key LIKE 'cat:%') AS cats;
+  (SELECT COUNT(*) FROM acore_portal.route_map WHERE old_key LIKE 'cat:%') AS cats,
+  (SELECT COUNT(*) FROM acore_portal.route_map WHERE old_key LIKE 'topic:%') AS topics,
+  (SELECT COUNT(*) FROM acore_portal.route_map WHERE old_key LIKE 'forum:%') AS boards;
