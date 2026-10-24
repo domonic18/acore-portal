@@ -1,6 +1,6 @@
 import { requireSession } from "@/server/session-guard";
 import { characterAvatar, className, raceName } from "@/constants/characters";
-import { GameDbError } from "@/server/services/account/characters-game";
+import { GameDbError } from "@/server/services/shared/game-identity";
 import { listAccountCharacters } from "@/server/services/account/characters";
 
 /** 契约:角色只读投影(account=本人服务端过滤);503 错误面板不白屏 */

@@ -10,7 +10,7 @@ import {
   characterOwnedBy,
   listRestorableItems,
   resolveGameAccountId,
-} from "@/server/services/account/characters-game";
+} from "@/server/services/shared/game-identity";
 
 /**
  * 契约:200 {items}/401 未登录/403 CHARACTER_NOT_OWNED+审计/503 GAME_DB_UNAVAILABLE。

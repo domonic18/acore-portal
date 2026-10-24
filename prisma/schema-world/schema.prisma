@@ -1,4 +1,4 @@
-// 游戏库 acore_world:只读,M1 仅连接自检(FR-022 四库均可达),无表交互
+// 游戏库 acore_world:只读,M1 连接自检(FR-022);M2 增 item_template 子集(sku-check 存在性校验 FR-126)
 generator client {
   provider = "prisma-client-js"
   output   = "../../src/generated/world"
@@ -15,4 +15,13 @@ model ConnectionProbe {
 
   @@map("_connection_probe")
   @@ignore
+}
+
+/// 物品模板(只读子集;真实表列远多于此,Prisma 仅映射触碰列)
+model ItemTemplate {
+  entry   Int     @id @map("entry")
+  name    String? @db.VarChar(128)
+  quality Int?
+
+  @@map("item_template")
 }

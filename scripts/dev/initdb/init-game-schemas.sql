@@ -136,3 +136,20 @@ INSERT INTO `recovery_item` (`Guid`, `ItemEntry`) VALUES
   (10, 19019),
   (10, 17182),
   (11, 22630);
+
+-- ===== acore_world.item_template(M2 sku-check 只读校验子集,T019) =====
+USE acore_world;
+
+CREATE TABLE IF NOT EXISTS `item_template` (
+  `entry` INT UNSIGNED NOT NULL DEFAULT 0,
+  `name` VARCHAR(128) NOT NULL DEFAULT '',
+  `quality` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (`entry`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '物品模板(合成种子子集,无生产数据)';
+
+-- 与业务库 seed 商品(SHOP_FIXTURE gameItemId)一一对应
+INSERT INTO `item_template` (`entry`, `name`, `quality`) VALUES
+  (19019, '测试坐骑·限量', 3),
+  (19020, '测试坐骑·促销中', 3),
+  (19021, '测试坐骑·促销已过期', 3)
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);

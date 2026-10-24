@@ -2,7 +2,11 @@ import "server-only";
 import { getCharactersDb } from "@/lib/db/characters";
 import { authDb } from "@/lib/db/auth";
 
-/** 游戏库不可达 → 503 GAME_DB_UNAVAILABLE(契约:页面骨架+重试提示,不白屏) */
+/**
+ * 游戏库只读基础层(跨域基础,AGENTS 域服务禁互引):
+ * 账号定位/归属校验/角色名册/恢复列表,auth 与 shop 等域共同消费。
+ * 游戏库不可达 → GameDbError 由视图/路由转 503(不白屏)。
+ */
 export class GameDbError extends Error {}
 
 /** 站点用户名 → 游戏账号 id(UPPER);未建号(理论不该发生)返回 null */
@@ -11,7 +15,7 @@ export async function resolveGameAccountId(username: string): Promise<number | n
     const account = await authDb.findByUsername(username);
     return account?.id ?? null;
   } catch (err) {
-    console.error("[characters] resolve game account failed", err);
+    console.error("[game-identity] resolve game account failed", err);
     throw new GameDbError("游戏账号库不可用");
   }
 }
@@ -52,7 +56,7 @@ export async function listOwnCharacters(accountId: number): Promise<OwnCharacter
       online: r.online !== 0,
     }));
   } catch (err) {
-    console.error("[characters] list characters failed", err);
+    console.error("[game-identity] list characters failed", err);
     throw new GameDbError("角色库不可用");
   }
 }
@@ -66,7 +70,7 @@ export async function characterOwnedBy(accountId: number, guid: number): Promise
     });
     return hit !== null;
   } catch (err) {
-    console.error("[characters] ownership check failed", err);
+    console.error("[game-identity] ownership check failed", err);
     throw new GameDbError("角色库不可用");
   }
 }
@@ -91,7 +95,7 @@ export async function listRestorableItems(guid: number): Promise<RestorableItem[
     });
     return rows.map((r) => ({ entry: r.itemEntry, name: null, quality: null, count: 1 }));
   } catch (err) {
-    console.error("[characters] restorable items failed", err);
+    console.error("[game-identity] restorable items failed", err);
     throw new GameDbError("角色库不可用");
   }
 }
