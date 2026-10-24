@@ -16,5 +16,8 @@ export default defineConfig({
     hookTimeout: 30000,
     setupFiles: ["tests/setup-env.ts"],
     pool: "forks",
+    // 集成文件共享同一 MySQL+soap-mock(全局 /__mode、共享 fixture 行),
+    // 并行会互踩(fixture 撞锁死锁/mock 模式互泼/跨文件 FK),文件级串行保确定性
+    fileParallelism: false,
   },
 });
