@@ -56,6 +56,10 @@ async function makeInlineProduct(
   tag: string,
   data: Partial<Prisma.ProductUncheckedCreateInput>,
 ): Promise<InlineProduct> {
+  // 迁移后真实存量商品占用固定服务 SKU(如 item-restoration):按 sku 复用已存在行
+  const sku = (data.sku as string | undefined) ?? `m2cart_${RUN}_${tag}`.slice(0, 64);
+  const existing = await prisma.product.findUnique({ where: { sku }, select: { id: true } });
+  if (existing) return existing;
   const slug = `m2cart-${RUN}-${tag}`;
   const created = await prisma.product.create({
     data: {

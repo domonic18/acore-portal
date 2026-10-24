@@ -50,6 +50,12 @@ async function makeGameUser(tag: string) {
 async function makeServiceProduct(sku: string) {
   const hit = skuProducts.get(sku);
   if (hit) return hit;
+  // 迁移后真实存量商品占用服务 SKU(char-change-* / item-restoration):复用已存在行
+  const existing = await prisma.product.findUnique({ where: { sku }, select: { id: true } });
+  if (existing) {
+    skuProducts.set(sku, existing);
+    return existing;
+  }
   const created = await prisma.product.create({
     data: {
       sku,
