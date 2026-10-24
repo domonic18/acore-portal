@@ -17,9 +17,9 @@
 
 ## Phase 1: Setup（环境与基线）
 
-- [ ] T001 建立 `002-m2-shop-points` 分支，确认 M1 基线全绿：`make check`（lint+typecheck+63 vitest+17 E2E）
-- [ ] T002 扩展开发 seed：`scripts/dev/seed.ts` 增补 M2 测试数据骨架（测试账户+余额、分类、商品 fixtures 接线，具体数据集在 T009 落地）；dev compose（mysql 3307/redis/soap-mock）健康核验
-- [ ] T003 常量层扩展：`src/constants/points.ts` 流水类型扩为 6 类枚举映射（register_reward/badge_reward/shop_payment/manual_adjust/recurring/visitor_referral，照录 data-model §1.1 旧 ref 映射）；新建 `src/constants/shop.ts`（ProductType/ProductStatus/OrderStatus/OrderItemDeliveryStatus、SKU 前缀 `itemsend_`、低库存默认阈值）
+- [x] T001 建立 `002-m2-shop-points` 分支，确认 M1 基线全绿：`make check`（lint+typecheck+63 vitest+17 E2E）
+- [x] T002 扩展开发 seed：`scripts/dev/seed.ts` 增补 M2 测试数据骨架（测试账户+余额、分类、商品 fixtures 接线，具体数据集在 T009 落地）；dev compose（mysql 3307/redis/soap-mock）健康核验
+- [x] T003 常量层扩展：`src/constants/points.ts` 流水类型扩为 6 类枚举映射（register_reward/badge_reward/shop_payment/manual_adjust/recurring/visitor_referral，照录 data-model §1.1 旧 ref 映射）；新建 `src/constants/shop.ts`（ProductType/ProductStatus/OrderStatus/OrderItemDeliveryStatus、SKU 前缀 `itemsend_`、低库存默认阈值）
 
 **Checkpoint**: make check 全绿，工作区干净再进 Phase 2。
 
@@ -27,13 +27,13 @@
 
 ## Phase 2: Foundational（阻塞全部 US）
 
-- [ ] T004 US0 services 平文件归位（纯移动不改行为）：`src/server/services/ledger.ts→points/ledger.ts`、`characters.ts→account/characters-game.ts`（游戏侧底层 resolveGameAccountId/listOwnCharacters，与既有投影层 `account/characters.ts` 区分命名）、`mail-outbox.ts→mail/outbox.ts`、`user-token.ts→token/user-token.ts`、`audit.ts→audit/audit.ts`、`route-map.ts→routes/route-map.ts`；更新全部导入点（`src/server/soap/execute.ts`、`services/auth/*`、`services/account/*`、`api/account/*`、`app/legacy-redirect/[key]/route.ts` 等，grep 核对清零）；完成后 make check 全绿
-- [ ] T005 schema 迁移①（枚举+种子）：`prisma/schema-business/schema.prisma` 扩展 PointTxType 6 类、UserRole 加 `moderator`、AuditCategory 加 M2 类别（`ownership_violation`/`admin_access_violation`/`order_redeliver`/`order_refund`/`points_adjust`/`delivery_no_handler`）；新增 PointRule 模型（data-model §2.6）+ 迁移种子 `register=2, enabled=true`；`prisma migrate dev`
-- [ ] T006 schema 迁移②（商城 10 表）：ProductCategory/Product/CartItem/Order(`@@map("shop_order")`)/OrderItem/PointRule(若 T005 未含)/Badge/BadgeGrant/ImageAssetMap/MigrationReviewItem，字段/索引/约束照录 data-model §2（Product.legacyWpProductId unique、Order.legacyWpOrderId unique、OrderItem.soapCallId FK、BadgeGrant unique(badgeId,userId)）；`prisma migrate dev`
+- [x] T004 US0 services 平文件归位（纯移动不改行为）：`src/server/services/ledger.ts→points/ledger.ts`、`characters.ts→account/characters-game.ts`（游戏侧底层 resolveGameAccountId/listOwnCharacters，与既有投影层 `account/characters.ts` 区分命名）、`mail-outbox.ts→mail/outbox.ts`、`user-token.ts→token/user-token.ts`、`audit.ts→audit/audit.ts`、`route-map.ts→routes/route-map.ts`；更新全部导入点（`src/server/soap/execute.ts`、`services/auth/*`、`services/account/*`、`api/account/*`、`app/legacy-redirect/[key]/route.ts` 等，grep 核对清零）；完成后 make check 全绿
+- [x] T005 schema 迁移①（枚举+种子）：`prisma/schema-business/schema.prisma` 扩展 PointTxType 6 类、UserRole 加 `moderator`、AuditCategory 加 M2 类别；新增 PointRule 模型（data-model §2.6）+ `prisma migrate dev`（实施偏差：AuditCategory 扩为域分组 `shop/admin/points`，violation 等具体事件走 AUDIT_ACTION 常量；`register=2` 种子落 `scripts/dev/seed.ts` 的 seedPointRules 而非迁移 SQL，避免校验和漂移，dev/test/prod 统一走 seed）
+- [x] T006 schema 迁移②（商城 10 表）：ProductCategory/Product/CartItem/Order(`@@map("shop_order")`)/OrderItem/Badge/BadgeGrant/ImageAssetMap/MigrationReviewItem，字段/索引/约束照录 data-model §2（Product.legacyWpProductId unique、Order.legacyWpOrderId unique、OrderItem.soapCallId FK、BadgeGrant unique(badgeId,userId)）；`prisma migrate dev`（实施偏差：`--name` 未透传，迁移目录为时间戳无名 `20261024035511`/`20261024035903`）
   - 依赖 T005（同文件串行）
-- [ ] T007 RBAC 骨架：`src/server/session-guard.ts` 增 `requireAdmin()`（复用 requireSession 模式；user/moderator → 403）+ `getApiSession` 联动；审计助手支持新 category 常量（越权即记 `admin_access_violation`，US5 消费）
-- [ ] T008 COS 配置组：`src/lib/config.ts` schema 增 `cos.bucket/region/secretId/secretKey/cdnBase` 5 键（凭据入 system_config，禁止入 env/文档/日志，宪法 VI）；新建 `src/lib/cos/client.ts` 惰性建连（仿游戏库 client 模式，未配置不建连）
-- [ ] T009 测试基座：`tests/fixtures/shop-seed.ts`（quickstart S2 前置：2 分类+5 商品=3 物品类含促销档期+2 服务类、测试账户余额分级 10/100/充足）；集成测试约定（每用例独立数据/清理钩子）；`make check` 全绿
+- [x] T007 RBAC 骨架：`src/server/session-guard.ts` 增 `requireAdmin()`（复用 requireSession 模式；user/moderator → 403）+ `getApiAdminSession`（API 侧非 admin 审计后返回 null，调用方回 403）；越权即记 `admin_access_violation`（US5 消费）
+- [x] T008 COS 配置组：`src/lib/config.ts` schema 增 `cos.bucket/region/secretId/secretKey/cdnBase` 5 键（凭据入 system_config，禁止入 env/文档/日志，宪法 VI）；新建 `src/lib/cos/client.ts` 惰性建连（未配置不阻塞启动，首用报错；SDK 仅 US6 迁移脚本消费）
+- [x] T009 测试基座：`tests/fixtures/shop-seed.ts`（quickstart S2 前置：2 分类+5 商品=3 物品类含促销档期+2 服务类、测试账户余额分级 10/100/充足）；集成测试约定（每用例独立数据/清理钩子）；`make check` 全绿
 
 **Checkpoint**: US0 归位 diff 零行为变更；迁移可重放；US1 仅依赖 T005，US2-US6 依赖 Phase 2 全部。
 
@@ -45,16 +45,16 @@
 
 **Tests（先写先失败）**:
 
-- [ ] T010 [P] [US1] 单测：`tests/unit/point-rules.test.ts` — point_rule 表驱动读取/enabled 开关/改 amount 后新注册奖励=新值/消费与手调不经规则表（research R10）
-- [ ] T011 [P] [US1] 集成：`tests/integration/points-ledger.test.ts` — 6 类流水入账含 balanceAfter 快照；SUM(流水)=balance 不变式；负余额拦截 402（手调 −10000）；手调缺原因 422；对账函数对被 SQL 篡改的账户准确点名（quickstart S1.3）
+- [x] T010 [P] [US1] 单测：`tests/unit/point-rules.test.ts` — point_rule 表驱动读取/enabled 开关/改 amount 后新注册奖励=新值/消费与手调不经规则表（research R10）
+- [x] T011 [P] [US1] 集成：`tests/integration/points-ledger.test.ts` — 6 类流水入账含 balanceAfter 快照；SUM(流水)=balance 不变式；负余额拦截（手调 −10000）；手调缺原因；对账函数对被 SQL 篡改的账户准确点名（quickstart S1.3；402/422 状态码映射留待 US5 API 层）
 
 **实现**:
 
-- [ ] T012 [US1] `services/points/ledger.ts` 扩展：credit/debit 统一入口（6 类流水、同事务写流水+余额、balanceAfter 快照、余额不足/负结果 402 拦截，行锁条件 UPDATE 见 data-model §5）
-- [ ] T013 [US1] `services/points/rules.ts` 规则引擎：point_rule 读取+开关；`services/auth/register.ts` 注册奖励切规则表驱动（`REGISTER_REWARD_AMOUNT` 常量退役，种子值=2 行为不变，M1 回归测试守卫）
-- [ ] T014 [US1] `services/points/adjust.ts` 手动调整：原因必填 2-255、`manual_adjust` 流水（refType='admin'、refId=操作管理员 id）+ 审计 `points_adjust`（FR-105；US5 API 层复用）
-- [ ] T015 [US1] `services/points/reconcile.ts` 对账：全量重算逐户比对→差异清单（点名账户/重算值/现存值，不自动修复）+ `scripts/cron/reconcile-points.mjs` 日终任务与部署接线说明（FR-106 双保险之运行期半边）
-- [ ] T016 [US1] 用户中心积分页补全：`src/app/(account)/account/points/page.tsx` 分页流水（时间/类型/数额/备注，类型中文映射）+ 余额展示（FR-107）
+- [x] T012 [US1] `services/points/ledger.ts` 扩展：credit/debit 统一入口（6 类流水、同事务写流水+余额、balanceAfter 快照、`LedgerError("INSUFFICIENT_BALANCE")` 拦截——updateMany WHERE balance>=amount 行锁条件 UPDATE 见 data-model §5，路由层按 code 映射 402）
+- [x] T013 [US1] `services/points/rules.ts` 规则引擎：point_rule 读取+开关；`services/auth/register.ts` 注册奖励切规则表驱动（`REGISTER_REWARD_AMOUNT` 常量退役，种子值=2 行为不变，M1 回归测试守卫）
+- [x] T014 [US1] `services/points/adjust.ts` 手动调整：原因必填 2-255、`manual_adjust` 流水（refType='admin'、refId=操作管理员 id）+ 审计 `points_adjust`（FR-105；US5 API 层复用）
+- [x] T015 [US1] `services/points/reconcile.ts` 对账：全量重算逐户比对→差异清单（点名账户/重算值/现存值，不自动修复）+ `scripts/cron/reconcile-points.ts` 日终任务（实施偏差：.ts 而非 .mjs，与 seed.ts 同套路直连业务库；`pnpm cron:reconcile-points`，差异非空退出码 2 供 crontab/监控告警接线）+ 孤儿流水（有流水无户）同被点名
+- [x] T016 [US1] 用户中心积分页补全：`src/app/(account)/account/points/pager.tsx` 类型列 6 类中文映射（POINT_TX_TYPE_LABEL）+ 独立备注列（M1 已有分页与余额展示，FR-107）
 
 **Checkpoint（quickstart S1）**: 入账/扣减/手调各一笔流水正确；余额篡改→对账点名；日终对账连跑两次空差异；SC-105 前置就绪。
 
