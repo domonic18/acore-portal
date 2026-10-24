@@ -25,6 +25,8 @@ model Characters {
   zone     Int    @default(0) @db.UnsignedSmallInt
   online   Int    @default(0) @db.UnsignedTinyInt
   health   Int    @default(0) @db.UnsignedInt
+  // AzerothCore 标准列(unix 秒);US6 今日新注册口径(真机核对项入 launch-checklist)
+  createDate Int @default(0) @db.UnsignedInt @map("create_date")
 
   @@map("characters")
 }

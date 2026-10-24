@@ -43,6 +43,11 @@ const configSchema = z.object({
       cdnBase: z.string().url(),
     })
     .optional(),
+  // 服务器状态人工项(M3 US6;p15 字段二分):键缺省按 enabled=true/maintenance=false
+  status: z.object({
+    enabled: z.boolean(),
+    maintenanceMode: z.boolean(),
+  }),
 });
 
 export type SystemConfig = z.infer<typeof configSchema>;
@@ -81,6 +86,10 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
           cdnBase: flat["cos.cdnBase"],
         }
       : undefined,
+    status: {
+      enabled: flat["status.enabled"] !== "false",
+      maintenanceMode: flat["status.maintenance_mode"] === "true",
+    },
   };
 }
 
