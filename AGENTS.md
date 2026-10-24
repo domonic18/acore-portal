@@ -48,7 +48,7 @@ pnpm db:seed                                   # 开发种子数据(scripts/dev/
 pnpm soap:mock                                 # 本地 SOAP worldserver 模拟(开发/联调用)
 pnpm dev                                       # 开发服务器
 make check                                     # 质量门禁: lint + typecheck + vitest(224 用例)
-pnpm test:e2e                                  # Playwright E2E(59 场景, 含路由兼容 301/商城结账/内容前台/论坛/状态卡)
+pnpm test:e2e                                  # Playwright E2E(60 场景, 含路由兼容 301/商城结账/内容前台/论坛/状态卡)
 pnpm verify:soap                               # SOAP 通道连通性自检(连真实 worldserver 或 mock)
 pnpm verify:sc001                              # SC-001 老用户双格式登录验收(读 workspace/verify-credentials.txt)
 ```

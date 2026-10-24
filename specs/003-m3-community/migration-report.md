@@ -1,4 +1,4 @@
-# M3 内容域存量迁移演练报告(T015 草稿;Polish T050 定稿)
+# M3 内容域存量迁移演练报告(T015 演练;T050 定稿 2026-10-24)
 
 - 演练日期:2026-10-24
 - 环境:本地 dev docker 栈(3307);wp_legacy = 生产 WP 备份 dump(2026-10-23 导入)
@@ -24,7 +24,7 @@
 - 集成测试 T012 覆盖幂等分支(mini fixture 重跑 scanned=0/updated=1/imported=0)
 - 正式切换日:对最新快照按 ①→⑦ 顺序重跑即可,均幂等
 
-## 3. 关键发现(影响口径,Polish 定稿需复核)
+## 3. 关键发现(影响口径,T050 定稿复核通过)
 
 - **wp_post_views 实际只覆盖 7 个页面**:type=4/period='total' 共 7 行,全部指向 page(ID 2/11/135/378/584/1287/1323,各 count=1);**文章阅读量源数据全为 0**。views 必迁对账(SC-203)零差异属"源即全零"的平凡满足——前台文章阅读量将从 0 起步,页面阅读量不在导入范围(content_page 无 views 列)。切换日快照若更新了该表,口径不变自动对齐
 - **文章 110 vs tasks.md 估算 111**:导入口径 post_status IN (publish,draft);auto-draft 1 篇非公开态,剔除合理
@@ -32,6 +32,7 @@
 - **sitemap 页源正文为空**(wp 4182,body_md 0 字符):旧站为动态生成页;/sitemap 需 US3 按路由生成,不依赖导入正文
 - **渐进节点日期跨度大**(2023-01 起):phase_date 全非空,open/locked 由 icon+日期双判据;sort 按源顺序 1-28
 - **分类计数**:源 cat 计数(27/15/66=108)与 publish 文章数一致;cat 94(featured)0 篇跳过
+- **wp_comments 2,089 盘点**(S2.5,T050 补):归属拆分 shop_order 2,070(订单元数据,M2 订单域已迁移口径)/post 文章评论仅 18/topic 论坛 1,孤儿 0——评论量极小,佐证「文章评论后置不迁」裁决(M4+ 按需另立)
 
 ## 4. 抽样对拍
 
@@ -47,7 +48,13 @@
 
 ## 6. 遗留与切换日注意
 
-- **topic/forum 两键**未入 route_map(US5 T037 论坛导入时扩);`/bbs` 路径级已由 middleware 写死 301(T008)
+- ~~topic/forum 两键未入 route_map~~ **已闭合(T037)**:`forum-import.mjs` 随论坛导入扩充两键,`?topic=/?forum=` 301 经 E2E 断言(forum.spec FR-219);`/bbs` 路径级由 middleware 写死 301(T008)
 - **M4 功能面 6 页**切换日补键(route-map-m3.sql 追加 VALUES 段)
 - **图片真实上传**:沿用 M2 结论——dev 演练 scan-only 映射;正式执行 `cos-upload.mjs`(去 --scan-only)后重跑内容导入即可获得 COS 绝对地址重写(当前映射 newUrl 为站点相对路径,前台可直接用)
-- 正式切换顺序:cos-upload → content-import.mjs → route-map-m3.sql → 对账输出 JSON 全零(viewsDiffRows=0 / deadlinks.refs=0)即通过
+- 正式切换顺序:cos-upload → content-import.mjs → route-map-m3.sql → 对账输出 JSON 全零(viewsDiffRows=0 / deadlinks.refs=0)即通过;forum-import.mjs 与 route_map topic/forum 扩充随论坛域同批执行(均幂等,顺序不敏感)
+
+## 7. 定稿核验(T050)
+
+- `make check` 全绿(lint + typecheck + vitest **224** 用例);E2E 隔离 schema 全量 **60 场景**全绿(见 tasks.md T050 偏差注记)
+- SC-201~208 锚点核销状态见 `checklists/sc-acceptance.md`;真机顺延项集中在 `specs/002 launch-checklist §7`
+- 幂等红线:全部脚本/SQL 可对最新快照按 §6 顺序重跑,零新增零重复

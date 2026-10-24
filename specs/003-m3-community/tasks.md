@@ -172,8 +172,10 @@
   偏差：三项全部大幅优于阈值（P95 17.8/23.0/7.8ms），结果记 `perf-profile.md`，复跑脚本 `scripts/dev/profile-perf-m3.ts`
 - [x] T048 静态安全核查：sanitize 白名单覆盖面复核（script/iframe/javascript: 全拦）/审计脱敏（content_*/forum_* 只记 ID 与 slug，不记正文）/审计动作全覆盖核对
   偏差：sanitize/脱敏复核通过（defaultSchema 白名单+8 单测；content_/forum_ payload 仅 id/slug/status/布尔位）；核查揪出两缺口并补齐——①分类/标签保存缺审计（契约「写操作全部记 AuditLog」）补 content_taxonomy_saved；②渐进计划后台 CRUD 整域缺失（契约 api-admin-m3 §渐进计划+plan 后台 5 域，T032「随 Phase 8」落空且 tasks 无对应任务，用户裁决补实现）——新增 services/progression admin CRUD+/api/admin/progression（GET/POST/PUT/DELETE，删指针节点同清指针行审计 pointerCleared）+/admin/progression 页+导航，集成 5 例（224 vitest），UI 冒烟走查通过（API 层 PUT/DELETE 冒烟补 MCP 中断缺口）
-- [ ] T049 文档三层同步：AGENTS.md（目录规范 services 新域+测试计数）/README/development-plan（M3 状态流转）+ launch-checklist.md 扩 M3 节（.server info 真机解析核对/characters 今日新注册口径核对/内容迁移正式跑清单）+ specs/003 SC-201~208 核销表 + 飞书池 M3 条目流转
-- [ ] T050 Final Checkpoint：`make check` 全绿 + E2E 隔离 schema 全量绿 + S1-S6 checkpoint 逐项复核 + migration-report 定稿
+- [x] T049 文档三层同步：AGENTS.md（目录规范 services 新域+测试计数）/README/development-plan（M3 状态流转）+ launch-checklist.md 扩 M3 节（.server info 真机解析核对/characters 今日新注册口径核对/内容迁移正式跑清单）+ specs/003 SC-201~208 核销表 + 飞书池 M3 条目流转
+  偏差：AGENTS/README/launch-checklist §7/SC-201~208 核销表（checklists/sc-acceptance.md）已落；development-plan 状态流转与飞书池条目随 T050 绿后收口批执行（M2 同序：状态真相源在验收锚点全绿后才翻转）
+- [x] T050 Final Checkpoint：`make check` 全绿 + E2E 隔离 schema 全量绿 + S1-S6 checkpoint 逐项复核 + migration-report 定稿
+  偏差：make check 224 vitest 全绿；E2E 隔离 schema **60/60**（复核揪出 S1.4 最近浏览无自动化锚点，补 framework.spec 第 60 例：商品详情→首页侧栏 localStorage 闭环）；S1-S6 逐项复核通过——S2 首跑计数按 migration-report 定稿口径（article 110/page 4/progression 28，auto-draft 与 To-be-continued 剔除合理），S2.5 wp_comments 盘点补齐（2,089=shop_order 2,070+post 18+topic 1，孤儿 0，佐证后置不迁）；migration-report 定稿（topic/forum 键已随 T037 闭合；新增 §7 定稿核验节）
 
 ---
 
