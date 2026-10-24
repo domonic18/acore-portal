@@ -4,7 +4,7 @@
 //             GET /__mode?mode=...   -> 切换(normal|timeout|failure)
 // 按命令失败注入: GET /__fail?command=.send%20items&on=1|0  -> 命中命令返回 Fault
 // 已执行命令: GET /__executed -> JSON 列表(调试/测试断言)
-// 命令处理: `.server info` / 发货 `.send items` / US4 服务占位(.character *、.guild change)
+// 命令处理: `.server info` / 发货 `.send items` / US4 服务类(.character *、.guild change 确定性回执)
 // 零依赖纯 Node http,compose 与 `pnpm soap:mock` 共用本文件
 import http from "node:http";
 
@@ -101,6 +101,19 @@ function faultString(msg) {
 </SOAP-ENV:Fault>`;
 }
 
+// US4 服务类命令确定性回执(命令名先照录 soap-delivery 契约,真机联调再核对修订):
+// [regex, receipt];regex 不中即 usage error(参数形态由处理器保证,mock 只验形态)
+const SERVICE_COMMANDS = [
+  [/^\.character\s+changerace\s+(\S+)$/, (m) => `${m[1]}: race change will complete on next login.`],
+  [/^\.character\s+changefaction\s+(\S+)$/, (m) => `${m[1]}: faction change will complete on next login.`],
+  [/^\.character\s+customize\s+(\S+)$/, (m) => `${m[1]}: customize queued, effective on next login.`],
+  [/^\.character\s+rename\s+(\S+)\s+(\S+)$/, (m) => `${m[1]}: renamed to ${m[2]}, effective on next login.`],
+  [/^\.character\s+rename\s+(\S+)$/, (m) => `${m[1]}: rename flag set, choose new name at next login.`],
+  [/^\.character\s+transfer\s+(\S+)\s+(\S+)$/, (m) => `${m[1]}: transfer to account ${m[2]} queued.`],
+  [/^\.character\s+clone\s+(\S+)\s+(\S+)$/, (m) => `${m[1]}: clone to account ${m[2]} queued.`],
+  [/^\.guild\s+change\s+(\S+)\s+(\S+)$/, (m) => `${m[1]}: moved to guild ${m[2]}.`],
+];
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
 
@@ -190,18 +203,17 @@ const server = http.createServer((req, res) => {
         const [, char, , , itemId, count] = m;
         result = `Item sent to player: ${char} (item ${itemId} x${count})\n`;
       }
-    } else if (
-      /^\.character (changerace|changefaction|customize|rename|clone|transfer)\b/.test(command) ||
-      /^\.guild change\b/.test(command)
-    ) {
-      // US4 服务类占位:成功回执,细节随各处理器契约补齐
-      result = `[mock] command accepted: ${key}\n`;
-    } else if (command === "") {
-      res.writeHead(500, { "content-type": "text/xml" });
-      res.end(soapEnvelope(faultString("missing command")));
-      return;
     } else {
-      result = `[mock] unknown or denied command: ${command}`;
+      const svc = SERVICE_COMMANDS.find(([re]) => re.test(command));
+      if (svc) {
+        result = `${svc[1](command.match(svc[0]))}\n`;
+      } else if (command === "") {
+        res.writeHead(500, { "content-type": "text/xml" });
+        res.end(soapEnvelope(faultString("missing command")));
+        return;
+      } else {
+        result = `[mock] unknown or denied command: ${command}`;
+      }
     }
 
     const escaped = result
