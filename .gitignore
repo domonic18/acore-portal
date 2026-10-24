@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.*.local
+.env.test
 
 # 宿主机持久化数据(workspace 内容不入库,保留目录)
 workspace/*

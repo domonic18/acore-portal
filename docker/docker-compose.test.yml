@@ -1,0 +1,71 @@
+# 测试环境: Mac Mini 常驻栈,公网入口 dev.17aitech.com(frpc → 宿主 9000 → web 容器)
+# 与 dev 栈(3307/6381/3000)和生产快照数据完全隔离;DB/缓存/邮件 UI 只绑 127.0.0.1
+# 数据落 workspace/mysql-test、workspace/redis-test(重置=删目录重建)
+# worldserver/authserver 二期接入:SOAP 暂指栈内 mock,boot 自检 degraded 不阻塞
+name: acore-portal-test
+
+services:
+  mysql:
+    image: mysql:8.4
+    ports:
+      - "127.0.0.1:3308:3306" # 快照导入/迁移走本机;禁止 LAN 暴露
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: acore_portal
+      MYSQL_USER: acore_portal
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-acore_portal}
+    volumes:
+      - ../workspace/mysql-test:/var/lib/mysql
+      - ../scripts/dev/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6382:6379"
+    volumes:
+      - ../workspace/redis-test:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "127.0.0.1:8026:8025" # UI;1025 已被 docker-mailpit-1 占用故不发布
+
+  soap-mock:
+    image: node:22-alpine
+    working_dir: /app
+    command: node /app/soap-mock.mjs
+    environment:
+      SOAP_MOCK_PORT: "7878"
+      SOAP_MOCK_USER: ${SOAP_USER:-soaper}
+      SOAP_MOCK_PASSWORD: ${SOAP_PASSWORD:-change-me}
+    volumes:
+      - ../scripts/dev:/app:ro
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    env_file:
+      - ../.env.test
+    ports:
+      - "9000:3000" # frpc dev.17aitech.com → 宿主 9000(必须 0.0.0.0 可达)
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+      soap-mock:
+        condition: service_started
+    restart: unless-stopped
