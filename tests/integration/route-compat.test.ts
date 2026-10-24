@@ -37,6 +37,15 @@ describe("normalizeLegacyKey(FR-026 规范化)", () => {
     expect(normalizeLegacyKey(null, null, null)).toBeNull();
     expect(normalizeLegacyKey("-5", null, null)).toBeNull();
   });
+
+  it("M3 扩展:topic/forum 键与内容键优先级 p > page_id > cat > topic > forum(FR-219)", () => {
+    expect(normalizeLegacyKey(null, null, null, "45", null)).toBe("topic:45");
+    expect(normalizeLegacyKey(null, null, null, null, "12")).toBe("forum:12");
+    expect(normalizeLegacyKey(null, null, null, "45", "12")).toBe("topic:45");
+    expect(normalizeLegacyKey("1", null, null, "45", "12")).toBe("p:1");
+    expect(normalizeLegacyKey(null, null, null, "4.5", null)).toBeNull();
+    expect(normalizeLegacyKey(null, null, null, "abc", null)).toBeNull();
+  });
 });
 
 describe("lookupLegacyRoute(FR-026 查表)", () => {

@@ -2,7 +2,11 @@ import "server-only";
 import type { NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getSessionFromToken, type SessionPayload } from "@/lib/auth/session";
+import {
+  getSessionFromToken,
+  type SessionPayload,
+  type SessionRole,
+} from "@/lib/auth/session";
 import { SESSION } from "@/constants/session";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/audit/audit";
@@ -54,6 +58,46 @@ export async function getApiAdminSession(req: NextRequest): Promise<SessionPaylo
     return null;
   }
   return session;
+}
+
+const MODERATOR_ROLES: ReadonlySet<SessionRole> = new Set(["moderator", "admin"]);
+
+/** 论坛版主 RSC 守卫(R5):moderator|admin 通过;user 越权记 forum_moderation_violation 后回论坛 */
+export async function requireModerator(): Promise<SessionPayload> {
+  const session = await requireSession();
+  if (!MODERATOR_ROLES.has(session.role)) {
+    await writeAudit({
+      category: AUDIT_CATEGORY.FORUM,
+      action: AUDIT_ACTION.FORUM_MODERATION_VIOLATION,
+      actorUserId: BigInt(session.userId),
+      payload: { role: session.role, surface: "page" },
+    });
+    redirect("/forum");
+  }
+  return session;
+}
+
+export type ApiModeratorGuard =
+  | { ok: true; session: SessionPayload }
+  | { ok: false; status: 401 | 403; code: string; message: string };
+
+/** 论坛版主 API 守卫(SC-207):未登录 401;user 403+审计;moderator|admin 放行 */
+export async function requireApiModerator(req: NextRequest): Promise<ApiModeratorGuard> {
+  const session = await getApiSession(req);
+  if (!session) {
+    return { ok: false, status: 401, code: "UNAUTHORIZED", message: "请先登录。" };
+  }
+  if (!MODERATOR_ROLES.has(session.role)) {
+    await writeAudit({
+      category: AUDIT_CATEGORY.FORUM,
+      action: AUDIT_ACTION.FORUM_MODERATION_VIOLATION,
+      actorUserId: BigInt(session.userId),
+      payload: { role: session.role, surface: "api", path: new URL(req.url).pathname },
+      ip: req.headers.get("x-forwarded-for"),
+    });
+    return { ok: false, status: 403, code: "FORBIDDEN", message: "需要版主权限。" };
+  }
+  return { ok: true, session };
 }
 
 export type ApiAdminGuard =

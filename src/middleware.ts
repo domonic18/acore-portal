@@ -6,9 +6,10 @@ import { normalizeLegacyKey } from "@/constants/legacy-routes";
 /**
  * edge 兼容层(edge runtime,无 Prisma):
  * ① 旧 WP 登录类地址硬编码 302,不查表(FR-025);
- * ② 旧内容地址 ?p=/?page_id=/?cat= 规范化后 rewrite 到 Node 处理器查 route_map(FR-026);
+ * ② 旧内容地址 ?p=/?page_id=/?cat=(/?topic=/?forum=)规范化后 rewrite 到 Node 处理器查 route_map(FR-026);
  * ③ 旧 WooCommerce 账户地址 /my-account 301 到 /account(路径结构同构,子路径透传,FR-109);
- * ④ /account/* 会话浅校验、/admin/* 角色校验(吊销态由 RSC/API 深校验兜底)。
+ * ④ /account/* 会话浅校验、/admin/* 角色校验(吊销态由 RSC/API 深校验兜底);
+ * ⑤ 旧论坛地址 /bbs 与 /bbs/* 路径级折叠 301 到 /forum,带 topic=/forum= 键时走 route_map(M3 FR-219)。
  */
 export async function middleware(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl;
@@ -31,11 +32,27 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL(dest, req.url), 302);
   }
 
+  if (pathname === "/bbs" || pathname.startsWith("/bbs/")) {
+    const key = normalizeLegacyKey(
+      null,
+      null,
+      null,
+      searchParams.get("topic"),
+      searchParams.get("forum"),
+    );
+    if (key) {
+      return NextResponse.rewrite(new URL(`/legacy-redirect/${key}`, req.url));
+    }
+    return NextResponse.redirect(new URL("/forum", req.url), 301);
+  }
+
   if (pathname === "/" || pathname === "/index.php") {
     const key = normalizeLegacyKey(
       searchParams.get("p"),
       searchParams.get("page_id"),
       searchParams.get("cat"),
+      searchParams.get("topic"),
+      searchParams.get("forum"),
     );
     if (key) {
       // 键走路径段:Next 14 rewrite 会丢弃目标 URL 的查询参数(实测踩坑)
@@ -71,6 +88,8 @@ export const config = {
     "/",
     "/index.php",
     "/wp-login.php",
+    "/bbs",
+    "/bbs/:path*",
     "/my-account/:path*",
     "/account/:path*",
     "/admin/:path*",

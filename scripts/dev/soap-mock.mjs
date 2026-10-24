@@ -192,8 +192,14 @@ const server = http.createServer((req, res) => {
 
     let result;
     if (command === ".server info") {
-      result =
-        "AzerothCore rev. mock 2026-10-23 (Unix, Static) \nConnected players: 0. Character in world: 0.\n";
+      // M3 状态探针契约(server-status.md §5):版本行/在线行/队列行/uptime 行,固定样例
+      result = [
+        "AzerothCore rev. mock 2026-10-24 (Unix, Static) (worldserver-daemon)",
+        "Connected players: 12. Characters in world: 12.",
+        "Connection queue: 3.",
+        "Uptime: 3 days, 4 hours, 12 minutes",
+        "",
+      ].join("\n");
     } else if (key === ".send items") {
       // .send items --{char} "{subject}" "{text}" {itemId}:{count} → 确定性成功回执
       const m = command.match(/^\.send\s+items\s+--(\S+)\s+"([^"]*)"\s+"([^"]*)"\s+(\d+):(\d+)$/);
