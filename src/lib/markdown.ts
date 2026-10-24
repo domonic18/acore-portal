@@ -3,6 +3,7 @@ import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import remarkRehype from "remark-rehype";
 import rehypeHighlight from "rehype-highlight";
+import rehypeParse from "rehype-parse";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
@@ -115,4 +116,23 @@ export async function renderMarkdown(
     .use(rehypeStringify)
     .process(md);
   return { html: String(file), toc };
+}
+
+/**
+ * 存量论坛 HTML 渲染(research R4):rehype-parse fragment → wowhead 标注 →
+ * 图片域白名单 → 同一 sanitize 白名单 → stringify。迁移层只做图片 URL 重写,
+ * XSS 白名单收口渲染层单点(R4 二次纵深),正文域白名单同 markdown。
+ */
+export async function renderLegacyHtml(
+  html: string,
+  opts: { cdnHosts?: readonly string[] } = {},
+): Promise<string> {
+  const file = await unified()
+    .use(rehypeParse, { fragment: true })
+    .use(rehypeWowhead)
+    .use(rehypeImageAllowlist, opts.cdnHosts ?? [])
+    .use(rehypeSanitize, sanitizeSchema as never)
+    .use(rehypeStringify)
+    .process(html);
+  return String(file);
 }
