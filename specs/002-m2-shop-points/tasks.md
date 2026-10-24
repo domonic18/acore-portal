@@ -90,19 +90,19 @@
 
 **Tests（先写先失败）**:
 
-- [ ] T027 [P] [US3] 单测：`tests/unit/order-state-machine.test.ts` — 合法迁移表全覆盖（pending→paid→delivering→completed 主链/delivery_failed 重试/refunded/cancelled）/非法迁移抛错（FR-116，data-model §3）
-- [ ] T028 [P] [US3] 集成：`tests/integration/checkout.test.ts` — 单事务原子性（扣分+Order(paid)+OrderItem 快照+扣库存+shop_payment 流水+清购物车行）；余额不足 402 无单无流水；双线程抢库存 1 恰 1 成功；同账户并发结账串行化无透支（用户行 FOR UPDATE，data-model §5）
-- [ ] T029 [P] [US3] 集成：`tests/integration/delivery.test.ts` — soap-mock 契约：发货成功订单自动 completed（全程无人工）；失败注入→`delivery_failed`+deliveryError 可见；重复补发幂等键命中、命令总次数不变（SC-102）；每次调用落 soap_call 审计
+- [x] T027 [P] [US3] 单测：`tests/unit/order-state-machine.test.ts` — 合法迁移表全覆盖（pending→paid→delivering→completed 主链/delivery_failed 重试/refunded/cancelled）/非法迁移抛错（FR-116，data-model §3）
+- [x] T028（偏差：结账用户须有游戏账号+自有角色，加购归属校验前置；双用户/同账户并发以 Promise.allSettled 真实竞争） [P] [US3] 集成：`tests/integration/checkout.test.ts` — 单事务原子性（扣分+Order(paid)+OrderItem 快照+扣库存+shop_payment 流水+清购物车行）；余额不足 402 无单无流水；双线程抢库存 1 恰 1 成功；同账户并发结账串行化无透支（用户行 FOR UPDATE，data-model §5）
+- [x] T029（偏差：幂等键升级为 orderitem:{item_id}:{attempt}——M1 同键失败永久回放会阻断补发；attempt=既有 soap_call 数+1，成功回放不变/失败新键重试） [P] [US3] 集成：`tests/integration/delivery.test.ts` — soap-mock 契约：发货成功订单自动 completed（全程无人工）；失败注入→`delivery_failed`+deliveryError 可见；重复补发幂等键命中、命令总次数不变（SC-102）；每次调用落 soap_call 审计
 
 **实现**:
 
-- [ ] T030 [US3] `services/shop/state-machine.ts`：OrderStatus 迁移表+状态时间戳回写+非法迁移抛错（集中管理，禁止散落 set）；`services/orders/queries.ts` 用户订单列表/详情（归属过滤）
-- [ ] T031 [US3] `services/shop/checkout.ts` 结账单事务（research R2）：条件扣余额→订单创建（orderNo=`M2{YYYYMMDD}{6位序列}`）→条件扣库存（stock_enabled 行锁）→流水→清车；促销价以服务端结算时刻生效价取值
-- [ ] T032 [US3] soap-mock 扩展：`scripts/dev/soap-mock.mjs` 增发货命令桩（`.send items` 优先+`.character`/`.guild` 系列占位）+ 确定性回执 + 失败注入开关（health=down/按命令注入失败）
-- [ ] T033 [US3] 发货管线：`server/soap/delivery.ts`（executeSoapCommand 包装，幂等键=order_item.id 透传 M1 机制）+ `services/shop/handlers/registry.ts`（DeliveryHandler 接口+resolveHandler：`itemsend_` 前缀→ItemSendHandler、未命中防御拒绝 `DELIVERY_NO_HANDLER`）+ `handlers/item-send.ts`（物品类最小集）+ `services/shop/delivery.ts` 逐行驱动（precheck→execute→行 delivered/failed→订单自动 completed/failed）；崩溃恢复：对账任务同周期扫描滞留 `delivering` 重新驱动（幂等兜底，research R1/R2）
-- [ ] T034 [US3] API + 页面：POST `/api/checkout`（401 禁游客/402/409/422，事务外异步发货触发）；`/checkout` 页面参数复核+余额展示+错误呈现
-- [ ] T035 [US3] 用户中心订单页补全：`account/orders/page.tsx` 列表（分页/状态徽标）+ `account/orders/[id]/page.tsx` 详情（条目/金额/状态/发货结果/下单参数）+ GET `/api/account/orders[/id]`（404 防枚举）+ 30s 轮询（delivering/delivery_failed 态，不引 WebSocket）
-- [ ] T036 [US3] E2E：`tests/e2e/checkout.spec.ts` — 登录→选角色→加购→结账→订单详情 completed（SC-101 全链路）；余额不足拦截路径
+- [x] T030 [US3] `services/shop/state-machine.ts`：OrderStatus 迁移表+状态时间戳回写+非法迁移抛错（集中管理，禁止散落 set）；`services/orders/queries.ts` 用户订单列表/详情（归属过滤）
+- [x] T031 [US3] `services/shop/checkout.ts` 结账单事务（research R2）：条件扣余额→订单创建（orderNo=`M2{YYYYMMDD}{6位序列}`）→条件扣库存（stock_enabled 行锁）→流水→清车；促销价以服务端结算时刻生效价取值
+- [x] T032（偏差：/__fail 按命令注入+/__executed 调试端点；三个 soap-mock 容器共用 scripts/dev 挂载，重启即生效） [US3] soap-mock 扩展：`scripts/dev/soap-mock.mjs` 增发货命令桩（`.send items` 优先+`.character`/`.guild` 系列占位）+ 确定性回执 + 失败注入开关（health=down/按命令注入失败）
+- [x] T033（偏差：发货类命令 idempotent=false 不自动重试，失败转 delivery_failed 由补发新键重试；新增 cron:recover-deliveries 脚本） [US3] 发货管线：`server/soap/delivery.ts`（executeSoapCommand 包装，幂等键=order_item.id 透传 M1 机制）+ `services/shop/handlers/registry.ts`（DeliveryHandler 接口+resolveHandler：`itemsend_` 前缀→ItemSendHandler、未命中防御拒绝 `DELIVERY_NO_HANDLER`）+ `handlers/item-send.ts`（物品类最小集）+ `services/shop/delivery.ts` 逐行驱动（precheck→execute→行 delivered/failed→订单自动 completed/failed）；崩溃恢复：对账任务同周期扫描滞留 `delivering` 重新驱动（幂等兜底，research R1/R2）
+- [x] T034 [US3] API + 页面：POST `/api/checkout`（401 禁游客/402/409/422，事务外异步发货触发）；`/checkout` 页面参数复核+余额展示+错误呈现
+- [x] T035 [US3] 用户中心订单页补全：`account/orders/page.tsx` 列表（分页/状态徽标）+ `account/orders/[id]/page.tsx` 详情（条目/金额/状态/发货结果/下单参数）+ GET `/api/account/orders[/id]`（404 防枚举）+ 30s 轮询（delivering/delivery_failed 态，不引 WebSocket）
+- [x] T036 [US3] E2E：`tests/e2e/checkout.spec.ts` — 登录→选角色→加购→结账→订单详情 completed（SC-101 全链路）；余额不足拦截路径
 
 **Checkpoint（quickstart S3）**: 限量并发恰 1 单成功；失败注入→补发→幂等命中命令数不变；无透支无超卖。US3 完成即达成 M2 核心验收锚点。
 

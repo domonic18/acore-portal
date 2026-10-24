@@ -60,10 +60,13 @@ test.describe("US7 旧路由兼容", () => {
     }
   });
 
-  test("shop 类路径不被兼容层触碰(FR-027,M2 前为 404 框架缺位)", async ({ request }) => {
-    for (const path of ["/shop", "/cart", "/checkout", "/my-account"]) {
+  test("shop 类路径归商城域,兼容层不触碰(FR-027;M2 起 /shop /cart /checkout 已实现)", async ({ request }) => {
+    for (const path of ["/shop", "/cart", "/checkout"]) {
       const res = await request.get(path, { maxRedirects: 0 });
-      expect(res.status(), path).toBe(404);
+      expect(res.status(), path).toBe(200);
     }
+    // 未实现路径仍为 404 框架缺位
+    const res = await request.get("/my-account", { maxRedirects: 0 });
+    expect(res.status()).toBe(404);
   });
 });
