@@ -42,6 +42,15 @@ export const ITEMSEND_SKU_PREFIX = "itemsend_";
 /** 列表分页大小(contracts/api-shop) */
 export const SHOP_PAGE_SIZE = 24;
 
+/** 列表排序(contracts/api-shop;price_* 按生效价排) */
+export const PRODUCT_SORT = {
+  PRICE_ASC: "price_asc",
+  PRICE_DESC: "price_desc",
+  NEWEST: "newest",
+} as const;
+
+export type ProductSortValue = (typeof PRODUCT_SORT)[keyof typeof PRODUCT_SORT];
+
 /** 订单号前缀:orderNo = M2{YYYYMMDD}{6位序列}(data-model §2.4) */
 export const ORDER_NO_PREFIX = "M2";
 
