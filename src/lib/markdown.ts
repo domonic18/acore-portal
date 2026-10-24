@@ -1,10 +1,11 @@
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import ReactMarkdown from "react-markdown";
+import { unified } from "unified";
+import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
+import remarkRehype from "remark-rehype";
 import rehypeHighlight from "rehype-highlight";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeSlug from "rehype-slug";
+import rehypeStringify from "rehype-stringify";
 import { visit, SKIP } from "unist-util-visit";
 import type { Element, Root } from "hast";
 
@@ -99,21 +100,19 @@ export async function renderMarkdown(
   opts: { cdnHosts?: readonly string[] } = {},
 ): Promise<{ html: string; toc: TocItem[] }> {
   const toc: TocItem[] = [];
-  const element = createElement(
-    ReactMarkdown,
-    {
-      remarkPlugins: [remarkGfm],
-      rehypePlugins: [
-        rehypeHighlight,
-        rehypeSlug,
-        rehypeWowhead,
-        [rehypeImageAllowlist, opts.cdnHosts ?? []],
-        [rehypeSanitize, sanitizeSchema],
-        [rehypeCollectToc, toc],
-      ] as never,
-    },
-    md,
-  );
-  const html = renderToStaticMarkup(element);
-  return { html, toc };
+  // unified 管线(非 react-dom/server——RSC 禁运):原始 HTML 不渲染
+  // (remark-rehype 默认丢弃 raw 节点),sanitize 属性级兜底,双防线不变。
+  const file = await unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .use(remarkRehype)
+    .use(rehypeHighlight)
+    .use(rehypeSlug)
+    .use(rehypeWowhead)
+    .use(rehypeImageAllowlist, opts.cdnHosts ?? [])
+    .use(rehypeSanitize, sanitizeSchema as never)
+    .use(rehypeCollectToc, toc)
+    .use(rehypeStringify)
+    .process(md);
+  return { html: String(file), toc };
 }
