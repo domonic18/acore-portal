@@ -168,7 +168,8 @@
 
 ## Phase 9: Polish 与收口
 
-- [ ] T047 性能 profile：归档列表/文章详情（MD 管线）//api/status 缓存命中 P95 实测（M2 profile-perf 套路，目标见 plan Performance Goals）
+- [x] T047 性能 profile：归档列表/文章详情（MD 管线）//api/status 缓存命中 P95 实测（M2 profile-perf 套路，目标见 plan Performance Goals）
+  偏差：三项全部大幅优于阈值（P95 17.8/23.0/7.8ms），结果记 `perf-profile.md`，复跑脚本 `scripts/dev/profile-perf-m3.ts`
 - [ ] T048 静态安全核查：sanitize 白名单覆盖面复核（script/iframe/javascript: 全拦）/审计脱敏（content_*/forum_* 只记 ID 与 slug，不记正文）/审计动作全覆盖核对
 - [ ] T049 文档三层同步：AGENTS.md（目录规范 services 新域+测试计数）/README/development-plan（M3 状态流转）+ launch-checklist.md 扩 M3 节（.server info 真机解析核对/characters 今日新注册口径核对/内容迁移正式跑清单）+ specs/003 SC-201~208 核销表 + 飞书池 M3 条目流转
 - [ ] T050 Final Checkpoint：`make check` 全绿 + E2E 隔离 schema 全量绿 + S1-S6 checkpoint 逐项复核 + migration-report 定稿
