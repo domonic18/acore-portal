@@ -107,15 +107,15 @@
 
 **Tests（先写先失败）**:
 
-- [ ] T029 [P] [US4] 集成：`tests/integration/admin-content.test.ts` — 文章 CRUD（slug 冲突 422 SLUG_CONFLICT/发布→publishedAt 写入/下稿→置空）、分类删除有引用 422 CATEGORY_IN_USE、页面 slug 命中 RESERVED_SLUGS 422 SLUG_RESERVED、全部越权 401/403+admin_access_violation 回归
+- [x] T029 [P] [US4] 集成：`tests/integration/admin-content.test.ts` — 文章 CRUD（slug 冲突 422 SLUG_CONFLICT/发布→publishedAt 写入/下稿→置空）、分类删除有引用 422 CATEGORY_IN_USE、页面 slug 命中 RESERVED_SLUGS 422 SLUG_RESERVED、全部越权 401/403+admin_access_violation 回归 `10 例;另补标签 DUPLICATE/分类 SLUG_CONFLICT/静态页 CRUD/路由层越权`
 
 **实现**:
 
-- [ ] T030 [US4] `services/content/admin.ts`（文章/页面/分类/标签 CRUD + Zod schemas）+ API 路由 `/api/admin/articles|pages|article-taxonomies`
-- [ ] T031 [US4] Markdown 编辑器组件：`components/admin/markdown-editor.tsx`（GFM 工具栏+代码高亮预览+TOC 预览+粘贴图片自动上传 COS→插入 CDN URL，FR-215）
-- [ ] T032 [US4] 后台页面组：`/admin/articles`(+new/edit)+`/admin/pages`（requireAdmin 布局既有，导航常量 ADMIN_NAV 扩 5 域）
-- [ ] T033 [US4] 媒体库：`services/media/`（上传幂等按 hash 键/列表/删除）+ `/api/admin/media` + `/admin/media` 页面 + 编辑器媒体弹层插入（FR-217；删除二次确认提示死链风险）
-- [ ] T034 [US4] E2E：`tests/e2e/admin-content.spec.ts` — 发文闭环（MD 含表格+代码块+图片→前台渲染全对，SC-206）/草稿不可见/越权 403
+- [x] T030 [US4] `services/content/admin.ts`（文章/页面/分类/标签 CRUD + Zod schemas）+ API 路由 `/api/admin/articles|pages|article-taxonomies` `共享 Zod/错误映射落 api/admin/_shared/content.ts(路由文件只能导出 HTTP 方法);契约口径 422/404(非 products 409)`
+- [x] T031 [US4] Markdown 编辑器组件：`components/admin/markdown-editor.tsx`（GFM 工具栏+代码高亮预览+TOC 预览+粘贴图片自动上传 COS→插入 CDN URL，FR-215） `预览走 /api/admin/markdown-preview 同管线;偏差:高亮/TOC 由前台同套 renderMarkdown 提供`
+- [x] T032 [US4] 后台页面组：`/admin/articles`(+new/edit)+`/admin/pages`（requireAdmin 布局既有，导航常量 ADMIN_NAV 扩 5 域） `本轮扩文章/静态页/媒体库 3 域;剩余 2 域(渐进/状态)随 Phase 8`
+- [x] T033 [US4] 媒体库：`services/media/`（上传幂等按 hash 键/列表/删除）+ `/api/admin/media` + `/admin/media` 页面 + 编辑器媒体弹层插入（FR-217；删除二次确认提示死链风险） `cosKey=media/{yyyyMMdd}/{sha256}{ext};RSC 边界:页面→client MediaManager 包装`
+- [x] T034 [US4] E2E：`tests/e2e/admin-content.spec.ts` — 发文闭环（MD 含表格+代码块+图片→前台渲染全对，SC-206）/草稿不可见/越权 403 `50/50;偏差:页面越权实际被 edge middleware 先拦回 /login?next=…(与 M2 admin.spec 口径一致,requireAdmin 深校验归集成)`
 
 **Checkpoint（quickstart S4）**: SC-206 闭环达成（后台 Markdown→前台渲染含高亮/图片/TOC；粘贴图落 COS 可访问）。
 
