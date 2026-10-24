@@ -66,14 +66,14 @@
 
 **Tests（先写先失败）**:
 
-- [ ] T016 [P] [US1] 单测：`tests/unit/site-nav.test.ts` — SITE_NAV 结构逐项断言（SC-205：多级菜单与旧站一致）；游客/登录两菜单集合互斥断言（authOnly 过滤推导）
+- [x] T016 [P] [US1] 单测：`tests/unit/site-nav.test.ts` — SITE_NAV 结构逐项断言（SC-205：多级菜单与旧站一致）；游客/登录两菜单集合互斥断言（authOnly 过滤推导）（T002 时已交付）
 
 **实现**:
 
-- [ ] T017 [US1] 随机角色头图：`src/server/services/shared/portrait.ts`（characters 只读 ORDER BY RAND() LIMIT 1 + race/class/gender→`public/portraits/` 映射常量 + 500ms 超时降级默认图 + Redis 60s 平滑缓存，R10）；`public/portraits/` 静态头像集（60 客户端组合枚举，构建脚本生成或手工精选集）
-- [ ] T018 [US1] 页头/页脚组件：`components/site/header.tsx`（双菜单按 session.role 渲染 + 多级下拉 + 汉堡折叠 + 随机头图）、`components/site/footer.tsx`（协议/公约/备案）；数据库▾ 四链接 M4 前指向占位提示（结构在、目标页 M4 交付）；`app/layout.tsx` 接线全站壳层
-- [ ] T019 [US1] 侧栏组件系统：`components/site/sidebar/` 12 组件（搜索框/公告图链/客户端下载/登录器下载/YY频道/外部三链/插件下载/日历归档/积分余额[登录态]/最近浏览商品[localStorage]）+ 注册表 + 按 SIDE_BY_PAGE_TYPE 渲染；M2 商品详情浏览埋点写 localStorage（最近浏览数据源）
-- [ ] T020 [US1] E2E：`tests/e2e/framework.spec.ts` — 游客/登录双菜单互斥+多级结构+汉堡折叠（375px 视口）+页脚链接+侧栏组件清单+未登录无积分余额组件（SC-205）
+- [x] T017 [US1] 随机角色头图：`src/server/services/shared/portrait.ts`（characters 只读 ORDER BY RAND() LIMIT 1 + race/class/gender→`public/portraits/` 映射常量 + 500ms 超时降级默认图 + Redis 60s 平滑缓存，R10）；`public/portraits/` 静态头像集（81 张：8 种族×有效职业×2 性别 + 默认图，`scripts/dev/gen-portraits.mjs` 生成）
+- [x] T018 [US1] 页头/页脚组件：服务端壳层 `app/_components/site-header.tsx`（依赖边界：读 session/server 服务的壳层归 app 层）+ 交互层 `components/site/header-client.tsx`（双菜单 authOnly 过滤渲染 + 多级下拉 + 汉堡折叠 + 随机头图）、`components/site/footer.tsx`（协议/公约/项目简介/网站地图）；数据库▾ 四链接 M4 前占位提示；`app/layout.tsx` 接线全站壳层
+- [x] T019 [US1] 侧栏组件系统：10 个注册组件（外部三链合 1 组件）+ 注册表 + 按 SIDE_BY_PAGE_TYPE 渲染；纯展示/客户端组件居 `components/site/sidebar/`，读 session/server 服务的服务端组件（公告图链/日历归档/积分余额）与注册表居 `app/_components/sidebar/`（依赖边界）；M2 商品详情浏览埋点 `RecentProductTracker` 写 localStorage（最近浏览数据源）；home 清单含积分余额（登录态门槛在组件内 null）
+- [x] T020 [US1] E2E：`tests/e2e/framework.spec.ts` — 游客/登录双菜单互斥+多级结构+汉堡折叠（375px 视口）+页脚链接+侧栏组件清单+未登录无积分余额组件（SC-205）（7/7 通过）
 
 **Checkpoint（quickstart S1）**: 双菜单断言互斥、多级结构逐项一致、头图降级、侧栏按类型渲染。
 
