@@ -74,3 +74,13 @@ export const DELIVERY_STATUS_LABEL: Record<OrderItemDeliveryStatusValue, string>
 
 /** 低库存默认阈值(存量坐骑阈值=1,后台可按商品覆盖) */
 export const DEFAULT_LOW_STOCK_THRESHOLD = 1;
+
+/** WoW 物品质量色(T041 恢复选物列表渲染;0-5 为 60 年代标准档) */
+export const ITEM_QUALITY_COLOR: Record<number, string> = {
+  0: "#9d9d9d", // 粗糙
+  1: "#ffffff", // 普通
+  2: "#1eff00", // 优秀
+  3: "#0070dd", // 稀有
+  4: "#a335ee", // 史诗
+  5: "#ff8000", // 传说
+};

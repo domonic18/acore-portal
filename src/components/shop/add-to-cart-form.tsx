@@ -2,16 +2,23 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ITEM_QUALITY_COLOR } from "@/constants/shop";
 import { CharacterSelect, type CharacterOption } from "./character-select";
 
 /**
  * 加购表单(客户端交互面):POST /api/cart 契约映射——
  * 401 跳登录引导(FR-111/112);403 越权提示;409 售罄;422 参数缺失;
- * restoreItemEntry 随所选角色经 /api/account/restore-items 拉取(503 降级不阻塞)。
+ * restoreItemEntry 随所选角色经 /api/account/restore-items 拉取(503 降级不阻塞),
+ * 质量色渲染+数据缺失行禁选(restorable=false,T041);未选物品不得加购。
  */
 export type CartParamField = "characterGuid" | "restoreItemEntry" | "unlockName" | "guildName" | "destAccount";
 
-type RestorableItem = { entry: number; name: string | null };
+type RestorableItem = {
+  entry: number;
+  name: string | null;
+  quality: number | null;
+  restorable: boolean;
+};
 
 const ERROR_MESSAGES: Record<string, string> = {
   PARAM_INVALID: "请先完整选择商品参数。",
@@ -131,28 +138,45 @@ export function AddToCartForm({
         <CharacterSelect characters={characters} value={guid} onChange={setGuid} disabled={busy} />
       )}
       {needRestore && (
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-300">选择恢复物品</span>
+        <fieldset className="flex flex-col gap-1 text-sm">
+          <legend className="text-gray-300">选择恢复物品</legend>
           {restoreDegraded ? (
             <span className="text-amber-400">恢复物品列表暂不可用,请稍后重试。</span>
+          ) : restorable === null ? (
+            <span className="text-gray-500">请先选择角色。</span>
+          ) : restorable.length === 0 ? (
+            <span className="text-gray-500">该角色暂无可恢复物品。</span>
           ) : (
-            <select
-              value={restoreEntry}
-              onChange={(e) => setRestoreEntry(e.target.value)}
-              disabled={busy || !guid || restorable === null}
-              className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-white disabled:opacity-50"
-            >
-              <option value="">
-                {restorable === null ? "请先选择角色" : restorable.length === 0 ? "该角色暂无可恢复物品" : "请选择恢复物品"}
-              </option>
-              {(restorable ?? []).map((it) => (
-                <option key={it.entry} value={String(it.entry)}>
-                  {it.name ?? `物品 #${it.entry}`}
-                </option>
+            <div className="flex flex-col gap-1 rounded border border-gray-700 bg-gray-900 p-2">
+              {restorable.map((it) => (
+                <label
+                  key={it.entry}
+                  className={`flex items-center gap-2 rounded px-2 py-1.5 ${
+                    it.restorable ? "cursor-pointer hover:bg-gray-800" : "opacity-50"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="restoreItemEntry"
+                    value={String(it.entry)}
+                    checked={restoreEntry === String(it.entry)}
+                    onChange={(e) => setRestoreEntry(e.target.value)}
+                    disabled={busy || !it.restorable}
+                    className="accent-blue-600"
+                  />
+                  <span aria-hidden className="text-base leading-none">⚔</span>
+                  <span
+                    className="font-medium"
+                    style={{ color: ITEM_QUALITY_COLOR[it.quality ?? 1] ?? "#ffffff" }}
+                  >
+                    {it.name ?? `物品 #${it.entry}`}
+                  </span>
+                  {!it.restorable && <span className="text-xs text-gray-500">(数据缺失,暂不可恢复)</span>}
+                </label>
               ))}
-            </select>
+            </div>
           )}
-        </label>
+        </fieldset>
       )}
       {fields.includes("unlockName") && (
         <label className="flex flex-col gap-1 text-sm">
