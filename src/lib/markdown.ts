@@ -18,7 +18,9 @@ import type { Element, Root } from "hast";
 
 export type TocItem = { id: string; text: string; depth: 2 | 3 | 4 };
 
-const WOWHEAD_URL = /^https?:\/\/(?:www|classic|wotlk)\.wowhead\.com\/(item|spell|npc|quest)=(\d+)/;
+// 存量正文链接带语言/子域前缀(www.wowhead.com/cn/item=…),允许单个小写段
+const WOWHEAD_URL =
+  /^https?:\/\/(?:www|classic|wotlk)\.wowhead\.com(?:\/[a-z-]+)?\/(item|spell|npc|quest)=(\d+)/;
 
 /** sanitize 白名单:默认 schema + 高亮 span/语言类/锚点 id/wowhead 属性(R3) */
 const sanitizeSchema = {

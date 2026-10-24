@@ -80,11 +80,12 @@ describe("markdown 渲染管线(T008)", () => {
     expect(html).not.toContain("evil.example");
   });
 
-  it("wowhead 链接自动标注 data-wowhead,其它外链不标注", async () => {
+  it("wowhead 链接自动标注 data-wowhead(含 /cn/ 语言前缀),其它外链不标注", async () => {
     const { html } = await render(
-      "[雷霆之锤](https://www.wowhead.com/item=19019) 与 [首页](https://example.com)",
+      "[雷霆之锤](https://www.wowhead.com/item=19019) 与 [坐骑](https://www.wowhead.com/cn/item=142225) 与 [首页](https://example.com)",
     );
     expect(html).toContain('data-wowhead="item=19019"');
+    expect(html).toContain('data-wowhead="item=142225"');
     expect(html).not.toContain('data-wowhead="https://example.com"');
   });
 
