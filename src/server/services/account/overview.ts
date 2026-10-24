@@ -4,7 +4,7 @@ import {
   GameDbError,
   listOwnCharacters,
   resolveGameAccountId,
-} from "@/server/services/characters";
+} from "@/server/services/account/characters-game";
 
 /**
  * 账号概览页数据组装(RSC 页面禁直连 prisma,数据访问收敛 service 层)。

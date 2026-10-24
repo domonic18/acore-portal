@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { lookupLegacyRoute } from "@/server/services/route-map";
+import { lookupLegacyRoute } from "@/server/services/routes/route-map";
 
 /**
  * route_map 查表出口:命中 301 / 未命中 404 / 库不可达 503(FR-026)。

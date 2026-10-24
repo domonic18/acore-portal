@@ -7,7 +7,7 @@ import {
   GameDbError,
   listOwnCharacters,
   resolveGameAccountId,
-} from "@/server/services/characters";
+} from "@/server/services/account/characters-game";
 
 /** 契约:200 {characters}/401 未登录/503 GAME_DB_UNAVAILABLE(不白屏) */
 export async function GET(req: NextRequest) {

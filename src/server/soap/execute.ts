@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { isUniqueViolation } from "@/server/http";
-import { writeAudit } from "@/server/services/audit";
+import { writeAudit } from "@/server/services/audit/audit";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import {
   isSoapCommandAllowed,

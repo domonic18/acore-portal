@@ -13,17 +13,17 @@ import {
 } from "@/constants/password";
 import { TOKEN_TYPE } from "@/constants/token";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { writeAudit } from "@/server/services/audit";
+import { writeAudit } from "@/server/services/audit/audit";
 import {
   enqueueMail,
   scheduleDrain,
   checkResendRate,
-} from "@/server/services/mail-outbox";
+} from "@/server/services/mail/outbox";
 import {
   issueUserToken,
   findLiveUserToken,
   consumeUserToken,
-} from "@/server/services/user-token";
+} from "@/server/services/token/user-token";
 import { revokeAllSessions, revokeAllRefreshTokens } from "@/lib/auth/session";
 import { MAIL_TEMPLATE } from "@/constants/mail";
 import { hitRateLimit } from "@/lib/redis/rate-limit";

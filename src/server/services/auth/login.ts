@@ -8,7 +8,7 @@ import {
   WP_BCRYPT_PREFIX,
 } from "@/constants/password";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { writeAudit } from "@/server/services/audit";
+import { writeAudit } from "@/server/services/audit/audit";
 
 export type LoginUser = {
   id: bigint;

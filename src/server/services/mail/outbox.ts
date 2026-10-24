@@ -9,7 +9,7 @@ import {
   MAIL_RESEND_MIN_INTERVAL_SEC,
 } from "@/constants/mail";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { writeAudit } from "./audit";
+import { writeAudit } from "@/server/services/audit/audit";
 import type { Prisma } from "@/generated/business";
 
 /**
