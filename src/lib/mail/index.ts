@@ -1,24 +1,29 @@
 import "server-only";
 import nodemailer from "nodemailer";
-import { env } from "@/lib/env";
+import { getConfig } from "@/lib/config";
 import { MAIL_TEMPLATE } from "@/constants/mail";
 import type { MailTemplateValue } from "@/constants/mail";
 
 export type { MailTemplateValue };
 
 let transporter: nodemailer.Transporter | null = null;
+let transporterKey = "";
 
-/** SMTP 发信通道(dev 默认 Mailpit,捕获不发真信) */
-export function getTransporter(): nodemailer.Transporter {
-  if (!transporter) {
+/** SMTP 发信通道(配置存 system_config,配置变更后自动重建连接;dev 默认 Mailpit) */
+export async function getTransporter(): Promise<nodemailer.Transporter> {
+  const { smtp } = await getConfig();
+  const key = JSON.stringify(smtp);
+  if (!transporter || transporterKey !== key) {
+    transporter?.close();
     transporter = nodemailer.createTransport({
-      host: env.SMTP_HOST,
-      port: env.SMTP_PORT,
-      secure: env.SMTP_PORT === 465,
-      auth: env.SMTP_USER
-        ? { user: env.SMTP_USER, pass: env.SMTP_PASSWORD }
+      host: smtp.host,
+      port: smtp.port,
+      secure: smtp.port === 465,
+      auth: smtp.user
+        ? { user: smtp.user, pass: smtp.password }
         : undefined,
     });
+    transporterKey = key;
   }
   return transporter;
 }

@@ -1,11 +1,11 @@
 import "server-only";
-import { env } from "@/lib/env";
+import { getConfig } from "@/lib/config";
 
 /**
  * AzerothCore SOAP 传输层:urn:AC executeCommand 是单一固定操作,
  * 零依赖 fetch 直封协议(超时经 AbortSignal 精确可控),不引入 WSDL 客户端。
  * 偏差注记:npm `node-soap` 实为无 WSDL/无超时的迷你包,与契约设想 API 不符,已弃用。
- * 连接配置经 lib/env.ts 收口(缺失/非法在模块加载即 fail-fast)。
+ * 连接配置存 system_config 表,经 lib/config.ts 收口(启动自检预热 fail-fast)。
  */
 
 function escapeXml(text: string): string {
@@ -50,8 +50,8 @@ export async function rawExecuteCommand(
   command: string,
   timeoutMs: number,
 ): Promise<string> {
-  const { SOAP_URL: url, SOAP_USER: user, SOAP_PASSWORD: password } = env;
-  const auth = Buffer.from(`${user}:${password}`, "utf8").toString("base64");
+  const { soap } = await getConfig();
+  const auth = Buffer.from(`${soap.user}:${soap.password}`, "utf8").toString("base64");
   const envelope =
     `<?xml version="1.0" encoding="utf-8"?>` +
     `<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="urn:AC">` +
@@ -61,7 +61,7 @@ export async function rawExecuteCommand(
 
   let res: Response;
   try {
-    res = await fetch(url, {
+    res = await fetch(soap.url, {
       method: "POST",
       headers: {
         "Content-Type": "text/xml; charset=utf-8",
@@ -83,7 +83,7 @@ export async function rawExecuteCommand(
   const bodyText = await res.text();
 
   if (res.status === 401) {
-    throw new Error("SOAP 鉴权失败(401):检查 SOAP_USER/SOAP_PASSWORD");
+    throw new Error("SOAP 鉴权失败(401):检查 system_config 的 soap.user/soap.password");
   }
   if (!res.ok) {
     const fault = extractTag(bodyText, "faultstring");

@@ -1,5 +1,5 @@
 import "server-only";
-import { charactersDb } from "@/lib/db/characters";
+import { getCharactersDb } from "@/lib/db/characters";
 import { authDb } from "@/lib/db/auth";
 
 /** 游戏库不可达 → 503 GAME_DB_UNAVAILABLE(契约:页面骨架+重试提示,不白屏) */
@@ -29,7 +29,7 @@ export type OwnCharacter = {
 /** 只读投影:account=本人 服务端强制过滤(FR-017,越权 0 成功) */
 export async function listOwnCharacters(accountId: number): Promise<OwnCharacter[]> {
   try {
-    const rows = await charactersDb.characters.findMany({
+    const rows = await (await getCharactersDb()).characters.findMany({
       where: { account: accountId },
       select: {
         guid: true,
@@ -60,7 +60,7 @@ export async function listOwnCharacters(accountId: number): Promise<OwnCharacter
 /** 归属校验(FR-017):guid 必须属于该游戏账号名下 */
 export async function characterOwnedBy(accountId: number, guid: number): Promise<boolean> {
   try {
-    const hit = await charactersDb.characters.findFirst({
+    const hit = await (await getCharactersDb()).characters.findFirst({
       where: { guid, account: accountId },
       select: { guid: true },
     });
@@ -84,7 +84,7 @@ export type RestorableItem = {
  */
 export async function listRestorableItems(guid: number): Promise<RestorableItem[]> {
   try {
-    const rows = await charactersDb.recoveryItem.findMany({
+    const rows = await (await getCharactersDb()).recoveryItem.findMany({
       where: { guid },
       select: { itemEntry: true },
       orderBy: { id: "asc" },

@@ -2,7 +2,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { authDb } from "@/lib/db/auth";
-import { env } from "@/lib/env";
+import { getConfig } from "@/lib/config";
 import { gameShaPassHash } from "@/lib/auth/game-hash";
 import { hashWpBcrypt } from "@/lib/auth/wp-bcrypt";
 import { PASSWORD_ALGO, PENDING_HASH_PREFIX } from "@/constants/password";
@@ -109,6 +109,7 @@ export async function registerAccount(
 
   let userId: bigint;
   try {
+    const { app } = await getConfig();
     // 站点事务:占位 user + 奖励 +2 + activate token + outbox 同事务原子
     const created = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
@@ -135,7 +136,7 @@ export async function registerAccount(
         template: MAIL_TEMPLATE.ACTIVATE,
         payload: {
           username,
-          link: `${env.APP_URL}/register/set-password?token=${token.plain}`,
+          link: `${app.url}/register/set-password?token=${token.plain}`,
         },
         relatedUserId: user.id,
       });
@@ -278,6 +279,7 @@ export async function resendActivation(emailRaw: string): Promise<ResendOutcome>
   if (!gate.ok) {
     return { known: true, throttled: true, retryAfterSec: gate.retryAfterSec };
   }
+  const { app } = await getConfig();
   await prisma.$transaction(async (tx) => {
     const token = await issueUserToken(tx, {
       userId: user.id,
@@ -288,7 +290,7 @@ export async function resendActivation(emailRaw: string): Promise<ResendOutcome>
       template: MAIL_TEMPLATE.ACTIVATE,
       payload: {
         username: user.username,
-        link: `${env.APP_URL}/register/set-password?token=${token.plain}`,
+        link: `${app.url}/register/set-password?token=${token.plain}`,
       },
       relatedUserId: user.id,
     });

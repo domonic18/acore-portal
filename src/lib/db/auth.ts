@@ -1,12 +1,16 @@
 import "server-only";
 import { PrismaClient as AuthPrismaClient } from "@/generated/auth";
+import { getConfig } from "@/lib/config";
 
 const globalStore = globalThis as unknown as { __authPrisma?: AuthPrismaClient };
 
-const client: AuthPrismaClient = globalStore.__authPrisma ?? new AuthPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalStore.__authPrisma = client;
+/** 连接串存 system_config(gamedb.auth),首次调用建连并缓存(globalThis 防 dev HMR 泄漏) */
+async function getClient(): Promise<AuthPrismaClient> {
+  if (!globalStore.__authPrisma) {
+    const { gamedb } = await getConfig();
+    globalStore.__authPrisma = new AuthPrismaClient({ datasourceUrl: gamedb.auth });
+  }
+  return globalStore.__authPrisma;
 }
 
 /**
@@ -16,6 +20,7 @@ if (process.env.NODE_ENV !== "production") {
  */
 export const authDb = {
   async createAccount(input: { username: string; email: string; shaPassHash: string }) {
+    const client = await getClient();
     return client.account.create({
       data: {
         username: input.username.toUpperCase(),
@@ -28,6 +33,7 @@ export const authDb = {
   },
 
   async updateAccountCredential(id: number, input: { shaPassHash: string }) {
+    const client = await getClient();
     await client.account.update({
       where: { id },
       data: { shaPassHash: input.shaPassHash },
@@ -35,6 +41,7 @@ export const authDb = {
   },
 
   async findByUsername(username: string) {
+    const client = await getClient();
     return client.account.findFirst({
       where: { username: username.toUpperCase() },
       select: { id: true, username: true, shaPassHash: true, email: true },

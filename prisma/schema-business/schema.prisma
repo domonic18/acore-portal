@@ -251,3 +251,13 @@ model RouteMap {
 
   @@map("route_map")
 }
+
+/// 系统配置键值表(SMTP/SOAP/站点地址等业务通道配置的唯一真相源;
+/// env 仅存基础设施连接凭据,宪法 v1.0.2)
+model SystemConfig {
+  key       String   @id @db.VarChar(100)
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_config")
+}

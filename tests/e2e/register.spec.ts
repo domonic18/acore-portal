@@ -1,21 +1,20 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { PrismaClient as AuthPrismaClient } from "../../src/generated/auth";
-import { PrismaClient } from "../../src/generated/business";
 import { gameShaPassHash } from "../../src/lib/auth/game-hash";
 import { PENDING_HASH_PREFIX } from "../../src/constants/password";
+import { getAuthClient, getPrisma } from "./helpers/game-db";
 
 /**
  * T032 US2 注册 E2E(quickstart S1,范围调整后无邀请码):
  * /register(无密码输入)→Mailpit 收激活邮件→设弱密码被拒→设合规密码→激活即登录;
  * 库内断言:$wp$ bcrypt/游戏端 SHA1 同密/积分 +2 且 SUM=balance。
+ * 游戏端断言走 e2e helper(连接串来自 system_config)。
  */
 const RUN = Date.now().toString(36);
 const USERNAME = `e2erg${RUN}`;
 const EMAIL = `${USERNAME}@test.local`;
 const PASSWORD = "E2ePass123";
 
-const prisma = new PrismaClient();
-const authClient = new AuthPrismaClient();
+const prisma = getPrisma();
 
 /** 轮询 Mailpit,取激活邮件里的 token */
 async function fetchActivateToken(
@@ -60,7 +59,6 @@ test.afterAll(async () => {
     DELETE FROM acore_auth.account WHERE username = ${USERNAME.toUpperCase()}
   `;
   await prisma.$disconnect();
-  await authClient.$disconnect();
 });
 
 test.describe("US2 注册(quickstart S1)", () => {
@@ -99,7 +97,9 @@ test.describe("US2 注册(quickstart S1)", () => {
     });
     expect(user.passwordHash.startsWith("$wp$")).toBe(true);
     expect(user.passwordAlgo).toBe("bcrypt_wp");
-    const game = await authClient.account.findFirst({
+    const game = await (
+      await getAuthClient()
+    ).account.findFirst({
       where: { username: USERNAME.toUpperCase() },
     });
     expect(game?.shaPassHash).toBe(gameShaPassHash(USERNAME, PASSWORD));

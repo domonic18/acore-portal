@@ -1,5 +1,5 @@
 import "server-only";
-import { env } from "@/lib/env";
+import { getConfig } from "@/lib/config";
 import { prisma } from "@/lib/db";
 import { getTransporter, renderMail } from "@/lib/mail";
 import type { MailPayload, MailTemplateValue } from "@/lib/mail";
@@ -57,8 +57,10 @@ export async function drainOutbox(limit = 10): Promise<void> {
           mail.template as MailTemplateValue,
           mail.payloadJson as unknown as MailPayload,
         );
-        await getTransporter().sendMail({
-          from: env.SMTP_FROM,
+        const transporter = await getTransporter();
+        const { smtp } = await getConfig();
+        await transporter.sendMail({
+          from: smtp.from,
           to: mail.toEmail,
           subject: rendered.subject,
           html: rendered.html,

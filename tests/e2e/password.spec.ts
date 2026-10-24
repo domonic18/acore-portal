@@ -1,23 +1,22 @@
 import Redis from "ioredis";
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { PrismaClient as AuthPrismaClient } from "../../src/generated/auth";
-import { PrismaClient } from "../../src/generated/business";
 import { gameShaPassHash, sha256Hex } from "../../src/lib/auth/game-hash";
 import { hashWpBcrypt } from "../../src/lib/auth/wp-bcrypt";
 import { PASSWORD_ALGO } from "../../src/constants/password";
+import { getAuthClient, getPrisma } from "./helpers/game-db";
 
 /**
  * T038 US3 密码 E2E(quickstart S3):
  * ①登录态改密→旧会话全吊销→新密重登;②找回→Mailpit 收信→30min 链接重置→一次性复用失效。
  * 自建隔离用户(不污染 seed 账号),用后双侧清理;找回限速门按服务同款 key 清除。
+ * 游戏端播种走 e2e helper(连接串来自 system_config)。
  */
 const RUN = Date.now().toString(36);
 const USERNAME = `e2epw${RUN}`;
 const EMAIL = `${USERNAME}@test.local`;
 const OLD_PASS = "oldpass456";
 
-const prisma = new PrismaClient();
-const authClient = new AuthPrismaClient();
+const prisma = getPrisma();
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6381/0");
 
 async function clearResetGate(email: string) {
@@ -90,7 +89,9 @@ test.beforeAll(async () => {
       passwordAlgo: PASSWORD_ALGO.BCRYPT_WP,
     },
   });
-  await authClient.account.create({
+  await (
+    await getAuthClient()
+  ).account.create({
     data: {
       username: USERNAME.toUpperCase(),
       email: EMAIL,
@@ -111,7 +112,6 @@ test.afterAll(async () => {
     DELETE FROM acore_auth.account WHERE username = ${USERNAME.toUpperCase()}
   `;
   await prisma.$disconnect();
-  await authClient.$disconnect();
   await redis.quit();
 });
 

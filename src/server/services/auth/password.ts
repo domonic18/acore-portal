@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { authDb } from "@/lib/db/auth";
 import { redis } from "@/lib/redis";
-import { env } from "@/lib/env";
+import { getConfig } from "@/lib/config";
 import { gameShaPassHash, sha256Hex } from "@/lib/auth/game-hash";
 import { hashWpBcrypt, verifyWpBcrypt } from "@/lib/auth/wp-bcrypt";
 import { verifyPhpass } from "@/lib/auth/phpass";
@@ -164,6 +164,7 @@ export async function requestPasswordReset(
   }
 
   // token 入库与邮件入 outbox 同事务原子(research R7/R11)
+  const { app } = await getConfig();
   const { plain } = await prisma.$transaction(async (tx) => {
     const issued = await issueUserToken(tx, {
       userId: user.id,
@@ -174,7 +175,7 @@ export async function requestPasswordReset(
       template: MAIL_TEMPLATE.PASSWORD_RESET,
       payload: {
         username: user.username,
-        link: `${env.APP_URL}/reset-password?token=${issued.plain}`,
+        link: `${app.url}/reset-password?token=${issued.plain}`,
       },
       relatedUserId: user.id,
     });
@@ -358,6 +359,7 @@ export async function requestEmailChange(input: {
     return { ok: false, reason: "rate_limited", retryAfterSec: gate.retryAfterSec };
   }
 
+  const { app } = await getConfig();
   await prisma.$transaction(async (tx) => {
     const { plain } = await issueUserToken(tx, {
       userId: user.id,
@@ -369,7 +371,7 @@ export async function requestEmailChange(input: {
       template: MAIL_TEMPLATE.EMAIL_CHANGE,
       payload: {
         username: user.username,
-        link: `${env.APP_URL}/account/settings?email_token=${plain}`,
+        link: `${app.url}/account/settings?email_token=${plain}`,
       },
       relatedUserId: user.id,
     });

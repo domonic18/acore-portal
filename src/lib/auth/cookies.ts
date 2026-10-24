@@ -4,7 +4,7 @@ import { SESSION } from "@/constants/session";
 
 /**
  * 会话 Cookie 写入(research R4):
- * HttpOnly + SameSite=Lax + Path=/;Secure 仅生产(APP_URL 为 https 时)。
+ * HttpOnly + SameSite=Lax + Path=/;Secure 仅生产(NODE_ENV=production)。
  */
 export function setSessionCookies(
   res: NextResponse,

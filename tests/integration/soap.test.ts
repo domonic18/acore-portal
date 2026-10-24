@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 import { prisma } from "../../src/lib/db";
 import { executeSoapCommand } from "../../src/server/soap/execute";
+import { loadSystemConfig } from "../../src/lib/config";
 
 /**
  * T048 US6 SOAP 通道集成测试(quickstart S6,打 soap-mock):
@@ -8,7 +9,7 @@ import { executeSoapCommand } from "../../src/server/soap/execute";
  * 测试结束恢复 mock mode=normal;数据按 key 前缀清理。
  */
 const KEY_PREFIX = `it-soap-${Date.now().toString(36)}`;
-const MOCK_BASE = (process.env.SOAP_URL ?? "http://localhost:7878/").replace(/\/?$/, "");
+let MOCK_BASE = "";
 
 async function setMockMode(mode: "normal" | "timeout" | "failure") {
   const res = await fetch(`${MOCK_BASE}/__mode?mode=${mode}`);
@@ -23,6 +24,7 @@ async function auditRows(key: string) {
 }
 
 beforeAll(async () => {
+  MOCK_BASE = (await loadSystemConfig()).soap.url.replace(/\/?$/, "");
   await setMockMode("normal");
 });
 
