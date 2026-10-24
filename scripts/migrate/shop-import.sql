@@ -7,8 +7,11 @@
 --   * 有扣分且 SUM|creds| = 订单金额 → completed(行 delivered,视为历史已发货)
 --   * 有扣分但金额不符 → pending + migration_review_item(amount_mismatch,记录两口径)
 --   * 无扣分 → cancelled(未支付或纯掉单,不追历史)
--- 商品:sku=itemsend_* 或已知服务键 → published(服务键 type=service);其余(transmog 等
---   非契约 SKU)→ game_item + draft 不阻塞;gameItemId 仅 itemsend_ 还原
+-- 商品:publish+draft 全量入库(用户裁决 2026-10-24:未发布商品原样保留 draft,后台可改后发布);
+--   published 仅限 WP publish 且契约 SKU(itemsend_*/服务键),其余一律 draft(非契约 SKU 不能发货);
+--   slug 空或超 128 字符回退 legacy-{postID}(存量 2 个 post_name 为空+5 个中文百分号编码 slug 136-145 字符);
+--   gameItemId 仅 itemsend_ 还原;
+--   订单行引用已删除商品(post 不存在)→落 legacy-deleted 占位商品(draft/hidden),保住行快照
 -- 用户映射:acore_portal.user.wp_user_id = post_author;垃圾户(>32 login 未迁)订单跳过
 -- 幂等:legacy_wp_* 唯一键 INSERT … ON DUPLICATE KEY UPDATE(重复跑零新增,验收红线);
 --   分类无 legacy 键,以 slug 为幂等键
@@ -36,7 +39,7 @@ INSERT INTO acore_portal.product_category (name, slug, sort)
 VALUES ('存量未分类', 'legacy-uncategorized', 999)
 ON DUPLICATE KEY UPDATE product_category.id = product_category.id;
 
--- ② 商品(publish;meta 透视;slug=post_name)
+-- ② 商品(publish+draft 全量;meta 透视;slug=post_name,空/超长回退 legacy-{ID})
 INSERT INTO acore_portal.product
   (type, sku, name, slug, description, category_id, status, listed,
    price, sale_price, stock_enabled, stock, low_stock_threshold, game_item_id, legacy_wp_product_id,
@@ -48,13 +51,15 @@ SELECT
        ELSE 'game_item' END,
   pm.sku,
   p.post_title,
-  p.post_name,
+  CASE WHEN CHAR_LENGTH(p.post_name) BETWEEN 1 AND 128
+       THEN p.post_name ELSE CONCAT('legacy-', p.ID) END,
   COALESCE(NULLIF(p.post_excerpt, ''), ''),
   COALESCE(cat.category_id,
            (SELECT c.id FROM acore_portal.product_category c WHERE c.slug = 'legacy-uncategorized')),
-  CASE WHEN pm.sku LIKE 'itemsend\\_%'
-         OR pm.sku IN ('item-restoration','char-change-race','char-change-name',
-                       'char-change-faction','char-change-customize')
+  CASE WHEN p.post_status = 'publish'
+         AND (pm.sku LIKE 'itemsend\\_%'
+           OR pm.sku IN ('item-restoration','char-change-race','char-change-name',
+                         'char-change-faction','char-change-customize'))
        THEN 'published' ELSE 'draft' END,
   1,
   COALESCE(pm.regular_price, pm.price, 0),
@@ -87,7 +92,7 @@ LEFT JOIN (
   JOIN acore_portal.product_category c ON c.slug = t.slug COLLATE utf8mb4_unicode_ci
   GROUP BY tr.object_id
 ) cat ON cat.object_id = p.ID
-WHERE p.post_type = 'product' AND p.post_status = 'publish'
+WHERE p.post_type = 'product' AND p.post_status IN ('publish', 'draft')
 ON DUPLICATE KEY UPDATE product.id = product.id;
 
 -- ③ 订单(D3 清洗;金额取 _order_total,实扣取 mycred 聚合)
@@ -146,13 +151,25 @@ LEFT JOIN (
 WHERE o.status = 'pending' AND o.legacy_wp_order_id IS NOT NULL
 ON DUPLICATE KEY UPDATE migration_review_item.id = migration_review_item.id;
 
--- ④ 订单行快照(商品映射按 legacy_wp_product_id;completed 单行=delivered)
+-- 幽灵商品占位(存量 283 行引用的商品在旧站已删除,_product_id 指向不存在的 post;
+--   237 单全行皆幽灵,不落占位则订单详情零商品行)。draft+listed=0 永不进目录;
+--   legacy_wp_product_id 置 NULL,不计入迁移商品报告口径
+INSERT INTO acore_portal.product
+  (type, sku, name, slug, description, category_id, status, listed, price, updated_at)
+VALUES
+  ('game_item', 'legacy-deleted', '已删除的存量商品', 'legacy-deleted',
+   '存量订单引用的商品在旧站已被删除,此行仅作历史订单行快照的占位归属。',
+   (SELECT c.id FROM acore_portal.product_category c WHERE c.slug = 'legacy-uncategorized'),
+   'draft', 0, 0, NOW())
+ON DUPLICATE KEY UPDATE product.id = product.id;
+
+-- ④ 订单行快照(商品映射按 legacy_wp_product_id,幽灵引用落占位商品;completed 单行=delivered)
 INSERT INTO acore_portal.order_item
   (order_id, product_id, sku, name, unit_price, qty, params, delivery_status, delivered_at, legacy_wp_order_item_id)
 SELECT
   o.id,
-  prod.id,
-  COALESCE(im.sku, prod.sku),
+  COALESCE(prod.id, ghost.id),
+  COALESCE(im.sku, prod.sku, ghost.sku),
   oi.order_item_name,
   ROUND(im.line_total / NULLIF(im.qty, 0)),
   im.qty,
@@ -172,7 +189,8 @@ JOIN (
   WHERE meta_key IN ('_product_id','_qty','_line_total','acore_item_sku')
   GROUP BY order_item_id
 ) im ON im.order_item_id = oi.order_item_id
-JOIN acore_portal.product prod ON prod.legacy_wp_product_id = im.product_id
+LEFT JOIN acore_portal.product prod ON prod.legacy_wp_product_id = im.product_id
+JOIN acore_portal.product ghost ON ghost.sku = 'legacy-deleted'
 LEFT JOIN (
   SELECT order_item_id, JSON_OBJECT('characterGuid', MAX(CAST(meta_value AS UNSIGNED))) j
   FROM wp_legacy.wp_woocommerce_order_itemmeta

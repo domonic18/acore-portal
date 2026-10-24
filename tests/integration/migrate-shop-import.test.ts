@@ -8,7 +8,8 @@ import { createPool, type Pool, type RowDataPacket } from "mysql2/promise";
  * T056 US6 商城存量导入集成(quickstart S6,data-model §7):
  * seed 带标记 WP 形态数据到 wp_legacy → 跑 shop-import.sql →
  * D3 口径:有扣分且金额相符→completed、无扣分→cancelled、金额不符→pending+复核清单;
- * transmog 等非契约 SKU→draft 不阻塞;幂等重跑零新增行(legacyWp* 键,验收红线)。
+ * 商品 publish+draft 全量入库(WP 未发布→draft,空 slug 回退 legacy-{ID}),非契约 SKU→draft;
+ * 幂等重跑零新增行(legacyWp* 键,验收红线)。
  * seed 的 WP 行/acore 行均带 RUN 标记,用后全清,不污染真实 dump 与演练数据。
  */
 config({ path: new URL("../../.env", import.meta.url).pathname });
@@ -24,9 +25,10 @@ const WP_USER_SPAM_ID = 9_100_002;
 const TERM_A = 9_200_001;
 const TERM_B = 9_200_002;
 const TT_B = 9_200_102;
-const PRODUCT_WP_IDS = [9_300_001, 9_300_002, 9_300_003];
+const PRODUCT_WP_IDS = [9_300_001, 9_300_002, 9_300_003, 9_300_004];
 const ORDER_WP_IDS = [9_400_001, 9_400_002, 9_400_003];
-const ITEM_WP_IDS = [9_500_001, 9_500_002, 9_500_003];
+const ITEM_WP_IDS = [9_500_001, 9_500_002, 9_500_003, 9_500_004];
+const GHOST_PRODUCT_WP_ID = 9_300_999; // 不落 wp_posts 的幽灵商品引用
 const MYCRED_IDS = [9_600_001, 9_600_002];
 const PAID_AT = 1_735_000_000; // 2024-12-24 unix 秒
 
@@ -92,6 +94,17 @@ async function seedWpFixture() {
       [pid, k, v],
     );
   }
+  // 商品④:WP draft(未发布)+空 slug(还原存量 2 个 post_name 为空的 draft 形态)
+  //   契约 SKU 也必须落 draft;slug 回退 legacy-{postID}
+  await pool.query(
+    `UPDATE wp_legacy.wp_posts SET post_status = 'draft', post_name = '' WHERE ID = ?`,
+    [PRODUCT_WP_IDS[3]],
+  );
+  await pool.query(
+    `INSERT INTO wp_legacy.wp_postmeta (post_id, meta_key, meta_value) VALUES
+       (?, '_sku', ?), (?, '_regular_price', '35'), (?, '_price', '35')`,
+    [PRODUCT_WP_IDS[3], `itemsend_t56${RUN}`, PRODUCT_WP_IDS[3], PRODUCT_WP_IDS[3]],
+  );
   await pool.query(
     `INSERT INTO wp_legacy.wp_term_relationships (object_id, term_taxonomy_id) VALUES
        (?, ?), (?, ?)`,
@@ -104,7 +117,7 @@ async function seedWpFixture() {
   const renameWpId = Number(renameRow[0]!.id);
 
   // 订单×3(全部 wc-processing,判据走 D3 而非 post_status):
-  // ①扣分 20=金额 20→completed ②无扣分→cancelled ③扣分 45≠金额 50→pending+复核
+  // ①扣分 20=金额 20→completed ②无扣分→cancelled(含幽灵商品行) ③扣分 45≠金额 50→pending+复核
   const orders: {
     id: number;
     total: string;
@@ -165,6 +178,19 @@ async function seedWpFixture() {
         : [ITEM_WP_IDS[itemIdx]!, o.productId, ITEM_WP_IDS[itemIdx]!, ITEM_WP_IDS[itemIdx]!, o.total],
     );
   }
+  // 订单②追加幽灵商品行:引用不存在的 post(旧站已删除商品的存量形态),行快照应落占位商品
+  await pool.query(
+    `INSERT INTO wp_legacy.wp_woocommerce_order_items
+       (order_item_id, order_item_name, order_item_type, order_id)
+     VALUES (?, '幽灵行快照', 'line_item', ?)`,
+    [ITEM_WP_IDS[3], ORDER_WP_IDS[1]],
+  );
+  await pool.query(
+    `INSERT INTO wp_legacy.wp_woocommerce_order_itemmeta
+       (order_item_id, meta_key, meta_value) VALUES
+       (?, '_product_id', ?), (?, '_qty', '2'), (?, '_line_total', '30')`,
+    [ITEM_WP_IDS[3], GHOST_PRODUCT_WP_ID, ITEM_WP_IDS[3], ITEM_WP_IDS[3]],
+  );
 }
 
 async function runShopImport() {
@@ -240,7 +266,7 @@ describe("US6 商城存量导入(T056)", () => {
     await runShopImport();
 
     const seeded = await seedRows();
-    expect(seeded).toEqual({ p: 2, o: 3, oi: 3 }); // p=2:char-change-name 与真实导入商品撞 SKU,ODKU no-op
+    expect(seeded).toEqual({ p: 3, o: 3, oi: 4 }); // p=3:char-change-name 与真实导入商品撞 SKU,ODKU no-op
 
     // 分类(slug 幂等键)
     const [cats] = await pool.query<RowDataPacket[]>(
@@ -274,6 +300,17 @@ describe("US6 商城存量导入(T056)", () => {
       [PRODUCT_WP_IDS[1]],
     );
     expect(p2[0]!).toMatchObject({ type: "game_item", status: "draft" });
+
+    // 商品④:WP 未发布→draft(契约 SKU 也不例外);空 post_name 回退 legacy-{ID}
+    const [p4] = await pool.query<RowDataPacket[]>(
+      `SELECT type, status, slug FROM acore_portal.product WHERE legacy_wp_product_id = ?`,
+      [PRODUCT_WP_IDS[3]],
+    );
+    expect(p4[0]!).toMatchObject({
+      type: "game_item",
+      status: "draft",
+      slug: `legacy-${PRODUCT_WP_IDS[3]}`,
+    });
 
     // 商品③:已知服务键→published(真实 dump 同名 SKU 先导,seed 行 ODKU no-op,按 SKU 断言)
     const [p3] = await pool.query<RowDataPacket[]>(
@@ -337,6 +374,24 @@ describe("US6 商城存量导入(T056)", () => {
       [ITEM_WP_IDS[1]],
     );
     expect(i2[0]!.delivery_status).toBe("pending");
+
+    // 订单②幽灵行:商品 post 不存在→落 legacy-deleted 占位(draft/hidden),行名/数量/单价保留
+    const [ig] = await pool.query<RowDataPacket[]>(
+      `SELECT oi.sku, oi.name, oi.unit_price, oi.qty, oi.delivery_status, p.status p_status, p.listed
+       FROM acore_portal.order_item oi
+       JOIN acore_portal.product p ON p.id = oi.product_id
+       WHERE oi.legacy_wp_order_item_id = ?`,
+      [ITEM_WP_IDS[3]],
+    );
+    expect(ig[0]!).toMatchObject({
+      sku: "legacy-deleted",
+      name: "幽灵行快照",
+      unit_price: 15,
+      qty: 2,
+      delivery_status: "pending",
+      p_status: "draft",
+      listed: 0,
+    });
   });
 
   it("幂等重跑零新增行(legacyWp* 键,验收红线)", async () => {
@@ -345,7 +400,7 @@ describe("US6 商城存量导入(T056)", () => {
     const after = await counts();
     expect(after).toEqual(before);
     const seeded = await seedRows();
-    expect(seeded).toEqual({ p: 2, o: 3, oi: 3 });
+    expect(seeded).toEqual({ p: 3, o: 3, oi: 4 });
     // D3 复核清单同样幂等
     const [rv] = await pool.query<RowDataPacket[]>(
       `SELECT COUNT(*) AS n FROM acore_portal.migration_review_item WHERE legacy_wp_order_id = ?`,

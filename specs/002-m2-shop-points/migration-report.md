@@ -9,7 +9,7 @@
 | 步骤 | 脚本 | 结果 |
 | --- | --- | --- |
 | ① 用户 | `wp-users-import.sql`(M1) | 迁移 **5,645** 户;跳过垃圾户(**687**,user_login>32);空邮箱合成 3 |
-| ② 商品/分类 | `shop-import.sql` | 分类导入(slug 幂等);商品 99 中 **61 published**(itemsend_/服务键),0 draft;**1,897 订单全量落库**,行快照 **2,760** |
+| ② 商品/分类 | `shop-import.sql` | 分类导入(slug 幂等);商品 **99 全量入库**(61 published + 38 未发布原样保留 draft,2026-10-24 用户裁决);**1,897 订单全量落库**,行快照 **3,055**(含 283 条幽灵引用落 `legacy-deleted` 占位商品) |
 | ③ D3 口径分布 | 同上报告查询 | completed **1,897** / cancelled 0 / pending+复核 0 —— 全部存量单扣分流水与 `_order_total` 相符 |
 | ④ 积分流水 | `import-points.mjs` | 导入 **10,330** 条(woocommerce_payment 1,897 / badge_reward 2,022 / registration 5,544 / recurring 791 / manual 75 / visitor_referral 1);垃圾户流水跳过 687 户 |
 | ⑤ D7 对账 | 同上 | 差额户 **0**(流水 SUM 全部等于 mycred_default,无需补录);全量重算 `remainingDiffUsers=0` |
@@ -39,6 +39,7 @@
 ## 5. 遗留与切换日注意
 
 - **COS 凭据未配置**(cos.* 五键入 system_config,宪法 VI):演练走 scan-only 映射与死链报告;正式执行去掉 `--scan-only` 即真实上传,映射 newUrl 由 ODKU 回填为 cdnBase+key
-- 商品 99→61:其余 38 个无 `_sku` 或非发布态,按契约不入库(post_status 非 publish);切换日如需可人工在后台补建
+- 商品全量入库(2026-10-24 用户裁决):未发布 38 个原样保留 **draft**,后台可改后发布;published 仅限 WP publish+契约 SKU(itemsend_/服务键)。slug 异常回退 `legacy-{postID}`(2 个 post_name 为空+5 个中文百分号编码 slug 136-145 字符超 varchar(128))
+- **幽灵商品行**:存量 283 行引用的商品在旧站已删除(`_product_id` 指向不存在的 post,涉 280 单、其中 237 单全行皆幽灵),统一落 `legacy-deleted` 占位商品(draft/listed=0,legacy_wp_product_id=NULL 不计迁移商品口径),行名称/数量/单价快照完整保留——否则 237 个历史订单在新站详情页将零商品行
 - D3 本轮零复核项;若切换日快照出现金额不符单,复核入口 `/admin/review-items`(approve→completed/驳回→cancelled,审计留痕)
 - 演练期间 D7 曾在测试首轮对 dev 全量差额户补录(测试环境预期行为);正式切换以最新快照重算为准

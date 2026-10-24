@@ -166,7 +166,7 @@
 
 **实现**:
 
-- [x] T058 [US6] `scripts/migrate/shop-import.sql`：WP dump 临时库→分类→商品（SKU 校验失败→draft+清单不阻塞）→订单（D3 清洗，绑定角色自订单 meta 还原）→订单行快照；全部 INSERT…ON DUPLICATE KEY / 幂等跳过（data-model §7）
+- [x] T058 [US6] `scripts/migrate/shop-import.sql`：WP dump 临时库→分类→商品（SKU 校验失败→draft+清单不阻塞）→订单（D3 清洗，绑定角色自订单 meta 还原）→订单行快照；全部 INSERT…ON DUPLICATE KEY / 幂等跳过（data-model §7）（实施偏差：2026-10-24 用户裁决商品**全量入库**——draft 商品也迁入原样保留 draft，published 仅限 WP publish+契约 SKU；slug 空/超 128 回退 `legacy-{postID}`〔存量 2 空+5 超长〕；存量 283 行引用已删除商品〔post 不存在，涉 237 单全行幽灵〕落 `legacy-deleted` 占位商品〔draft/listed=0〕保住行快照，行快照 2,760→3,055）
 - [x] T059 [US6] `scripts/migrate/import-points.mjs`：存量流水 11,017 笔 6 类枚举映射导入（refType+refId=wp log id 幂等键）→ D7 差额补录 → 接 US1 reconcile 全量对账输出报告
 - [x] T060 [US6] `scripts/migrate/cos-upload.mjs`：uploads 扫描→sha256 幂等上传（重复跑零上传）→ image_asset_map 回填→死链扫描报告（FR-132；cos.* 配置经 lib/config 走 system_config）
 - [x] T061 [US6] `services/images/rewrite.ts`：前台富文本/图集 URL 重写（image_asset_map）+ COS 不可用占位图回退不白屏（Edge Cases）
