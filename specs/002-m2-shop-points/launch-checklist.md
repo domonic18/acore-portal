@@ -41,4 +41,4 @@
 
 - [ ] SOAP `.server info` 真机解析核对:uptime 行/登录队列行解析正则 vs 真机输出(mock 固定样例先行,解析失败置 null 前台 N/A;在线数走 characters 库 `online=1` 计数不走文本解析,契约 specs/003 contracts/server-status.md)
 - [ ] characters 今日新注册口径核对:`create_date`(unix 秒,M1 迁移既有字段)在真机库的语义确认为账号建号时间,避免状态卡统计口径漂移(T043 偏差注记)
-- [ ] 内容迁移正式跑清单(切换日全幂等,先于/随后 M2 §4 管线):①`route-map-m3.sql`(p/page_id/cat 三键 124 行,断言见文件尾;topic/forum 两键随 forum-import 扩充) ②`content-import.mjs`(article/content_page/progression_node 三落地表+正文死链扫描) ③`forum-import.mjs`(版块/主题/帖子,contentHtml 附件重写查 image_asset_map) ④`cos-upload.mjs` 扫描面增量核对(M2 全量 4.4G/972 附件已扫,M3 新增 forum_post.contentHtml/progression_node.imageUrl 引用),死链报告复跑归零
+- [ ] 内容迁移正式跑清单(切换日全幂等,顺序权威口径见 specs/003 migration-report §6):`cos-upload.mjs`(去 --scan-only,新增扫描面 forum_post.contentHtml/progression_node.imageUrl) → `content-import.mjs`(article/content_page/progression_node 三落地表+正文死链扫描) → `route-map-m3.sql`(p/page_id/cat 三键 124 行,断言见文件尾;topic/forum 两键随 `forum-import.mjs` 扩充) → 对账 JSON 全零(viewsDiffRows=0/deadlinks=0)

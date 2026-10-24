@@ -25,7 +25,7 @@
 - 目标: 5 版块论坛（**完全只读**：浏览+版主操作，发帖/回帖/传图已裁剪 Q1）、存量论坛与文章迁移（HTML→MD 入库）、公告/资讯归档、渐进计划数据化时间轴、静态页入库后台可编辑、侧栏组件系统、登录态双菜单导航+多级菜单结构（自 M1 顺延）、服务器状态组件、首页四区块聚合
 - 验收标准: **存量论坛/文章可访问，旧 URL 301 全部生效**（specs/003-m3-community SC-201~208）
 - 预估工作量: 2 周
-- 状态: **进行中(spec/plan 完成，待任务分解)** — 规格 Q1-Q7 澄清清零(2026-10-24)；友情直播页已取消(需求+原型全量删除)；论坛状态标签自二期后置池提前入 M3(Q3)
+- 状态: **开发完成(验收顺延)** — 全部 50 任务完成(US1 全局框架/US2 存量迁移/US3 内容前台/US4 内容后台/US5 论坛/US6 服务器状态/Polish T047-T050);make check 224 vitest+60 E2E 全绿(隔离 schema);迁移演练全通过(文章 110/静态页 4/渐进 28/route_map 124 行+topic/forum 随论坛导入/死链 0,specs/003-m3-community/migration-report.md 定稿);SC-201~208 核销表 specs/003-m3-community/checklists/sc-acceptance.md;**上线前置清单** specs/002-m2-shop-points/launch-checklist.md §7(.server info 真机解析/今日新注册口径/内容迁移正式跑清单)
 
 ### M4 完善: 工具页 + 搜索 + 通知 + 横切
 
@@ -47,6 +47,7 @@
 
 | 日期 | 变更 | 原因 |
 |------|------|------|
+| 2026-10-24 | M3 收口:50 任务全完成(Polish=性能 profile 三项大幅优于阈值/审计安全核查[揪出分类标签保存缺审计+渐进后台 CRUD 缺域,用户裁决补实现]/文档三层同步/最终核验[E2E 复核补最近浏览例至 60+wp_comments 盘点 2,089=订单 2,070+文章 18+论坛 1]),状态→开发完成(验收顺延);SC-201~208 核销表 specs/003 checklists/sc-acceptance.md;launch-checklist §7 M3 前置项 | M3 Polish(T047-T050)完成 |
 | 2026-10-24 | M3 开工:规格出稿 specs/003-m3-community(6 US/FR-201~221/SC-201~208,Q1-Q7 澄清清零:论坛完全只读/内容入库/标签字段化/后台最小集/响应式框架级+核心页/状态字段照 p15/阅读计数每次+1)+plan/research(R1-R16)/data-model(10 新表)/contracts×4/quickstart;二期后置池「论坛状态标签」提前入 M3 | M3 specify+plan 阶段完成 |
 | 2026-10-24 | M2 收口:67 任务全完成(Polish=my-account 301 兼容收口/性能 profile/审计安全复查/文档状态流转),状态→开发完成(验收顺延),上线前置清单文档化 specs/002-m2-shop-points/launch-checklist.md;README/AGENTS 同步 M2 现状(137 vitest+28 E2E) | M2 Polish(T064-T067)完成 |
 | 2026-10-24 | M2 tasks.md 出稿(67 任务/9 阶段:Setup+Foundational(US0 services 归位+RBAC+COS 配置组)+US1 积分域→US6 存量迁移+Polish;14 并行点;MVP 首增量=地基+积分域 T001-T016;真机联调列上线前置清单) | /speckit-tasks 分解完成 |
