@@ -198,6 +198,26 @@ export type StatusConfigInput = {
 
 export type SaveStatusConfigResult = { pointerInvalid: boolean };
 
+/** 后台表单初值:原始指针(system_config 存储值,不经运行期回退) */
+export async function getRawStatusConfig(): Promise<{
+  enabled: boolean;
+  maintenanceMode: boolean;
+  currentNodeId: string | null;
+}> {
+  const [config, pointer] = await Promise.all([
+    getConfig(),
+    prisma.systemConfig.findUnique({
+      where: { key: "progression.current_node_id" },
+      select: { value: true },
+    }),
+  ]);
+  return {
+    enabled: config.status.enabled,
+    maintenanceMode: config.status.maintenanceMode,
+    currentNodeId: pointer?.value ?? null,
+  };
+}
+
 /**
  * 人工三键写入(T045;quickstart S6.5):PUT 后 reloadSystemConfig 即时生效,
  * 审计 status_config_change 前后值;指针失效仍落库(运行期回退末位 open)+告警位。

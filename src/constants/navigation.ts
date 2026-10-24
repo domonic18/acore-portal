@@ -65,8 +65,10 @@ export const ADMIN_NAV = [
   { href: "/admin/review-items", label: "迁移复核" },
   { href: "/admin/users", label: "用户" },
   { href: "/admin/invitation-codes", label: "邀请码" },
-  // M3 US4 内容域(T032;渐进计划/状态配置随 Phase 8 页面落地后加入)
+  // M3 US4 内容域(T032)
   { href: "/admin/articles", label: "文章" },
   { href: "/admin/pages", label: "静态页" },
   { href: "/admin/media", label: "媒体库" },
+  // M3 US6 状态人工三键(T045)
+  { href: "/admin/server-status", label: "状态配置" },
 ] as const;
