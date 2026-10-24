@@ -85,17 +85,17 @@
 
 **Tests（先写先失败）**:
 
-- [ ] T021 [P] [US3] 集成：`tests/integration/content-queries.test.ts` — services/content 查询层：归档分页 10/页+publishedAt 排序+draft 不可见、views 原子自增（50 并发无损=+50，SC-203 增量半）、静态页 slug 查询、渐进计划排序+当前/下一节点解析（指针指向已删节点回退最新 open）
+- [x] T021 [P] [US3] 集成：`tests/integration/content-queries.test.ts` — services/content 查询层：归档分页 10/页+publishedAt 排序+draft 不可见、views 原子自增（50 并发无损=+50，SC-203 增量半）、静态页 slug 查询、渐进计划排序+当前/下一节点解析（指针指向已删节点回退最新 open）（9 例;2099 日期段+指针行快照恢复隔离 dev 存量数据）
 
 **实现**:
 
-- [ ] T022 [US3] `services/content/`（articles/pages/taxonomies/archive 查询）+ `services/progression/`（时间轴+指针）+ `services/home/`（四区块聚合）；阅读计数 API `POST /api/content/article/[slug]/view`（R2 原子 UPDATE）
-- [ ] T023 [US3] 归档页：`app/{announcements,news,guides,devlog}/page.tsx` 共用归档组件（10/页分页+搜索框）
-- [ ] T024 [US3] 文章详情：`app/post/[slug]/page.tsx` — bodyMd 经 lib/markdown 渲染 + TOC 锚点侧栏 + views 客户端水合后 POST 上报 + Wowhead 浮窗（M2 脚本复用）
-- [ ] T025 [US3] 静态页：`app/[slug]/page.tsx` 根级兜底（generateStaticParams 预渲染 about/tutorial/agreement/convention/sitemap；未命中 notFound）
-- [ ] T026 [US3] 渐进计划页：`app/progression/page.tsx` 时间轴（phaseDate 排序/锚点导航/当前下一阶段高亮/locked 置灰）
-- [ ] T027 [US3] 首页重设计：四区块（最新公告 5/服务器状态卡占位[US6 接线]/当前渐进阶段/精选商品——featured 优先回退最新上架）
-- [ ] T028 [US3] E2E：`tests/e2e/content.spec.ts` — 归档分页/详情 TOC 跳转+views+1/静态页 5 页可达+随机 slug 404/首页四区块（SC-202 前台半/SC-204）
+- [x] T022 [US3] `services/content/`（articles/pages/taxonomies/archive 查询）+ `services/progression/`（时间轴+指针）+ `services/home/`（四区块聚合）；阅读计数 API `POST /api/content/article/[slug]/view`（R2 原子 UPDATE）。偏差:lib/markdown 渲染从 react-dom/server 改为 unified+rehype-stringify 管线（RSC 禁运 react-dom/server;插件链/sanitize/TOC 行为不变,8 单测原样通过）
+- [x] T023 [US3] 归档页：`app/{announcements,news,guides,devlog}/page.tsx` 共用 `app/_components/content/archive-page.tsx`（10/页分页+标题搜索+清除）
+- [x] T024 [US3] 文章详情：`app/post/[slug]/page.tsx` — bodyMd 经 lib/markdown 渲染 + TOC 锚点侧栏（rehype-slug v6 user-content- 前缀）+ views 客户端水合后 POST 上报 + Wowhead 浮窗（M2 脚本复用）
+- [x] T025 [US3] 静态页：`app/[slug]/page.tsx` 根级兜底（generateStaticParams 列 CORE_PAGE_SLUGS 5 页;layout 含 cookies 实际动态渲染,未命中 notFound）
+- [x] T026 [US3] 渐进计划页：`app/progression/page.tsx` 时间轴（phaseDate 排序/锚点导航/当前下一阶段高亮/locked 置灰）
+- [x] T027 [US3] 首页重设计：四区块（最新公告 5/服务器状态卡占位[US6 接线]/当前渐进阶段/精选商品——featured 优先回退最新上架）
+- [x] T028 [US3] E2E：`tests/e2e/content.spec.ts` — 归档分页/详情 TOC 跳转+views+1/静态页 5 页可达+随机 slug 404/首页四区块（SC-202 前台半/SC-204）（12 例;seed 扩 11 篇归档 fixture+5 核心静态页;e2e 库全绿 47/47）
 
 **Checkpoint（quickstart S3）**: SC-204 渐进时间轴与旧页信息等价；发文可见闭环就绪。
 

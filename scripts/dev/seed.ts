@@ -185,12 +185,31 @@ async function seedContent() {
   const pages = [
     { slug: "about", title: "项目简介", bodyMd: "# 项目简介\n\n老克塔是 60 年代怀旧服社区。" },
     { slug: "tutorial", title: "使用教程", bodyMd: "# 使用教程\n\n见下方下载锚点。" },
+    { slug: "agreement", title: "用户协议", bodyMd: "# 用户协议\n\n怀旧公益服务条款。" },
+    { slug: "convention", title: "论坛公约", bodyMd: "# 论坛公约\n\n友善交流,遵守公约。" },
+    { slug: "sitemap", title: "网站地图", bodyMd: "# 网站地图\n\n全站导航清单。" },
   ] as const;
   for (const p of pages) {
     await prisma.contentPage.upsert({
       where: { slug: p.slug },
       update: {},
       create: { ...p, status: "published" },
+    });
+  }
+  // 归档分页 fixture:11 篇种子公告(10/页 → 第 1 页 10 篇,第 2 页 3 篇)
+  for (let i = 1; i <= 11; i++) {
+    const slug = `seed-arch-${String(i).padStart(2, "0")}`;
+    await prisma.article.upsert({
+      where: { slug },
+      update: {},
+      create: {
+        slug,
+        title: `种子归档 ${i} 号`,
+        bodyMd: `<p>种子归档正文 ${i}。</p>`,
+        categoryId: announcements.id,
+        status: "published",
+        publishedAt: new Date(now.getTime() - (i + 3) * 86_400_000),
+      },
     });
   }
   const progressionSeed = [
