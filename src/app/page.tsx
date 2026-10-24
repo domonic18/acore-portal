@@ -1,33 +1,119 @@
+import Link from "next/link";
+import { getHomeBlocks } from "@/server/services/home/home";
 import { SiteSidebar } from "@/app/_components/sidebar/sidebar";
 
 /**
- * 首页壳(M3 US1;US3 T022 四区块聚合:公告/服务器状态/当前渐进阶段/精选商品)。
- * 侧栏按 home 类型渲染(FR-206)。
+ * 首页四区块(T027,US3;spec §US3):最新公告 5/服务器状态卡(US6 接线占位)/
+ * 当前渐进阶段/精选商品(featured 优先回退最新上架)。侧栏按 home 类型渲染。
  */
-export default function HomePage() {
+export default async function HomePage() {
+  const { announcements, progression, featuredProducts } = await getHomeBlocks();
+
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-4 lg:flex-row">
-      <div className="flex flex-1 flex-col items-center justify-center gap-6 py-16 text-center">
+    <main className="mx-auto max-w-6xl p-4">
+      <section className="mb-6 py-10 text-center">
         <h1 className="text-3xl font-bold text-[#e6d8a8]">
           老克塔 · AzerothCore 怀旧社区
         </h1>
-        <p className="text-[#8fa0b8]">怀旧公益项目 · 60 时代经典旧世</p>
-        <div className="flex gap-4">
-          <a
-            href="/shop"
-            className="rounded bg-[#c9a227] px-4 py-2 font-medium text-[#1a1408] hover:bg-[#dbb535]"
+        <p className="mt-2 text-[#8fa0b8]">怀旧公益项目 · 60 时代经典旧世</p>
+      </section>
+
+      <div className="flex flex-col gap-6 lg:flex-row">
+        <div className="grid min-w-0 flex-1 grid-cols-1 gap-4 md:grid-cols-2">
+          <section className="rounded border border-[#1e2a3d] bg-[#0d1728] p-4 md:col-span-2">
+            <div className="mb-3 flex items-baseline justify-between">
+              <h2 className="font-bold text-[#e6d8a8]">最新公告</h2>
+              <Link
+                href="/announcements"
+                className="text-xs text-[#8fa0b8] hover:text-[#e6d8a8]"
+              >
+                更多 →
+              </Link>
+            </div>
+            {announcements.length === 0 ? (
+              <p className="text-sm text-[#5d6b80]">暂无公告</p>
+            ) : (
+              <ul className="space-y-2 text-sm">
+                {announcements.map((a) => (
+                  <li key={a.slug} className="flex items-baseline justify-between gap-3">
+                    <Link
+                      href={`/post/${encodeURIComponent(a.slug)}`}
+                      className="line-clamp-1 text-[#c7d2e0] hover:text-[#e6d8a8]"
+                    >
+                      {a.title}
+                    </Link>
+                    <span className="shrink-0 text-xs text-[#5d6b80]">
+                      {a.publishedAt?.toISOString().slice(0, 10)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section
+            data-testid="home-server-status"
+            className="rounded border border-[#1e2a3d] bg-[#0d1728] p-4"
           >
-            积分商店
-          </a>
-          <a
-            href="/tutorial"
-            className="rounded border border-[#243350] px-4 py-2 text-[#c7d2e0] hover:border-[#c9a227] hover:text-[#e6d8a8]"
-          >
-            新手教程
-          </a>
+            <h2 className="mb-3 font-bold text-[#e6d8a8]">服务器状态</h2>
+            <p className="text-sm text-[#5d6b80]">状态探针接入中,敬请期待。</p>
+          </section>
+
+          <section className="rounded border border-[#1e2a3d] bg-[#0d1728] p-4">
+            <div className="mb-3 flex items-baseline justify-between">
+              <h2 className="font-bold text-[#e6d8a8]">当前阶段</h2>
+              <Link
+                href="/progression"
+                className="text-xs text-[#8fa0b8] hover:text-[#e6d8a8]"
+              >
+                渐进计划 →
+              </Link>
+            </div>
+            <p className="text-lg font-semibold text-[#e6d8a8]">
+              {progression.current?.title ?? "待定"}
+            </p>
+            {progression.current?.phaseDate && (
+              <p className="mt-1 text-xs text-[#5d6b80]">
+                开放于 {progression.current.phaseDate.toISOString().slice(0, 10)}
+              </p>
+            )}
+            {progression.next && (
+              <p className="mt-2 text-xs text-[#8fa0b8]">
+                下一阶段:{progression.next.title}
+              </p>
+            )}
+          </section>
+
+          <section className="rounded border border-[#1e2a3d] bg-[#0d1728] p-4 md:col-span-2">
+            <div className="mb-3 flex items-baseline justify-between">
+              <h2 className="font-bold text-[#e6d8a8]">精选商品</h2>
+              <Link href="/shop" className="text-xs text-[#8fa0b8] hover:text-[#e6d8a8]">
+                积分商店 →
+              </Link>
+            </div>
+            {featuredProducts.length === 0 ? (
+              <p className="text-sm text-[#5d6b80]">商品即将上架。</p>
+            ) : (
+              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {featuredProducts.map((p) => (
+                  <li key={p.slug}>
+                    <Link
+                      href={`/shop/${encodeURIComponent(p.slug)}`}
+                      className="block rounded border border-[#1e2a3d] p-3 hover:border-[#c9a227]"
+                    >
+                      <p className="line-clamp-1 text-sm text-[#c7d2e0]">{p.name}</p>
+                      <p className="mt-1 text-sm font-semibold text-[#c9a227]">
+                        {p.price} 积分
+                      </p>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
+        <SiteSidebar pageType="home" />
       </div>
-      <SiteSidebar pageType="home" />
     </main>
   );
 }
