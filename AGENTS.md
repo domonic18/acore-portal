@@ -47,13 +47,21 @@ pnpm db:migrate                                # 业务库迁移
 pnpm db:seed                                   # 开发种子数据(scripts/dev/seed.ts)
 pnpm soap:mock                                 # 本地 SOAP worldserver 模拟(开发/联调用)
 pnpm dev                                       # 开发服务器
-make check                                     # 质量门禁: lint + typecheck + vitest(63 用例)
-pnpm test:e2e                                  # Playwright E2E(17 场景, 含路由兼容 301)
+make check                                     # 质量门禁: lint + typecheck + vitest(137 用例)
+pnpm test:e2e                                  # Playwright E2E(28 场景, 含路由兼容 301/商城结账全链路)
 pnpm verify:soap                               # SOAP 通道连通性自检(连真实 worldserver 或 mock)
 pnpm verify:sc001                              # SC-001 老用户双格式登录验收(读 workspace/verify-credentials.txt)
 ```
 
-以上命令均已验证可用（M1 收口 2026-10-23 核对 package.json scripts 与 Makefile）。`db:deploy` 供生产/CI 用 `migrate deploy`。
+E2E 默认连 dev 库；dev 库灌过存量迁移数据后与服务类 SKU 冲突，用独立 schema 隔离跑（一次性建库授权后三条命令，webServer 继承 DATABASE_URL）：
+
+```bash
+DATABASE_URL="mysql://acore_portal:<pw>@localhost:3307/acore_portal_e2e" pnpm db:deploy
+DATABASE_URL="mysql://acore_portal:<pw>@localhost:3307/acore_portal_e2e" pnpm db:seed
+DATABASE_URL="mysql://acore_portal:<pw>@localhost:3307/acore_portal_e2e" pnpm test:e2e
+```
+
+以上命令均已验证可用（M2 收口 2026-10-24 核对 package.json scripts 与 Makefile）。`db:deploy` 供生产/CI 用 `migrate deploy`。
 
 测试环境（Mac Mini 常驻栈,公网 dev.17aitech.com → frpc → 宿主 9000）：
 
@@ -71,7 +79,7 @@ docker exec -i acore-portal-test-mysql-1 sh -c 'mysql -uroot -p$MYSQL_ROOT_PASSW
 prisma/          # schema + migrations（业务库唯一 schema 真相源）
 src/
 ├── app/         # App Router：路由/页面/Route Handlers(API)，薄层，业务下沉 server/
-├── server/      # 服务端业务：services/(业务编排) soap/(游戏命令层) handlers/(服务类商品处理器)
+├── server/      # 服务端业务：services/(业务编排,含 services/shop/handlers/ 服务类商品处理器) soap/(游戏命令层)
 ├── components/  # React 组件（展示层，禁止直连数据库）
 ├── lib/         # 基础设施：db/(prisma clients×5) redis/ auth/(phpass+session) mail/ captcha/
 ├── constants/   # 全局枚举与常量（订单状态/积分类型/SKU 前缀/SOAP 命令名），被所有层引用
@@ -90,7 +98,7 @@ docs/            # 文档中心
 
 **目录规范（2026-10-23 CodeReview 沉淀，借鉴 acore-manager/ai-invest）**:
 1. **目录即架构**：新增一级/域目录须先修订本节（借鉴 acore-manager《代码目录结构规范》守门做法）
-2. **services 分域**：`services/` 根目录禁新增平文件，新域一律 `services/<域>/`（现有 auth/ 即此模式）；跨域基础服务（审计/outbox/token/账本/路由映射）入 `services/shared/`（借鉴 ai-invest 按子域分包、根目录禁平文件）；M2 开工时现有平文件（characters/ledger 等）迁移归位
+2. **services 分域**：`services/` 根目录禁新增平文件，新域一律 `services/<域>/`（现有 auth/points/shop/orders/catalog/users-admin/images/account/mail/token/audit/routes 均此模式）；跨域基础服务（审计/outbox/token/账本/路由映射/游戏身份）入 `services/shared/`（借鉴 ai-invest 按子域分包、根目录禁平文件；M2 T004 已完成存量平文件归位）
 3. **RSC 页面禁直连 prisma**：app/ 下页面只做 校验/会话/编排，数据组装收敛 service 层（页面私有取数函数放 `services/<域>/`）
 4. **components 准入**：`components/ui/` 只收 ≥2 个消费者的通用组件；页面私有组件与 page 同目录（colocation）；域组件入 `components/<域>/`
 5. **业务域服务禁互引**：`services/auth` 与 `services/shop` 等域间不直接 import，经 `services/shared/` 或上层编排（防循环依赖，借鉴 ai-invest）

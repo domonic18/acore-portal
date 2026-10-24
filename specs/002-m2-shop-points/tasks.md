@@ -179,12 +179,25 @@
 
 ## Phase 9: Polish（横切收尾）
 
-- [ ] T064 路由兼容复查：`tests/e2e/route-compat.spec.ts` 扩充 /shop /cart /checkout /my-account 断言（FR-109，301/200 链路）
-- [ ] T065 性能核对：`/shop` 列表 P95<500ms、结账提交 P95<1s（不含发货，本地 profile 记录，不设 CI 门）
-- [ ] T066 审计与安全复查：M2 全部敏感操作审计覆盖率核对（ownership_violation/admin_access_violation/order_redeliver/order_refund/points_adjust/越权补发退款）；日志与错误响应无凭据（宪法 VI）；COS secretKey 不出现在任何响应
-- [ ] T067 收尾与状态流转：AGENTS/README M2 段落；development-plan.md M2 状态更新；飞书需求池 M2 条目状态同步；**上线前置清单文档化**（真机 SOAP 联调、每处理器真机抽测、SC-001 玩家真实登录）
+- [x] T064 路由兼容复查：`tests/e2e/route-compat.spec.ts` 扩充 /shop /cart /checkout /my-account 断言（FR-109，301/200 链路）（实测 /shop→200、/cart /checkout 未登录→302→/login、/my-account→301→/account 且 /my-account/orders 子路径同构透传；middleware 新增 my-account 规则+matcher）
+- [x] T065 性能核对：`/shop` 列表 P95<500ms、结账提交 P95<1s（不含发货，本地 profile 记录，不设 CI 门）（实测 dev 模式 /shop P95=16.9ms、结账事务 P95=9.0ms，记 `specs/002-m2-shop-points/perf-profile.md`；脚本 `scripts/dev/profile-perf.ts` warmup 3+计量 20，临时商品/余额用后即清）
+- [x] T066 审计与安全复查（2026-10-24 静态核查）：M2 敏感操作审计全覆盖——ownership_violation（cart.ts 越权加购）/admin_access_violation（session-guard page+api 双面）/order_redeliver/order_refund/points_adjust/badge_grant/review_resolved/delivery_no_handler 均有写入点且 payload 只含 ID/余额/状态（记事件不记敏感值）；日志仅 5 处 console.error 固定前缀+DB 错误对象，无凭据；错误响应固定文案，parseBody 只回字段路径不回值；COS secretKey 仅迁移脚本经 lib/cos 消费（src/app 零引用、运行期走 CDN 直链），未配置报错只提键组名不提值——不可能出现在任何响应
+- [x] T067 收尾与状态流转：AGENTS/README M2 段落；development-plan.md M2 状态更新；飞书需求池 M2 条目状态同步；**上线前置清单文档化**（真机 SOAP 联调、每处理器真机抽测、SC-001 玩家真实登录）（AGENTS 137 vitest+28 E2E/目录规范沉淀+README 快速开始定稿化；development-plan M2→开发完成(验收顺延)+变更记录；飞书池 M2 31 条待开发→开发中(2 条已取消不动)，里程碑表 M2 保持进行中；上线前置清单 specs/002-m2-shop-points/launch-checklist.md 六节）
 
 **Final Checkpoint**: quickstart S1-S5 全绿 + S6 前两项；SC-101~108 对照表核销；make check 全绿。
+
+### SC-101~108 核销表（2026-10-24,soap-mock 下;真机项见 launch-checklist.md）
+
+| SC | 结论 | 证据 |
+|----|------|------|
+| SC-101 全链路无人工 | ✅ | E2E「全链路:加购→结算复核→支付→订单详情自动 completed」+ delivery「发货成功:订单自动 completed(全程无人工)」;演练 1,897 存量单全 completed |
+| SC-102 失败可见/补发闭环/幂等/审计 | ✅ | delivery「失败注入→delivery_failed 可见;补发成功→completed;再次补发幂等」+「重复驱动幂等」+ admin「重复补发拒绝零新增命令」;命令审计覆盖率 100%(T066 核查表) |
+| SC-103 拦截三项 | ✅ | E2E+集成「余额不足 402 无单无流水」;cart「他人 guid→CHARACTER_NOT_OWNED+ownership_violation」;游客 /checkout→302 /login(route-compat) |
+| SC-104 零超卖/回补一致 | ✅ | checkout「双用户抢库存恰 1 单」「同账户并发串行化余额扣一次」「售罄 409 回滚」;admin「退款回补积分+库存+审计前后余额」 |
+| SC-105 对账抹平清零 | ✅ | migrate-points「D7 对账:差额补 manual_adjust,重算差异=0,重跑不重复补录」;points-ledger「reconcileAllPoints 修复后连跑两次空差异」;演练 10,330 条流水 D7 零差额 |
+| SC-106 9 处理器 mock 实测 | ✅ | handlers-delivery US4 矩阵 7 用例覆盖 9 处理器各 ≥1 笔(参数落库+命令+闭环);真机抽测→launch-checklist §2 |
+| SC-107 SKU 校验/手调流水/后台越权 | ✅ | admin-products「422×3+409 重复」;points-ledger「adjustPoints 审计含前后余额」;admin-guard「moderator/user 403+admin_access_violation,未登录拒绝」 |
+| SC-108 图片可达死链 0 | ✅ | image-rewrite「命中替换/未命中占位/幂等」;演练死链 0;正式迁移→launch-checklist §4 |
 
 ---
 

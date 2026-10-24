@@ -18,7 +18,7 @@
 - 目标: 积分账本（余额+流水+对账）、商品/分类（含库存/促销/SKU 校验）、购物车、结账（角色校验+积分支付+SOAP 发货+状态闭环）、装备恢复等 9+ 服务处理器、后台商品/订单/用户/积分手调、商城存量迁移（订单清洗导入+图片资产上 COS）
 - 验收标准: **测试订单全链路（下单→扣分→SOAP 发货→completed，验收在 soap-mock 下执行，真机联调延后）+ 积分对账差异清零**
 - 预估工作量: 2-3 周
-- 状态: 进行中(规格+设计工件+tasks.md 完成 specs/002-m2-shop-points,67 任务待实施;MVP 首增量=地基+积分域 T001-T016)
+- 状态: **开发完成(验收顺延)** — 全部 67 任务完成(US1 积分域/US2 商城购物车/US3 结账发货闭环/US4 处理器/US5 后台/US6 存量迁移/Polish);make check 137 vitest+28 E2E 全绿;SC-101~104 在 soap-mock 下达成,存量迁移演练全通过(1,897 单全 completed/积分流水 10,330 条 D7 零差额/图片死链 0,specs/002-m2-shop-points/migration-report.md);**上线前置清单** specs/002-m2-shop-points/launch-checklist.md(真机 SOAP 联调/每处理器真机抽测/SC-001 玩家真实登录/COS 正式迁移/Turnstile 公网前实装)
 
 ### M3 社区: 论坛 + 内容资讯 + 全局框架完善
 
@@ -47,6 +47,7 @@
 
 | 日期 | 变更 | 原因 |
 |------|------|------|
+| 2026-10-24 | M2 收口:67 任务全完成(Polish=my-account 301 兼容收口/性能 profile/审计安全复查/文档状态流转),状态→开发完成(验收顺延),上线前置清单文档化 specs/002-m2-shop-points/launch-checklist.md;README/AGENTS 同步 M2 现状(137 vitest+28 E2E) | M2 Polish(T064-T067)完成 |
 | 2026-10-24 | M2 tasks.md 出稿(67 任务/9 阶段:Setup+Foundational(US0 services 归位+RBAC+COS 配置组)+US1 积分域→US6 存量迁移+Polish;14 并行点;MVP 首增量=地基+积分域 T001-T016;真机联调列上线前置清单) | /speckit-tasks 分解完成 |
 | 2026-10-24 | M2 规格出稿 specs/002-m2-shop-points(6 US/FR-101~133/SC-101~108,澄清清零);D3 订单清洗口径确认(A:有扣分+发货标记→completed/不符→人工复核/无扣分→已取消);新增 D7 对账裁决基准=存量余额为准(差异补录调整流水抹平) | M2 specify 澄清裁决(Q1=A, Q2=B) |
 | 2026-10-24 | M1 飞书池状态补流转(13 条已实现→开发中,里程碑 M1→进行中);M2 范围裁决:双菜单导航/多级菜单顺延 M3,P2 四条(批量复制/限购/销量/地址簿)移二期后置池,图片资产定 COS 上云入 M2,SOAP 真机联调延后(M2 验收在 soap-mock 下全链路) | M2 开工前状态校准与范围决策 |
