@@ -6,7 +6,7 @@ import {
   lookupLegacyRoute,
   removeRouteMapping,
   saveRouteMapping,
-} from "@/server/services/route-map";
+} from "@/server/services/routes/route-map";
 
 // 高位数字键避开 dev/其他测试数据;route_map 为共享表,只动自己的键
 const KEYS = ["p:990001", "page_id:990002", "cat:990003"];

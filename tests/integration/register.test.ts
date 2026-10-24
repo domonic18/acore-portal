@@ -10,7 +10,7 @@ import { REGISTER_REWARD_AMOUNT } from "@/constants/points";
 import { redis } from "@/lib/redis";
 import { getSessionFromToken } from "@/lib/auth/session";
 import { registerAccount, activateAccount, resendActivation } from "@/server/services/auth/register";
-import { recalculateLedger } from "@/server/services/ledger";
+import { recalculateLedger } from "@/server/services/points/ledger";
 import { loginWithPassword } from "@/server/services/auth/login";
 
 /**
