@@ -24,6 +24,7 @@
     "db:migrate": "prisma migrate dev --schema prisma/schema-business/schema.prisma",
     "db:deploy": "prisma migrate deploy --schema prisma/schema-business/schema.prisma",
     "db:seed": "tsx scripts/dev/seed.ts",
+    "cron:reconcile-points": "tsx scripts/cron/reconcile-points.ts",
     "soap:mock": "node scripts/dev/soap-mock.mjs",
     "verify:sc001": "tsx --conditions=react-server scripts/verify/sc001-login.ts",
     "verify:soap": "tsx --conditions=react-server scripts/verify/soap-check.ts"

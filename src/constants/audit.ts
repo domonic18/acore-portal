@@ -1,8 +1,11 @@
-/** 审计域常量(宪法 VI:记事件不记敏感值) */
+/** 审计域常量(宪法 VI:记事件不记敏感值);M2 增 shop/admin/points 域分组(T005 枚举对齐) */
 export const AUDIT_CATEGORY = {
   SOAP: "soap",
   MAIL: "mail",
   SECURITY: "security",
+  SHOP: "shop",
+  ADMIN: "admin",
+  POINTS: "points",
 } as const;
 
 export type AuditCategoryValue = (typeof AUDIT_CATEGORY)[keyof typeof AUDIT_CATEGORY];
@@ -25,6 +28,8 @@ export const AUDIT_ACTION = {
   INVITATION_GENERATED: "invitation_codes_generated",
   INVITATION_DISABLED: "invitation_code_disabled",
   EMAIL_CHANGE_CONFIRMED: "email_change_confirmed",
+  /** M2 积分手调(US5 后台;payload 含调整前后余额) */
+  POINTS_ADJUST: "points_adjust",
 } as const;
 
 export type AuditActionValue = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];
