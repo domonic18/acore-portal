@@ -79,7 +79,14 @@ export type SitePageType =
   | "shop";
 
 export const SIDE_BY_PAGE_TYPE: Record<SitePageType, readonly SidebarComponentKey[]> = {
-  home: [],
+  home: [
+    "search",
+    "announcement-banners",
+    "external-links",
+    "calendar-archive",
+    "points-balance",
+    "recent-products",
+  ],
   archive: ["search", "announcement-banners", "external-links", "calendar-archive"],
   article: [
     "search",
@@ -109,3 +116,18 @@ export const SIDE_BY_PAGE_TYPE: Record<SitePageType, readonly SidebarComponentKe
   forum: ["search", "announcement-banners", "external-links", "calendar-archive"],
   shop: ["search", "announcement-banners", "external-links", "recent-products"],
 };
+
+/** 外部三链(侧栏友情链接;旧站静态事实) */
+export const EXTERNAL_LINKS = [
+  { label: "Wowhead 数据库", href: "https://www.wowhead.com" },
+  { label: "NGA 玩家社区", href: "https://nga.178.com" },
+  { label: "魔兽世界官网", href: "https://www.worldofwarcraft.com" },
+] as const;
+
+/** 下载与频道入口(旧站静态事实;客户端/登录器/插件实际文件在教程页下载卡) */
+export const DOWNLOAD_LINKS = {
+  client: { label: "客户端下载", href: "/tutorial", note: "1.12 完整客户端" },
+  launcher: { label: "登录器下载", href: "/tutorial", note: "一键登录" },
+  addon: { label: "插件下载", href: "/tutorial", note: "整合包" },
+  yy: { label: "YY 频道", href: "#", note: "频道号见公告" },
+} as const;
