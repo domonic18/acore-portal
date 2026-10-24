@@ -161,17 +161,17 @@
 
 **Tests（先写先失败）**:
 
-- [ ] T056 [P] [US6] 集成：`tests/integration/migrate-shop-import.test.ts` — seed 临时库首跑断言（商品 99/分类 14/订单按 D3 口径分布：有扣分+发货标记→completed、金额不符→复核清单、无扣分→cancelled）；**幂等重跑零新增行**（legacyWp* 键断言，验收红线）
-- [ ] T057 [P] [US6] 集成：`tests/integration/migrate-points.test.ts` — D7：每户 balance=存量 mycred_default；差额户补 `manual_adjust`（remark=「迁移对账调整(D7)」）；全量重算差异=0；M1 已迁流水 refType 幂等去重（quickstart S6.3）
+- [x] T056 [P] [US6] 集成：`tests/integration/migrate-shop-import.test.ts` — seed 临时库首跑断言（商品 99/分类 14/订单按 D3 口径分布：有扣分+发货标记→completed、金额不符→复核清单、无扣分→cancelled）；**幂等重跑零新增行**（legacyWp* 键断言，验收红线）
+- [x] T057 [P] [US6] 集成：`tests/integration/migrate-points.test.ts` — D7：每户 balance=存量 mycred_default；差额户补 `manual_adjust`（remark=「迁移对账调整(D7)」）；全量重算差异=0；M1 已迁流水 refType 幂等去重（quickstart S6.3）
 
 **实现**:
 
-- [ ] T058 [US6] `scripts/migrate/shop-import.sql`：WP dump 临时库→分类→商品（SKU 校验失败→draft+清单不阻塞）→订单（D3 清洗，绑定角色自订单 meta 还原）→订单行快照；全部 INSERT…ON DUPLICATE KEY / 幂等跳过（data-model §7）
-- [ ] T059 [US6] `scripts/migrate/import-points.mjs`：存量流水 11,017 笔 6 类枚举映射导入（refType+refId=wp log id 幂等键）→ D7 差额补录 → 接 US1 reconcile 全量对账输出报告
-- [ ] T060 [US6] `scripts/migrate/cos-upload.mjs`：uploads 扫描→sha256 幂等上传（重复跑零上传）→ image_asset_map 回填→死链扫描报告（FR-132；cos.* 配置经 lib/config 走 system_config）
-- [ ] T061 [US6] `services/images/rewrite.ts`：前台富文本/图集 URL 重写（image_asset_map）+ COS 不可用占位图回退不白屏（Edge Cases）
-- [ ] T062 [US6] 复核清单后台：`/admin/review-items` 页面 + GET/POST `/api/admin/review-items[/id]/resolve`（approve→completed/驳回→cancelled，审计留痕，data-model §2.9）
-- [ ] T063 [US6] 迁移演练（seed 临时库全流程）：shop-import→import-points→对账差异清零→cos-upload 幂等重跑零上传→抽样 20 户前端一致；演练报告记入 `specs/002-m2-shop-points/migration-report.md`
+- [x] T058 [US6] `scripts/migrate/shop-import.sql`：WP dump 临时库→分类→商品（SKU 校验失败→draft+清单不阻塞）→订单（D3 清洗，绑定角色自订单 meta 还原）→订单行快照；全部 INSERT…ON DUPLICATE KEY / 幂等跳过（data-model §7）
+- [x] T059 [US6] `scripts/migrate/import-points.mjs`：存量流水 11,017 笔 6 类枚举映射导入（refType+refId=wp log id 幂等键）→ D7 差额补录 → 接 US1 reconcile 全量对账输出报告
+- [x] T060 [US6] `scripts/migrate/cos-upload.mjs`：uploads 扫描→sha256 幂等上传（重复跑零上传）→ image_asset_map 回填→死链扫描报告（FR-132；cos.* 配置经 lib/config 走 system_config）
+- [x] T061 [US6] `services/images/rewrite.ts`：前台富文本/图集 URL 重写（image_asset_map）+ COS 不可用占位图回退不白屏（Edge Cases）
+- [x] T062 [US6] 复核清单后台：`/admin/review-items` 页面 + GET/POST `/api/admin/review-items[/id]/resolve`（approve→completed/驳回→cancelled，审计留痕，data-model §2.9）
+- [x] T063 [US6] 迁移演练（seed 临时库全流程）：shop-import→import-points→对账差异清零→cos-upload 幂等重跑零上传→抽样 20 户前端一致；演练报告记入 `specs/002-m2-shop-points/migration-report.md`
 
 **Checkpoint（quickstart S6）**: 幂等重跑零新增；D7 抹平后差异清零；图片抽样可达死链归零（SC-105/108）。
 
