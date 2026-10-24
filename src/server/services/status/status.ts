@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { redis } from "@/lib/redis";
 import { getConfig, reloadSystemConfig } from "@/lib/config";
 import { getCharactersDb } from "@/lib/db/characters";
+import type { ServerStatusPayload, ServerStatusResult } from "@/lib/status-types";
 import { rawExecuteCommand } from "@/server/soap/client";
 import { resolveProgressionPosition } from "@/server/services/progression/progression";
 import { writeAudit } from "@/server/services/audit/audit";
@@ -26,24 +27,7 @@ const PROBE_TTL_SECONDS = 25;
 const PROBE_TIMEOUT_MS = 2_000;
 const PEAK_TTL_SECONDS = 48 * 3600;
 
-export type ServerStatusPayload = {
-  enabled: true;
-  degraded: boolean;
-  online: boolean;
-  onlineCount: number | null;
-  allianceCount: number | null;
-  hordeCount: number | null;
-  uptimeText: string | null;
-  queueCount: number | null;
-  todayPeak: number | null;
-  charTotal: number | null;
-  todayNewChars: number | null;
-  currentStage: string | null;
-  maintenanceMode: boolean;
-  updatedAt: string;
-};
-
-export type ServerStatusResult = ServerStatusPayload | { enabled: false };
+export type { ServerStatusPayload, ServerStatusResult };
 
 export function todayPeakKey(): string {
   const d = new Date();

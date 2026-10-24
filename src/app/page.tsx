@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { getHomeBlocks } from "@/server/services/home/home";
+import { getServerStatus } from "@/server/services/status/status";
+import { StatusCard } from "@/components/site/status-card";
 import { SiteSidebar } from "@/app/_components/sidebar/sidebar";
 
 /**
- * 首页四区块(T027,US3;spec §US3):最新公告 5/服务器状态卡(US6 接线占位)/
+ * 首页四区块(T027,US3;spec §US3):最新公告 5/服务器状态卡(T044 转正)/
  * 当前渐进阶段/精选商品(featured 优先回退最新上架)。侧栏按 home 类型渲染。
  */
 export default async function HomePage() {
-  const { announcements, progression, featuredProducts } = await getHomeBlocks();
+  const [{ announcements, progression, featuredProducts }, serverStatus] =
+    await Promise.all([getHomeBlocks(), getServerStatus()]);
 
   return (
     <main className="mx-auto max-w-6xl p-4">
@@ -51,13 +54,8 @@ export default async function HomePage() {
             )}
           </section>
 
-          <section
-            data-testid="home-server-status"
-            className="rounded border border-[#1e2a3d] bg-[#0d1728] p-4"
-          >
-            <h2 className="mb-3 font-bold text-[#e6d8a8]">服务器状态</h2>
-            <p className="text-sm text-[#5d6b80]">状态探针接入中,敬请期待。</p>
-          </section>
+          {/* enabled=false 时整卡隐藏(StatusCard 内部短路) */}
+          <StatusCard initial={serverStatus} />
 
           <section className="rounded border border-[#1e2a3d] bg-[#0d1728] p-4">
             <div className="mb-3 flex items-baseline justify-between">
