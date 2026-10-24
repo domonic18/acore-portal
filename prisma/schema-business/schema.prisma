@@ -572,7 +572,7 @@ model Article {
   slug            String        @unique @db.VarChar(191) // /post/{slug}
   title           String        @db.VarChar(255)
   excerpt         String?       @db.VarChar(500) // 列表摘要(迁移期纯文本截取)
-  bodyMd          String        @db.LongText
+  bodyMd          String        @map("body_md") @db.LongText
   categoryId      BigInt        @map("category_id")
   status          ContentStatus @default(draft)
   publishedAt     DateTime?     @map("published_at") // published ⇒ 非空(应用层流转)
@@ -594,7 +594,7 @@ model ContentPage {
   id              BigInt        @id @default(autoincrement())
   slug            String        @unique @db.VarChar(64)
   title           String        @db.VarChar(255)
-  bodyMd          String        @db.LongText
+  bodyMd          String        @map("body_md") @db.LongText
   status          ContentStatus @default(draft)
   sortOrder       Int           @default(0) @map("sort_order") // 网站地图页排序
   legacyWpPageId  Int?          @unique @map("legacy_wp_page_id") // 幂等导入键
@@ -608,9 +608,9 @@ model ContentPage {
 model ProgressionNode {
   id           BigInt            @id @default(autoincrement())
   title        String            @db.VarChar(128)
-  phaseDate    DateTime          @map("phase_date") @db.Date // 显式日期(时间轴排序键)
+  phaseDate    DateTime?         @map("phase_date") @db.Date // 显式日期(排序键;未定档为 null,查询 NULLS LAST)
   imageUrl     String?           @map("image_url") @db.VarChar(500) // COS URL(迁移重写)
-  bodyMd       String?           @db.LongText
+  bodyMd       String?           @map("body_md") @db.LongText
   status       ProgressionStatus @default(locked)
   sort         Int               @default(0) // 同日期稳定排序
   legacyWpKey  String?           @unique @map("legacy_wp_key") @db.VarChar(64) // 幂等导入键
