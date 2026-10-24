@@ -114,16 +114,16 @@
 
 **Tests（先写先失败）**:
 
-- [ ] T037 [P] [US4] 单测：`tests/unit/handlers.test.ts` — resolveHandler 路由（前缀/精确键/未命中）；各处理器 validateSchema 参数矩阵（名字解锁首字母大写规范化、公会名合法性、装备恢复必选物品、destAccount 非空）
-- [ ] T038 [P] [US4] 集成：`tests/integration/handlers-delivery.test.ts` — 每处理器 1 条 mock 实测订单（命令名/参数/幂等键=order_item.id/状态闭环，命令映射照录 soap-delivery 表）；装备恢复 precheck：mock health=down → 支付前拦截（FR-120）
+- [x] T037 [P] [US4] 单测：`tests/unit/handlers.test.ts` — resolveHandler 路由（前缀/精确键/未命中）；各处理器 validateSchema 参数矩阵（名字解锁首字母大写规范化、公会名合法性、装备恢复必选物品、destAccount 非空）
+- [x] T038（偏差：自建 m4h-cat-{RUN} 分类+SKU 记忆化复用规避 product_sku_key 唯一冲突，不依赖共享 fixture；幂等键为 orderitem:{id}:1 attempt 后缀方案） [US4] 集成：`tests/integration/handlers-delivery.test.ts` — 每处理器 1 条 mock 实测订单（命令名/参数/幂等键=order_item.id/状态闭环，命令映射照录 soap-delivery 表）；装备恢复 precheck：mock health=down → 支付前拦截（FR-120）
 
 **实现**:
 
-- [ ] T039 [US4] soap-mock 增补：T032 占位命令全部落地为确定性回执（11 处理器对应命令全覆盖）
-- [ ] T040 [US4] `services/shop/handlers/` 10 处理器：item-restore（precheck 服务器在线）/char-change-race/faction/customize/rename（含 `name-unlock` 变体：unlockName 规范化+占用校验）/char-transfer/char-clone（destAccount 存在性查 auth 库）/guild-change——命令映射与校验照录 soap-delivery.md 表
-- [ ] T041 [US4] 装备恢复选物 UI：`/shop/[slug]` 选角色后异步加载可恢复物品单选浮窗（物品名/图标/质量色，复用 `/api/account/restore-items` M2 语义升级 `restorable` 标记）；未选物品不得加购
-- [ ] T042 [US4] 服务类参数采集：详情页按 param-schemas 渲染加购表单（目标账号/公会名/解锁名等），购物车与结账页参数复核（FR-123）；D6 反向声明：不提供寄他人角色入口（FR-124）
-- [ ] T043 [US4] handlers 层联调文档：`specs/002-m2-shop-points/handlers-status.md` 每处理器 mock 实测结果清单（SC-106 证据）+ 真机抽测上线前置条目
+- [x] T039（偏差：8 类服务命令确定性回执按需落地——itemsend 的 `.send items` T032 已有，物品类即全系统服务命令集） [US4] soap-mock 增补：T032 占位命令全部落地为确定性回执（11 处理器对应命令全覆盖）
+- [x] T040（偏差：registerHandler 动态注册移除，registry 改字面量 Map；unlockName 规范化前移至 zod schema transform，加购即落库规范名；precheck 双拦=结账事务外先行 422 零写入+发货行前 failed，同一处理器钩子复用） [US4] `services/shop/handlers/` 10 处理器：item-restore（precheck 服务器在线）/char-change-race/faction/customize/rename（含 `name-unlock` 变体：unlockName 规范化+占用校验）/char-transfer/char-clone（destAccount 存在性查 auth 库）/guild-change——命令映射与校验照录 soap-delivery.md 表
+- [x] T041 [US4] 装备恢复选物 UI：`/shop/[slug]` 选角色后异步加载可恢复物品单选浮窗（物品名/图标/质量色，复用 `/api/account/restore-items` M2 语义升级 `restorable` 标记）；未选物品不得加购
+- [x] T042（偏差：参数采集表单与结账参数复核大部分已于 US2/US3 随 add-to-cart-form/checkout 页交付，本任务补齐服务类字段渲染联调与 FR-123 结账侧 schema 双重把关） [US4] 服务类参数采集：详情页按 param-schemas 渲染加购表单（目标账号/公会名/解锁名等），购物车与结账页参数复核（FR-123）；D6 反向声明：不提供寄他人角色入口（FR-124）
+- [x] T043 [US4] handlers 层联调文档：`specs/002-m2-shop-points/handlers-status.md` 每处理器 mock 实测结果清单（SC-106 证据）+ 真机抽测上线前置条目
 
 **Checkpoint（quickstart S4）**: 每处理器 1 条 mock 订单全链路闭环；非法参数 422；服务器离线支付前拦截。
 
