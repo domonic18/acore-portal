@@ -84,8 +84,38 @@ enum AuditCategory {
   shop // M2:商品/订单/发货域事件(越权加购/发货无处理器等)
   admin // M2:后台敏感操作(补发/退款/积分手调/徽章/邀请码/复核)
   points // M2:积分账务调整域(D7 迁移补录)
+  content // M3:内容域后台操作(文章/页面/分类标签/媒体/渐进计划)
+  forum // M3:论坛版主操作与越权(SC-207)
 
   @@map("audit_category")
+}
+
+// ===== M3 内容/渐进/论坛枚举(data-model §1.2) =====
+
+/// 文章与静态页共用发布状态机(§7.1:发布写 publishedAt,下稿置空)
+enum ContentStatus {
+  draft
+  published
+
+  @@map("content_status")
+}
+
+/// 渐进计划节点开放状态(US3 时间轴置灰口径)
+enum ProgressionStatus {
+  locked
+  open
+
+  @@map("progression_status")
+}
+
+/// 论坛状态标签(Q3 字段化:【规范】【已解决】【已关闭】;closed 仅经版主关闭操作产生)
+enum ThreadStatusLabel {
+  none
+  standard
+  resolved
+  closed
+
+  @@map("thread_status_label")
 }
 
 // ===== M2 商城枚举(data-model §1.3) =====
@@ -153,6 +183,9 @@ model User {
   orders           Order[]
   badgeGrantsReceived BadgeGrant[]  @relation("BadgeGrantRecipient")
   badgeGrantsGranted  BadgeGrant[]  @relation("BadgeGrantIssuer")
+  mediaAssetsUploaded MediaAsset[]  @relation("MediaAssetUploader")
+  forumThreadsAuthored ForumThread[] @relation("ForumThreadAuthor")
+  forumPostsAuthored   ForumPost[]   @relation("ForumPostAuthor")
 
   @@map("user")
 }
@@ -363,6 +396,7 @@ model Product {
   stock             Int? // enabled 时必填;0=售罄(推导态,research R3)
   lowStockThreshold Int?          @map("low_stock_threshold")
   gameItemId        Int?          @map("game_item_id")
+  featured          Boolean       @default(false) // 首页精选区块(R14;后台表单开关,M3)
   legacyWpProductId Int?          @unique @map("legacy_wp_product_id") // 存量映射幂等键
   createdAt         DateTime      @default(now()) @map("created_at")
   updatedAt         DateTime      @updatedAt @map("updated_at")
@@ -493,4 +527,175 @@ model MigrationReviewItem {
   resolvedBy      BigInt?   @map("resolved_by")
 
   @@map("migration_review_item")
+}
+
+// ===== M3 内容域(data-model §2/§3/§5) =====
+
+/// 文章分类(存量 4 分类;slug=归档路由段 announcements/news/guides/devlog)
+model ArticleCategory {
+  id   BigInt @id @default(autoincrement())
+  name String @db.VarChar(64)
+  slug String @unique @db.VarChar(64)
+  sort Int    @default(0)
+
+  articles Article[]
+
+  @@map("article_category")
+}
+
+/// 标签(自由集合;删除级联 article_tag)
+model Tag {
+  id   BigInt @id @default(autoincrement())
+  name String @unique @db.VarChar(64)
+  slug String @unique @db.VarChar(64)
+
+  articles ArticleTag[]
+
+  @@map("tag")
+}
+
+/// 文章↔标签关联(复合主键)
+model ArticleTag {
+  articleId BigInt @map("article_id")
+  tagId     BigInt @map("tag_id")
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, tagId])
+  @@map("article_tag")
+}
+
+/// 文章(bodyMd 单格式,R1;views 原子自增计数器,R2;article_views 独立表已裁剪)
+model Article {
+  id              BigInt        @id @default(autoincrement())
+  slug            String        @unique @db.VarChar(191) // /post/{slug}
+  title           String        @db.VarChar(255)
+  excerpt         String?       @db.VarChar(500) // 列表摘要(迁移期纯文本截取)
+  bodyMd          String        @db.LongText
+  categoryId      BigInt        @map("category_id")
+  status          ContentStatus @default(draft)
+  publishedAt     DateTime?     @map("published_at") // published ⇒ 非空(应用层流转)
+  views           Int           @default(0) // 迁移初始化自 wp_post_views(SC-203)
+  legacyWpPostId  Int?          @unique @map("legacy_wp_post_id") // 幂等导入键
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  category ArticleCategory @relation(fields: [categoryId], references: [id])
+  tags     ArticleTag[]
+
+  @@index([categoryId, status, publishedAt])
+  @@index([status, publishedAt])
+  @@map("article")
+}
+
+/// 静态页(根级 /{slug} 兜底路由,R15;slug 保存时校验 RESERVED_SLUGS)
+model ContentPage {
+  id              BigInt        @id @default(autoincrement())
+  slug            String        @unique @db.VarChar(64)
+  title           String        @db.VarChar(255)
+  bodyMd          String        @db.LongText
+  status          ContentStatus @default(draft)
+  sortOrder       Int           @default(0) @map("sort_order") // 网站地图页排序
+  legacyWpPageId  Int?          @unique @map("legacy_wp_page_id") // 幂等导入键
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  @@map("content_page")
+}
+
+/// 渐进计划节点(29 档存量迁移;当前阶段=system_config 人工指针 progression.current_node_id,R8)
+model ProgressionNode {
+  id           BigInt            @id @default(autoincrement())
+  title        String            @db.VarChar(128)
+  phaseDate    DateTime          @map("phase_date") @db.Date // 显式日期(时间轴排序键)
+  imageUrl     String?           @map("image_url") @db.VarChar(500) // COS URL(迁移重写)
+  bodyMd       String?           @db.LongText
+  status       ProgressionStatus @default(locked)
+  sort         Int               @default(0) // 同日期稳定排序
+  legacyWpKey  String?           @unique @map("legacy_wp_key") @db.VarChar(64) // 幂等导入键
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  @@map("progression_node")
+}
+
+/// 媒体库资产(R13 最小集;删除=删行+COS 对象,不追踪引用,二次确认口径)
+model MediaAsset {
+  id           BigInt   @id @default(autoincrement())
+  cosKey       String   @unique @map("cos_key") @db.VarChar(255)
+  url          String   @db.VarChar(500) // CDN 公开 URL(入库避免读取拼装)
+  originalName String   @map("original_name") @db.VarChar(255)
+  sizeBytes    Int      @map("size_bytes")
+  mimeType     String   @map("mime_type") @db.VarChar(64)
+  uploadedBy   BigInt   @map("uploaded_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  uploader User @relation("MediaAssetUploader", fields: [uploadedBy], references: [id])
+
+  @@index([createdAt])
+  @@map("media_asset")
+}
+
+// ===== M3 论坛域(data-model §4;Q1 完全只读——无运行期发帖/回帖写路径) =====
+
+/// 版块(存量 5)
+model ForumBoard {
+  id               BigInt @id @default(autoincrement())
+  slug             String @unique @db.VarChar(64) // /forum/{board}
+  name             String @db.VarChar(64)
+  description      String? @db.VarChar(255)
+  sort             Int    @default(0)
+  legacyWpForumId  Int?   @unique @map("legacy_wp_forum_id") // 幂等导入键
+
+  threads ForumThread[]
+
+  @@map("forum_board")
+}
+
+/// 主题(作者双字段快照 R4:authorUserId 可空映射+authorName 渲染永不依赖映射成功)
+model ForumThread {
+  id               BigInt            @id @default(autoincrement())
+  boardId          BigInt            @map("board_id")
+  title            String            @db.VarChar(255) // 迁移期剥离状态前缀后的净标题
+  authorUserId     BigInt?           @map("author_user_id") // Set null:用户删除不丢主题
+  authorName       String            @map("author_name") @db.VarChar(64)
+  pinned           Boolean           @default(false) // 版主置顶
+  closedAt         DateTime?         @map("closed_at") // 版主关闭时间
+  statusLabel      ThreadStatusLabel @default(none) @map("status_label") // Q3 状态标签
+  viewCount        Int               @default(0) @map("view_count") // 存量迁移+详情访问原子自增(R2 口径)
+  replyCount       Int               @default(0) @map("reply_count") // 缓存列(迁移期写入;只读无增量写)
+  lastPostAt       DateTime          @map("last_post_at") // 列表默认排序键
+  legacyWpTopicId  Int?              @unique @map("legacy_wp_topic_id") // 幂等导入键(存量 259)
+  deletedAt        DateTime?         @map("deleted_at") // 版主软删(R5)
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  board       ForumBoard  @relation(fields: [boardId], references: [id])
+  authorUser  User?       @relation("ForumThreadAuthor", fields: [authorUserId], references: [id])
+  posts       ForumPost[]
+
+  @@index([boardId, deletedAt, pinned, lastPostAt])
+  @@map("forum_thread")
+}
+
+/// 楼层(1=主贴;存量 HTML 迁移期 sanitize 白名单过滤后落库,渲染层二次纵深,R4)
+model ForumPost {
+  id              BigInt    @id @default(autoincrement())
+  threadId        BigInt    @map("thread_id")
+  floor           Int // 楼层序号(1=主贴),迁移期按 wp 早序分配
+  authorUserId    BigInt?   @map("author_user_id")
+  authorName      String    @map("author_name") @db.VarChar(64)
+  contentHtml     String    @map("content_html") @db.MediumText
+  legacyWpPostId  Int?      @unique @map("legacy_wp_post_id") // 幂等导入键(471 回复+259 主贴)
+  deletedAt       DateTime? @map("deleted_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  thread     ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  authorUser User?       @relation("ForumPostAuthor", fields: [authorUserId], references: [id])
+
+  @@unique([threadId, floor])
+  @@index([threadId, deletedAt, floor])
+  @@map("forum_post")
 }
