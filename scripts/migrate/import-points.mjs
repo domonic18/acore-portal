@@ -119,6 +119,23 @@ export async function reconcileD7(pool, { runTag = new Date().toISOString() } = 
   return { adjustedUsers: diffs.length, totalAdjust, differences: diffs.length };
 }
 
+/**
+ * 建户物化:point_account.balance = SUM(流水)。对有 mycred_default 的迁移户
+ * D7 已保证 SUM=旧站余额,故建户即「以最终积分为准」的落点;缺此步全站余额
+ * 显示为空(迁移只导流水不建户)。ODKU 幂等,重跑将物化值与账本重新对齐。
+ */
+export async function ensurePointAccounts(pool) {
+  const [ins] = await pool.query(
+    `INSERT INTO acore_portal.point_account (user_id, balance, updated_at)
+     SELECT s.user_id, s.total, NOW()
+     FROM (SELECT user_id, SUM(amount) AS total
+           FROM acore_portal.point_transaction GROUP BY user_id) s
+     ON DUPLICATE KEY UPDATE balance = VALUES(balance)`,
+  );
+  const [rows] = await pool.query(`SELECT COUNT(*) n FROM acore_portal.point_account`);
+  return { accountsUpserted: ins.affectedRows, accountsTotal: Number(rows[0].n) };
+}
+
 // ---- CLI 入口(vitest 导入时不执行) ----
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   config({ path: new URL("../../.env", import.meta.url).pathname });
@@ -135,6 +152,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   });
   const imported = await importPoints(pool);
   const reconciled = await reconcileD7(pool);
+  const accounts = await ensurePointAccounts(pool);
   // 终检:全量重算差异应为 0(HAVING 只认本层 SELECT 别名,不认 JOIN 派生表限定列)
   const [bad] = await pool.query(
     `SELECT COUNT(*) n FROM (
@@ -149,7 +167,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   );
   console.log(
     JSON.stringify(
-      { ...imported, ...reconciled, remainingDiffUsers: Number(bad[0].n) },
+      { ...imported, ...reconciled, ...accounts, remainingDiffUsers: Number(bad[0].n) },
       null,
       2,
     ),

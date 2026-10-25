@@ -1,7 +1,7 @@
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
 import { config } from "dotenv";
 import { createPool, type Pool, type RowDataPacket } from "mysql2/promise";
-import { importPoints, reconcileD7 } from "../../scripts/migrate/import-points.mjs";
+import { ensurePointAccounts, importPoints, reconcileD7 } from "../../scripts/migrate/import-points.mjs";
 
 /**
  * T057 US6 积分存量迁移集成(quickstart S6.3,FR-103/133):
@@ -109,6 +109,7 @@ afterAll(async () => {
   const ids = (users as { id: number }[]).map((r) => r.id);
   if (ids.length > 0) {
     await pool.query(`DELETE FROM acore_portal.point_transaction WHERE user_id IN (?)`, [ids]);
+    await pool.query(`DELETE FROM acore_portal.point_account WHERE user_id IN (?)`, [ids]);
     await pool.query(`DELETE FROM acore_portal.\`user\` WHERE id IN (?)`, [ids]);
   }
   await pool.query(`DELETE FROM acore_portal.audit_log WHERE category = 'points' AND action = 'legacy_d7_adjust' AND payload_json LIKE ?`, [
@@ -171,5 +172,28 @@ describe("US6 积分存量迁移(T057)", () => {
     const report2 = await reconcileD7(pool, { runTag: `${RUN}x` });
     expect(report2.adjustedUsers).toBe(0);
     expect(await userRows(USER_B)).toEqual(before);
+  });
+
+  it("建户物化:point_account.balance=SUM(流水)=旧站余额;重跑对齐", async () => {
+    const report = await ensurePointAccounts(pool);
+    expect(report.accountsTotal).toBeGreaterThanOrEqual(2);
+
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT u.username, pa.balance FROM acore_portal.point_account pa
+       JOIN acore_portal.\`user\` u ON u.id = pa.user_id WHERE u.username IN (?, ?)`,
+      [USER_A, USER_B],
+    );
+    const balanceByName = new Map(rows.map((r) => [r.username, Number(r.balance)]));
+    expect(balanceByName.get(USER_A)).toBe(28);
+    expect(balanceByName.get(USER_B)).toBe(12);
+
+    // 重跑 ODKU:物化值与账本重新对齐,不产生重复户
+    await ensurePointAccounts(pool);
+    const [again] = await pool.query<RowDataPacket[]>(
+      `SELECT COUNT(*) n FROM acore_portal.point_account pa
+       JOIN acore_portal.\`user\` u ON u.id = pa.user_id WHERE u.username IN (?, ?)`,
+      [USER_A, USER_B],
+    );
+    expect(Number(again[0]!.n)).toBe(2);
   });
 });
