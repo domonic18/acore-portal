@@ -103,12 +103,12 @@
 
 **Tests（先写先失败）**:
 
-- [ ] T029 集成：`tests/integration/settings.test.ts` — GET 返回掩码态（passwordConfigured 布尔，无明文）；PUT 非法组 422/组内 zod 422/turnstile enabled 无密钥 422；敏感字段空输入=保持原值、非空=覆写；保存后 reloadSystemConfig 生效（getTransporter 指纹重建）；审计 SETTINGS_CHANGED 无值落盘；test-mail 成功/失败两态（mock transporter）
-- [ ] T030 设置服务：`src/server/services/settings/{view,save}.ts` — getSettingsView（五组+掩码态）/saveSettingsGroup（组 zod→upsert→reload→审计）/sendTestMail（直发不入 outbox+审计 SETTINGS_TEST_MAIL）
-- [ ] T031 设置 API 三路由：GET/PUT /api/admin/settings + POST /api/admin/settings/test-mail（requireApiAdmin；契约 api-admin-m4）
-- [ ] T032 设置页：`/admin/settings` RSC（五组表单+掩码交互：已配置显「••••••（已配置，留空保持）」+测试发信卡片 to 输入+结果提示）；ADMIN_NAV 增「设置」；E2E：页面可达+掩码态渲染+测试发信到 Mailpit（S5.2-S5.3 简版自动化，主链路集成层）
-- [ ] T033 备份脚本：`scripts/cron/backup.mjs`（.env 引导+system_config 取 cos.*/backup.*；docker exec mysqldump 业务库→gzip→COS backups/db/{name}-{yyyyMMdd}.sql.gz→retention 清理；--force-weekly 调试参数触发游戏四库 dump；凭据零打印）；test 栈真实跑一次冒烟（S5.4）
-- [ ] T034 运维文档：`docs/ops/backup-restore.md`（备份范围/恢复步骤/crontab 示例/游戏库 dump 两种客户端路径/配置变更重启口径）；**恢复演练执行并尾注记录**（临时 schema 导入+行数核对+冒烟，SC-308）
+- [x] T029 集成：`tests/integration/settings.test.ts` — GET 返回掩码态（passwordConfigured 布尔，无明文）；PUT 非法组 422/组内 zod 422/turnstile enabled 无密钥 422；敏感字段空输入=保持原值、非空=覆写；保存后 reloadSystemConfig 生效（getTransporter 指纹重建）；审计 SETTINGS_CHANGED 无值落盘；test-mail 成功/失败两态（mock transporter）
+- [x] T030 设置服务：`src/server/services/settings/{view,save}.ts` — getSettingsView（五组+掩码态）/saveSettingsGroup（组 zod→upsert→reload→审计）/sendTestMail（直发不入 outbox+审计 SETTINGS_TEST_MAIL）
+- [x] T031 设置 API 三路由：GET/PUT /api/admin/settings + POST /api/admin/settings/test-mail（requireApiAdmin；契约 api-admin-m4）
+- [x] T032 设置页：`/admin/settings` RSC（五组表单+掩码交互：已配置显「••••••（已配置，留空保持）」+测试发信卡片 to 输入+结果提示）；ADMIN_NAV 增「设置」；E2E：页面可达+掩码态渲染+测试发信到 Mailpit（S5.2-S5.3 简版自动化，主链路集成层）。（偏差注记：敏感字段保存成功后须清空组件 state 再 router.refresh——否则重渲染把内存 state 写回 DOM value,掩码红线被 E2E 抓包）
+- [x] T033 备份脚本：`scripts/cron/backup.mjs`（.env 引导+system_config 取 cos.*/backup.*；docker exec mysqldump 业务库→gzip→COS backups/db/{name}-{yyyyMMdd}.sql.gz→retention 清理；--force-weekly 调试参数触发游戏四库 dump；凭据零打印）；test 栈真实跑一次冒烟（S5.4）
+- [x] T034 运维文档：`docs/ops/backup-restore.md`（备份范围/恢复步骤/crontab 示例/游戏库 dump 两种客户端路径/配置变更重启口径）；**恢复演练执行并尾注记录**（临时 schema 导入+行数核对+冒烟，SC-308）
 
 **Checkpoint**: quickstart S5 全过；SC-308 演练留痕。
 
