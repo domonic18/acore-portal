@@ -88,10 +88,10 @@
 
 **目标**: FR-312~314 · SC-306 · quickstart S4。
 
-- [ ] T025 404 采集：全局 `app/not-found.tsx`（保持现有样式+client beacon 组件 fetch keepalive POST /api/track/not-found {path}）；`/api/track/not-found` 路由（path 截断 256/仅相对路径/HINCRBY stats:404:{yyyyMMdd} EXPIRE 48h/IP 轻限速 30 次/分/不记 UA referer）；单测：键面与 TTL/非法 path 拒绝
-- [ ] T026 Umami 注入与看板服务：app/layout.tsx 条件注入 Script（umami 组存在才渲染）；`src/server/services/stats/dashboard.ts` 聚合五区块（在线复用 getServerStatus/阅读 top10/404 近 7 日 HGETALL 合并 top10/近 7 天订单数+积分消耗 SUM(shop_payment 负流)/新注册 7 天；umami 区块走 lib/umami 独立容错）；集成：mock redis+umami client 断言各区块形状与容错（umami 挂→仅区块 error）
-- [ ] T027 看板页：`/admin/stats` RSC（requireAdmin+五区块+手动刷新按钮+Umami 区块独立「暂不可用」态）；ADMIN_NAV 增「看板」；E2E：权限口径（edge 拦回 login?next=）+404 beacon 落键→看板区块出现路径+umami 未配置态整页 200
-- [ ] T028 Umami 联调（test 栈手动，quickstart S4.1-S4.2）：建 website→system_config 补五键→浏览站内→Umami 后台 PV 增长→看板 umami 区块有数；记录 websiteId 配置值入 test 库
+- [x] T025 404 采集：全局 `app/not-found.tsx`（保持现有样式+client beacon 组件 fetch keepalive POST /api/track/not-found {path}）；`/api/track/not-found` 路由（path 截断 256/仅相对路径/HINCRBY stats:404:{yyyyMMdd} EXPIRE 48h/IP 轻限速 30 次/分/不记 UA referer）；单测：键面与 TTL/非法 path 拒绝
+- [x] T026 Umami 注入与看板服务：app/layout.tsx 条件注入 Script（umami 组存在才渲染）；`src/server/services/stats/dashboard.ts` 聚合五区块（在线复用 getServerStatus/阅读 top10/404 近 7 日 HGETALL 合并 top10/近 7 天订单数+积分消耗 SUM(shop_payment 负流)/新注册 7 天；umami 区块走 lib/umami 独立容错）；集成：mock redis+umami client 断言各区块形状与容错（umami 挂→仅区块 error）
+- [x] T027 看板页：`/admin/stats` RSC（requireAdmin+五区块+手动刷新按钮+Umami 区块独立「暂不可用」态）；ADMIN_NAV 增「看板」；E2E：权限口径（edge 拦回 login?next=）+404 beacon 落键→看板区块出现路径+umami 未配置态整页 200
+- [x] T028 Umami 联调（test 栈手动，quickstart S4.1-S4.2）：建 website→system_config 补五键→浏览站内→Umami 后台 PV 增长→看板 umami 区块有数；记录 websiteId 配置值入 test 库
 
 **Checkpoint**: quickstart S4 全过；隐私边界（404 无身份）有断言。
 
@@ -157,3 +157,9 @@
 - **T020**:阈值邮件 S3.5 的「Mailpit 可视」走集成层 outbox 行断言(收件人/模板/payload 逐字段),未再起浏览器验 Mailpit UI——链路同一,outbox 行即可视源头。
 - **T023**:route-map-m4.sql 已在 dev 库执行并幂等重跑验证(page_id 计 13+6=19);3308 测试栈**部署 US1 代码后再执行**——新代码未上前 301 会把旧链引到 404 薄壳,反而劣化;集成断言用 beforeAll upsert 六真键自愈,不依赖手动执行 SQL。E2E 六键播种并入 global-setup(照 p:999 先例,webServer 启动前落库使进程内 route 缓存可见),teardown 对应清理。
 - **T024**:framework.spec 公告▾用例的「封号记录占位/即将开放」断言同步改为真链路断言(m4 占位随 T022 摘除);tools E2E 六键 301 用例带 route 缓存陈旧跳过保护(同 route-compat 先例)。
+- **T023(补)**:3308 测试栈 route-map-m4.sql 已于 2026-10-25 随 US4 代码部署执行,`?page_id=537→/banlist` 等 301 六键对账通过。
+- **T025/T026**:集成测试直连 dev redis/MySQL 真实依赖(未 mock)——redis 键 RUN 后缀隔离+用后 hdel,五区块用基线差值法(dev 库有存量 7 日内数据),articleTop fixture 用极大阅读数保证进榜断言稳定;umami 两态经 system_config 行+reloadSystemConfig 切换。
+- **T026**:layout 注入带 catch 容错——build 期(Dockerfile 假 DATABASE_URL 预渲染 /_not-found 等)取不到配置时静默跳过,不阻塞渲染;运行期配置由 instrumentation 预热。
+- **T026/T028**:test 栈联调发现 lib/umami 误用单数字段——真实 umami v2 `/stats` 返回 `pageviews`/`visitors`(复数),单数恒空致 PV/UV 恒 0,已修(acfee57)。
+- **T028**:联调结果=test 栈 websiteId `45e35aaa-fe41-4886-825c-8bb6275e7110` 已写入 3308 system_config;apiUrl 用 compose 服务 DNS `http://umami:3000/api`(web 容器视角)、scriptUrl 用宿主映射 `http://127.0.0.1:3001/script.js`(浏览器视角)——生产接线时两者均换公网域名(记 launch-checklist);实测浏览器 3 次访问→umami PV 3→看板区块 PV 7/UV 1,采集链路与拉数链路双通。
+- **已知 flake**:dev server 冷启动首编译 `/api/admin/markdown-preview`(markdown 重依赖链)偶超 10s,admin-content.spec 预览/草稿两用例顺序依赖偶发假警;同代码独立跑×3 与冷启动全量复跑均全绿,非产品缺陷。
