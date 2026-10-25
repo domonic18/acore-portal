@@ -9,7 +9,7 @@ import { PrismaClient } from "../../src/generated/business";
  * ② 404 采集闭环:浏览器访问不存在路径 → 全局 404 页 beacon 上报 →
  *    admin 看板「404 路径 Top 10」出现该路径(FR-312 端到端);
  * ③ 看板整页:ADMIN_NAV「看板」入口+五区块+手动刷新+umami 未配置降级文案。
- * umami 配置行用前暂存/用后还原(不吞 T028 联调配置);redis 键 RUN 后缀,用后 hdel。
+ * umami 配置行用前暂存/用后还原(不吞 T028 联调配置);redis 404 键跑前全清、自家键用后 hdel。
  */
 const prisma = new PrismaClient();
 const RUN = Date.now().toString(36);
@@ -52,6 +52,14 @@ test.beforeAll(async () => {
     select: { key: true, value: true },
   });
   await prisma.systemConfig.deleteMany({ where: { key: { in: UMAMI_KEYS } } });
+  // 404 榜聚合读近 7 日 redis hash(48h EXPIRE),库重置清不掉——
+  // 先清历史键,否则跨 run 残留(draft 404 探访等)挤占 Top 10 致闭环断言翻车
+  let cursor = "0";
+  do {
+    const [next, keys] = await redis.scan(cursor, "MATCH", "stats:404:*", "COUNT", 100);
+    cursor = next;
+    if (keys.length > 0) await redis.del(...keys);
+  } while (cursor !== "0");
 });
 
 test.afterAll(async () => {

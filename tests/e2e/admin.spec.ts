@@ -34,6 +34,26 @@ test.beforeAll(async () => {
   }
   await prisma.productCategory.deleteMany({ where: { slug: { startsWith: SLUG_PREFIX } } });
   await prisma.product.deleteMany({ where: { slug: { startsWith: SLUG_PREFIX } } });
+  // 补发商品 SKU 固定,前轮残留(异常中断时非本前缀 slug 也会撞 unique)——按 sku 级联自愈
+  // (order_item/cart_item→product 无 onDelete 级联,须先清子表;顺序照 afterAll)
+  const staleItems = await prisma.orderItem.findMany({
+    where: { product: { sku: "char-change-name" } },
+    select: { id: true, orderId: true },
+  });
+  for (const item of staleItems) {
+    await prisma.soapCall.deleteMany({
+      where: { idempotencyKey: { startsWith: `orderitem:${item.id}:` } },
+    });
+  }
+  await prisma.order.deleteMany({
+    where: { id: { in: staleItems.map((i) => i.orderId) } },
+  });
+  const staleProducts = await prisma.product.findMany({
+    where: { sku: "char-change-name" },
+    select: { id: true },
+  });
+  await prisma.cartItem.deleteMany({ where: { productId: { in: staleProducts.map((p) => p.id) } } });
+  await prisma.product.deleteMany({ where: { sku: "char-change-name" } });
 });
 
 test.afterAll(async () => {
