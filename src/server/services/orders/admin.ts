@@ -32,6 +32,7 @@ export async function listAdminOrders(opts: { status?: string; page?: number }):
     id: string;
     orderNo: string;
     username: string;
+    nickname: string | null;
     status: OrderStatusValue;
     pointCost: number;
     itemCount: number;
@@ -59,7 +60,7 @@ export async function listAdminOrders(opts: { status?: string; page?: number }):
       status: true,
       pointCost: true,
       createdAt: true,
-      user: { select: { username: true } },
+      user: { select: { username: true, nickname: true } },
       _count: { select: { items: true } },
     },
   });
@@ -71,6 +72,7 @@ export async function listAdminOrders(opts: { status?: string; page?: number }):
       id: o.id.toString(),
       orderNo: o.orderNo,
       username: o.user.username,
+      nickname: o.user.nickname,
       status: o.status as OrderStatusValue,
       pointCost: o.pointCost,
       itemCount: o._count.items,
@@ -83,7 +85,7 @@ export async function getAdminOrderDetail(id: bigint) {
   return prisma.order.findUnique({
     where: { id },
     include: {
-      user: { select: { id: true, username: true, email: true } },
+      user: { select: { id: true, username: true, nickname: true, email: true } },
       items: { include: { product: { select: { slug: true } } } },
     },
   });
@@ -102,6 +104,7 @@ export async function listMigrationReviews(opts: {
     resolvedAt: string | null;
     orderNo: string | null;
     username: string | null;
+    nickname: string | null;
     orderStatus: string | null;
     pointCost: number | null;
   }[];
@@ -136,7 +139,7 @@ export async function listMigrationReviews(opts: {
       orderNo: true,
       status: true,
       pointCost: true,
-      user: { select: { username: true } },
+      user: { select: { username: true, nickname: true } },
     },
   });
   const orderMap = new Map(orderRows.map((o) => [o.legacyWpOrderId, o]));
@@ -154,6 +157,7 @@ export async function listMigrationReviews(opts: {
         resolvedAt: r.resolvedAt?.toISOString() ?? null,
         orderNo: o?.orderNo ?? null,
         username: o?.user.username ?? null,
+        nickname: o?.user.nickname ?? null,
         orderStatus: o?.status ?? null,
         pointCost: o ? o.pointCost : null,
       };

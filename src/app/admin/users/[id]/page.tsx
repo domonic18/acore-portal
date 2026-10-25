@@ -6,6 +6,7 @@ import {
 } from "@/server/services/users-admin/admin";
 import { POINT_TX_TYPE_LABEL } from "@/constants/points";
 import { UserActions } from "@/components/admin/user-actions";
+import { displayUserName } from "@/lib/format";
 
 /** 用户详情(FR-130):余额/徽章/近 10 条流水+手调与授予操作。 */
 export default async function AdminUserDetailPage({
@@ -24,7 +25,7 @@ export default async function AdminUserDetailPage({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold">{user.username}</h1>
+        <h1 className="text-2xl font-bold">{displayUserName(user)}</h1>
         <span className="rounded bg-gray-800 px-2 py-0.5 text-sm text-gray-300">{user.role}</span>
         <span className="text-sm text-amber-400">
           余额 {user.pointAccount?.balance ?? 0} 积分
@@ -35,6 +36,14 @@ export default async function AdminUserDetailPage({
       </div>
 
       <dl className="grid grid-cols-2 gap-x-6 gap-y-2 rounded border border-gray-800 p-4 text-sm md:grid-cols-4">
+        <div>
+          <dt className="text-gray-500">昵称</dt>
+          <dd className="text-gray-300">{user.nickname ?? "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-gray-500">用户名</dt>
+          <dd className="font-mono text-gray-300">{user.username}</dd>
+        </div>
         <div>
           <dt className="text-gray-500">邮箱</dt>
           <dd className="text-gray-300">{user.email}</dd>

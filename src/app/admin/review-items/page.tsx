@@ -2,6 +2,7 @@ import Link from "next/link";
 import { listMigrationReviews } from "@/server/services/orders/admin";
 import { ORDER_STATUS_LABEL, type OrderStatusValue } from "@/constants/shop";
 import { ReviewActions } from "@/components/admin/review-actions";
+import { displayUserName } from "@/lib/format";
 
 /**
  * D3 复核清单(T062;api-admin 契约):扣分与金额不符的存量单,
@@ -80,7 +81,9 @@ export default async function AdminReviewItemsPage({
                       <span className="ml-2 text-xs text-gray-400">{r.pointCost} 积分</span>
                     )}
                   </td>
-                  <td className="py-2 pr-3 text-xs">{r.username ?? "-"}</td>
+                  <td className="py-2 pr-3 text-xs">
+                    {r.username ? displayUserName(r) : "-"}
+                  </td>
                   <td className="py-2 pr-3 font-mono text-xs">
                     {detail?.paid ?? "?"} / {detail?.expected ?? "?"}
                   </td>

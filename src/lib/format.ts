@@ -10,3 +10,8 @@ export function formatDateTime(iso: string): string {
     hour12: false,
   }).format(new Date(iso));
 }
+
+/** 后台展示口径:存量 WP 户 login 多为 QQ 号等数字串,昵称才是玩家称呼 */
+export function displayUserName(u: { username: string | null; nickname?: string | null }): string {
+  return u.nickname ? `${u.nickname} (${u.username})` : (u.username ?? "");
+}

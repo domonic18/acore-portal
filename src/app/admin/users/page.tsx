@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { listAdminUsers } from "@/server/services/users-admin/admin";
+import { displayUserName } from "@/lib/format";
 
-/** 用户列表(FR-130):用户名/邮箱模糊搜索+分页;余额来自 point_account。 */
+/** 用户列表(FR-130):用户名/昵称/邮箱模糊搜索+分页;余额来自 point_account。 */
 export default async function AdminUsersPage({
   searchParams,
 }: {
@@ -19,7 +20,7 @@ export default async function AdminUsersPage({
       <h1 className="text-2xl font-bold">用户</h1>
       <form method="GET" action="/admin/users" className="flex items-end gap-3">
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-300">用户名/邮箱搜索</span>
+          <span className="text-gray-300">用户名/昵称/邮箱搜索</span>
           <input
             name="query"
             defaultValue={query}
@@ -61,7 +62,7 @@ export default async function AdminUsersPage({
               <tr key={u.id} className="border-b border-gray-900">
                 <td className="py-2 pr-3">
                   <Link href={`/admin/users/${u.id}`} className="text-blue-400 hover:underline">
-                    {u.username}
+                    {displayUserName(u)}
                   </Link>
                 </td>
                 <td className="py-2 pr-3 text-gray-400">{u.email}</td>

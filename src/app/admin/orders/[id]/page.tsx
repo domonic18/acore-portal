@@ -6,6 +6,7 @@ import {
   ORDER_STATUS_LABEL,
 } from "@/constants/shop";
 import { OrderActions } from "@/components/admin/order-actions";
+import { displayUserName } from "@/lib/format";
 
 /**
  * 订单详情(FR-129):行级发货状态+补发/退款入口;用户名链到用户详情。
@@ -40,7 +41,7 @@ export default async function AdminOrderDetailPage({
           <dt className="text-gray-500">用户</dt>
           <dd>
             <Link href={`/admin/users/${order.user.id}`} className="text-blue-400 hover:underline">
-              {order.user.username}
+              {displayUserName(order.user)}
             </Link>
           </dd>
         </div>

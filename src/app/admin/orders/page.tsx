@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listAdminOrders } from "@/server/services/orders/admin";
 import { ORDER_STATUS, ORDER_STATUS_LABEL } from "@/constants/shop";
+import { displayUserName } from "@/lib/format";
 
 /**
  * 订单列表(FR-129):状态筛选+分页;delivery_failed 由布局导航标记(FR-128)。
@@ -81,7 +82,7 @@ export default async function AdminOrdersPage({
                     {o.orderNo}
                   </Link>
                 </td>
-                <td className="py-2 pr-3 text-gray-300">{o.username}</td>
+                <td className="py-2 pr-3 text-gray-300">{displayUserName(o)}</td>
                 <td className="py-2 pr-3">
                   <span className={`rounded px-2 py-0.5 text-xs ${STATUS_BADGE[o.status] ?? "bg-gray-800 text-gray-300"}`}>
                     {ORDER_STATUS_LABEL[o.status] ?? o.status}

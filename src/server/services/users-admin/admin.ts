@@ -34,6 +34,7 @@ export async function listAdminUsers(opts: {
   users: {
     id: string;
     username: string;
+    nickname: string | null;
     email: string;
     role: string;
     status: string;
@@ -47,7 +48,13 @@ export async function listAdminUsers(opts: {
   const page = Number.isInteger(opts.page) && opts.page! > 0 ? opts.page! : 1;
   const q = opts.query?.trim();
   const where: Prisma.UserWhereInput = q
-    ? { OR: [{ username: { contains: q } }, { email: { contains: q } }] }
+    ? {
+        OR: [
+          { username: { contains: q } },
+          { email: { contains: q } },
+          { nickname: { contains: q } },
+        ],
+      }
     : {};
   const total = await prisma.user.count({ where });
   const totalPages = Math.max(1, Math.ceil(total / ADMIN_USER_PAGE_SIZE));
@@ -59,6 +66,7 @@ export async function listAdminUsers(opts: {
     select: {
       id: true,
       username: true,
+      nickname: true,
       email: true,
       role: true,
       status: true,
@@ -73,6 +81,7 @@ export async function listAdminUsers(opts: {
     users: rows.map((u) => ({
       id: u.id.toString(),
       username: u.username,
+      nickname: u.nickname,
       email: u.email,
       role: u.role,
       status: u.status,
