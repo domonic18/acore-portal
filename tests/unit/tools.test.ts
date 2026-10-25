@@ -63,35 +63,41 @@ describe("TOOL_PAGES 六工具页契约表(SC-301)", () => {
     expect(TOOL_PAGES.find((p) => p.path === "/banlist")?.nav).toBe("announce");
   });
 
-  it("导航 m4 占位与契约表可对上(4 数据库项+封号记录;US1 接线时摘 m4 标记)", () => {
-    const m4Items = SITE_NAV.flatMap((n) => n.children ?? []).filter(
-      (c) => "m4" in c && c.m4,
+  it("导航接线:五项工具页挂 SITE_NAV 真 href,在线查询不进导航(US1 T022)", () => {
+    // 工具页只挂公告▾/数据库▾两个槽位
+    const slots = SITE_NAV.filter((n) =>
+      ["公告", "数据库"].includes(n.label),
+    ).flatMap((n) => n.children ?? []);
+    const toolHrefs = slots.map((c) => c.href).filter((h) => findToolPage(h));
+    expect(toolHrefs.sort()).toEqual(
+      ["/banlist", "/dkp", "/hardcore", "/online-players", "/playermap"].sort(),
     );
-    expect(m4Items).toHaveLength(5);
+    // 槽位内非工具页子项仅公告▾的归档两键
+    const nonTool = slots.filter((c) => !findToolPage(c.href));
+    expect(nonTool.map((c) => c.href).sort()).toEqual([
+      "/devlog",
+      "/progression",
+    ]);
 
-    const dbLabels = SITE_NAV.find((n) => n.label === "数据库")?.children?.map(
-      (c) => c.label,
+    const byLabel = Object.fromEntries(
+      SITE_NAV.map((n) => [n.label, n]),
     );
-    const dbPaths = databasePathsFromLabels(dbLabels ?? []);
-    expect(dbPaths).toEqual([
+    expect(byLabel["数据库"]?.children?.map((c) => c.href)).toEqual([
       "/hardcore",
       "/online-players",
       "/playermap",
       "/dkp",
     ]);
     expect(
-      findToolPage("/banlist") &&
-      m4Items.some((c) => c.label === "封号记录"),
-    ).toBe(true);
+      byLabel["公告"]?.children?.find((c) => c.label === "封号记录")?.href,
+    ).toBe("/banlist");
+    // 两个工具槽位内任何子项不得指向契约表外的路由
+    for (const c of slots) {
+      expect(
+        findToolPage(c.href) !== undefined ||
+          ["/devlog", "/progression"].includes(c.href),
+        `${c.href} 越出槽位契约`,
+      ).toBe(true);
+    }
   });
-
-  function databasePathsFromLabels(labels: string[]): (string | undefined)[] {
-    const labelToPath: Record<string, string> = {
-      英雄榜: "/hardcore",
-      在线玩家: "/online-players",
-      在线地图: "/playermap",
-      DKP查询: "/dkp",
-    };
-    return labels.map((l) => labelToPath[l]);
-  }
 });

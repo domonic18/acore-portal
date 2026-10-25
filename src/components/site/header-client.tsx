@@ -53,22 +53,12 @@ export function SiteHeaderClient({
                   <ul className="invisible absolute left-0 top-full z-50 min-w-40 rounded border border-[#243350] bg-[#0d1728] py-1 opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">
                     {item.children.map((child) => (
                       <li key={child.label}>
-                        {child.m4 ? (
-                          <span
-                            title="M4 交付"
-                            className="flex cursor-not-allowed items-center justify-between px-3 py-2 text-[#5d6b80]"
-                          >
-                            {child.label}
-                            <span className="text-[10px]">即将开放</span>
-                          </span>
-                        ) : (
-                          <Link
-                            href={child.href}
-                            className="block px-3 py-2 text-[#c7d2e0] hover:bg-[#16233a] hover:text-[#e6d8a8]"
-                          >
-                            {child.label}
-                          </Link>
-                        )}
+                        <Link
+                          href={child.href}
+                          className="block px-3 py-2 text-[#c7d2e0] hover:bg-[#16233a] hover:text-[#e6d8a8]"
+                        >
+                          {child.label}
+                        </Link>
                       </li>
                     ))}
                   </ul>
@@ -172,20 +162,13 @@ export function SiteHeaderClient({
                   <ul className="pb-2 pl-4">
                     {item.children.map((child) => (
                       <li key={child.label}>
-                        {child.m4 ? (
-                          <span className="flex items-center justify-between py-1.5 text-[#5d6b80]">
-                            {child.label}
-                            <span className="text-[10px]">即将开放</span>
-                          </span>
-                        ) : (
-                          <Link
-                            href={child.href}
-                            className="block py-1.5 text-[#9fb6cc]"
-                            onClick={() => setMobileOpen(false)}
-                          >
-                            {child.label}
-                          </Link>
-                        )}
+                        <Link
+                          href={child.href}
+                          className="block py-1.5 text-[#9fb6cc]"
+                          onClick={() => setMobileOpen(false)}
+                        >
+                          {child.label}
+                        </Link>
                       </li>
                     ))}
                   </ul>

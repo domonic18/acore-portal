@@ -51,11 +51,16 @@ describe("SITE_NAV 多级菜单结构(SC-205)", () => {
       "购物车",
       "结账",
     ]);
-    // M4 占位标记:数据库▾ 全部 + 封号记录
-    expect(byLabel["数据库"]?.children?.every((c) => c.m4)).toBe(true);
+    // M4 US1 工具页接线:数据库▾ 四项+封号记录均指向真路由
+    expect(byLabel["数据库"]?.children?.map((c) => c.href)).toEqual([
+      "/hardcore",
+      "/online-players",
+      "/playermap",
+      "/dkp",
+    ]);
     expect(
-      byLabel["公告"]?.children?.find((c) => c.label === "封号记录")?.m4,
-    ).toBe(true);
+      byLabel["公告"]?.children?.find((c) => c.label === "封号记录")?.href,
+    ).toBe("/banlist");
   });
 
   it("归档路由项指向归档 slug,保留字清单不含核心内容页 slug", () => {
