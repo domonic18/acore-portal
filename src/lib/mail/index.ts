@@ -30,6 +30,16 @@ export async function getTransporter(): Promise<nodemailer.Transporter> {
 
 export type MailPayload = { link: string; username?: string };
 
+/** M4 积分变动通知(research R4;无一次性链接,不含 link) */
+export type PointsNotifyPayload = {
+  username: string;
+  delta: number;
+  balance: number;
+  reason: string;
+};
+
+export type AnyMailPayload = MailPayload | PointsNotifyPayload;
+
 export type RenderedMail = { subject: string; html: string; text: string };
 
 function wrap(title: string, bodyHtml: string): RenderedMail {
@@ -43,27 +53,46 @@ ${bodyHtml}
 
 export function renderMail(
   template: MailTemplateValue,
-  payload: MailPayload,
+  payload: AnyMailPayload,
 ): RenderedMail {
-  const who = payload.username ? `<p>你好,${payload.username}</p>` : "";
+  const who = "username" in payload && payload.username
+    ? `<p>你好,${payload.username}</p>`
+    : "";
   switch (template) {
+    case MAIL_TEMPLATE.POINTS_NOTIFY: {
+      const p = payload as PointsNotifyPayload;
+      const sign = p.delta >= 0 ? `+${p.delta}` : `${p.delta}`;
+      const color = p.delta >= 0 ? "#16a34a" : "#dc2626";
+      const html = `<div style="font-family:sans-serif;max-width:560px;margin:0 auto">
+<h2 style="color:#3b82f6">老克塔 · 积分变动通知</h2>
+<p>你好,${p.username}</p>
+<p>你的积分发生变动:<b style="color:${color}">${sign}</b>(${p.reason})</p>
+<p>当前余额:<b>${p.balance}</b></p>
+<p style="color:#6b7280;font-size:12px">可在站内「我的帐户 → 积分」查看明细。如非本人操作请忽略本邮件。</p>
+</div>`;
+      return {
+        subject: `【老克塔】积分变动通知`,
+        html,
+        text: `积分变动 ${sign}(${p.reason}),当前余额 ${p.balance}`,
+      };
+    }
     case MAIL_TEMPLATE.ACTIVATE:
       return wrap(
         "激活你的账号",
         `${who}<p>点击下方链接设置密码并激活(24 小时内有效):</p>
-<p><a href="${payload.link}">${payload.link}</a></p>`,
+<p><a href="${(payload as MailPayload).link}">${(payload as MailPayload).link}</a></p>`,
       );
     case MAIL_TEMPLATE.PASSWORD_RESET:
       return wrap(
         "重置密码",
         `${who}<p>点击下方链接设置新密码(30 分钟内有效):</p>
-<p><a href="${payload.link}">${payload.link}</a></p>`,
+<p><a href="${(payload as MailPayload).link}">${(payload as MailPayload).link}</a></p>`,
       );
     case MAIL_TEMPLATE.EMAIL_CHANGE:
       return wrap(
         "确认新邮箱",
         `${who}<p>点击下方链接确认绑定新邮箱(24 小时内有效):</p>
-<p><a href="${payload.link}">${payload.link}</a></p>`,
+<p><a href="${(payload as MailPayload).link}">${(payload as MailPayload).link}</a></p>`,
       );
   }
 }

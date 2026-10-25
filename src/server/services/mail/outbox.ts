@@ -2,7 +2,7 @@ import "server-only";
 import { getConfig } from "@/lib/config";
 import { prisma } from "@/lib/db";
 import { getTransporter, renderMail } from "@/lib/mail";
-import type { MailPayload, MailTemplateValue } from "@/lib/mail";
+import type { AnyMailPayload, MailTemplateValue } from "@/lib/mail";
 import { hitRateLimit } from "@/lib/redis/rate-limit";
 import {
   MAIL_RESEND_DAILY_MAX,
@@ -20,7 +20,7 @@ import type { Prisma } from "@/generated/business";
 export type EnqueueMailInput = {
   to: string;
   template: MailTemplateValue;
-  payload: MailPayload;
+  payload: AnyMailPayload;
   relatedUserId?: bigint | null;
 };
 
@@ -55,7 +55,7 @@ export async function drainOutbox(limit = 10): Promise<void> {
       try {
         const rendered = renderMail(
           mail.template as MailTemplateValue,
-          mail.payloadJson as unknown as MailPayload,
+          mail.payloadJson as unknown as AnyMailPayload,
         );
         const transporter = await getTransporter();
         const { smtp } = await getConfig();
