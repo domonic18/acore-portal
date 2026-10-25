@@ -77,4 +77,6 @@ export const ADMIN_NAV = [
   { href: "/admin/server-status", label: "状态配置" },
   // M4 US4 统计看板(T027)
   { href: "/admin/stats", label: "看板" },
+  // M4 US5 系统设置(T032)
+  { href: "/admin/settings", label: "设置" },
 ] as const;
