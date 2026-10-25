@@ -75,4 +75,6 @@ export const ADMIN_NAV = [
   { href: "/admin/progression", label: "渐进计划" },
   // M3 US6 状态人工三键(T045)
   { href: "/admin/server-status", label: "状态配置" },
+  // M4 US4 统计看板(T027)
+  { href: "/admin/stats", label: "看板" },
 ] as const;
