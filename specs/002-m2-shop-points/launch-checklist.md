@@ -42,3 +42,12 @@
 - [ ] SOAP `.server info` 真机解析核对:uptime 行/登录队列行解析正则 vs 真机输出(mock 固定样例先行,解析失败置 null 前台 N/A;在线数走 characters 库 `online=1` 计数不走文本解析,契约 specs/003 contracts/server-status.md)
 - [ ] characters 今日新注册口径核对:`create_date`(unix 秒,M1 迁移既有字段)在真机库的语义确认为账号建号时间,避免状态卡统计口径漂移(T043 偏差注记)
 - [ ] 内容迁移正式跑清单(切换日全幂等,顺序权威口径见 specs/003 migration-report §6):`cos-upload.mjs`(去 --scan-only,新增扫描面 forum_post.contentHtml/progression_node.imageUrl) → `content-import.mjs`(article/content_page/progression_node 三落地表+正文死链扫描) → `route-map-m3.sql`(p/page_id/cat 三键 124 行,断言见文件尾;topic/forum 两键随 `forum-import.mjs` 扩充) → 对账 JSON 全零(viewsDiffRows=0/deadlinks=0)
+
+## 8. M4 防滥用/统计/备份前置项(T037 扩)
+
+- [ ] Umami 生产接线:生产 compose 增 umami 服务(镜像 `ghcr.io/umami-software/umami:mysql-v2.18.0`,DB 变体 tag;勿用 v3——已弃 MySQL)+独立域名+建站取 websiteId;system_config 配 `umami.scriptUrl/websiteId`(看板聚合再加 `apiUrl/apiUsername/apiPassword`);未配置=看板降级文案不阻塞(SC-306)
+- [ ] Turnstile 公网切换步骤:后台 `/admin/settings` 填真密钥 `enabled=true`(保存即热生效);切换前测试环境以 `pnpm test:e2e:turnstile`(E2E_TURNSTILE=1)全量通过为门槛;登录限速随 Redis 自动生效(默认 5 次/900s 窗口,锁 900s,`config.ts` 可调),公网放开前确认两防均已开
+- [ ] 备份 crontab 挂载:`BACKUP_MYSQL_CONTAINER` 改生产业务 MySQL 容器名后挂宿主 crontab(每日 03:30,周日自动追加游戏四库;命令与日志口径见 docs/ops/backup-restore.md §3);首周人工核验 COS 对象产物并做一次恢复演练
+- [ ] 游戏库 dump 客户端路径确认:mysqldump 在业务 MySQL 容器内经 `docker exec` 执行(宿主零依赖),确认生产容器名与容器内 client 可用;`gamedb.*` 连接串账号需 SELECT+LOCK TABLES 权限(`--single-transaction` 一致性快照口径)
+- [ ] route-map-m4.sql 切换日执行位次:六工具页六键(page_id 537/1287/1699/1880/1897/4371)INSERT ODKU 幂等,排在 M3 内容迁移清单之后;执行后 web 容器重启生效(route_map 进程内缓存)
+- [ ] 配置变更重启口径:system_config 多数键(umami/turnstile/smtp/soap/cos/备份参数)后台保存即热生效(写穿失效);唯 `gamedb.*` 四连接串改库后需 web 容器重启(进程内惰性建连,config.ts 注记)
