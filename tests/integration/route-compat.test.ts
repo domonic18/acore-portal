@@ -1,6 +1,7 @@
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { normalizeLegacyKey } from "@/constants/legacy-routes";
+import { TOOL_PAGES } from "@/constants/tools";
 import {
   invalidateRouteCache,
   lookupLegacyRoute,
@@ -103,5 +104,30 @@ describe("lookupLegacyRoute(FR-026 查表)", () => {
       where: { oldKey: KEYS[2]! },
     });
     expect(rows).toHaveLength(0);
+  });
+});
+
+describe("工具页六键 route_map(M4 US1 T023,契约 tools-and-seo)", () => {
+  // 六真键为生产映射(切换日由 route-map-m4.sql 落库),此处仅 upsert 自愈不清理
+  beforeAll(async () => {
+    for (const tool of TOOL_PAGES) {
+      const oldKey = `page_id:${tool.legacyPageId}`;
+      await prisma.routeMap.upsert({
+        where: { oldKey },
+        create: { oldKey, newPath: tool.path },
+        update: { newPath: tool.path, enabled: true },
+      });
+    }
+    invalidateRouteCache();
+  });
+
+  afterAll(() => invalidateRouteCache());
+
+  it("六键全部命中且指向六薄壳路由", async () => {
+    for (const tool of TOOL_PAGES) {
+      await expect(
+        lookupLegacyRoute(`page_id:${tool.legacyPageId}`),
+      ).resolves.toBe(tool.path);
+    }
   });
 });

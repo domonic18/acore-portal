@@ -1,10 +1,12 @@
 import { PrismaClient } from "../../src/generated/business";
+import { TOOL_PAGES } from "../../src/constants/tools";
 
 /**
  * E2E 全局播种(webServer 启动前落库):
  * 1. route_map 的 S7 示例条目(p:999 → /account)——服务端 route 缓存是进程内快照
  *    (research R8),启动后的外部直写对长驻进程不可见;
- * 2. system_config 全键自愈播种——instrumentation 启动预热配置 fail-fast,
+ * 2. route_map 工具页六键(M4 US1 T024,page_id:537 等 → /banlist 等);
+ * 3. system_config 全键自愈播种——instrumentation 启动预热配置 fail-fast,
  *    新库/清库后 e2e 不因缺配置而无法起服务(upsert 不覆盖既有环境定制值)。
  */
 const DEV_CONFIG: Record<string, string> = {
@@ -39,6 +41,14 @@ export default async function globalSetup() {
       create: { oldKey: "p:999", newPath: "/account" },
       update: { newPath: "/account", enabled: true },
     });
+    for (const tool of TOOL_PAGES) {
+      const oldKey = `page_id:${tool.legacyPageId}`;
+      await prisma.routeMap.upsert({
+        where: { oldKey },
+        create: { oldKey, newPath: tool.path },
+        update: { newPath: tool.path, enabled: true },
+      });
+    }
     for (const [key, value] of Object.entries(DEV_CONFIG)) {
       await prisma.systemConfig.upsert({
         where: { key },
