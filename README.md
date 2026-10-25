@@ -58,7 +58,7 @@ scripts/
 ├── verify/   验收自检（soap-check/sc001-login）
 ├── migrate/  WP→新库迁移管线（users/shop/points/cos,全幂等可重跑）
 └── cron/     日终任务（对账/发货恢复）
-docker/       部署资产（dev/test compose+Dockerfile）
+docker/       部署资产（dev/test compose+web/Dockerfile）
 tests/        vitest(单元/集成) + Playwright(E2E)
 workspace/    宿主机持久化数据（gitignore 不入库）
 docs/         文档中心

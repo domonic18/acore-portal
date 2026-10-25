@@ -89,7 +89,7 @@ scripts/         # 宿主机侧脚本,按用途分子域
 ├── dev/         # 开发辅助(seed/initdb fixture/SOAP mock)
 ├── verify/      # 验收自检(soap-check/sc001-login)
 └── migrate/     # WP→新库数据迁移(清洗/对账 SQL 与脚本)
-docker/          # 部署资产:Dockerfile + compose(dev 本地/test Mac Mini 测试栈;生产 compose 上线时同置于此)
+docker/          # 部署资产:web/Dockerfile + compose(dev 本地/test Mac Mini 测试栈;生产 compose 上线时同置于此,按 invest 惯例一服务一子目录)
 tests/           # 测试
 workspace/       # 宿主机持久化数据（gitignore 不入库）
 docs/            # 文档中心
