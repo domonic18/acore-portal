@@ -23,6 +23,8 @@
 
 - [ ] system_config 配置 cos.bucket/region/secretId/secretKey/cdnBase 五键(凭据不入 env/文档,宪法 VI)
 - [ ] 切换日对最新快照按序重跑(全幂等):①`wp-users-import.sql` → ②`shop-import.sql` → ③`import-points.mjs` → ④`cos-upload.mjs`(去掉 `--scan-only` 即真实上传,newUrl 由 ODKU 回填 cdnBase+key)
+- [ ] **SQL 执行必须带 `--default-character-set=utf8mb4`**:容器 mysql 客户端默认 latin1(无 LANG),SQL 文件内联中文字面量(legacy-deleted 商品/legacy-uncategorized 分类)会按 latin1 误读成乱码(2026-10-25 演练实翻,UPDATE 修复);WP 数据走 INSERT...SELECT 二进制安全不受累
+- [ ] 迁移后提权清单(导入口径全量 role=user,特殊角色需手工提):`deadwalk`(WP ID 1,keymaster)→ admin;版主 `422169327`/`429747629`(WP ID 3/3931)如仍在任 → moderator(后台操作,或 UPDATE user.role)
 - [ ] 死链扫描报告复跑归零;抽样前台图片可达
 
 ## 5. 运维接线(公网暴露前)
