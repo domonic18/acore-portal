@@ -33,7 +33,8 @@ const GHOST = `t_${RUN}_au_ghost`;
 const createdUsers: string[] = [];
 const redisKeys: string[] = [];
 
-const ip = (n: number) => `203.0.113.${n}`; // TEST-NET-3,每场景独占避免 IP 维串扰
+// IP 段掺 RUN:IP 维计数键持久跨运行,固定 TEST-NET IP 会被自身历史失败锁定
+const ip = (n: number) => `203.0.${parseInt(RUN, 36) % 254}.${n}`;
 
 async function makeUser(suffix: number, password: string) {
   const username = `t_${RUN}_au_${suffix}`;

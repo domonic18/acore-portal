@@ -24,6 +24,13 @@ const DEV_CONFIG: Record<string, string> = {
   "gamedb.eluna": "mysql://acore_reader:reader_pass@localhost:3307/eluna",
 };
 
+/** Turnstile 开态档(M4 T013):官方测试密钥,widget 自动通过、siteverify 恒真 */
+const TURNSTILE_E2E: Record<string, string> = {
+  "turnstile.enabled": "true",
+  "turnstile.siteKey": "1x00000000000000000000AA",
+  "turnstile.secretKey": "1x0000000000000000000000000000000AA",
+};
+
 export default async function globalSetup() {
   const prisma = new PrismaClient();
   try {
@@ -37,6 +44,20 @@ export default async function globalSetup() {
         where: { key },
         create: { key, value },
         update: {},
+      });
+    }
+    if (process.env.E2E_TURNSTILE === "1") {
+      for (const [key, value] of Object.entries(TURNSTILE_E2E)) {
+        await prisma.systemConfig.upsert({
+          where: { key },
+          create: { key, value },
+          update: { value },
+        });
+      }
+    } else {
+      // 关态档自愈:清残留行,保证无 widget 直通基线(config 进程内快照,须启动前落库)
+      await prisma.systemConfig.deleteMany({
+        where: { key: { in: Object.keys(TURNSTILE_E2E) } },
       });
     }
   } finally {
