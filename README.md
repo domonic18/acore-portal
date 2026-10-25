@@ -27,8 +27,9 @@ pnpm db:seed
 pnpm dev                # http://localhost:3000
 
 # 质量门禁与测试
-make check              # lint + typecheck + vitest(137)
-pnpm test:e2e           # Playwright E2E(28, 未起 dev server 时自带 webServer)
+make check              # lint + typecheck + vitest(292)
+pnpm test:e2e           # Playwright E2E 关态档(79, 未起 dev server 时自带 webServer)
+pnpm test:e2e:turnstile # E2E 开态档(Turnstile 测试密钥, 与关态同量)
 ```
 
 ## 文档

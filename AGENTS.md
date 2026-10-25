@@ -47,8 +47,9 @@ pnpm db:migrate                                # 业务库迁移
 pnpm db:seed                                   # 开发种子数据(scripts/dev/seed.ts)
 pnpm soap:mock                                 # 本地 SOAP worldserver 模拟(开发/联调用)
 pnpm dev                                       # 开发服务器
-make check                                     # 质量门禁: lint + typecheck + vitest(224 用例)
-pnpm test:e2e                                  # Playwright E2E(60 场景, 含路由兼容 301/商城结账/内容前台/论坛/状态卡)
+make check                                     # 质量门禁: lint + typecheck + vitest(292 用例)
+pnpm test:e2e                                  # Playwright E2E 关态档(79 场景, 含路由兼容 301/商城结账/内容前台/论坛/状态卡/工具页/通知/看板/SEO)
+pnpm test:e2e:turnstile                        # E2E 开态档(E2E_TURNSTILE=1, Turnstile 测试密钥直通, 与关态同量)
 pnpm verify:soap                               # SOAP 通道连通性自检(连真实 worldserver 或 mock)
 pnpm verify:sc001                              # SC-001 老用户双格式登录验收(读 workspace/verify-credentials.txt)
 ```
@@ -98,7 +99,7 @@ docs/            # 文档中心
 
 **目录规范（2026-10-23 CodeReview 沉淀，借鉴 acore-manager/ai-invest）**:
 1. **目录即架构**：新增一级/域目录须先修订本节（借鉴 acore-manager《代码目录结构规范》守门做法）
-2. **services 分域**：`services/` 根目录禁新增平文件，新域一律 `services/<域>/`（现有 auth/points/shop/orders/catalog/users-admin/images/account/mail/token/audit/routes/content/progression/forum/status/media/home 均此模式）；跨域基础服务（审计/outbox/token/账本/路由映射/游戏身份）入 `services/shared/`（借鉴 ai-invest 按子域分包、根目录禁平文件；M2 T004 已完成存量平文件归位）
+2. **services 分域**：`services/` 根目录禁新增平文件，新域一律 `services/<域>/`（现有 auth/points/shop/orders/catalog/users-admin/images/account/mail/token/audit/routes/content/progression/forum/status/media/home/notification/stats/settings/tools/seo 均此模式）；跨域基础服务（审计/outbox/token/账本/路由映射/游戏身份）入 `services/shared/`（借鉴 ai-invest 按子域分包、根目录禁平文件；M2 T004 已完成存量平文件归位）
 3. **RSC 页面禁直连 prisma**：app/ 下页面只做 校验/会话/编排，数据组装收敛 service 层（页面私有取数函数放 `services/<域>/`）
 4. **components 准入**：`components/ui/` 只收 ≥2 个消费者的通用组件；页面私有组件与 page 同目录（colocation）；域组件入 `components/<域>/`
 5. **业务域服务禁互引**：`services/auth` 与 `services/shop` 等域间不直接 import，经 `services/shared/` 或上层编排（防循环依赖，借鉴 ai-invest）

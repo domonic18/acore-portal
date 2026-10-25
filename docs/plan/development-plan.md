@@ -32,7 +32,7 @@
 - 目标: rank 五工具页 iframe + DKP 查询页（含 route_map 6 页补键）、通知中心（站内信收件箱）+ 积分通知（弹泡+邮件阈值）、Turnstile+登录限速、统计看板（Umami 自托管 + 库内指标）、系统设置（SMTP 配置页）+ 服务器 cron 备份（mysqldump→COS）、SEO sitemap/robots
 - 验收标准: **新旧并行观察 1 周（读新写旧）→ 切换上线**
 - 预估工作量: 1-2 周
-- 状态: **进行中** — 2026-10-25 开工；范围裁决：全局搜索取消（飞书池已取消为准）、RAF 招募/文章评论/SEO 工具后置二期、统计源定 Umami 自托管、备份属 M4
+- 状态: **开发完成(验收顺延)** — 全部 42 任务完成(US1 工具页/US2 防滥用/US3 通知/US4 看板/US5 设置与备份/US6 SEO/Polish T037-T042);make check 292 vitest + E2E 双档(关态/开态)各 79 场景全绿;SC-301~309 核销表 specs/004-m4-polish/checklists/sc-acceptance.md;性能快测 specs/004-m4-polish/perf-profile.md(收件箱/看板/404 beacon 三项 dev 模式余量充足);**上线前置清单** specs/002-m2-shop-points/launch-checklist.md §8(Umami 生产接线/Turnstile 真密钥切换/备份 crontab/游戏库 dump 路径/route-map-m4 执行位次/配置变更重启口径)
 
 ## 二期后置池
 
@@ -48,6 +48,7 @@
 
 | 日期 | 变更 | 原因 |
 |------|------|------|
+| 2026-10-25 | M4 收口:42 任务全完成(US1 工具页六页+route_map 六键/US2 Turnstile+登录限速/US3 通知中心+积分通知/US4 Umami+统计看板/US5 系统设置+mysqldump→COS 备份/US6 sitemap+robots;Polish=launch-checklist §8/性能快测三项达标/安全核查四项零改动/文档三层同步/SC-301~309 核销表),状态→开发完成(验收顺延);测试基线 292 vitest + 79 E2E×2 档(关态/开态) | M4 Polish(T037-T042)完成 |
 | 2026-10-25 | COS 桶定名 wow-lokta-staging（用户命名裁决）+ 测试库全量追平（shop 1,897 单/积分 10,330 流水/COS 真实上传 15,297/内容论坛迁移/route_map 392 行）+ 部署 bug 两枚修复（/api/status force-dynamic、node 路由相对 Location）；M4 开工：全局搜索取消（飞书池已取消为准）、RAF/文章评论/SEO 工具后置二期、统计源定 Umami 自托管、备份属 M4 | 用户指令 COS 迁移+本机部署；M4 范围四项裁决 |
 | 2026-10-24 | M3 收口:50 任务全完成(Polish=性能 profile 三项大幅优于阈值/审计安全核查[揪出分类标签保存缺审计+渐进后台 CRUD 缺域,用户裁决补实现]/文档三层同步/最终核验[E2E 复核补最近浏览例至 60+wp_comments 盘点 2,089=订单 2,070+文章 18+论坛 1]),状态→开发完成(验收顺延);SC-201~208 核销表 specs/003 checklists/sc-acceptance.md;launch-checklist §7 M3 前置项 | M3 Polish(T047-T050)完成 |
 | 2026-10-24 | M3 开工:规格出稿 specs/003-m3-community(6 US/FR-201~221/SC-201~208,Q1-Q7 澄清清零:论坛完全只读/内容入库/标签字段化/后台最小集/响应式框架级+核心页/状态字段照 p15/阅读计数每次+1)+plan/research(R1-R16)/data-model(10 新表)/contracts×4/quickstart;二期后置池「论坛状态标签」提前入 M3 | M3 specify+plan 阶段完成 |
