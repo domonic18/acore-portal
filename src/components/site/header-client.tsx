@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { SiteNavItem } from "@/constants/navigation";
+import { UnreadBadge } from "@/components/site/unread-badge";
 
 /**
  * 全站页头交互层(M3 US1 T018,R12):桌面多级下拉 + 移动汉堡折叠(FR-205)。
@@ -79,8 +80,10 @@ export function SiteHeaderClient({
 
         <div className="ml-auto flex items-center gap-3">
           {authed ? (
-            <Link
-              href="/account/overview"
+            <>
+              <UnreadBadge />
+              <Link
+                href="/account/overview"
               className="flex items-center gap-2 rounded-full border border-[#243350] p-1 pr-3 hover:border-[#c9a227]"
               title="我的帐户"
             >
@@ -96,6 +99,7 @@ export function SiteHeaderClient({
                 我的帐户
               </span>
             </Link>
+            </>
           ) : (
             <div className="flex items-center gap-2 text-xs">
               <Link
