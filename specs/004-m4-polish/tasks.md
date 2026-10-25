@@ -118,8 +118,8 @@
 
 **目标**: FR-318 · SC-309 · quickstart S6。
 
-- [ ] T035 sitemap 与 robots：`app/sitemap.ts`（覆盖口径照契约 tools-and-seo：固定路由+文章 publish+商品 published+版块+未关闭主题上限 5000+六工具页；base=config app.url）；`app/robots.ts`（五条 Disallow+Sitemap 行）；单测：条目数与库 count 对账（draft/listed=0 排除断言）
-- [ ] T036 E2E：sitemap.xml/robots.txt 可达+关键条目断言（并入 tools.spec 或独立 seo.spec）；404 页面渲染回归（not-found 样式）
+- [x] T035 sitemap 与 robots：`app/sitemap.ts`（覆盖口径照契约 tools-and-seo：固定路由+文章 publish+商品 published+版块+未关闭主题上限 5000+六工具页；base=config app.url）；`app/robots.ts`（五条 Disallow+Sitemap 行）；单测：条目数与库 count 对账（draft/listed=0 排除断言）
+- [x] T036 E2E：sitemap.xml/robots.txt 可达+关键条目断言（并入 tools.spec 或独立 seo.spec）；404 页面渲染回归（not-found 样式）
 
 **Checkpoint**: quickstart S6 全过；M3 FR-213 遗留收口。
 
