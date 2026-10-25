@@ -111,7 +111,7 @@ export async function getUmamiSummary(): Promise<UmamiStatsBlock> {
   const stats = (await umamiApiGet(`/websites/${umami.websiteId}/stats`, {
     startAt,
     endAt,
-  })) as { pageview?: { value: number }; visitor?: { value: number } } | null;
+  })) as { pageviews?: { value: number }; visitors?: { value: number } } | null;
   const metrics = (await umamiApiGet(`/websites/${umami.websiteId}/metrics`, {
     startAt,
     endAt,
@@ -124,8 +124,8 @@ export async function getUmamiSummary(): Promise<UmamiStatsBlock> {
   return {
     configured: true,
     ok: true,
-    pv24h: stats.pageview?.value ?? 0,
-    uv24h: stats.visitor?.value ?? 0,
+    pv24h: stats.pageviews?.value ?? 0,
+    uv24h: stats.visitors?.value ?? 0,
     topReferrers: metrics.map((m) => ({ domain: m.x, visits: m.y })),
   };
 }

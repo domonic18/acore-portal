@@ -143,7 +143,7 @@ describe("umamiApiGet / getUmamiSummary(T008)", () => {
           ]);
         }
         if (target.includes("/stats")) {
-          return jsonResponse({ pageview: { value: 1024 }, visitor: { value: 388 } });
+          return jsonResponse({ pageviews: { value: 1024 }, visitors: { value: 388 } });
         }
         return new Response("nf", { status: 404 });
       }),
