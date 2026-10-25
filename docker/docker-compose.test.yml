@@ -51,6 +51,21 @@ services:
     volumes:
       - ../scripts/dev:/app:ro
 
+  # M4 US4 统计源(自托管,SC-306):独立 umami schema+独立账号,首启自跑迁移
+  # 注意钉 v2 mysql 变体:umami v3 起移除 MySQL 支持(prisma 仅 postgresql://)
+  umami:
+    image: ghcr.io/umami-software/umami:mysql-v2.18.0
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      DATABASE_URL: mysql://umami:${UMAMI_PASSWORD:-umami_pass}@mysql:3306/umami
+      DATABASE_TYPE: mysql
+      APP_SECRET: ${UMAMI_APP_SECRET:-umami-test-secret}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
   web:
     build:
       context: ..
