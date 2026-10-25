@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { apiError, parseBody } from "@/server/http";
 import { registerAccount } from "@/server/services/auth/register";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 /**
  * 契约:202 受理不泄露占用以外的信息;错误码按 contracts/api-auth.md。
@@ -13,6 +14,7 @@ const schema = z.object({
   username: z.string().min(1).max(64),
   email: z.string().email(),
   invitation_code: z.string().optional(),
+  turnstileToken: z.string().max(2048).optional().default(""),
 });
 
 export async function POST(req: NextRequest) {
@@ -21,6 +23,15 @@ export async function POST(req: NextRequest) {
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     req.headers.get("x-real-ip");
+
+  // Turnstile 预检(仅拦机器人;注册无凭据猜测面,不做失败计数/锁定)
+  const turnstile = await verifyTurnstile(
+    parsed.data.turnstileToken,
+    ip ?? undefined,
+  );
+  if (!turnstile.ok) {
+    return apiError(422, "TURNSTILE_FAILED", "人机验证未通过,请重试。");
+  }
 
   const outcome = await registerAccount(parsed.data, { ip });
   if (!outcome.ok) {

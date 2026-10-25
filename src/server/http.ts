@@ -4,10 +4,19 @@ import type { z } from "zod";
 
 /**
  * API 响应与错误约定(contracts 通用节):
- * 错误统一 { error: { code, message } },message 面向用户、不暴露内部细节
+ * 错误统一 { error: { code, message } },message 面向用户、不暴露内部细节;
+ * details 追加可选字段(如 retryAfterSec),仍并入 error 对象
  */
-export function apiError(status: number, code: string, message: string): NextResponse {
-  return NextResponse.json({ error: { code, message } }, { status });
+export function apiError(
+  status: number,
+  code: string,
+  message: string,
+  details?: Record<string, unknown>,
+): NextResponse {
+  return NextResponse.json(
+    { error: { code, message, ...details } },
+    { status },
+  );
 }
 
 export function apiOk<T extends object>(data: T, status = 200): NextResponse {
