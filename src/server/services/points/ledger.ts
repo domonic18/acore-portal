@@ -2,10 +2,13 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/business";
 import { POINT_TX_TYPE, type PointTxTypeValue } from "@/constants/points";
+import { notifyPointsChange } from "@/server/services/notification/notify";
 
 /**
  * 积分账本(宪法 III:流水为真相源,余额为缓存):
  * 入账=流水+余额同事务,balance_after 快照;recalculate 供测试/对账/日终重算。
+ * M4 US3:credit/debit 阻塞点同事务挂站内信+阈值邮件(notifyPointsChange),
+ * 事务回滚则通知零残留;存量迁移直写流水不经此处,不产生通知。
  */
 
 type Tx = Prisma.TransactionClient;
@@ -62,6 +65,13 @@ export async function creditLedgerDetailed(
     },
     select: { id: true },
   });
+  await notifyPointsChange(tx, {
+    userId: input.userId,
+    delta: input.amount,
+    balanceAfter: account.balance,
+    type: input.type ?? POINT_TX_TYPE.REGISTER_REWARD,
+    refNote: input.remark,
+  });
   return { balance: account.balance, transactionId: row.id };
 }
 
@@ -101,6 +111,13 @@ export async function debitLedger(
       refType: input.refType,
       refId: input.refId,
     },
+  });
+  await notifyPointsChange(tx, {
+    userId: input.userId,
+    delta: -input.amount,
+    balanceAfter: account.balance,
+    type: input.type ?? POINT_TX_TYPE.SHOP_PAYMENT,
+    refNote: input.remark,
   });
   return account.balance;
 }

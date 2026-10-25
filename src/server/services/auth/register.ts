@@ -63,6 +63,8 @@ async function purgeSiteUser(userId: bigint): Promise<void> {
     prisma.pointTransaction.deleteMany({ where: { userId } }),
     prisma.pointAccount.deleteMany({ where: { userId } }),
     prisma.mailOutbox.deleteMany({ where: { relatedUserId: userId } }),
+    // 注册奖励同事务派生的站内信一并回收(M4 US3 账本挂钩副作用)
+    prisma.notification.deleteMany({ where: { userId } }),
     prisma.user.delete({ where: { id: userId } }),
   ]);
 }
