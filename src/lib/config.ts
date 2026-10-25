@@ -48,6 +48,51 @@ const configSchema = z.object({
     enabled: z.boolean(),
     maintenanceMode: z.boolean(),
   }),
+  // Turnstile 人机校验(M4 US2):未配置=关闭直通;enabled=true 必须带双密钥
+  // (键允许空串,非空约束由 superRefine 在 enabled=true 时才生效)
+  turnstile: z
+    .object({
+      enabled: z.boolean(),
+      siteKey: z.string(),
+      secretKey: z.string(),
+    })
+    .superRefine((val, ctx) => {
+      if (val.enabled && (!val.siteKey || !val.secretKey)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "enabled=true 时 siteKey/secretKey 必填",
+          path: ["siteKey"],
+        });
+      }
+    })
+    .optional(),
+  // 登录防滥用参数(M4 US2):连续失败阈值/计数窗口/锁定时长
+  security: z.object({
+    loginMaxFails: z.coerce.number().int().positive().default(5),
+    loginWindowSec: z.coerce.number().int().positive().default(900),
+    loginLockSec: z.coerce.number().int().positive().default(900),
+  }),
+  // 通知域(M4 US3):积分变动邮件阈值(0=关闭)
+  notify: z.object({
+    pointEmailThreshold: z.coerce.number().int().min(0).default(0),
+  }),
+  // Umami 统计(M4 US4):未配置=不注入采集脚本+看板区块「暂不可用」
+  umami: z
+    .object({
+      scriptUrl: z.string().url(),
+      websiteId: z.string().min(1),
+      apiUrl: z.string().url(),
+      apiUsername: z.string().min(1),
+      apiPassword: z.string().min(1),
+    })
+    .optional(),
+  // 备份(M4 US5):脚本运行参数,不影响 web 启动
+  backup: z
+    .object({
+      retentionDays: z.coerce.number().int().min(0).default(30),
+      gameWeekly: z.boolean().default(true),
+    })
+    .optional(),
 });
 
 export type SystemConfig = z.infer<typeof configSchema>;
@@ -90,6 +135,36 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       enabled: flat["status.enabled"] !== "false",
       maintenanceMode: flat["status.maintenance_mode"] === "true",
     },
+    turnstile: flat["turnstile.enabled"]
+      ? {
+          enabled: flat["turnstile.enabled"] === "true",
+          siteKey: flat["turnstile.siteKey"] ?? "",
+          secretKey: flat["turnstile.secretKey"] ?? "",
+        }
+      : undefined,
+    security: {
+      loginMaxFails: flat["security.loginMaxFails"] ?? "5",
+      loginWindowSec: flat["security.loginWindowSec"] ?? "900",
+      loginLockSec: flat["security.loginLockSec"] ?? "900",
+    },
+    notify: {
+      pointEmailThreshold: flat["notify.pointEmailThreshold"] ?? "0",
+    },
+    umami: flat["umami.scriptUrl"]
+      ? {
+          scriptUrl: flat["umami.scriptUrl"],
+          websiteId: flat["umami.websiteId"] ?? "",
+          apiUrl: flat["umami.apiUrl"] ?? "",
+          apiUsername: flat["umami.apiUsername"] ?? "",
+          apiPassword: flat["umami.apiPassword"] ?? "",
+        }
+      : undefined,
+    backup: flat["backup.retentionDays"] ?? flat["backup.gameWeekly"]
+      ? {
+          retentionDays: flat["backup.retentionDays"] ?? "30",
+          gameWeekly: flat["backup.gameWeekly"] !== "false",
+        }
+      : undefined,
   };
 }
 
@@ -109,6 +184,13 @@ export async function loadSystemConfig(): Promise<SystemConfig> {
   const rows = await prisma.systemConfig.findMany({
     select: { key: true, value: true },
   });
+  return buildConfigFromRows(rows);
+}
+
+/** 纯函数(KV 行→校验后配置),供单测与设置保存路径复用 */
+export function buildConfigFromRows(
+  rows: { key: string; value: string }[],
+): SystemConfig {
   return parseConfig(flattenToSchema(rows));
 }
 
