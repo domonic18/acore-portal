@@ -127,12 +127,12 @@
 
 ## Phase 9: Polish 与收口
 
-- [ ] T037 launch-checklist 增补 M4 节：Umami 生产接线（容器+域名+websiteId）/公网 Turnstile 真密钥切换步骤/备份 crontab 挂载/游戏库 dump 客户端路径确认/route-map-m4.sql 切换日执行位次/配置变更重启口径
-- [ ] T038 性能快测：收件箱分页/看板聚合 P95 记录（perf-profile 惯例，脚本用后即清）；404 beacon P95
-- [ ] T039 静态安全核查：密钥掩码 grep（settings 服务/日志/审计零明文）；404 无身份字段；backup.mjs 凭据零打印；Turnstile secretKey 无前端泄漏面
-- [ ] T040 文档三层同步：AGENTS.md（测试计数/新增域 notification/stats/settings/tools 常量）/README/development-plan M4→「开发完成(验收顺延)」/飞书池 M4 8 条流转+里程碑表状态
-- [ ] T041 SC 核销表：`specs/004-m4-polish/checklists/sc-acceptance.md`（SC-301~309 逐条对用例/演练/文档，M3 先例）
-- [ ] T042 Final Checkpoint：`make check` 全绿 + E2E 隔离 schema 全量；spec/plan/tasks/quickstart 复核勾选；development-plan 变更记录
+- [x] T037 launch-checklist 增补 M4 节：Umami 生产接线（容器+域名+websiteId）/公网 Turnstile 真密钥切换步骤/备份 crontab 挂载/游戏库 dump 客户端路径确认/route-map-m4.sql 切换日执行位次/配置变更重启口径
+- [x] T038 性能快测：收件箱分页/看板聚合 P95 记录（perf-profile 惯例，脚本用后即清）；404 beacon P95（结果记 specs/004-m4-polish/perf-profile.md：P95 19.0/37.7/6.9ms，脚本已删）
+- [x] T039 静态安全核查：密钥掩码 grep（settings 服务/日志/审计零明文）；404 无身份字段；backup.mjs 凭据零打印；Turnstile secretKey 无前端泄漏面（四项全过零改动：view 只回掩码布尔/审计摘要 replaceAll 脱敏/beacon 仅相对 path/secrets 数组 redact/secretKey 只写不读）
+- [x] T040 文档三层同步：AGENTS.md（测试计数/新增域 notification/stats/settings/tools 常量）/README/development-plan M4→「开发完成(验收顺延)」/飞书池 M4 8 条流转+里程碑表状态（AGENTS+README×2+development-plan 已同步;飞书池按 M1/M2/M3 先例「开发完成(验收顺延)不翻条目状态」）
+- [x] T041 SC 核销表：`specs/004-m4-polish/checklists/sc-acceptance.md`（SC-301~309 逐条对用例/演练/文档，M3 先例）
+- [x] T042 Final Checkpoint：`make check` 全绿 + E2E 隔离 schema 全量；spec/plan/tasks/quickstart 复核勾选；development-plan 变更记录（make check 292/292 + E2E 关态 79/2 全绿[admin-content 预览一次水合抖动瞬态,单跑+全量复跑全绿,与 run8→run9 先例同指纹];开态档 79/2 于 US6 后同代码态全绿;plan/quickstart 无勾选框,SC 对齐见核销表）
 
 ---
 
