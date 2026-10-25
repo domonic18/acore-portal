@@ -17,8 +17,8 @@
 
 ## Phase 1: Setup（环境与基线）
 
-- [ ] T001 确认 `004-m4-polish` 基线全绿：`make check`（lint+typecheck+224 vitest）+ E2E 隔离 schema 60/60；清点 E2E fixture 满足 M4 需要（商品/文章/用户既有 fixtures 即够，缺再补）
-- [ ] T002 常量层扩展：新建 `src/constants/tools.ts`（RANK_BASE/DKP_URL/六页 meta 契约表）；`src/constants/mail.ts` 增 `MAIL_TEMPLATE.POINTS_NOTIFY`；`src/constants/audit.ts` 增 `LOGIN_LOCKED`/`SETTINGS_CHANGED`/`SETTINGS_TEST_MAIL` 三动作；navigation.ts 的 m4 占位**保持不动**（US1 接线时摘除）
+- [x] T001 确认 `004-m4-polish` 基线全绿：`make check`（lint+typecheck+224 vitest）+ E2E 隔离 schema 60/60；清点 E2E fixture 满足 M4 需要（商品/文章/用户既有 fixtures 即够，缺再补）
+- [x] T002 常量层扩展：新建 `src/constants/tools.ts`（RANK_BASE/DKP_URL/六页 meta 契约表）；`src/constants/mail.ts` 增 `MAIL_TEMPLATE.POINTS_NOTIFY`；`src/constants/audit.ts` 增 `LOGIN_LOCKED`/`SETTINGS_CHANGED`/`SETTINGS_TEST_MAIL` 三动作；navigation.ts 的 m4 占位**保持不动**（US1 接线时摘除）
 
 **Checkpoint**: make check 全绿，tools 契约表有单测断言（六页路由/iframe 目标一致性，SC-301 锚点前置）。
 
@@ -26,12 +26,12 @@
 
 ## Phase 2: Foundational（阻塞全部 US）
 
-- [ ] T003 配置面扩展：`src/lib/config.ts` schema 扩 5 组——`turnstile`（optional，enabled=true 时 siteKey/secretKey superRefine 必填）/`security`（默认 5/900/900）/`notify`（默认 threshold 0）/`umami`（optional 五键）/`backup`（optional retentionDays 30/gameWeekly true）；flattenToSchema 映射同步；单测：键全缺省可启动/带默认组取默认/optional 组为 undefined
-- [ ] T004 notification 表迁移：`prisma/schema-business` 增 Notification 模型（data-model §1，双索引+User 反向关系）；`prisma migrate dev`；E2E 隔离库 db:deploy 验证
-- [ ] T005 Redis 锁助手扩展：`src/lib/redis/rate-limit.ts` 增 `checkLock(key)`/`setLock(key, ttlSec)`/`clearKeys(keys)`；单测：锁内拒绝/TTL 到期恢复/清除生效
-- [ ] T006 [P] test compose 增 umami 服务：`docker/docker-compose.test.yml` 增 `umami`（ghcr.io/umami-software/umami:latest，DATABASE_URL 指 mysql 容器 umami schema，127.0.0.1:3001）；initdb SQL 增 umami schema+独立账号授权；`up -d umami` 起服验证登录页可达（首启自跑迁移）
-- [ ] T007 [P] lib/turnstile.ts：siteverify fetch 封装（form-encoded secret+response+remoteip；enabled=false 快速直通；网络异常按失败处理不抛未捕获）；单测 mock fetch：成功/失败/网络异常三态
-- [ ] T008 [P] lib/umami.ts：API client（login 取 token→Redis `umami:token` 30min 缓存；stats/metrics 查询；未配置组返回 configured:false）；单测 mock fetch：token 缓存命中/过期重取/查询失败容错
+- [x] T003 配置面扩展：`src/lib/config.ts` schema 扩 5 组——`turnstile`（optional，enabled=true 时 siteKey/secretKey superRefine 必填）/`security`（默认 5/900/900）/`notify`（默认 threshold 0）/`umami`（optional 五键）/`backup`（optional retentionDays 30/gameWeekly true）；flattenToSchema 映射同步；单测：键全缺省可启动/带默认组取默认/optional 组为 undefined
+- [x] T004 notification 表迁移：`prisma/schema-business` 增 Notification 模型（data-model §1，双索引+User 反向关系）；`prisma migrate dev`；E2E 隔离库 db:deploy 验证
+- [x] T005 Redis 锁助手扩展：`src/lib/redis/rate-limit.ts` 增 `checkLock(key)`/`setLock(key, ttlSec)`/`clearKeys(keys)`；单测：锁内拒绝/TTL 到期恢复/清除生效
+- [x] T006 [P] test compose 增 umami 服务：`docker/docker-compose.test.yml` 增 `umami`（ghcr.io/umami-software/umami:latest，DATABASE_URL 指 mysql 容器 umami schema，127.0.0.1:3001）；initdb SQL 增 umami schema+独立账号授权；`up -d umami` 起服验证登录页可达（首启自跑迁移）
+- [x] T007 [P] lib/turnstile.ts：siteverify fetch 封装（form-encoded secret+response+remoteip；enabled=false 快速直通；网络异常按失败处理不抛未捕获）；单测 mock fetch：成功/失败/网络异常三态
+- [x] T008 [P] lib/umami.ts：API client（login 取 token→Redis `umami:token` 30min 缓存；stats/metrics 查询；未配置组返回 configured:false）；单测 mock fetch：token 缓存命中/过期重取/查询失败容错
 
 **Checkpoint**: 迁移可重放；config 5 组单测绿；umami 容器可起；两通道封装就位。US2 依赖 T003/T005/T007，US3 依赖 T004，US4 依赖 T006/T008，US5 依赖 T003。
 
@@ -43,11 +43,11 @@
 
 **Tests（先写先失败）**:
 
-- [ ] T009 集成：`tests/integration/auth-m4.test.ts` — turnstile 关=直通；开+无 token=422；恒失败密钥=422；连错 N 次第 N+1 次 429 RATE_LIMITED 且锁键存在；锁期内再试 429 LOGIN_LOCKED（retryAfterSec>0）；窗口过期恢复；不存在用户名同样计数锁定且 401/429 文案与真实用户逐字一致；Turnstile 失败不计失败计数；审计 LOGIN_LOCKED 落行且无密码字段
-- [ ] T010 登录守卫服务：`src/server/services/auth/login-guard.ts` — `assertNotLocked(username, ip)`（锁键前置检查）/`recordFailure(username, ip, config)`（双维 INCR——ip 维仅 XFF 存在时写；达阈值 setLock+writeAudit）/`clearOnSuccess(username, ip)`；security.* 三参从 config 读
-- [ ] T011 login/register 路由接线：两路由 schema 增 `turnstileToken`；前置顺序=锁检查→turnstile siteverify（422 不计失败）→凭据→失败计数→429（RATE_LIMITED/LOGIN_LOCKED 附 retryAfterSec）；成功清计数；统一文案保持（FR-307）
-- [ ] T012 Turnstile 前端：登录/注册页（RSC）读 config 下发 `{turnstileEnabled, turnstileSiteKey}`；表单 client 组件 useEffect 渲染 widget（next/script afterInteractive 引 api.js；expired-callback 自动 reset；卸载 remove 防泄漏）；token 随提交体；enabled=false 完全不渲染
-- [ ] T013 E2E：默认关态登录直通回归（无 widget 节点）；置测试密钥（1x…AA）登录成功含 widget 渲染断言（E2E 走真实 Redis+config，锁定主断言在集成层）
+- [x] T009 集成：`tests/integration/auth-m4.test.ts` — turnstile 关=直通；开+无 token=422；恒失败密钥=422；连错 N 次第 N+1 次 429 RATE_LIMITED 且锁键存在；锁期内再试 429 LOGIN_LOCKED（retryAfterSec>0）；窗口过期恢复；不存在用户名同样计数锁定且 401/429 文案与真实用户逐字一致；Turnstile 失败不计失败计数；审计 LOGIN_LOCKED 落行且无密码字段
+- [x] T010 登录守卫服务：`src/server/services/auth/login-guard.ts` — `assertNotLocked(username, ip)`（锁键前置检查）/`recordFailure(username, ip, config)`（双维 INCR——ip 维仅 XFF 存在时写；达阈值 setLock+writeAudit）/`clearOnSuccess(username, ip)`；security.* 三参从 config 读
+- [x] T011 login/register 路由接线：两路由 schema 增 `turnstileToken`；前置顺序=锁检查→turnstile siteverify（422 不计失败）→凭据→失败计数→429（RATE_LIMITED/LOGIN_LOCKED 附 retryAfterSec）；成功清计数；统一文案保持（FR-307）
+- [x] T012 Turnstile 前端：登录/注册页（RSC）读 config 下发 `{turnstileEnabled, turnstileSiteKey}`；表单 client 组件 useEffect 渲染 widget（next/script afterInteractive 引 api.js；expired-callback 自动 reset；卸载 remove 防泄漏）；token 随提交体；enabled=false 完全不渲染
+- [x] T013 E2E：默认关态登录直通回归（无 widget 节点）；置测试密钥（1x…AA）登录成功含 widget 渲染断言（E2E 走真实 Redis+config，锁定主断言在集成层）
 
 **Checkpoint**: quickstart S2 全过；429/422 错误码语义与契约一致。
 
@@ -142,3 +142,13 @@
 - **[P] 并行点**：T006/T007/T008（Phase 2 内三件互不依赖）；US1（Phase 5）与 US2/US3 文件零交集可全程并行；US6（Phase 8）独立
 - **串行链**：T003→T010/T011（config→守卫）；T004→T014-T016（表→通知）；T006/T008→T026-T028（umami→看板）；T003→T029-T032（config→设置）
 - 验收锚点分布：SC-301(T022-T024) · SC-302/303(T009-T013) · SC-304/305(T014-T020) · SC-306(T025-T028) · SC-307(T029-T032) · SC-308(T033-T034) · SC-309(T035-T036)
+
+---
+
+## 偏差与落地注记（实施期实测修正,均为不改变验收语义的实现细节）
+
+- **T006**:umami 镜像钉 `ghcr.io/umami-software/umami:mysql-v2.18.0` 而非 latest——umami v3（Prisma 7）已弃 MySQL,只有 v2 支持;ghcr tag 为 DB 变体+`v` 前缀格式。
+- **T010/T011**:register 路由仅做 Turnstile 预检,不做失败计数/锁定——注册无凭据猜测面,锁定语义只适用于 login(T011 原文两路由并列表述,按语义拆分)。
+- **T012**:widget 渲染不依赖 next/script onLoad(dev React StrictMode 双挂载下可能不触发),改为轮询 `window.turnstile`;测试站点键 1x…AA 为隐形自动通过模式,E2E 断言锚 `cf-turnstile-response` 隐藏域而非挑战 iframe;开态下表单在 token 就绪前禁用提交(防 token 竞态 422)。
+- **T013**:login.spec 错误密码用例改用不存在用户名——共享 Redis 上 IP/用户名维计数键持久跨运行,避免对真实 seed 账号累计失败触发意外锁定(真实/不存在用户文案一致性由集成层逐字断言);集成测试 IP 段掺 RUN 同理。
+- **T008/T017**:renderMail 的 POINTS_NOTIFY case 随 T008 提前实现(向 MAIL_TEMPLATE 加枚举后 switch 穷尽性 typecheck 要求,提前不改变 US3 验收)。
