@@ -53,6 +53,7 @@ test.afterAll(async () => {
     await prisma.pointTransaction.deleteMany({ where: { userId: user.id } });
     await prisma.pointAccount.deleteMany({ where: { userId: user.id } });
     await prisma.mailOutbox.deleteMany({ where: { relatedUserId: user.id } });
+    await prisma.notification.deleteMany({ where: { userId: user.id } });
     await prisma.user.delete({ where: { id: user.id } });
   }
   await prisma.$executeRaw`

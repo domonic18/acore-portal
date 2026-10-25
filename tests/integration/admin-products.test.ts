@@ -85,6 +85,7 @@ afterAll(async () => {
     select: { id: true },
   });
   if (users.length > 0) {
+    await prisma.notification.deleteMany({ where: { userId: { in: users.map((u) => u.id) } } });
     await prisma.pointTransaction.deleteMany({ where: { userId: { in: users.map((u) => u.id) } } });
     await prisma.pointAccount.deleteMany({ where: { userId: { in: users.map((u) => u.id) } } });
     await prisma.user.deleteMany({ where: { id: { in: users.map((u) => u.id) } } });

@@ -117,6 +117,7 @@ afterAll(async () => {
   if (userIds.length > 0) {
     await prisma.badgeGrant.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.order.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.notification.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.pointTransaction.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.pointAccount.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.cartItem.deleteMany({ where: { userId: { in: userIds } } });

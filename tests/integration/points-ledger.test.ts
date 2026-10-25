@@ -44,6 +44,7 @@ afterAll(async () => {
   for (const username of usernames) {
     const u = await prisma.user.findUnique({ where: { username }, select: { id: true } });
     if (!u) continue;
+    await prisma.notification.deleteMany({ where: { userId: u.id } });
     await prisma.pointTransaction.deleteMany({ where: { userId: u.id } });
     await prisma.pointAccount.deleteMany({ where: { userId: u.id } });
     await prisma.user.delete({ where: { id: u.id } });

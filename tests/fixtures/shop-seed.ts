@@ -134,6 +134,9 @@ export async function cleanupShopFixtures(): Promise<void> {
   await prisma.cartItem.deleteMany({
     where: { user: { username: { in: createdUsernames } } },
   });
+  await prisma.notification.deleteMany({
+    where: { user: { username: { in: createdUsernames } } },
+  });
   await prisma.pointTransaction.deleteMany({
     where: { user: { username: { in: createdUsernames } } },
   });

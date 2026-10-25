@@ -139,6 +139,7 @@ afterAll(async () => {
   const userIds = users.map((u) => u.id);
   if (userIds.length > 0) {
     await prisma.order.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.notification.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.pointTransaction.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.pointAccount.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.cartItem.deleteMany({ where: { userId: { in: userIds } } });
