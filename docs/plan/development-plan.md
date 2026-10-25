@@ -27,16 +27,17 @@
 - 预估工作量: 2 周
 - 状态: **开发完成(验收顺延)** — 全部 50 任务完成(US1 全局框架/US2 存量迁移/US3 内容前台/US4 内容后台/US5 论坛/US6 服务器状态/Polish T047-T050);make check 224 vitest+60 E2E 全绿(隔离 schema);迁移演练全通过(文章 110/静态页 4/渐进 28/route_map 124 行+topic/forum 随论坛导入/死链 0,specs/003-m3-community/migration-report.md 定稿);SC-201~208 核销表 specs/003-m3-community/checklists/sc-acceptance.md;**上线前置清单** specs/002-m2-shop-points/launch-checklist.md §7(.server info 真机解析/今日新注册口径/内容迁移正式跑清单)
 
-### M4 完善: 工具页 + 搜索 + 通知 + 横切
+### M4 完善: 工具页 + 通知 + 安全横切 + 统计与运维
 
-- 目标: rank 五工具页 iframe、全局搜索、通知中心+邮件模板、Turnstile+登录限速、统计看板、SEO sitemap
+- 目标: rank 五工具页 iframe + DKP 查询页（含 route_map 6 页补键）、通知中心（站内信收件箱）+ 积分通知（弹泡+邮件阈值）、Turnstile+登录限速、统计看板（Umami 自托管 + 库内指标）、系统设置（SMTP 配置页）+ 服务器 cron 备份（mysqldump→COS）、SEO sitemap/robots
 - 验收标准: **新旧并行观察 1 周（读新写旧）→ 切换上线**
 - 预估工作量: 1-2 周
-- 状态: 未开始
+- 状态: **进行中** — 2026-10-25 开工；范围裁决：全局搜索取消（飞书池已取消为准）、RAF 招募/文章评论/SEO 工具后置二期、统计源定 Umami 自托管、备份属 M4
 
 ## 二期后置池
 
 - rank.lokta.cn 整合 / 文章评论 / 百度 SEO 工具集 / WP Statistics 历史数据（见 requirement/01 §2；论坛状态标签已于 2026-10-24 提前入 M3）
+- 用户中心-RAF 招募进度（2026-10-25 M4 范围裁决后置：依赖游戏端 Eluna 脚本未落地）/ SEO 工具页（上线前再评估，规格书 §12）
 - 商品批量操作与复制 / 商品限购 / 商品销量统计 / 用户中心-收货地址簿（2026-10-24 M2 范围 P2 裁剪,飞书池备注可查）
 
 ## 状态图例
@@ -47,6 +48,7 @@
 
 | 日期 | 变更 | 原因 |
 |------|------|------|
+| 2026-10-25 | COS 桶定名 wow-lokta-staging（用户命名裁决）+ 测试库全量追平（shop 1,897 单/积分 10,330 流水/COS 真实上传 15,297/内容论坛迁移/route_map 392 行）+ 部署 bug 两枚修复（/api/status force-dynamic、node 路由相对 Location）；M4 开工：全局搜索取消（飞书池已取消为准）、RAF/文章评论/SEO 工具后置二期、统计源定 Umami 自托管、备份属 M4 | 用户指令 COS 迁移+本机部署；M4 范围四项裁决 |
 | 2026-10-24 | M3 收口:50 任务全完成(Polish=性能 profile 三项大幅优于阈值/审计安全核查[揪出分类标签保存缺审计+渐进后台 CRUD 缺域,用户裁决补实现]/文档三层同步/最终核验[E2E 复核补最近浏览例至 60+wp_comments 盘点 2,089=订单 2,070+文章 18+论坛 1]),状态→开发完成(验收顺延);SC-201~208 核销表 specs/003 checklists/sc-acceptance.md;launch-checklist §7 M3 前置项 | M3 Polish(T047-T050)完成 |
 | 2026-10-24 | M3 开工:规格出稿 specs/003-m3-community(6 US/FR-201~221/SC-201~208,Q1-Q7 澄清清零:论坛完全只读/内容入库/标签字段化/后台最小集/响应式框架级+核心页/状态字段照 p15/阅读计数每次+1)+plan/research(R1-R16)/data-model(10 新表)/contracts×4/quickstart;二期后置池「论坛状态标签」提前入 M3 | M3 specify+plan 阶段完成 |
 | 2026-10-24 | M2 收口:67 任务全完成(Polish=my-account 301 兼容收口/性能 profile/审计安全复查/文档状态流转),状态→开发完成(验收顺延),上线前置清单文档化 specs/002-m2-shop-points/launch-checklist.md;README/AGENTS 同步 M2 现状(137 vitest+28 E2E) | M2 Polish(T064-T067)完成 |
