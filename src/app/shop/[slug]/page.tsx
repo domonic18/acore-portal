@@ -22,7 +22,8 @@ export default async function ProductDetailPage({
 }: {
   params: { slug: string };
 }) {
-  const detail = await getProductDetail(params.slug);
+  // 动态 params 不自动解码(post/[slug] 同口径);slug 已在导入层归一为中文明文
+  const detail = await getProductDetail(decodeURIComponent(params.slug));
   if (!detail) notFound();
 
   const token = cookies().get(SESSION.ACCESS_COOKIE)?.value;
@@ -46,7 +47,7 @@ export default async function ProductDetailPage({
   }
 
   const fields = cartParamFields(detail.sku);
-  const loginHref = `/login?next=/shop/${detail.slug}`;
+  const loginHref = `/login?next=${encodeURIComponent(`/shop/${detail.slug}`)}`;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 p-8">
