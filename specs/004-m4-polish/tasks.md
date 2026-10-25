@@ -59,13 +59,13 @@
 
 **Tests（先写先失败）**:
 
-- [ ] T014 集成：`tests/integration/notification.test.ts` — 五类账本事件（注册奖励/徽章/购买扣分/退款/手调）各产生通知行（收件人/类型/金额文案/余额快照正确）；余额不足 402 失败后 notification 计数不变（事务性 SC-304 锚）；阈值邮件：threshold=10 时 +50 手调出 POINTS_NOTIFY 邮件行、threshold=100 不出、0 关闭；unread/markRead/游标分页稳定性；越权读他人通知 404
-- [ ] T015 通知服务：`src/server/services/notification/{notify,inbox}.ts` — `notifyPointsChange(tx, {userId, delta, balanceAfter, type, refNote})`（INSERT + 阈值判断 + enqueueMail）；`listInbox(userId, cursor)` / `unreadCount(userId)` / `markRead(userId, ids|all)`（全部 where userId 本人）
-- [ ] T016 账本挂钩：`services/points/ledger.ts` 的 `creditLedgerDetailed`/`debitLedger` 内调 notifyPointsChange（同 tx；标题用 POINT_TX_TYPE_LABEL+delta 组装，linkUrl=/account/points）；回归：M1/M2 既有账本测试全绿（通知为新增副作用断言补充）
-- [ ] T017 邮件模板：`constants/mail.ts` renderMail 增 POINTS_NOTIFY case（payload {username, delta, balance, reason}，无一次性链接）；单测渲染快照
-- [ ] T018 API 三路由：`/api/account/notifications/{unread,list,read}`（requireSession；契约 api-notification 逐字段）
-- [ ] T019 收件箱与弹泡：`/account/notifications` RSC 分页页（+用户中心 ACCOUNT_NAV 通知项）；header 挂未读徽标 client 组件（60s 轮询 unread，增量弹 toast 点击跳收件箱，失败静默）
-- [ ] T020 E2E：注册→收件箱见注册奖励通知→全部已读→徽标清零；手调积分→轮询徽标出现
+- [x] T014 集成：`tests/integration/notification.test.ts` — 五类账本事件（注册奖励/徽章/购买扣分/退款/手调）各产生通知行（收件人/类型/金额文案/余额快照正确）；余额不足 402 失败后 notification 计数不变（事务性 SC-304 锚）；阈值邮件：threshold=10 时 +50 手调出 POINTS_NOTIFY 邮件行、threshold=100 不出、0 关闭；unread/markRead/游标分页稳定性；越权读他人通知 404
+- [x] T015 通知服务：`src/server/services/notification/{notify,inbox}.ts` — `notifyPointsChange(tx, {userId, delta, balanceAfter, type, refNote})`（INSERT + 阈值判断 + enqueueMail）；`listInbox(userId, cursor)` / `unreadCount(userId)` / `markRead(userId, ids|all)`（全部 where userId 本人）
+- [x] T016 账本挂钩：`services/points/ledger.ts` 的 `creditLedgerDetailed`/`debitLedger` 内调 notifyPointsChange（同 tx；标题用 POINT_TX_TYPE_LABEL+delta 组装，linkUrl=/account/points）；回归：M1/M2 既有账本测试全绿（通知为新增副作用断言补充）
+- [x] T017 邮件模板：`constants/mail.ts` renderMail 增 POINTS_NOTIFY case（payload {username, delta, balance, reason}，无一次性链接）；单测渲染快照
+- [x] T018 API 三路由：`/api/account/notifications/{unread,list,read}`（requireSession；契约 api-notification 逐字段）
+- [x] T019 收件箱与弹泡：`/account/notifications` RSC 分页页（+用户中心 ACCOUNT_NAV 通知项）；header 挂未读徽标 client 组件（60s 轮询 unread，增量弹 toast 点击跳收件箱，失败静默）
+- [x] T020 E2E：注册→收件箱见注册奖励通知→全部已读→徽标清零；手调积分→轮询徽标出现
 
 **Checkpoint**: quickstart S3 全过；账本回归零破坏（宪法 III）。
 
@@ -152,3 +152,6 @@
 - **T012**:widget 渲染不依赖 next/script onLoad(dev React StrictMode 双挂载下可能不触发),改为轮询 `window.turnstile`;测试站点键 1x…AA 为隐形自动通过模式,E2E 断言锚 `cf-turnstile-response` 隐藏域而非挑战 iframe;开态下表单在 token 就绪前禁用提交(防 token 竞态 422)。
 - **T013**:login.spec 错误密码用例改用不存在用户名——共享 Redis 上 IP/用户名维计数键持久跨运行,避免对真实 seed 账号累计失败触发意外锁定(真实/不存在用户文案一致性由集成层逐字断言);集成测试 IP 段掺 RUN 同理。
 - **T008/T017**:renderMail 的 POINTS_NOTIFY case 随 T008 提前实现(向 MAIL_TEMPLATE 加枚举后 switch 穷尽性 typecheck 要求,提前不改变 US3 验收)。
+- **T014/T016**:越权防御落地口径=无跨用户寻址面——三路由全按会话 userId 过滤、无 per-id 读取端点,他人 id 已读零生效(marked=0 不报错,防枚举);契约「读他人 404」语义由此覆盖。账本挂钩引入新副作用面:register 补偿链 purgeSiteUser 同步回收 notification(否则游戏端失败补偿删 user 撞 FK),7 个既有测试清理链同补 notification.deleteMany。
+- **T019**:徽标 60s 轮询外补 `ap:unread-changed` window 事件旁路——收件箱页单条/全部已读后徽标即时刷新(否则已读后数字滞留到下个轮询周期);E2E 手调弹泡用 page.clock 快进 60s 触发轮询(server-status 先例),弹泡只对轮询增量弹、mount 基线不弹。
+- **T020**:阈值邮件 S3.5 的「Mailpit 可视」走集成层 outbox 行断言(收件人/模板/payload 逐字段),未再起浏览器验 Mailpit UI——链路同一,outbox 行即可视源头。
