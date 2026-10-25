@@ -75,10 +75,10 @@
 
 **目标**: FR-301~303 · SC-301 · quickstart S1。
 
-- [ ] T021 [P] tools-iframe 组件：`src/components/site/tools-iframe.tsx`（撑满视口+title 无障碍+常驻新窗口外链+12s onLoad 超时降级卡「工具服务暂不可用」+外链出口）
-- [ ] T022 六页薄壳与导航接线：`src/app/{online,online-players,playermap,hardcore,banlist,dkp}/page.tsx`（metadata+iframe）；`navigation.ts` 摘 m4 标记填真 href（公告▾封号记录→/banlist；数据库▾英雄榜→/hardcore、在线玩家→/online-players、在线地图→/playermap、DKP查询→/dkp；在线查询不进导航）；navigation 单测更新（SC-205 回归+新 href 断言）
-- [ ] T023 route_map m4 补键：`scripts/migrate/route-map-m4.sql` 六行 no-op ODKU（契约表 537/1287/1699/1880/1897/4371）；test/dev 库执行+幂等重跑验证；集成：legacy-redirect 六键 301 断言
-- [ ] T024 E2E：`tests/e2e/tools.spec.ts` — 六页 200+iframe src 契约断言+外链按钮存在+菜单逐项可达+旧 page_id 301 六键（合并 S1）
+- [x] T021 [P] tools-iframe 组件：`src/components/site/tools-iframe.tsx`（撑满视口+title 无障碍+常驻新窗口外链+12s onLoad 超时降级卡「工具服务暂不可用」+外链出口）
+- [x] T022 六页薄壳与导航接线：`src/app/{online,online-players,playermap,hardcore,banlist,dkp}/page.tsx`（metadata+iframe）；`navigation.ts` 摘 m4 标记填真 href（公告▾封号记录→/banlist；数据库▾英雄榜→/hardcore、在线玩家→/online-players、在线地图→/playermap、DKP查询→/dkp；在线查询不进导航）；navigation 单测更新（SC-205 回归+新 href 断言）
+- [x] T023 route_map m4 补键：`scripts/migrate/route-map-m4.sql` 六行 no-op ODKU（契约表 537/1287/1699/1880/1897/4371）；test/dev 库执行+幂等重跑验证；集成：legacy-redirect 六键 301 断言
+- [x] T024 E2E：`tests/e2e/tools.spec.ts` — 六页 200+iframe src 契约断言+外链按钮存在+菜单逐项可达+旧 page_id 301 六键（合并 S1）
 
 **Checkpoint**: quickstart S1 全过；M3 遗留 6 个 404 清零。
 
@@ -155,3 +155,5 @@
 - **T014/T016**:越权防御落地口径=无跨用户寻址面——三路由全按会话 userId 过滤、无 per-id 读取端点,他人 id 已读零生效(marked=0 不报错,防枚举);契约「读他人 404」语义由此覆盖。账本挂钩引入新副作用面:register 补偿链 purgeSiteUser 同步回收 notification(否则游戏端失败补偿删 user 撞 FK),7 个既有测试清理链同补 notification.deleteMany。
 - **T019**:徽标 60s 轮询外补 `ap:unread-changed` window 事件旁路——收件箱页单条/全部已读后徽标即时刷新(否则已读后数字滞留到下个轮询周期);E2E 手调弹泡用 page.clock 快进 60s 触发轮询(server-status 先例),弹泡只对轮询增量弹、mount 基线不弹。
 - **T020**:阈值邮件 S3.5 的「Mailpit 可视」走集成层 outbox 行断言(收件人/模板/payload 逐字段),未再起浏览器验 Mailpit UI——链路同一,outbox 行即可视源头。
+- **T023**:route-map-m4.sql 已在 dev 库执行并幂等重跑验证(page_id 计 13+6=19);3308 测试栈**部署 US1 代码后再执行**——新代码未上前 301 会把旧链引到 404 薄壳,反而劣化;集成断言用 beforeAll upsert 六真键自愈,不依赖手动执行 SQL。E2E 六键播种并入 global-setup(照 p:999 先例,webServer 启动前落库使进程内 route 缓存可见),teardown 对应清理。
+- **T024**:framework.spec 公告▾用例的「封号记录占位/即将开放」断言同步改为真链路断言(m4 占位随 T022 摘除);tools E2E 六键 301 用例带 route 缓存陈旧跳过保护(同 route-compat 先例)。

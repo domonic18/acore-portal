@@ -50,9 +50,11 @@ test.describe("游客菜单(FR-201)", () => {
     await nav.getByText("公告", { exact: true }).hover();
     await expect(nav.getByRole("link", { name: "开发日志" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "渐进计划" })).toBeVisible();
-    // M4 占位:封号记录不可点击跳转,带即将开放标记
-    await expect(nav.getByText("封号记录")).toBeVisible();
-    await expect(nav.getByText("即将开放").first()).toBeVisible();
+    // M4 US1 接线:封号记录指向工具页真路由
+    await expect(nav.getByRole("link", { name: "封号记录" })).toHaveAttribute(
+      "href",
+      "/banlist",
+    );
   });
 
   test("页脚协议/公约链接(FR-204)", async ({ page }) => {
