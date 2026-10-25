@@ -111,6 +111,17 @@ async function seedWpFixture() {
     [PRODUCT_WP_IDS[0]!, TERM_A, PRODUCT_WP_IDS[2]!, TT_B],
   );
   // 行快照指向的商品:③用真实已导入的 char-change-name(seed 同 SKU 行 ODKU no-op)
+  // 锚点行历史上由真实导入遗留(legacy id ∉ fixture 段,不被 p=3 断言计入);
+  // 沙盒库(重置后)无此行时自足补种(仅缺失才插,已有行不碰,legacy 用 fixture 段外
+  // 的 9300100;导入 ODKU 为 no-op 不会改键,行保留作后续运行的稳定锚点)
+  await pool.query(
+    `INSERT INTO acore_portal.product
+       (sku, slug, name, description, type, status, listed, price, category_id, legacy_wp_product_id, created_at, updated_at)
+     SELECT 'char-change-name', 'char-change-name', '改名服务', '', 'service', 'published', 1, 150, c.id, 9300100, NOW(), NOW()
+     FROM acore_portal.product_category c
+     WHERE c.slug = 'general'
+       AND NOT EXISTS (SELECT 1 FROM acore_portal.product WHERE sku = 'char-change-name')`,
+  );
   const [renameRow] = await pool.query<RowDataPacket[]>(
     `SELECT legacy_wp_product_id AS id FROM acore_portal.product WHERE sku = 'char-change-name' LIMIT 1`,
   );
