@@ -57,6 +57,12 @@ export const AUDIT_ACTION = {
   FORUM_THREAD_LABEL: "forum_thread_label",
   FORUM_THREAD_DELETE: "forum_thread_delete",
   FORUM_MODERATION_VIOLATION: "forum_moderation_violation",
+  /** M4 防滥用:连续失败达阈值触发锁定(category=security;payload 无密码,只记用户名/ip/计数) */
+  LOGIN_LOCKED: "login_locked",
+  /** M4 系统设置保存(category=admin;只落组名/键名/掩码 diff,任何值不落审计) */
+  SETTINGS_CHANGED: "settings_changed",
+  /** M4 设置页测试发信(category=admin;记 to) */
+  SETTINGS_TEST_MAIL: "settings_test_mail",
 } as const;
 
 export type AuditActionValue = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];
