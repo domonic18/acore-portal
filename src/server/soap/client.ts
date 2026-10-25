@@ -70,6 +70,10 @@ export async function rawExecuteCommand(
       },
       body: envelope,
       signal: AbortSignal.timeout(timeoutMs),
+      // 命令执行不可缓存:Next patch fetch 会把 .server info 的成功响应
+      // 按静态渲染语义缓存(revalidate 1 年,落盘 .next/cache 跨重启),
+      // mock failure/探针降级路径全部失效(E2E server-status 两态用例因此翻车)
+      cache: "no-store",
     });
   } catch (err) {
     if (err instanceof Error && err.name === "TimeoutError") {
