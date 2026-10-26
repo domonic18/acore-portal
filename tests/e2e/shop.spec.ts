@@ -46,6 +46,8 @@ test.beforeAll(async () => {
         slug: ITEM_SLUG,
         name: `E2E 测试坐骑 ${RUN}`,
         description: "E2E 全流程商品",
+        images: ["/images/legacy-missing.svg", "/images/legacy-missing.svg?e2e=2"],
+        detailMd: "## E2E 商品详情\n\n- 支持图片\n- 支持**加粗**",
         type: "game_item",
         status: "published",
         price: 500,
@@ -124,6 +126,22 @@ test.describe("US2 商城与购物车(T026)", () => {
     await page.goto(`/shop/${SOLDOUT_SLUG}`);
     await expect(page.getByText("已售罄", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "已售罄" })).toBeDisabled();
+  });
+
+  test("商品图片图库与详情 Markdown(2026-10-26 WP 对齐)", async ({ page }) => {
+    // 列表卡:有图商品显示主图(替换 emoji 占位)
+    await page.goto("/shop");
+    const card = page.getByRole("listitem").filter({ hasText: `E2E 测试坐骑 ${RUN}` });
+    await expect(card.getByRole("img", { name: `E2E 测试坐骑 ${RUN}` })).toBeVisible();
+
+    // 详情:图库主图+缩略条切换+说明区 Markdown 渲染
+    await page.goto(`/shop/${ITEM_SLUG}`);
+    const gallery = page.getByTestId("product-gallery");
+    await expect(gallery.getByRole("img", { name: `E2E 测试坐骑 ${RUN}` })).toBeVisible();
+    await gallery.getByRole("button", { name: "查看第 2 张图片" }).click();
+    const md = page.getByTestId("product-detail-md");
+    await expect(md.getByRole("heading", { name: "E2E 商品详情" })).toBeVisible();
+    await expect(md.getByRole("strong")).toContainText("加粗");
   });
 
   test("越权直发他人 characterGuid → 403 + ownership_violation 审计", async ({ page }) => {

@@ -120,6 +120,21 @@ test.describe("US5 运营后台(T055)", () => {
     await expect(page.getByText(`E2E 后台商品 ${RUN}`)).toBeVisible();
   });
 
+  test("商品表单图片编辑器与 Markdown 详情编辑器(WP 对齐)", async ({ page }) => {
+    await login(page, "m1admin", "adminpass123");
+    await page.goto("/admin/products/new");
+    // 图片编辑器:上传入口+媒体库选择(弹层出列表)
+    await expect(page.getByLabel("上传商品图片")).toBeVisible();
+    await page.getByRole("button", { name: "从媒体库选择" }).click();
+    await expect(page.getByPlaceholder("搜索文件名…")).toBeVisible();
+    // Markdown 编辑器:GFM 工具栏+粘贴上传提示
+    await expect(page.getByRole("button", { name: "图片", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "媒体库…" })).toBeVisible();
+    // 列表页有「图」列(缩略图/占位)
+    await page.goto("/admin/products");
+    await expect(page.getByRole("columnheader", { name: "图" })).toBeVisible();
+  });
+
   test("补发:delivery_failed 订单重驱动为 completed(FR-129/SC-102)", async ({ page }) => {
     const legacy = await prisma.user.findUniqueOrThrow({
       where: { username: "legacyuser" },

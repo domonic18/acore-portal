@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
 import { PRODUCT_STATUS, PRODUCT_TYPE } from "@/constants/shop";
 import { makePointsUser } from "../fixtures/shop-seed";
-import { listProducts } from "@/server/services/catalog/products";
+import { getProductDetail, listProducts } from "@/server/services/catalog/products";
 import {
   ProductAdminError,
   deleteProduct,
@@ -46,6 +46,8 @@ function baseInput(overrides: Partial<Parameters<typeof saveProduct>[0]> = {}) {
     name: `后台测试商品 ${RUN}`,
     slug: `${SLUG_PREFIX}main`,
     description: "T045",
+    images: [],
+    detailMd: null,
     categoryId,
     price: 100,
     stockEnabled: false,
@@ -293,5 +295,45 @@ describe("deleteProduct(零订单删除/有订单拒绝)", () => {
 
     // 不存在:NOT_FOUND
     await expect(errCode(deleteProduct(9_999_999n, DEL_ACTOR))).resolves.toBe("NOT_FOUND");
+  });
+});
+
+describe("商品图片与详情 Markdown(2026-10-26 WP 对齐)", () => {
+  it("saveProduct 落库 images(有序数组,首图=主图)与 detailMd;后台列表暴露 image", async () => {
+    await saveProduct(
+      baseInput({
+        sku: `itemsend_img${RUN}`,
+        slug: `${SLUG_PREFIX}img`,
+        images: ["https://cdn.example.com/a.png", "/images/b.png"],
+        detailMd: "## 详情\n\n- 要点一",
+      }),
+    );
+    const adminItem = await prisma.product.findUniqueOrThrow({
+      where: { slug: `${SLUG_PREFIX}img` },
+      select: { id: true },
+    });
+    const listed = await listAdminProducts({});
+    const hit = listed.items.find((i) => i.id === adminItem.id.toString());
+    expect(hit?.image).toBe("https://cdn.example.com/a.png");
+  });
+
+  it("前台列表 image=首图;详情暴露 images+detailMd;空 images 归一 []", async () => {
+    const result = await listProducts({ categorySlug: CATEGORY_SLUG });
+    const imgHit = result.items.find((i) => i.slug === `${SLUG_PREFIX}img`);
+    expect(imgHit?.image).toBe("https://cdn.example.com/a.png");
+
+    const detail = await getProductDetail(`${SLUG_PREFIX}img`);
+    expect(detail?.images).toEqual(["https://cdn.example.com/a.png", "/images/b.png"]);
+    expect(detail?.detailMd).toBe("## 详情\n\n- 要点一");
+
+    const plain = await getProductDetail(`${SLUG_PREFIX}svc`);
+    expect(plain?.images).toEqual([]);
+    expect(plain?.detailMd).toBeNull();
+  });
+
+  it("normalizeProductImages:非数组/混入非串/空白项归一", async () => {
+    const { normalizeProductImages } = await import("@/server/services/catalog/products");
+    expect(normalizeProductImages("not-array")).toEqual([]);
+    expect(normalizeProductImages([1, "  /a.png  ", "", null])).toEqual(["/a.png"]);
   });
 });
