@@ -5,10 +5,12 @@ import { makePointsUser } from "../fixtures/shop-seed";
 import { listProducts } from "@/server/services/catalog/products";
 import {
   ProductAdminError,
+  deleteProduct,
   listAdminProducts,
   saveProduct,
   setProductStatus,
 } from "@/server/services/catalog/admin";
+import { AUDIT_ACTION } from "@/constants/audit";
 import { GameDbError } from "@/server/services/shared/game-identity";
 
 const skuCheckState = vi.hoisted(() => ({ fail: false }));
@@ -34,6 +36,7 @@ const RUN = Date.now().toString(36);
 const SLUG_PREFIX = `m5p-${RUN}-`;
 const CATEGORY_SLUG = `m5p-cat-${RUN}`;
 const usernames: string[] = [];
+const DEL_ACTOR = 9_950_037_001n; // deleteProduct 审计 actor(无 FK,用后按 actor 清)
 let categoryId = 0n;
 
 function baseInput(overrides: Partial<Parameters<typeof saveProduct>[0]> = {}) {
@@ -77,6 +80,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await prisma.auditLog.deleteMany({ where: { actorUserId: DEL_ACTOR } });
+  await prisma.order.deleteMany({ where: { orderNo: { startsWith: `T${RUN}` } } });
   await prisma.cartItem.deleteMany({ where: { product: { slug: { startsWith: SLUG_PREFIX } } } });
   await prisma.product.deleteMany({ where: { slug: { startsWith: SLUG_PREFIX } } });
   await prisma.productCategory.deleteMany({ where: { slug: CATEGORY_SLUG } });
@@ -207,5 +212,86 @@ describe("US5 商品保存校验(T045,FR-126)", () => {
     await prisma.product.update({ where: { id }, data: { stock: 5 } });
     const restocked = await listAdminProducts({ lowStock: true });
     expect(restocked.items.map((i) => i.slug)).not.toContain(`${SLUG_PREFIX}lowstock`);
+  });
+});
+
+describe("deleteProduct(零订单删除/有订单拒绝)", () => {
+  it("有订单拒绝且零写;零订单删除清购物车+审计", async () => {
+    const buyer = await prisma.user.findUniqueOrThrow({
+      where: { username: usernames[0]! },
+      select: { id: true },
+    });
+
+    // 有订单:订单行是账务快照,拒绝删除且零写
+    const ordered = await prisma.product.create({
+      data: {
+        type: PRODUCT_TYPE.GAME_ITEM,
+        sku: `itemsend_t${RUN}o`,
+        name: `待删有单商品 ${RUN}`,
+        slug: `${SLUG_PREFIX}ordered`,
+        description: "del",
+        categoryId,
+        price: 100,
+        status: PRODUCT_STATUS.PUBLISHED,
+        listed: true,
+        gameItemId: 19019,
+      },
+      select: { id: true },
+    });
+    const order = await prisma.order.create({
+      data: { orderNo: `T${RUN}ORD`, userId: buyer.id, pointCost: 100 },
+      select: { id: true },
+    });
+    await prisma.orderItem.create({
+      data: {
+        orderId: order.id,
+        productId: ordered.id,
+        sku: `itemsend_t${RUN}o`,
+        name: `待删有单商品 ${RUN}`,
+        unitPrice: 100,
+        qty: 1,
+        params: {},
+      },
+    });
+    await expect(errCode(deleteProduct(ordered.id, DEL_ACTOR))).resolves.toBe(
+      "PRODUCT_HAS_ORDERS",
+    );
+    expect(await prisma.product.findUnique({ where: { id: ordered.id } })).not.toBeNull();
+
+    // 零订单:删除落库+购物车行随删+审计
+    const target = await prisma.product.create({
+      data: {
+        type: PRODUCT_TYPE.GAME_ITEM,
+        sku: `itemsend_t${RUN}d`,
+        name: `待删零单商品 ${RUN}`,
+        slug: `${SLUG_PREFIX}deleteme`,
+        description: "del",
+        categoryId,
+        price: 50,
+        status: PRODUCT_STATUS.PUBLISHED,
+        listed: true,
+        gameItemId: 19019,
+      },
+      select: { id: true },
+    });
+    await prisma.cartItem.create({
+      data: { userId: buyer.id, productId: target.id, qty: 2, params: {} },
+    });
+    await deleteProduct(target.id, DEL_ACTOR);
+    expect(await prisma.product.findUnique({ where: { id: target.id } })).toBeNull();
+    expect(
+      await prisma.cartItem.count({ where: { productId: target.id } }),
+    ).toBe(0);
+    const audit = await prisma.auditLog.findFirstOrThrow({
+      where: { actorUserId: DEL_ACTOR, action: AUDIT_ACTION.PRODUCT_DELETED },
+      orderBy: { id: "desc" },
+    });
+    expect(audit.payloadJson).toMatchObject({
+      productId: target.id.toString(),
+      sku: `itemsend_t${RUN}d`,
+    });
+
+    // 不存在:NOT_FOUND
+    await expect(errCode(deleteProduct(9_999_999n, DEL_ACTOR))).resolves.toBe("NOT_FOUND");
   });
 });

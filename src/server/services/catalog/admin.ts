@@ -1,5 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
+import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
+import { writeAudit } from "@/server/services/audit/audit";
 import type { ProductStatusValue } from "@/constants/shop";
 import { gameItemExists } from "./sku-check";
 import { resolveHandler } from "@/server/services/shop/handlers/registry";
@@ -19,6 +21,7 @@ export class ProductAdminError extends Error {
       | "SALE_PRICE_INVALID"
       | "DUPLICATE"
       | "CATEGORY_NOT_FOUND"
+      | "PRODUCT_HAS_ORDERS"
       | "NOT_FOUND",
     message?: string,
   ) {
@@ -123,6 +126,42 @@ export async function setProductStatus(
     data: { status, ...(listed === undefined ? {} : { listed }) },
   });
   if (hit.count === 0) throw new ProductAdminError("NOT_FOUND", "商品不存在。");
+}
+
+/**
+ * 删除商品:仅限零订单(订单行是账务快照,不可灭失→有单走下架);
+ * 购物车行是瞬态购物状态,事务内随删避免挂死链;审计落 sku/name 便于追溯。
+ */
+export async function deleteProduct(id: bigint, actorId: bigint): Promise<void> {
+  const product = await prisma.product.findUnique({
+    where: { id },
+    select: { sku: true, name: true, legacyWpProductId: true },
+  });
+  if (!product) throw new ProductAdminError("NOT_FOUND", "商品不存在。");
+  const orderCount = await prisma.orderItem.count({ where: { productId: id } });
+  if (orderCount > 0) {
+    throw new ProductAdminError(
+      "PRODUCT_HAS_ORDERS",
+      `该商品已有 ${orderCount} 条订单记录,不可删除;请改用「下架」隐藏。`,
+    );
+  }
+  await prisma.$transaction([
+    prisma.cartItem.deleteMany({ where: { productId: id } }),
+    prisma.product.delete({ where: { id } }),
+  ]);
+  await writeAudit({
+    category: AUDIT_CATEGORY.SHOP,
+    action: AUDIT_ACTION.PRODUCT_DELETED,
+    actorUserId: actorId,
+    payload: {
+      productId: id.toString(),
+      sku: product.sku,
+      name: product.name,
+      ...(product.legacyWpProductId == null
+        ? {}
+        : { legacyWpProductId: product.legacyWpProductId }),
+    },
+  });
 }
 
 export const ADMIN_PRODUCT_PAGE_SIZE = 20;

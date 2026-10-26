@@ -69,6 +69,8 @@ export const AUDIT_ACTION = {
   SETTINGS_TEST_MAIL: "settings_test_mail",
   /** M4 后台角色变更(category=admin;payload 含前后角色;成功即吊销目标全部会话) */
   USER_ROLE_CHANGE: "user_role_change",
+  /** 商品删除(category=shop;仅限零订单商品,payload 含 sku/name;有订单走下架) */
+  PRODUCT_DELETED: "product_deleted",
 } as const;
 
 export type AuditActionValue = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];
