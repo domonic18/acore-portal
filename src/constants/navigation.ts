@@ -75,6 +75,8 @@ export const ADMIN_NAV = [
   { href: "/admin/media", label: "媒体库" },
   // M3 渐进计划节点 CRUD(T048 契约补全;T032 遗留的第 5 域)
   { href: "/admin/progression", label: "渐进计划" },
+  // 首页配置(轮播物料+最近成就嵌入)
+  { href: "/admin/home", label: "首页配置" },
   // M3 US6 状态人工三键(T045)
   { href: "/admin/server-status", label: "状态配置" },
   // M4 US4 统计看板(T027)

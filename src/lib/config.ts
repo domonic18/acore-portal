@@ -76,6 +76,13 @@ const configSchema = z.object({
   notify: z.object({
     pointEmailThreshold: z.coerce.number().int().min(0).default(0),
   }),
+  // 首页配置(US 首页配置):最近成就 iframe 嵌入三参数;url 空=整块隐藏,
+  // 高度为 CSS 长度(185vh/600px 等),scrolling 控制 iframe 滚动条
+  home: z.object({
+    achievementUrl: z.string().default(""),
+    achievementHeight: z.string().default("185vh"),
+    achievementScrolling: z.boolean().default(false),
+  }),
   // Umami 统计(M4 US4):未配置=不注入采集脚本+看板区块「暂不可用」
   umami: z
     .object({
@@ -149,6 +156,11 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
     },
     notify: {
       pointEmailThreshold: flat["notify.pointEmailThreshold"] ?? "0",
+    },
+    home: {
+      achievementUrl: flat["home.achievementUrl"] ?? "",
+      achievementHeight: flat["home.achievementHeight"] ?? "185vh",
+      achievementScrolling: flat["home.achievementScrolling"] === "true",
     },
     umami: flat["umami.scriptUrl"]
       ? {

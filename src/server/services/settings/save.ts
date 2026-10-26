@@ -40,6 +40,17 @@ const groupSchemas = {
   notify: z.object({
     pointEmailThreshold: z.coerce.number().int().min(0),
   }),
+  home: z.object({
+    achievementUrl: z.union([
+      z.literal(""),
+      z.string().trim().url().refine((v) => /^https:\/\//.test(v), "成就页地址须为 https 链接"),
+    ]),
+    achievementHeight: z
+      .string()
+      .trim()
+      .regex(/^\d+(px|vh|rem|%)$/, "高度格式如 185vh / 600px"),
+    achievementScrolling: z.boolean(),
+  }),
   umami: z.object({
     scriptUrl: z.string().url(),
     websiteId: z.string().min(1),
@@ -69,6 +80,11 @@ const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>> = {
     loginLockSec: "security.loginLockSec",
   },
   notify: { pointEmailThreshold: "notify.pointEmailThreshold" },
+  home: {
+    achievementUrl: "home.achievementUrl",
+    achievementHeight: "home.achievementHeight",
+    achievementScrolling: "home.achievementScrolling",
+  },
   umami: {
     scriptUrl: "umami.scriptUrl",
     websiteId: "umami.websiteId",
