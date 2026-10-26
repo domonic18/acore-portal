@@ -105,6 +105,19 @@ describe("lookupLegacyRoute(FR-026 查表)", () => {
     });
     expect(rows).toHaveLength(0);
   });
+
+  it("saveRouteMapping 拒绝协议相对路径(//host 与 /\\host 开放重定向)", async () => {
+    await expect(saveRouteMapping(KEYS[2]!, "//evil.example")).rejects.toThrow(
+      /以 \/ 开头/,
+    );
+    await expect(saveRouteMapping(KEYS[2]!, "/\\evil.example")).rejects.toThrow(
+      /以 \/ 开头/,
+    );
+    const rows = await prisma.routeMap.findMany({
+      where: { oldKey: KEYS[2]! },
+    });
+    expect(rows).toHaveLength(0);
+  });
 });
 
 describe("工具页六键 route_map(M4 US1 T023,契约 tools-and-seo)", () => {
