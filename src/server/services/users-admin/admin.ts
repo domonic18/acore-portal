@@ -29,6 +29,7 @@ export const ADMIN_USER_PAGE_SIZE = 20;
 
 export async function listAdminUsers(opts: {
   query?: string;
+  role?: string;
   page?: number;
 }): Promise<{
   users: {
@@ -47,15 +48,17 @@ export async function listAdminUsers(opts: {
 }> {
   const page = Number.isInteger(opts.page) && opts.page! > 0 ? opts.page! : 1;
   const q = opts.query?.trim();
-  const where: Prisma.UserWhereInput = q
-    ? {
-        OR: [
-          { username: { contains: q } },
-          { email: { contains: q } },
-          { nickname: { contains: q } },
-        ],
-      }
-    : {};
+  const where: Prisma.UserWhereInput = {};
+  if (q) {
+    where.OR = [
+      { username: { contains: q } },
+      { email: { contains: q } },
+      { nickname: { contains: q } },
+    ];
+  }
+  if (opts.role === "user" || opts.role === "moderator" || opts.role === "admin") {
+    where.role = opts.role;
+  }
   const total = await prisma.user.count({ where });
   const totalPages = Math.max(1, Math.ceil(total / ADMIN_USER_PAGE_SIZE));
   const rows = await prisma.user.findMany({

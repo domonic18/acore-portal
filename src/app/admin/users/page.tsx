@@ -1,19 +1,30 @@
 import Link from "next/link";
 import { listAdminUsers } from "@/server/services/users-admin/admin";
+import { RoleSelect } from "@/components/admin/role-select";
 import { displayUserName } from "@/lib/format";
 
-/** 用户列表(FR-130):用户名/昵称/邮箱模糊搜索+分页;余额来自 point_account。 */
+const ROLE_TABS = [
+  { value: "", label: "全部" },
+  { value: "admin", label: "admin" },
+  { value: "moderator", label: "moderator" },
+  { value: "user", label: "user" },
+] as const;
+
+/** 用户列表(FR-130):用户名/昵称/邮箱模糊搜索+角色筛选+分页;行内分配角色(改后吊销目标会话)。 */
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: { query?: string; page?: string };
+  searchParams: { query?: string; role?: string; page?: string };
 }) {
   const query = searchParams.query?.trim() ?? "";
+  const role = searchParams.role ?? "";
   const page = Math.max(1, Number.parseInt(searchParams.page ?? "1", 10) || 1);
-  const { users, totalPages, total } = await listAdminUsers({ query, page });
+  const { users, totalPages, total } = await listAdminUsers({ query, role, page });
 
   const pageHref = (p: number) =>
-    `/admin/users?page=${p}${query ? `&query=${encodeURIComponent(query)}` : ""}`;
+    `/admin/users?page=${p}${query ? `&query=${encodeURIComponent(query)}` : ""}${
+      role ? `&role=${role}` : ""
+    }`;
 
   return (
     <div className="flex flex-col gap-4">
@@ -28,6 +39,7 @@ export default async function AdminUsersPage({
             className="w-72 rounded border border-gray-700 bg-gray-900 px-3 py-2 text-white"
           />
         </label>
+        {role && <input type="hidden" name="role" value={role} />}
         <button
           type="submit"
           className="rounded bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-500"
@@ -40,6 +52,24 @@ export default async function AdminUsersPage({
           </Link>
         )}
       </form>
+
+      <nav className="flex items-center gap-2 text-sm" aria-label="角色筛选">
+        {ROLE_TABS.map((t) =>
+          t.value === role ? (
+            <span key={t.value || "all"} className="rounded bg-blue-600 px-3 py-1 font-semibold text-white">
+              {t.label}
+            </span>
+          ) : (
+            <Link
+              key={t.value || "all"}
+              href={`/admin/users${t.value ? `?role=${t.value}` : ""}`}
+              className="rounded border border-gray-700 px-3 py-1 text-gray-400 hover:border-gray-500 hover:text-white"
+            >
+              {t.label}
+            </Link>
+          ),
+        )}
+      </nav>
 
       {users.length === 0 ? (
         <p className="rounded border border-dashed border-gray-700 px-6 py-10 text-center text-gray-400">
@@ -66,7 +96,9 @@ export default async function AdminUsersPage({
                   </Link>
                 </td>
                 <td className="py-2 pr-3 text-gray-400">{u.email}</td>
-                <td className="py-2 pr-3 text-gray-400">{u.role}</td>
+                <td className="py-2 pr-3">
+                  <RoleSelect userId={u.id} role={u.role} />
+                </td>
                 <td className="py-2 pr-3">
                   <span
                     className={`rounded px-2 py-0.5 text-xs ${
