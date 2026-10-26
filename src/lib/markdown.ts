@@ -1,6 +1,7 @@
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
+import remarkCjkFriendly from "remark-cjk-friendly";
 import remarkRehype from "remark-rehype";
 import rehypeHighlight from "rehype-highlight";
 import rehypeParse from "rehype-parse";
@@ -106,6 +107,9 @@ export async function renderMarkdown(
   const file = await unified()
     .use(remarkParse)
     .use(remarkGfm)
+    // CJK 加粗闭合修复:CommonMark 对「**中文：**中文」形态不识别强调(冒号后紧跟
+    // 汉字时闭合符不成 right-flanking),WP 迁移存量正文大量该形态,站点级兜底
+    .use(remarkCjkFriendly)
     .use(remarkRehype)
     .use(rehypeHighlight)
     .use(rehypeSlug)
