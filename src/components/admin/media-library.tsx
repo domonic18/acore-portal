@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { MEDIA_CATEGORIES, MEDIA_DEFAULT_CATEGORY } from "@/constants/media";
 
 /**
  * 媒体选择弹层(FR-217,编辑器插入 + /admin/media 管理共用列表逻辑):
@@ -208,6 +209,32 @@ export function MediaAssetList({
   );
 }
 
+/** 上传分类选择(FileBird 一级文件夹;新上传落此分类,商品图编辑器固定商店配图不走此控件) */
+export function MediaCategorySelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label className="flex items-center gap-1 text-xs text-gray-300">
+      上传分类
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded border border-gray-700 bg-gray-900 px-2 py-1 text-white"
+      >
+        {MEDIA_CATEGORIES.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export function MediaPickerModal({
   open,
   onClose,
@@ -220,6 +247,7 @@ export function MediaPickerModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [category, setCategory] = useState<string>(MEDIA_DEFAULT_CATEGORY);
   const fileRef = useRef<HTMLInputElement>(null);
 
   if (!open) return null;
@@ -229,7 +257,7 @@ export function MediaPickerModal({
     setBusy(true);
     setError(null);
     try {
-      await uploadMediaFiles(Array.from(files));
+      await uploadMediaFiles(Array.from(files), category);
       setRefreshKey((k) => k + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "上传失败");
@@ -248,7 +276,7 @@ export function MediaPickerModal({
             关闭
           </button>
         </div>
-        <div className="mb-3">
+        <div className="mb-3 flex items-center gap-3">
           <input
             ref={fileRef}
             type="file"
@@ -258,7 +286,8 @@ export function MediaPickerModal({
             onChange={(e) => handleUpload(e.target.files)}
             className="text-xs text-gray-300"
           />
-          {busy && <span className="ml-2 text-xs text-gray-400">上传中…</span>}
+          <MediaCategorySelect value={category} onChange={setCategory} />
+          {busy && <span className="text-xs text-gray-400">上传中…</span>}
         </div>
         <MediaAssetList
           refreshKey={refreshKey}

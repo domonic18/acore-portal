@@ -153,6 +153,10 @@ test.describe("US5 运营后台(T055)", () => {
     // 列表页有「图」列(缩略图/占位)
     await page.goto("/admin/products");
     await expect(page.getByRole("columnheader", { name: "图" })).toBeVisible();
+    // 媒体管理页:上传可选 FileBird 分类
+    await page.goto("/admin/media");
+    await expect(page.getByLabel("上传分类")).toBeVisible();
+    await expect(page.getByLabel("上传分类")).toContainText("商店配图");
   });
 
   test("补发:delivery_failed 订单重驱动为 completed(FR-129/SC-102)", async ({ page }) => {

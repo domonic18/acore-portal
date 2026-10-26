@@ -3,16 +3,19 @@
 import { useRef, useState } from "react";
 import {
   MediaAssetList,
+  MediaCategorySelect,
   uploadMediaFiles,
 } from "@/components/admin/media-library";
+import { MEDIA_DEFAULT_CATEGORY } from "@/constants/media";
 
-/** 媒体库管理台(T033):上传+列表+删除;删除二次确认提示正文死链风险(FR-217) */
+/** 媒体库管理台(T033):上传(可选分类)+列表+删除;删除二次确认提示正文死链风险(FR-217) */
 export function MediaManager() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [category, setCategory] = useState<string>(MEDIA_DEFAULT_CATEGORY);
 
   async function handleUpload(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -20,8 +23,8 @@ export function MediaManager() {
     setMessage(null);
     setError(null);
     try {
-      const items = await uploadMediaFiles(Array.from(files));
-      setMessage(`已上传 ${items.length} 个文件。`);
+      const items = await uploadMediaFiles(Array.from(files), category);
+      setMessage(`已上传 ${items.length} 个文件到「${category}」。`);
       setRefreshKey((k) => k + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "上传失败");
@@ -47,6 +50,7 @@ export function MediaManager() {
           onChange={(e) => handleUpload(e.target.files)}
           className="text-xs text-gray-300"
         />
+        <MediaCategorySelect value={category} onChange={setCategory} />
         {busy && <span className="text-gray-400">上传中…</span>}
         {message && <span className="text-green-400">{message}</span>}
         {error && (

@@ -2,6 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
+import { MEDIA_DEFAULT_CATEGORY } from "@/constants/media";
 import { writeAudit } from "@/server/services/audit/audit";
 import { getCosClient } from "@/lib/cos/client";
 
@@ -13,9 +14,6 @@ import { getCosClient } from "@/lib/cos/client";
  */
 
 export const MEDIA_MAX_BYTES = 10 * 1024 * 1024;
-
-/** 新上传缺省分类(旧站 FileBird 分类经回填脚本派生,见 scripts/migrate/media-library-backfill.mjs) */
-export const MEDIA_DEFAULT_CATEGORY = "其他";
 
 export class MediaError extends Error {
   constructor(
