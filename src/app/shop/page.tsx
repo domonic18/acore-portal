@@ -98,12 +98,23 @@ export default async function ShopPage({
                 href={`/shop/${p.slug}`}
                 className="flex flex-col gap-2 rounded border border-gray-800 p-3 transition-colors hover:border-gray-600"
               >
-                <div
-                  aria-hidden
-                  className="flex h-32 items-center justify-center rounded bg-gradient-to-br from-indigo-950 to-gray-900 text-4xl"
-                >
-                  {p.type === "game_item" ? "⚔" : "🛠"}
-                </div>
+                {p.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={p.image}
+                    alt={p.name}
+                    loading="lazy"
+                    draggable={false}
+                    className="flex h-32 w-full items-center justify-center rounded bg-gradient-to-br from-indigo-950 to-gray-900 object-contain p-1"
+                  />
+                ) : (
+                  <div
+                    aria-hidden
+                    className="flex h-32 items-center justify-center rounded bg-gradient-to-br from-indigo-950 to-gray-900 text-4xl"
+                  >
+                    {p.type === "game_item" ? "⚔" : "🛠"}
+                  </div>
+                )}
                 <span className="font-semibold">{p.name}</span>
                 <span className="text-xs text-gray-400">{p.categoryName}</span>
                 <span className="flex items-baseline gap-2">
