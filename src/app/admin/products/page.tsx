@@ -51,6 +51,7 @@ export default async function AdminProductsPage({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-800 text-left text-gray-400">
+              <th className="py-2 pr-3 font-normal">图</th>
               <th className="py-2 pr-3 font-normal">名称</th>
               <th className="py-2 pr-3 font-normal">SKU</th>
               <th className="py-2 pr-3 font-normal">分类</th>
@@ -68,6 +69,22 @@ export default async function AdminProductsPage({
                   p.lowStock ? "bg-amber-950/40" : ""
                 }`}
               >
+                <td className="py-2 pr-3">
+                  {p.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={p.image}
+                      alt=""
+                      loading="lazy"
+                      draggable={false}
+                      className="h-9 w-9 rounded border border-gray-700 object-contain"
+                    />
+                  ) : (
+                    <span aria-hidden className="text-lg text-gray-600">
+                      {p.type === "game_item" ? "⚔" : "🛠"}
+                    </span>
+                  )}
+                </td>
                 <td className="py-2 pr-3">
                   <Link
                     href={`/admin/products/${p.id}`}

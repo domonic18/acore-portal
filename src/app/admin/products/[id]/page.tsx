@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getAdminProduct, listAdminCategories } from "@/server/services/catalog/admin";
+import { normalizeProductImages } from "@/server/services/catalog/products";
 import { ProductForm, type ProductFormValues } from "@/components/admin/product-form";
 
 /** 商品编辑(T048):读回现有商品为表单初值;保存走 PATCH。 */
@@ -23,6 +24,8 @@ export default async function EditProductPage({
     name: product.name,
     slug: product.slug,
     description: product.description,
+    images: normalizeProductImages(product.images),
+    detailMd: product.detailMd ?? "",
     categoryId: product.category.id.toString(),
     price: product.price,
     salePrice: product.salePrice,

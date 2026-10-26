@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { MarkdownEditor } from "@/components/admin/markdown-editor";
+import { ProductImagesEditor } from "@/components/admin/product-images-editor";
 
 /**
  * 商品新建/编辑表单(api-admin POST·PATCH /api/admin/products):
- * SKU 保存校验在服务端(FR-126),422/409/503 错误原样呈现;成功回列表页。
+ * SKU 保存校验在服务端(FR-126),422/409/503 错误原样呈现;成功回列表页;
+ * 图片走媒体库编辑器,详情正文走 MarkdownEditor(WP 对齐)。
  */
 export type ProductFormValues = {
   id?: string;
@@ -14,6 +17,8 @@ export type ProductFormValues = {
   name: string;
   slug: string;
   description: string;
+  images: string[];
+  detailMd: string;
   categoryId: string;
   price: number;
   salePrice?: number | null;
@@ -44,6 +49,8 @@ export function ProductForm({
       name: "",
       slug: "",
       description: "",
+      images: [],
+      detailMd: "",
       categoryId: categories[0]?.id ?? "",
       price: 0,
       stockEnabled: false,
@@ -138,6 +145,11 @@ export function ProductForm({
           className={inputCls}
         />
       </label>
+      <ProductImagesEditor images={values.images} onChange={(v) => set("images", v)} />
+      <div className="flex flex-col gap-1">
+        <span className="text-gray-300">详情(Markdown,支持粘贴/选择图片;留空=详情页显示描述)</span>
+        <MarkdownEditor value={values.detailMd} onChange={(v) => set("detailMd", v)} />
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1">
           <span className="text-gray-300">原价(积分)</span>
