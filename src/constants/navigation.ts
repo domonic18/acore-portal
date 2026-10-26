@@ -66,6 +66,8 @@ export const ADMIN_NAV = [
   { href: "/admin/orders", label: "订单" },
   { href: "/admin/review-items", label: "迁移复核" },
   { href: "/admin/users", label: "用户" },
+  // M4 后台论坛管理(US 论坛管理页)
+  { href: "/admin/forum", label: "论坛管理" },
   { href: "/admin/invitation-codes", label: "邀请码" },
   // M3 US4 内容域(T032)
   { href: "/admin/articles", label: "文章" },
