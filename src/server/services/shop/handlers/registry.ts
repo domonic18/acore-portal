@@ -2,8 +2,9 @@ import "server-only";
 import type { z } from "zod";
 import type { Order, OrderItem } from "@/generated/business";
 import type { ValidatedCartParams } from "@/server/services/shop/param-schemas";
-import { ITEMSEND_SKU_PREFIX } from "@/constants/shop";
+import { ITEMSEND_SKU_PREFIX, TRANSMOG_ITEM_SKU_PREFIX } from "@/constants/shop";
 import { itemSendHandler } from "./item-send";
+import { transmogItemHandler } from "./transmog-item";
 import { itemRestoreHandler } from "./item-restore";
 import {
   charChangeFactionHandler,
@@ -12,12 +13,12 @@ import {
   charRenameHandler,
 } from "./character-change";
 import { nameUnlockHandler } from "./name-unlock";
-import { charCloneHandler, charTransferHandler } from "./char-move";
-import { guildChangeHandler } from "./guild-change";
 
 /**
  * 发货处理器注册表(soap-delivery 契约 §处理器注册表):
- * itemsend_* 前缀统一由 ItemSendHandler 承接;其余 SKU 精确匹配(9 个服务处理器)。
+ * itemsend_* / transmog-item_* 前缀统一由物品类处理器承接;其余 SKU 精确匹配(6 个服务处理器)。
+ * 商品面与 WP 旧站严格对齐(2026-10-25):WP 未提供的服务
+ * (角色转移/角色复制/公会变更)不实现,处理器与白名单同步收敛。
  * resolveHandler 未命中 ⇒ 商品保存被拒(FR-126)+ 发货层防御性拒绝(DELIVERY_NO_HANDLER)。
  */
 
@@ -60,12 +61,10 @@ const exactHandlers = new Map<string, DeliveryHandler>([
   [charCustomizeHandler.skuKey, charCustomizeHandler],
   [charRenameHandler.skuKey, charRenameHandler],
   [nameUnlockHandler.skuKey, nameUnlockHandler],
-  [charTransferHandler.skuKey, charTransferHandler],
-  [charCloneHandler.skuKey, charCloneHandler],
-  [guildChangeHandler.skuKey, guildChangeHandler],
 ]);
 
 export function resolveHandler(sku: string): DeliveryHandler | null {
   if (sku.startsWith(ITEMSEND_SKU_PREFIX)) return itemSendHandler;
+  if (sku.startsWith(TRANSMOG_ITEM_SKU_PREFIX)) return transmogItemHandler;
   return exactHandlers.get(sku) ?? null;
 }

@@ -16,8 +16,6 @@ import { CartLineControls } from "@/components/shop/cart-line-controls";
 const CART_PARAM_LABEL: Record<string, string> = {
   characterGuid: "角色",
   restoreItemEntry: "恢复物品",
-  destAccount: "目标账号",
-  guildName: "公会名",
   unlockName: "目标名字",
 };
 

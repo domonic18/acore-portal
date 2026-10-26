@@ -39,6 +39,35 @@ export type OrderItemDeliveryStatusValue =
 /** 物品类 SKU 前缀:`itemsend_{游戏物品ID}`(宪法 I 铁律③;前缀路由到 ItemSendHandler) */
 export const ITEMSEND_SKU_PREFIX = "itemsend_";
 
+/** 可堆叠物品 SKU 后缀:`itemsend_{id}_stack`(WP 口径:一封邮件发 qty 个;无后缀=qty 封各 1 个) */
+export const ITEM_SKU_STACK_SUFFIX = "_stack";
+
+/** 幻化外观 SKU 前缀:`transmog-item_{游戏物品ID}`(前缀路由到 TransmogItemHandler,.transmog add) */
+export const TRANSMOG_ITEM_SKU_PREFIX = "transmog-item_";
+
+/**
+ * 物品类 SKU → { 物品 id, 是否可堆叠形态 }(WP ItemSend::getSkuItem 同款解析;
+ * 非法/负数/非整数返回 null)
+ */
+export function parseItemSendSku(sku: string): { itemId: number; isStack: boolean } | null {
+  if (!sku.startsWith(ITEMSEND_SKU_PREFIX)) return null;
+  let rest = sku.slice(ITEMSEND_SKU_PREFIX.length);
+  let isStack = false;
+  if (rest.endsWith(ITEM_SKU_STACK_SUFFIX)) {
+    isStack = true;
+    rest = rest.slice(0, -ITEM_SKU_STACK_SUFFIX.length);
+  }
+  const itemId = Number(rest);
+  return Number.isInteger(itemId) && itemId > 0 ? { itemId, isStack } : null;
+}
+
+/** 幻化外观 SKU → 物品 id(非法返回 null) */
+export function parseTransmogSku(sku: string): number | null {
+  if (!sku.startsWith(TRANSMOG_ITEM_SKU_PREFIX)) return null;
+  const itemId = Number(sku.slice(TRANSMOG_ITEM_SKU_PREFIX.length));
+  return Number.isInteger(itemId) && itemId > 0 ? itemId : null;
+}
+
 /** 列表分页大小(contracts/api-shop) */
 export const SHOP_PAGE_SIZE = 24;
 

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/business";
 import { authDb } from "@/lib/db/auth";
-import { gameShaPassHash } from "@/lib/auth/game-hash";
+import { srp6MakeRegistrationData } from "@/lib/auth/game-hash";
 import { loadSystemConfig } from "@/lib/config";
 import {
   cleanupShopFixtures,
@@ -36,7 +36,7 @@ async function makeGameUser(tag: string) {
   const account = await authDb.createAccount({
     username: user.username,
     email: `${user.username}@test.local`,
-    shaPassHash: gameShaPassHash(user.username, "Delivery123"),
+    ...srp6MakeRegistrationData(user.username, "Delivery123"),
   });
   await prisma.$executeRaw`
     INSERT INTO acore_characters.characters
@@ -217,6 +217,91 @@ describe("US3 发货管线(T029)", () => {
       await prisma.soapCall.count({ where: { idempotencyKey: { startsWith: `orderitem:${itemId}:` } } }),
     ).toBe(callsBefore);
   }, 30_000);
+
+  it("非堆叠多件=逐封单件邮寄,堆叠多件=一封多件(WP 口径,防 CreateItem 超栈钳制)", async () => {
+    const { user, guid, charName } = await makeGameUser("multi");
+    const plain = await makeItemProduct("multi", { sku: `itemsend_1907${RUN.length}` });
+    const stack = await makeItemProduct("multistack", { sku: `itemsend_9007${RUN.length}_stack` });
+
+    // 非堆叠 qty=2:两封各 1 个
+    await addToCart({ userId: user.id, productId: plain.id, qty: 2, params: { characterGuid: guid } });
+    const r1 = await checkoutCart(user.id);
+    const o1 = await prisma.order.findUniqueOrThrow({
+      where: { id: BigInt(r1.orderId) },
+      include: { items: true },
+    });
+    orderItemIds.push(o1.items[0]!.id);
+    await driveOrderDelivery(o1.id);
+
+    // 堆叠 qty=3:一封 3 个
+    await addToCart({ userId: user.id, productId: stack.id, qty: 3, params: { characterGuid: guid } });
+    const r2 = await checkoutCart(user.id);
+    const o2 = await prisma.order.findUniqueOrThrow({
+      where: { id: BigInt(r2.orderId) },
+      include: { items: true },
+    });
+    orderItemIds.push(o2.items[0]!.id);
+    await driveOrderDelivery(o2.id);
+
+    const plainCalls = await prisma.soapCall.findMany({
+      where: { idempotencyKey: { startsWith: `orderitem:${o1.items[0]!.id}:` } },
+      orderBy: { id: "asc" },
+    });
+    expect(plainCalls).toHaveLength(2);
+    for (const call of plainCalls) {
+      expect(call.status).toBe("success");
+      expect(call.command).toBe(".send items");
+      const args = call.argsJson as string[];
+      expect(args[0]).toBe(charName);
+      expect(args[3]).toMatch(/:1$/);
+    }
+    expect(plainCalls[0]!.idempotencyKey).toBe(`orderitem:${o1.items[0]!.id}:1:m0`);
+    expect(plainCalls[1]!.idempotencyKey).toBe(`orderitem:${o1.items[0]!.id}:1:m1`);
+
+    const stackCalls = await prisma.soapCall.findMany({
+      where: { idempotencyKey: { startsWith: `orderitem:${o2.items[0]!.id}:` } },
+    });
+    expect(stackCalls).toHaveLength(1);
+    expect((stackCalls[0]!.argsJson as string[])[3]).toMatch(/:3$/);
+
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: o1.id } })).status).toBe("completed");
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: o2.id } })).status).toBe("completed");
+  });
+
+  it("多封重试防重发:历史已成功封数计入,只补差额", async () => {
+    const { user, guid } = await makeGameUser("diff");
+    const product = await makeItemProduct("diff", { sku: `itemsend_1908${RUN.length}` });
+    await addToCart({ userId: user.id, productId: product.id, qty: 2, params: { characterGuid: guid } });
+    const result = await checkoutCart(user.id);
+    const order = await prisma.order.findUniqueOrThrow({
+      where: { id: BigInt(result.orderId) },
+      include: { items: true },
+    });
+    const itemId = order.items[0]!.id;
+    orderItemIds.push(itemId);
+    const requestedBy = `order:${order.id}:item:${itemId}`;
+
+    // 预置第 1 封已成功(模拟部分成功后的重试场景)
+    await prisma.soapCall.create({
+      data: {
+        idempotencyKey: `orderitem:${itemId}:1:m0`,
+        command: ".send items",
+        argsJson: ["预置", '"t"', '"t"', "1900:1"],
+        status: "success",
+        attempts: 1,
+        requestedBy,
+      },
+    });
+
+    await driveOrderDelivery(order.id);
+
+    const calls = await prisma.soapCall.findMany({
+      where: { idempotencyKey: { startsWith: `orderitem:${itemId}:` } },
+    });
+    expect(calls).toHaveLength(2); // 预置 1 封 + 本次只补 1 封,不重发
+    const after = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+    expect(after.status).toBe("completed");
+  });
 
   it("NO_HANDLER 防御:未注册 SKU 行 failed,订单 delivery_failed", async () => {
     const { user } = await makeGameUser("nohandler");

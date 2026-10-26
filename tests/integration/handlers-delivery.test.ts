@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/business";
 import { authDb } from "@/lib/db/auth";
-import { gameShaPassHash } from "@/lib/auth/game-hash";
+import { srp6MakeRegistrationData } from "@/lib/auth/game-hash";
 import { loadSystemConfig } from "@/lib/config";
 import { makePointsUser } from "../fixtures/shop-seed";
 import { addToCart } from "@/server/services/shop/cart";
@@ -12,8 +12,9 @@ import { driveOrderDelivery } from "@/server/services/shop/delivery";
 /**
  * T038 服务处理器集成(soap-mock 契约,quickstart S4/SC-106):
  * 每处理器 1 条 mock 实测订单——命令/参数照录 soap-delivery 映射表,幂等键
- * orderitem:{id}:1,状态闭环 completed;名字解锁落库规范化;目标账号不存在/
- * 占用名/离线恢复为支付前拦截(CheckoutError PRECHECK_FAILED,零写入,FR-120)。
+ * orderitem:{id}:1,状态闭环 completed;名字解锁落库规范化;占用名/
+ * 离线恢复为支付前拦截(CheckoutError PRECHECK_FAILED,零写入,FR-120)。
+ * 商品面对齐 WP 旧站:转移/复制/公会类不提供(无处理器,矩阵无行)。
  * SKU 是处理器路由键(product_sku_key 唯一):同 SKU 商品按 Map 复用,自建分类不依赖共享 fixture。
  */
 const RUN = Date.now().toString(36);
@@ -37,7 +38,7 @@ async function makeGameUser(tag: string) {
   const account = await authDb.createAccount({
     username: user.username,
     email: `${user.username}@test.local`,
-    shaPassHash: gameShaPassHash(user.username, "Handler123"),
+    ...srp6MakeRegistrationData(user.username, "Handler123"),
   });
   await prisma.$executeRaw`
     INSERT INTO acore_characters.characters
@@ -247,58 +248,6 @@ describe("US4 服务处理器矩阵(T038)", () => {
     expect(await prisma.order.count({ where: { userId: user.id } })).toBe(ordersBefore);
   });
 
-  it("角色转移/复制:destAccount 存在→命令携带目标账号;不存在→支付前拦截", async () => {
-    const { user, guid, charName } = await makeGameUser("transfer");
-    const dest = await makeGameUser("dest");
-    const transfer = await makeServiceProduct("char-transfer");
-    const clone = await makeServiceProduct("char-clone");
-
-    const t = await buyAndDeliver(user.id, transfer.id, {
-      characterGuid: guid,
-      destAccount: dest.user.username,
-    });
-    expect((await callOf(t.itemId)).command).toBe(".character transfer");
-    expect((await callOf(t.itemId)).argsJson).toEqual([charName, dest.user.username]);
-
-    const c = await buyAndDeliver(user.id, clone.id, {
-      characterGuid: guid,
-      destAccount: dest.user.username,
-    });
-    expect((await callOf(c.itemId)).command).toBe(".character clone");
-    expect((await callOf(c.itemId)).argsJson).toEqual([charName, dest.user.username]);
-
-    // 不存在的目标账号:加购可入(schema 只做格式),结账前拦截
-    await addToCart({
-      userId: user.id,
-      productId: transfer.id,
-      qty: 1,
-      params: { characterGuid: guid, destAccount: "no_such_acc" } as never,
-    });
-    const ordersBefore = await prisma.order.count({ where: { userId: user.id } });
-    await expect(checkoutCart(user.id)).rejects.toThrow(/目标账号不存在/);
-    expect(await prisma.order.count({ where: { userId: user.id } })).toBe(ordersBefore);
-  });
-
-  it("公会变更:合法公会名命令照录;非法名加购即拒(PARAM_INVALID)", async () => {
-    const { user, guid, charName } = await makeGameUser("guild");
-    const product = await makeServiceProduct("guild-change");
-    const { itemId } = await buyAndDeliver(user.id, product.id, {
-      characterGuid: guid,
-      guildName: "圣光远征军",
-    });
-    const call = await callOf(itemId);
-    expect(call.command).toBe(".guild change");
-    expect(call.argsJson).toEqual([charName, "圣光远征军"]);
-
-    const rejected = await addToCart({
-      userId: user.id,
-      productId: product.id,
-      qty: 1,
-      params: { characterGuid: guid, guildName: "<bad>" } as never,
-    });
-    expect(rejected).toMatchObject({ ok: false, reason: "PARAM_INVALID" });
-  });
-
   it("装备恢复:recovery 列表命中→.send items 邮寄恢复物品,状态闭环", async () => {
     const { user, guid, charName } = await makeGameUser("restore");
     const entry = ENTRY_BASE + 1;
@@ -325,9 +274,21 @@ describe("US4 服务处理器矩阵(T038)", () => {
     const call = await callOf(itemId);
     expect(call.command).toBe(".send items");
     const args = call.argsJson as string[];
-    expect(args[0]).toBe(`--${charName}`);
+    expect(args[0]).toBe(charName);
     expect(args[3]).toBe(`${entry}:1`);
     expect(args.join(" ")).toContain(orderNo);
+  });
+
+  it("幻化外观:transmog-item_ 前缀路由→.transmog add 收藏外观,qty 不参与(WP 同款)", async () => {
+    const { user, guid, charName } = await makeGameUser("transmog");
+    const entry = 12584 + (Number.parseInt(RUN, 36) % 100);
+    const product = await makeServiceProduct(`transmog-item_${entry}`);
+    const { itemId, item } = await buyAndDeliver(user.id, product.id, { characterGuid: guid });
+    expect(item.deliveryStatus).toBe("delivered");
+    const call = await callOf(itemId);
+    expect(call.command).toBe(".transmog add");
+    expect(call.status).toBe("success");
+    expect(call.argsJson).toEqual([charName, String(entry)]);
   });
 
   it("装备恢复离线拦截(FR-120):mock failure 态→支付前 PRECHECK_FAILED 零写入", async () => {

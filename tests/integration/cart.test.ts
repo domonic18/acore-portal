@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/business";
 import { authDb } from "@/lib/db/auth";
-import { gameShaPassHash } from "@/lib/auth/game-hash";
+import { srp6MakeRegistrationData } from "@/lib/auth/game-hash";
 import {
   cleanupShopFixtures,
   makePointsUser,
@@ -37,7 +37,7 @@ async function makeCartUser(tag: string, withGame: boolean): Promise<ShopUser> {
     const account = await authDb.createAccount({
       username: user.username,
       email: `${user.username}@test.local`,
-      shaPassHash: gameShaPassHash(user.username, "Cartpass123"),
+      ...srp6MakeRegistrationData(user.username, "Cartpass123"),
     });
     await prisma.$executeRaw`
       INSERT INTO acore_characters.characters

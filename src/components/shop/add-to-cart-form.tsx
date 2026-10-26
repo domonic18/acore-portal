@@ -11,7 +11,7 @@ import { CharacterSelect, type CharacterOption } from "./character-select";
  * restoreItemEntry 随所选角色经 /api/account/restore-items 拉取(503 降级不阻塞),
  * 质量色渲染+数据缺失行禁选(restorable=false,T041);未选物品不得加购。
  */
-export type CartParamField = "characterGuid" | "restoreItemEntry" | "unlockName" | "guildName" | "destAccount";
+export type CartParamField = "characterGuid" | "restoreItemEntry" | "unlockName";
 
 type RestorableItem = {
   entry: number;
@@ -49,8 +49,6 @@ export function AddToCartForm({
   const [restorable, setRestorable] = useState<RestorableItem[] | null>(null);
   const [restoreDegraded, setRestoreDegraded] = useState(false);
   const [unlockName, setUnlockName] = useState("");
-  const [guildName, setGuildName] = useState("");
-  const [destAccount, setDestAccount] = useState("");
   const [qty, setQty] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
@@ -101,8 +99,6 @@ export function AddToCartForm({
       if (fields.includes("characterGuid")) params.characterGuid = Number(guid);
       if (needRestore) params.restoreItemEntry = Number(restoreEntry);
       if (fields.includes("unlockName")) params.unlockName = unlockName;
-      if (fields.includes("guildName")) params.guildName = guildName;
-      if (fields.includes("destAccount")) params.destAccount = destAccount;
       const res = await fetch("/api/cart", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -184,28 +180,6 @@ export function AddToCartForm({
           <input
             value={unlockName}
             onChange={(e) => setUnlockName(e.target.value)}
-            disabled={busy}
-            className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-white"
-          />
-        </label>
-      )}
-      {fields.includes("guildName") && (
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-300">公会名</span>
-          <input
-            value={guildName}
-            onChange={(e) => setGuildName(e.target.value)}
-            disabled={busy}
-            className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-white"
-          />
-        </label>
-      )}
-      {fields.includes("destAccount") && (
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-300">目标账号</span>
-          <input
-            value={destAccount}
-            onChange={(e) => setDestAccount(e.target.value)}
             disabled={busy}
             className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-white"
           />

@@ -32,9 +32,9 @@ export const itemRestoreHandler: DeliveryHandler = {
     const result = await executeDeliveryCommand(
       ".send items",
       [
-        `--${charName}`,
-        `【老克塔】装备恢复 ${order.orderNo}`,
-        "您恢复的物品已随信附上,请查收。",
+        charName,
+        `"【老克塔】装备恢复 ${order.orderNo}"`,
+        '"您恢复的物品已随信附上,请查收。"',
         `${params.restoreItemEntry}:${item.qty}`,
       ],
       {

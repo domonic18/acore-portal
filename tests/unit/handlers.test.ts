@@ -3,7 +3,9 @@ import {
   CART_PARAM_SCHEMAS,
   ITEM_SEND_PARAM_SCHEMA,
 } from "@/server/services/shop/param-schemas";
+import { parseItemSendSku, parseTransmogSku } from "@/constants/shop";
 import { itemSendHandler } from "@/server/services/shop/handlers/item-send";
+import { transmogItemHandler } from "@/server/services/shop/handlers/transmog-item";
 import { itemRestoreHandler } from "@/server/services/shop/handlers/item-restore";
 import {
   charChangeFactionHandler,
@@ -12,14 +14,13 @@ import {
   charRenameHandler,
 } from "@/server/services/shop/handlers/character-change";
 import { nameUnlockHandler } from "@/server/services/shop/handlers/name-unlock";
-import { charCloneHandler, charTransferHandler } from "@/server/services/shop/handlers/char-move";
-import { guildChangeHandler } from "@/server/services/shop/handlers/guild-change";
 import { resolveHandler } from "@/server/services/shop/handlers/registry";
 
 /**
  * T037 处理器单测(FR-122/123,soap-delivery §SKU→处理器→命令映射):
  * resolveHandler 路由(前缀/精确键/未命中)+ 各处理器 validateSchema 参数矩阵
- * (与加购同源,双重把关)+ 名字解锁规范化/公会名合法性等纯校验。
+ * (与加购同源,双重把关)+ 名字解锁规范化等纯校验。
+ * 商品面对齐 WP 旧站:转移/复制/公会类服务不提供,无对应处理器。
  */
 
 const EXACT_HANDLERS = [
@@ -29,15 +30,19 @@ const EXACT_HANDLERS = [
   charCustomizeHandler,
   charRenameHandler,
   nameUnlockHandler,
-  charTransferHandler,
-  charCloneHandler,
-  guildChangeHandler,
 ];
 
 describe("resolveHandler 路由(T037)", () => {
   test("itemsend_ 前缀统一由 ItemSendHandler 承接", () => {
     expect(resolveHandler("itemsend_19061")).toBe(itemSendHandler);
     expect(resolveHandler("itemsend_1")).toBe(itemSendHandler);
+    expect(resolveHandler("itemsend_90001_stack")).toBe(itemSendHandler);
+  });
+
+  test("transmog-item_ 前缀统一由 TransmogItemHandler 承接", () => {
+    expect(resolveHandler("transmog-item_12584")).toBe(transmogItemHandler);
+    expect(transmogItemHandler.validateSchema).toBe(ITEM_SEND_PARAM_SCHEMA);
+    expect(CART_PARAM_SCHEMAS["transmog-item_12584"]).toBeUndefined();
   });
 
   test("服务类 SKU 精确命中各自处理器,skuKey 与矩阵键一致", () => {
@@ -105,32 +110,27 @@ describe("validateSchema 参数矩阵(T037)", () => {
     expect(parse("abcdefghijklm")).toBeNull(); // 超 12 位
   });
 
-  test("公会变更:公会名 2-24 位字母/数字/汉字,可含空格与 '-',非法字符拒绝", () => {
-    const schema = guildChangeHandler.validateSchema;
-    const ok = (v: string) => schema.safeParse({ characterGuid: 10, guildName: v }).success;
-    expect(ok("王者归来")).toBe(true);
-    expect(ok("Knights")).toBe(true);
-    expect(ok("ab")).toBe(true);
-    expect(ok("  圣光  ")).toBe(true); // trim 后合法
-    expect(ok("圣 骑 士")).toBe(true); // 内部空格
-    expect(ok("a")).toBe(false); // 过短
-    expect(ok("a".repeat(25))).toBe(false); // 超长
-    expect(ok("<script>")).toBe(false); // 注入字符
-    expect(ok("   ")).toBe(false); // trim 后为空
+  test("未提供类 SKU(转移/复制/公会)返回 null,矩阵无行", () => {
+    expect(resolveHandler("char-transfer")).toBeNull();
+    expect(resolveHandler("char-clone")).toBeNull();
+    expect(resolveHandler("guild-change")).toBeNull();
+    expect(CART_PARAM_SCHEMAS["char-transfer"]).toBeUndefined();
+    expect(CART_PARAM_SCHEMAS["char-clone"]).toBeUndefined();
+    expect(CART_PARAM_SCHEMAS["guild-change"]).toBeUndefined();
   });
 
-  test("转移/复制:destAccount 必填 2-32 位", () => {
-    for (const handler of [charTransferHandler, charCloneHandler]) {
-      const schema = handler.validateSchema;
-      expect(schema.safeParse({ characterGuid: 10, destAccount: "target" }).success, handler.skuKey).toBe(true);
-      expect(schema.safeParse({ characterGuid: 10, destAccount: "ab" }).success, handler.skuKey).toBe(true);
-      expect(schema.safeParse({ characterGuid: 10, destAccount: "" }).success, handler.skuKey).toBe(false);
-      expect(
-        schema.safeParse({ characterGuid: 10, destAccount: "a".repeat(33) }).success,
-        handler.skuKey,
-      ).toBe(false);
-      expect(schema.safeParse({ characterGuid: 10 }).success, handler.skuKey).toBe(false);
-    }
+  test("parseItemSendSku/parseTransmogSku:物品 id 与 _stack 形态解析", () => {
+    expect(parseItemSendSku("itemsend_44092")).toEqual({ itemId: 44092, isStack: false });
+    expect(parseItemSendSku("itemsend_90001_stack")).toEqual({ itemId: 90001, isStack: true });
+    expect(parseItemSendSku("itemsend_90001_stackx")).toBeNull();
+    expect(parseItemSendSku("itemsend_stack")).toBeNull();
+    expect(parseItemSendSku("itemsend_0")).toBeNull();
+    expect(parseItemSendSku("itemsend_-1")).toBeNull();
+    expect(parseItemSendSku("itemsend_1.5")).toBeNull();
+    expect(parseItemSendSku("transmog-item_12584")).toBeNull();
+    expect(parseTransmogSku("transmog-item_12584")).toBe(12584);
+    expect(parseTransmogSku("transmog-item_abc")).toBeNull();
+    expect(parseTransmogSku("itemsend_12584")).toBeNull();
   });
 
   test("物品类矩阵:仅收 characterGuid", () => {

@@ -23,17 +23,16 @@ interface DeliveryHandler {
 
 | SKU / 前缀 | 处理器 | 参数（params） | 服务端校验 | SOAP 命令（mock 先固化） |
 |---|---|---|---|---|
-| `itemsend_{id}` | ItemSendHandler | `characterGuid` | 角色归属 | `.send items --{char} "{subject}" "{text}" {id}:{count}` |
+| `itemsend_{id}` | ItemSendHandler | `characterGuid` | 角色归属 | `.send items {char} "{subject}" "{text}" {id}:{count}`;数量口径对齐 WP:`_stack` 后缀=一封 qty 个,无后缀=qty 封各 1 个(AC CreateItem 超栈静默钳制,非堆叠一封多件会少发);多封幂等键 `orderitem:{id}:{attempt}:m{i}`,重试按 requestedBy 计数补差额 |
 | `item-restoration` | ItemRestoreHandler | `characterGuid` + `restoreItemEntry` | 归属+可恢复列表命中+**服务器在线**（precheck，FR-120） | `.send items`（恢复物品经 send mail 执行，与用户中心恢复同源） |
 | `char-change-race` | CharChangeRaceHandler | `characterGuid` | 归属 | `.character changerace {char}` |
 | `char-change-faction` | CharChangeFactionHandler | `characterGuid` | 归属 | `.character changefaction {char}` |
 | `char-change-customize` | CharCustomizeHandler | `characterGuid` | 归属 | `.character customize {char}` |
 | `char-change-name` | CharRenameHandler | `characterGuid` | 归属 | `.character rename {char}`（玩家进游戏自改名，与旧站一致；`name-unlock` 为指定名变体） |
 | `name-unlock` | NameUnlockHandler | `characterGuid` + `unlockName` | 归属+名字合法性+首字母大写规范化+占用 | `.character rename {char} {NewName}` |
-| `char-transfer` | CharTransferHandler | `characterGuid` + `destAccount` | 归属+目标账号存在（auth 库） | `.character transfer {char} {destAccount}` |
-| `char-clone` | CharCloneHandler | `characterGuid` + `destAccount` | 同上 | `.character clone {char} {destAccount}` |
-| `guild-change` | GuildChangeHandler | `characterGuid` + `guildName` | 归属+公会名合法性（长度/字符集） | `.guild change {char} {guild}` |
-| 幻化单件/套装/外观重置 | 以 itemsend_* 物品为载体（存量形态），走 ItemSendHandler | `characterGuid` | 归属 | 同 itemsend |
+| `transmog-item_{id}`（幻化外观） | TransmogItemHandler | `characterGuid` | 角色归属 | `.transmog add {char} {id}`（真机自定义模块，2026-10-26 usage 探针核对；外观收藏性质 qty 不参与，WP 同款；标题限阵营为自选约束，服务端不校验） |
+
+> **商品面对齐 WP 旧站(2026-10-25 决策)**:WP 未提供的服务(角色转移/角色复制/公会变更)不实现——真机亦无 `.character transfer/.character clone/.guild change` 子命令,处理器/参数矩阵/白名单均已收敛,三 SKU 加购即拒(NO_HANDLER)。
 
 > 命令名/参数以 soap-mock 契约测试固化为唯一实现依据；真机联调若发现偏差，仅改 handlers 层映射并同步本表（不做双轨）。
 

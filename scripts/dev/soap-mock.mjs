@@ -101,17 +101,17 @@ function faultString(msg) {
 </SOAP-ENV:Fault>`;
 }
 
-// US4 服务类命令确定性回执(命令名先照录 soap-delivery 契约,真机联调再核对修订):
+// US4 服务类命令确定性回执(商品面对齐 WP 旧站):
 // [regex, receipt];regex 不中即 usage error(参数形态由处理器保证,mock 只验形态)
+// 真机 2026-10-25 核对:rename 双参=立即强制改名(回执取真机形态)
+// 真机 2026-10-26 核对:.transmog add $player $item(外观收藏模块)
 const SERVICE_COMMANDS = [
   [/^\.character\s+changerace\s+(\S+)$/, (m) => `${m[1]}: race change will complete on next login.`],
   [/^\.character\s+changefaction\s+(\S+)$/, (m) => `${m[1]}: faction change will complete on next login.`],
   [/^\.character\s+customize\s+(\S+)$/, (m) => `${m[1]}: customize queued, effective on next login.`],
-  [/^\.character\s+rename\s+(\S+)\s+(\S+)$/, (m) => `${m[1]}: renamed to ${m[2]}, effective on next login.`],
   [/^\.character\s+rename\s+(\S+)$/, (m) => `${m[1]}: rename flag set, choose new name at next login.`],
-  [/^\.character\s+transfer\s+(\S+)\s+(\S+)$/, (m) => `${m[1]}: transfer to account ${m[2]} queued.`],
-  [/^\.character\s+clone\s+(\S+)\s+(\S+)$/, (m) => `${m[1]}: clone to account ${m[2]} queued.`],
-  [/^\.guild\s+change\s+(\S+)\s+(\S+)$/, (m) => `${m[1]}: moved to guild ${m[2]}.`],
+  [/^\.character\s+rename\s+(\S+)\s+(\S+)$/, (m) => `角色 '${m[1]}' 强制更名为 '${m[2]}'`],
+  [/^\.transmog\s+add\s+(\S+)\s+(\d+)$/, (m) => `${m[1]}: item ${m[2]} added to appearance collection.`],
 ];
 
 const server = http.createServer((req, res) => {
@@ -201,8 +201,9 @@ const server = http.createServer((req, res) => {
         "",
       ].join("\n");
     } else if (key === ".send items") {
-      // .send items --{char} "{subject}" "{text}" {itemId}:{count} → 确定性成功回执
-      const m = command.match(/^\.send\s+items\s+--(\S+)\s+"([^"]*)"\s+"([^"]*)"\s+(\d+):(\d+)$/);
+      // .send items {char} "{subject}" "{text}" {itemId}:{count} → 确定性成功回执
+      // (对齐 AC cs_send.cpp:玩家名裸 token,subject/text QuotedString 双引号)
+      const m = command.match(/^\.send\s+items\s+(\S+)\s+"([^"]*)"\s+"([^"]*)"\s+(\d+):(\d+)$/);
       if (!m) {
         result = `[mock] .send items usage error: ${command}`;
       } else {
