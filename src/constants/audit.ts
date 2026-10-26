@@ -56,6 +56,10 @@ export const AUDIT_ACTION = {
   FORUM_THREAD_CLOSE: "forum_thread_close",
   FORUM_THREAD_LABEL: "forum_thread_label",
   FORUM_THREAD_DELETE: "forum_thread_delete",
+  FORUM_THREAD_UNDELETE: "forum_thread_undelete",
+  /** M4 后台版块管理(category=forum;payload 含 id/slug,改名记 old/new) */
+  FORUM_BOARD_SAVED: "forum_board_saved",
+  FORUM_BOARD_DELETED: "forum_board_deleted",
   FORUM_MODERATION_VIOLATION: "forum_moderation_violation",
   /** M4 防滥用:连续失败达阈值触发锁定(category=security;payload 无密码,只记用户名/ip/计数) */
   LOGIN_LOCKED: "login_locked",

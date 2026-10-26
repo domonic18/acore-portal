@@ -94,3 +94,19 @@ export async function deleteThread(id: bigint, actor: Actor) {
     payload: { threadId: id.toString(), title: thread.title },
   });
 }
+
+/** 后台恢复(M4):与 deleteThread 对偶,事务清 thread+楼层 deletedAt(仅已删主题可达) */
+export async function undeleteThread(id: bigint, actor: Actor) {
+  const thread = await prisma.forumThread.findUnique({ where: { id } });
+  if (!thread || !thread.deletedAt) throw new ForumModerateError("THREAD_NOT_FOUND");
+  await prisma.$transaction([
+    prisma.forumThread.update({ where: { id }, data: { deletedAt: null } }),
+    prisma.forumPost.updateMany({ where: { threadId: id }, data: { deletedAt: null } }),
+  ]);
+  await writeAudit({
+    category: AUDIT_CATEGORY.FORUM,
+    action: AUDIT_ACTION.FORUM_THREAD_UNDELETE,
+    actorUserId: actor.id,
+    payload: { threadId: id.toString(), title: thread.title },
+  });
+}
