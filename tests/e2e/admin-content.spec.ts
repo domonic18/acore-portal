@@ -87,8 +87,7 @@ test.describe("发文闭环(T034 SC-206)", () => {
     await page.getByLabel("标题", { exact: true }).fill(ART_TITLE);
     await page.getByLabel(/别名 slug/).fill(ART_SLUG);
     await page.getByPlaceholder(/正文 Markdown/).fill(PUB_MD);
-    // 预览即所见(FR-215):同管线,表格在预览可见
-    await page.getByRole("button", { name: "预览" }).click();
+    // 预览即所见(FR-215):分栏实时预览(输入停顿自动刷新),表格在预览可见
     await expect(page.getByTestId("markdown-preview")).toContainText("第一阶段");
     await page.getByLabel("状态").selectOption("published");
     await page.getByRole("button", { name: "保存" }).click();

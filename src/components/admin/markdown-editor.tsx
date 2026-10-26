@@ -1,14 +1,15 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MediaPickerModal, uploadMediaFiles } from "@/components/admin/media-library";
 import { MARKDOWN_BODY_CLS } from "@/constants/content";
 import type { TocItem } from "@/lib/markdown";
 
 /**
- * Markdown 编辑器(FR-215):GFM 工具栏光标处插入;粘贴图片自动上传媒体库插
- * CDN URL;预览走 /api/admin/markdown-preview(与前台同管线同白名单,预览即
- * 所见,含高亮与 TOC);「媒体库」弹层选图插入。
+ * Markdown 编辑器(FR-215):默认左侧编辑、右侧实时预览(输入停顿 400ms 刷新,
+ * 走 /api/admin/markdown-preview 与前台同管线同白名单,预览即所见);可收起
+ * 预览切回单栏。GFM 工具栏光标处插入;粘贴图片自动上传媒体库插 CDN URL;
+ * 「媒体库」弹层选图插入。
  */
 
 const TOOLBAR: Array<{ label: string; title: string; snip: string; cursor?: number }> = [
@@ -29,6 +30,8 @@ const TOOLBAR: Array<{ label: string; title: string; snip: string; cursor?: numb
   },
 ];
 
+type PreviewData = { html: string; toc: TocItem[] };
+
 export function MarkdownEditor({
   value,
   onChange,
@@ -37,11 +40,46 @@ export function MarkdownEditor({
   onChange: (v: string) => void;
 }) {
   const taRef = useRef<HTMLTextAreaElement>(null);
-  const [preview, setPreview] = useState<{ html: string; toc: TocItem[] } | null>(null);
-  const [previewing, setPreviewing] = useState(false);
+  const [preview, setPreview] = useState<PreviewData | null>(null);
+  const [split, setSplit] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const seqRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 实时预览:输入停顿 400ms 后请求;seq 丢弃过期响应(快输时旧响应不覆盖新预览)
+  useEffect(() => {
+    if (!split) return;
+    seqRef.current += 1;
+    const seq = seqRef.current;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      if (value.trim() === "") {
+        setPreview(null);
+        return;
+      }
+      try {
+        const res = await fetch("/api/admin/markdown-preview", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ bodyMd: value }),
+        });
+        const body = await res.json();
+        if (seq !== seqRef.current) return;
+        if (!res.ok) {
+          setError(body?.error?.message ?? "预览失败");
+          return;
+        }
+        setPreview(body);
+      } catch {
+        // 网络瞬断:保留上次预览,不打断输入
+      }
+    }, 400);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [value, split]);
 
   function insert(snip: string, cursor = snip.length) {
     const ta = taRef.current;
@@ -57,26 +95,6 @@ export function MarkdownEditor({
       const pos = start + cursor;
       ta.setSelectionRange(pos, pos);
     });
-  }
-
-  async function togglePreview() {
-    setError(null);
-    if (previewing) {
-      setPreviewing(false);
-      return;
-    }
-    const res = await fetch("/api/admin/markdown-preview", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ bodyMd: value }),
-    });
-    const body = await res.json();
-    if (!res.ok) {
-      setError(body?.error?.message ?? "预览失败");
-      return;
-    }
-    setPreview(body);
-    setPreviewing(true);
   }
 
   async function onPaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
@@ -122,10 +140,10 @@ export function MarkdownEditor({
         </button>
         <button
           type="button"
-          onClick={togglePreview}
+          onClick={() => setSplit((v) => !v)}
           className="ml-auto rounded bg-gray-700 px-3 py-1 text-xs font-semibold text-white hover:bg-gray-600"
         >
-          {previewing ? "收起预览" : "预览"}
+          {split ? "收起预览" : "展开预览"}
         </button>
       </div>
       {uploading && <p className="text-xs text-gray-400">图片上传中…</p>}
@@ -134,7 +152,7 @@ export function MarkdownEditor({
           {error}
         </p>
       )}
-      <div className={previewing ? "grid gap-3 lg:grid-cols-2" : ""}>
+      <div className={split ? "grid items-start gap-3 lg:grid-cols-2" : ""}>
         <textarea
           ref={taRef}
           value={value}
@@ -144,9 +162,9 @@ export function MarkdownEditor({
           className="w-full rounded border border-gray-700 bg-gray-900 p-3 font-mono text-sm text-white"
           placeholder="正文 Markdown(GFM:表格/代码块/删除线均支持)…"
         />
-        {previewing && (
+        {split && (
           <div
-            className="max-h-[480px] overflow-y-auto rounded border border-gray-700 bg-[#0d1728] p-4"
+            className="min-h-[240px] max-h-[520px] overflow-y-auto rounded border border-gray-700 bg-[#0d1728] p-4"
             data-testid="markdown-preview"
           >
             {preview && preview.toc.length > 0 && (
@@ -161,10 +179,16 @@ export function MarkdownEditor({
                 </ul>
               </nav>
             )}
-            <div
-              className={MARKDOWN_BODY_CLS}
-              dangerouslySetInnerHTML={{ __html: preview?.html ?? "" }}
-            />
+            {preview ? (
+              <div
+                className={MARKDOWN_BODY_CLS}
+                dangerouslySetInnerHTML={{ __html: preview.html }}
+              />
+            ) : (
+              <p className="text-xs text-gray-500">
+                {value.trim() === "" ? "左侧输入 Markdown 后此处实时预览" : "预览生成中…"}
+              </p>
+            )}
           </div>
         )}
       </div>

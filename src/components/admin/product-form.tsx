@@ -91,7 +91,7 @@ export function ProductForm({
   const isGame = values.type === "game_item";
 
   return (
-    <div className="flex max-w-xl flex-col gap-3 text-sm">
+    <div className="flex max-w-3xl flex-col gap-3 text-sm">
       <label className="flex flex-col gap-1">
         <span className="text-gray-300">类型</span>
         <select value={values.type} onChange={(e) => set("type", e.target.value)} className={inputCls}>
