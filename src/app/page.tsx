@@ -1,16 +1,32 @@
 import Link from "next/link";
 import { getHomeBlocks } from "@/server/services/home/home";
+import { listActiveBanners } from "@/server/services/home/banners";
 import { getServerStatus } from "@/server/services/status/status";
+import { getConfig } from "@/lib/config";
 import { StatusCard } from "@/components/site/status-card";
+import { HomeCarousel } from "@/components/site/home-carousel";
 import { SiteSidebar } from "@/app/_components/sidebar/sidebar";
 
 /**
  * 首页四区块(T027,US3;spec §US3):最新公告 5/服务器状态卡(T044 转正)/
  * 当前渐进阶段/精选商品(featured 优先回退最新上架)。侧栏按 home 类型渲染。
+ * 轮播与最近成就嵌入(US 首页配置)由后台配置:轮播空物料整块隐藏,
+ * 成就 iframe url 空=隐藏;/admin 改动经 reloadSystemConfig/refresh 即时生效。
  */
 export default async function HomePage() {
-  const [{ announcements, progression, featuredProducts }, serverStatus] =
-    await Promise.all([getHomeBlocks(), getServerStatus()]);
+  const [{ announcements, progression, featuredProducts }, activeBanners, config, serverStatus] =
+    await Promise.all([
+      getHomeBlocks(),
+      listActiveBanners(),
+      getConfig(),
+      getServerStatus(),
+    ]);
+  const banners = activeBanners.map((b) => ({
+    id: b.id.toString(),
+    title: b.title,
+    imageUrl: b.imageUrl,
+    linkUrl: b.linkUrl,
+  }));
 
   return (
     <main className="mx-auto max-w-6xl p-4">
@@ -23,6 +39,8 @@ export default async function HomePage() {
 
       <div className="flex flex-col gap-6 lg:flex-row">
         <div className="grid min-w-0 flex-1 grid-cols-1 gap-4 md:grid-cols-2">
+          <HomeCarousel banners={banners} />
+
           <section className="rounded border border-[#1e2a3d] bg-[#0d1728] p-4 md:col-span-2">
             <div className="mb-3 flex items-baseline justify-between">
               <h2 className="font-bold text-[#e6d8a8]">最新公告</h2>
@@ -109,6 +127,31 @@ export default async function HomePage() {
               </ul>
             )}
           </section>
+
+          {/* 最近成就嵌入(US 首页配置):url 空=整块隐藏;高度/滚动条后台可配 */}
+          {config.home.achievementUrl && (
+            <section className="rounded border border-[#1e2a3d] bg-[#0d1728] p-4 md:col-span-2">
+              <div className="mb-3 flex items-baseline justify-between">
+                <h2 className="font-bold text-[#e6d8a8]">最近成就</h2>
+                <a
+                  href={config.home.achievementUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-[#8fa0b8] hover:text-[#e6d8a8]"
+                >
+                  新窗口打开 →
+                </a>
+              </div>
+              <iframe
+                src={config.home.achievementUrl}
+                title="最近成就"
+                loading="lazy"
+                scrolling={config.home.achievementScrolling ? "auto" : "no"}
+                className="w-full rounded border-0 bg-[#0d1728]"
+                style={{ height: config.home.achievementHeight }}
+              />
+            </section>
+          )}
         </div>
         <SiteSidebar pageType="home" />
       </div>
