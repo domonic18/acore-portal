@@ -92,13 +92,14 @@ afterAll(async () => {
 });
 
 describe("渐进计划后台 CRUD(T048 补全 api-admin-m3)", () => {
-  it("新建→更新→列表含 isCurrent→全字段落库;保存审计只记 id/status/sort", async () => {
+  it("新建→更新→列表含 isCurrent→全字段落库(含 icon);保存审计只记 id/status/sort", async () => {
     const created = await saveProgressionNode({
       title: `${TITLE_PREFIX} 一`,
       phaseDate: "2026-03-01",
       imageUrl: null,
       bodyMd: "第一阶段说明",
       status: "open",
+      icon: "⚔️",
       sort: 5,
       actorUserId: guardUids[0]!,
     });
@@ -111,6 +112,7 @@ describe("渐进计划后台 CRUD(T048 补全 api-admin-m3)", () => {
       imageUrl: "https://cdn.example.com/p1.jpg",
       bodyMd: null,
       status: "locked",
+      icon: null, // 清空图标=前台默认圆点
       sort: 6,
       actorUserId: guardUids[0]!,
     });
@@ -122,6 +124,7 @@ describe("渐进计划后台 CRUD(T048 补全 api-admin-m3)", () => {
     expect(row.imageUrl).toBe("https://cdn.example.com/p1.jpg");
     expect(row.bodyMd).toBeNull();
     expect(row.status).toBe("locked");
+    expect(row.icon).toBeNull();
     expect(row.sort).toBe(6);
 
     const audit = await lastAudit(guardUids[0]!, AUDIT_ACTION.CONTENT_PROGRESSION_SAVED);
@@ -194,7 +197,7 @@ describe("渐进计划后台 CRUD(T048 补全 api-admin-m3)", () => {
       title: `${TITLE_PREFIX} 甲`, phaseDate: "2026-06-01", status: "open", sort: 2, actorUserId: guardUids[0]!,
     });
     const b = await saveProgressionNode({
-      title: `${TITLE_PREFIX} 乙`, phaseDate: "2026-06-01", status: "locked", sort: 1, actorUserId: guardUids[0]!,
+      title: `${TITLE_PREFIX} 乙`, phaseDate: "2026-06-01", status: "locked", icon: "🐉", sort: 1, actorUserId: guardUids[0]!,
     });
     const c = await saveProgressionNode({
       title: `${TITLE_PREFIX} 丙`, phaseDate: null, status: "locked", sort: 0, actorUserId: guardUids[0]!,
@@ -210,6 +213,7 @@ describe("渐进计划后台 CRUD(T048 补全 api-admin-m3)", () => {
     const mine = listed.filter((n) => n.id === a.id.toString() || n.id === b.id.toString() || n.id === c.id.toString());
     expect(mine.map((n) => n.id)).toEqual([b.id.toString(), a.id.toString(), c.id.toString()]);
     expect(mine.find((n) => n.id === b.id.toString())?.isCurrent).toBe(true);
+    expect(mine.find((n) => n.id === b.id.toString())?.icon).toBe("🐉");
     expect(mine.filter((n) => n.id !== b.id.toString()).every((n) => !n.isCurrent)).toBe(true);
     expect(mine[2]!.phaseDate).toBeNull();
   });

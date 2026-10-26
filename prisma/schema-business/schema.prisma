@@ -436,7 +436,7 @@ model CartItem {
   userId    BigInt   @map("user_id")
   productId BigInt   @map("product_id")
   qty       Int // ≥1
-  params    Json // { characterGuid?, restoreItemEntry?, destAccount?, guildName?, unlockName? }
+  params    Json // { characterGuid?, restoreItemEntry?, unlockName? }
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -632,6 +632,7 @@ model ProgressionNode {
   imageUrl     String?           @map("image_url") @db.VarChar(500) // COS URL(迁移重写)
   bodyMd       String?           @map("body_md") @db.LongText
   status       ProgressionStatus @default(locked)
+  icon         String?           @db.VarChar(64) // 时间轴节点图标(emoji,空=默认圆点)
   sort         Int               @default(0) // 同日期稳定排序
   legacyWpKey  String?           @unique @map("legacy_wp_key") @db.VarChar(64) // 幂等导入键
   createdAt    DateTime          @default(now()) @map("created_at")

@@ -52,6 +52,7 @@ export const progressionSchema = z.object({
   imageUrl: z.string().max(500).nullable().optional(),
   bodyMd: z.string().nullable().optional(),
   status: z.enum(["locked", "open"]),
+  icon: z.string().max(64).nullable().optional(),
   sort: z.coerce.number().int().min(0).max(9999),
 });
 

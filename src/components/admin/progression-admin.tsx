@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { uploadMediaFiles } from "./media-library";
 
 /**
  * 渐进计划节点管理(T048 契约补全 api-admin-m3):
  * 列表(日期 NULLS LAST+isCurrent 指针标记)+新建/编辑表单+行内删除(指针节点二次确认提示)。
+ * 配图走媒体库上传(multipart /api/admin/media,FR-217)回填 URL,可清除;
+ * 图标为自由 emoji(前台时间轴中线展示,空=默认圆点)。
  * 类型就地声明(boundaries:components 禁 import server;与 services 返回结构同构)。
  */
 export type AdminProgressionNode = {
@@ -15,6 +18,7 @@ export type AdminProgressionNode = {
   imageUrl: string | null;
   bodyMd: string | null;
   status: string;
+  icon: string | null;
   sort: number;
   isCurrent: boolean;
 };
@@ -25,9 +29,10 @@ export function ProgressionAdmin({ nodes }: { nodes: AdminProgressionNode[] }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   function emptyForm() {
-    return { title: "", phaseDate: "", imageUrl: "", bodyMd: "", status: "locked" as "locked" | "open", sort: 0 };
+    return { title: "", phaseDate: "", imageUrl: "", bodyMd: "", status: "locked" as "locked" | "open", icon: "", sort: 0 };
   }
 
   function startCreate() {
@@ -45,10 +50,26 @@ export function ProgressionAdmin({ nodes }: { nodes: AdminProgressionNode[] }) {
       imageUrl: node.imageUrl ?? "",
       bodyMd: node.bodyMd ?? "",
       status: node.status === "open" ? "open" : "locked",
+      icon: node.icon ?? "",
       sort: node.sort,
     });
     setError(null);
     setSaved(false);
+  }
+
+  async function uploadImage(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const [asset] = await uploadMediaFiles([...files]);
+      if (asset) setForm((f) => ({ ...f, imageUrl: asset.url }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "上传失败,请稍后重试。");
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   }
 
   async function submit() {
@@ -71,6 +92,7 @@ export function ProgressionAdmin({ nodes }: { nodes: AdminProgressionNode[] }) {
             imageUrl: form.imageUrl || null,
             bodyMd: form.bodyMd || null,
             status: form.status,
+            icon: form.icon.trim() || null,
             sort: form.sort,
           }),
         },
@@ -154,16 +176,63 @@ export function ProgressionAdmin({ nodes }: { nodes: AdminProgressionNode[] }) {
               className="rounded border border-gray-700 bg-gray-900 px-2 py-1"
             />
           </label>
-          <label className="flex flex-col gap-1 md:col-span-2">
-            图片 URL(可选)
+          <label className="flex flex-col gap-1">
+            节点图标(可选,emoji)
             <input
-              data-testid="progression-image"
-              value={form.imageUrl}
-              onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+              data-testid="progression-icon"
+              value={form.icon}
+              onChange={(e) => setForm({ ...form, icon: e.target.value })}
               className="rounded border border-gray-700 bg-gray-900 px-2 py-1"
-              maxLength={500}
+              placeholder="如 ⚔️ 🛡️ 🐉,留空=默认圆点"
+              maxLength={64}
             />
           </label>
+          <div className="flex flex-col gap-1">
+            <span>配图(可选)</span>
+            <div className="flex items-center gap-2">
+              <input
+                data-testid="progression-image"
+                value={form.imageUrl}
+                onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+                className="min-w-0 flex-1 rounded border border-gray-700 bg-gray-900 px-2 py-1"
+                placeholder="上传或粘贴图片 URL"
+                maxLength={500}
+              />
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => uploadImage(e.target.files)}
+              />
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={busy}
+                className="shrink-0 rounded border border-gray-600 px-3 py-1 text-gray-200 hover:border-gray-400 disabled:opacity-50"
+              >
+                上传
+              </button>
+              {form.imageUrl && (
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, imageUrl: "" })}
+                  disabled={busy}
+                  className="shrink-0 text-red-400 hover:text-red-300 disabled:opacity-50"
+                >
+                  清除
+                </button>
+              )}
+            </div>
+            {form.imageUrl && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={form.imageUrl}
+                alt="配图预览"
+                className="mt-1 h-24 w-40 rounded border border-gray-700 object-cover"
+              />
+            )}
+          </div>
           <label className="flex flex-col gap-1 md:col-span-2">
             说明 Markdown(可选)
             <textarea
@@ -218,7 +287,9 @@ export function ProgressionAdmin({ nodes }: { nodes: AdminProgressionNode[] }) {
             {nodes.map((n) => (
               <tr key={n.id} className="border-b border-gray-900">
                 <td className="py-2 pr-3">
+                  {n.icon && <span className="mr-1">{n.icon}</span>}
                   {n.title}
+                  {n.imageUrl && <span className="ml-2 text-xs text-gray-500">图</span>}
                   {n.isCurrent && (
                     <span className="ml-2 rounded bg-green-950 px-2 py-0.5 text-xs text-green-400">
                       当前阶段

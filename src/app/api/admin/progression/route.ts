@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       imageUrl: parsed.data.imageUrl ?? null,
       bodyMd: parsed.data.bodyMd ?? null,
       status: parsed.data.status,
+      icon: parsed.data.icon ?? null,
       sort: parsed.data.sort,
       actorUserId: BigInt(guard.session.userId),
     });

@@ -27,6 +27,7 @@ const SELECT = {
   imageUrl: true,
   bodyMd: true,
   status: true,
+  icon: true,
   sort: true,
 } as const;
 
@@ -69,6 +70,7 @@ export type AdminProgressionNode = {
   imageUrl: string | null;
   bodyMd: string | null;
   status: string;
+  icon: string | null;
   sort: number;
   isCurrent: boolean;
 };
@@ -86,6 +88,7 @@ export async function listAdminProgression(): Promise<AdminProgressionNode[]> {
     imageUrl: n.imageUrl,
     bodyMd: n.bodyMd,
     status: n.status,
+    icon: n.icon,
     sort: n.sort,
     isCurrent: pointer?.value === n.id.toString(),
   }));
@@ -98,6 +101,7 @@ export async function saveProgressionNode(input: {
   imageUrl?: string | null;
   bodyMd?: string | null;
   status: "locked" | "open";
+  icon?: string | null;
   sort: number;
   actorUserId: bigint;
 }): Promise<{ id: bigint }> {
@@ -107,6 +111,7 @@ export async function saveProgressionNode(input: {
     imageUrl: input.imageUrl ?? null,
     bodyMd: input.bodyMd ?? null,
     status: input.status,
+    icon: input.icon ?? null,
     sort: input.sort,
   };
   if (input.id) {
