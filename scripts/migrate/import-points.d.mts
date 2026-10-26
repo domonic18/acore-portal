@@ -14,3 +14,8 @@ export declare function reconcileD7(
   totalAdjust: number;
   differences: number;
 }>;
+
+export declare function ensurePointAccounts(pool: Pool): Promise<{
+  accountsUpserted: number;
+  accountsTotal: number;
+}>;
