@@ -27,11 +27,21 @@ export function isOnSale(p: PricedProduct, now: Date): boolean {
   return p.salePrice != null && effectivePrice(p, now) === p.salePrice;
 }
 
+/** images Json 列形态收口:非数组/混入非字符串一律归一为 [],合法项 trim 去空 */
+export function normalizeProductImages(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((v): v is string => typeof v === "string")
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0);
+}
+
 export type ProductListItem = {
   id: string;
   slug: string;
   name: string;
   type: string;
+  image: string | null;
   price: number;
   effectivePrice: number;
   onSale: boolean;
@@ -68,6 +78,7 @@ export async function listProducts(
     slug: r.slug,
     name: r.name,
     type: r.type,
+    image: normalizeProductImages(r.images)[0] ?? null,
     price: r.price,
     effectivePrice: effectivePrice(r, now),
     onSale: isOnSale(r, now),
@@ -99,6 +110,8 @@ export type ProductDetail = {
   name: string;
   type: string;
   description: string;
+  images: string[];
+  detailMd: string | null;
   gameItemId: number | null;
   stockEnabled: boolean;
   stock: number | null;
@@ -127,6 +140,8 @@ export async function getProductDetail(slug: string): Promise<ProductDetail | nu
     name: row.name,
     type: row.type,
     description: row.description,
+    images: normalizeProductImages(row.images),
+    detailMd: row.detailMd,
     gameItemId: row.gameItemId,
     stockEnabled: row.stockEnabled,
     stock: row.stock,

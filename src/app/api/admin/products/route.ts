@@ -16,6 +16,18 @@ const productSchema = z
     name: z.string().min(1).max(100),
     slug: z.string().min(1).max(100),
     description: z.string().max(2000).default(""),
+    images: z
+      .array(
+        z
+          .string()
+          .trim()
+          .min(1)
+          .max(500)
+          .refine((v) => v.startsWith("/") || /^https:\/\//.test(v), "图片须为站内路径或 https 地址"),
+      )
+      .max(20, "图片最多 20 张")
+      .default([]),
+    detailMd: z.string().max(200_000).default(""),
     categoryId: z.coerce.number().int().positive(),
     price: z.coerce.number().int().min(0),
     salePrice: z.coerce.number().int().min(0).nullable().optional(),
@@ -53,6 +65,7 @@ export async function POST(req: NextRequest) {
       stock: parsed.data.stock ?? null,
       lowStockThreshold: parsed.data.lowStockThreshold ?? null,
       gameItemId: parsed.data.gameItemId ?? null,
+      detailMd: parsed.data.detailMd.trim() || null,
     });
     return apiOk({ id: id.toString() }, 201);
   } catch (err) {
@@ -79,6 +92,7 @@ export async function PATCH(req: NextRequest) {
       stock: parsed.data.stock ?? null,
       lowStockThreshold: parsed.data.lowStockThreshold ?? null,
       gameItemId: parsed.data.gameItemId ?? null,
+      detailMd: parsed.data.detailMd.trim() || null,
     });
     return apiOk({ id: id.toString() });
   } catch (err) {

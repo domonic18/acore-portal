@@ -405,6 +405,8 @@ model Product {
   name              String        @db.VarChar(128)
   slug              String        @unique @db.VarChar(128)
   description       String        @db.Text
+  images            Json? // 图片 URL 有序数组(首图=主图;WP 对齐:featured image,媒体库 CDN 直链)
+  detailMd          String?       @map("detail_md") @db.Text // 详情正文(Markdown;空=详情页回退显示 description)
   categoryId        BigInt        @map("category_id")
   status            ProductStatus @default(draft)
   listed            Boolean       @default(true) // false=目录隐藏,直链可达(FR-127)

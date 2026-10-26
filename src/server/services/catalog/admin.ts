@@ -4,6 +4,7 @@ import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/audit/audit";
 import type { ProductStatusValue } from "@/constants/shop";
 import { gameItemExists } from "./sku-check";
+import { normalizeProductImages } from "./products";
 import { resolveHandler } from "@/server/services/shop/handlers/registry";
 
 /**
@@ -37,6 +38,8 @@ export type ProductSaveInput = {
   name: string;
   slug: string;
   description: string;
+  images: string[];
+  detailMd: string | null;
   categoryId: bigint;
   price: number;
   salePrice?: number | null;
@@ -95,6 +98,8 @@ export async function saveProduct(input: ProductSaveInput): Promise<{ id: bigint
     name: input.name,
     slug: input.slug,
     description: input.description,
+    images: input.images,
+    detailMd: input.detailMd,
     categoryId: input.categoryId,
     status: input.status,
     listed: input.listed,
@@ -172,6 +177,7 @@ export type AdminProductListItem = {
   slug: string;
   name: string;
   type: string;
+  image: string | null;
   status: string;
   listed: boolean;
   price: number;
@@ -216,6 +222,7 @@ export async function listAdminProducts(opts: {
         slug: r.slug,
         name: r.name,
         type: r.type,
+        image: normalizeProductImages(r.images)[0] ?? null,
         status: r.status,
         listed: r.listed,
         price: r.price,
