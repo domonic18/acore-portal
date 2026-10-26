@@ -112,12 +112,17 @@ test("成就嵌入:url/高度/滚动条配置→首页 iframe 即时生效", asy
   await login(page, "m1admin", "adminpass123");
   await page.goto("/admin/home");
 
+  // /admin/home 有三处「保存」(物料行内编辑/轮播设置/成就嵌入),按 section 收窄
+  const achSection = page.locator("section").filter({ hasText: "最近成就嵌入" });
+  const saveBtn = achSection.getByRole("button", { name: "保存" });
+  const savedTip = achSection.getByText("已保存,首页即时生效。");
+
   const urlInput = page.getByLabel("页面地址");
   await expect(urlInput).toBeEnabled();
   await urlInput.fill("https://rank.lokta.cn/achievement");
   await page.getByLabel("显示高度").fill("120vh");
-  await page.getByRole("button", { name: "保存" }).click();
-  await expect(page.getByText("已保存,首页即时生效。")).toBeVisible();
+  await saveBtn.click();
+  await expect(savedTip).toBeVisible();
 
   await page.goto("/");
   const frame = page.locator('iframe[title="最近成就"]');
@@ -130,8 +135,8 @@ test("成就嵌入:url/高度/滚动条配置→首页 iframe 即时生效", asy
   const scrollCheck = page.getByLabel("显示滚动条");
   await expect(scrollCheck).toBeEnabled();
   await scrollCheck.check();
-  await page.getByRole("button", { name: "保存" }).click();
-  await expect(page.getByText("已保存,首页即时生效。")).toBeVisible();
+  await saveBtn.click();
+  await expect(savedTip).toBeVisible();
   await page.goto("/");
   await expect(page.locator('iframe[title="最近成就"]')).toHaveAttribute("scrolling", "auto");
 
@@ -140,8 +145,8 @@ test("成就嵌入:url/高度/滚动条配置→首页 iframe 即时生效", asy
   const urlInput2 = page.getByLabel("页面地址");
   await expect(urlInput2).toBeEnabled();
   await urlInput2.fill("");
-  await page.getByRole("button", { name: "保存" }).click();
-  await expect(page.getByText("已保存,首页即时生效。")).toBeVisible();
+  await saveBtn.click();
+  await expect(savedTip).toBeVisible();
   await page.goto("/");
   await expect(page.locator('iframe[title="最近成就"]')).toHaveCount(0);
 
@@ -152,4 +157,51 @@ test("成就嵌入:url/高度/滚动条配置→首页 iframe 即时生效", asy
   });
   const homeAudits = audits.filter((a) => (a.payloadJson as { group?: string }).group === "home");
   expect(homeAudits.length).toBeGreaterThanOrEqual(3);
+});
+
+test("轮播间隔:越界 422 呈现;配置 2 秒→首页按新间隔自动切换", async ({ page }) => {
+  test.setTimeout(60_000);
+  await login(page, "m1admin", "adminpass123");
+
+  // 播种两张启用物料(RUN 前缀,afterAll 清)供首页轮播
+  await prisma.homeBanner.createMany({
+    data: [
+      { title: `e2ebanner${RUN}-rotA`, imageUrl: "/images/legacy-missing.svg", linkUrl: "", sort: 1, enabled: true },
+      { title: `e2ebanner${RUN}-rotB`, imageUrl: "/images/legacy-missing.svg", linkUrl: "", sort: 2, enabled: true },
+    ],
+  });
+
+  await page.goto("/admin/home");
+  const carSection = page.locator("section").filter({ hasText: "轮播设置" });
+  const intervalInput = page.getByLabel("轮播间隔(秒)");
+  const saveBtn = carSection.getByRole("button", { name: "保存" });
+  await expect(intervalInput).toBeEnabled();
+
+  // 越界 61 → 422 错误呈现
+  await intervalInput.fill("61");
+  await saveBtn.click();
+  await expect(carSection.getByText("参数错误:carouselIntervalSec")).toBeVisible();
+
+  // 2 秒 → 首页 ~2.6s 内必有一次切换
+  await intervalInput.fill("2");
+  await saveBtn.click();
+  await expect(carSection.getByText("已保存,首页即时生效。")).toBeVisible();
+
+  await page.goto("/");
+  const prefix = `e2ebanner${RUN}`;
+  const currentAlt = () =>
+    page.evaluate(
+      (p) => document.querySelector(`img[alt^="${p}"]`)?.getAttribute("alt") ?? null,
+      prefix,
+    );
+  const first = await currentAlt();
+  await page.waitForTimeout(2600);
+  await expect.poll(currentAlt, { intervals: [500, 1000] }).not.toBe(first);
+
+  // 落库态
+  const row = await prisma.systemConfig.findUnique({
+    where: { key: "home.carouselIntervalSec" },
+    select: { value: true },
+  });
+  expect(row?.value).toBe("2");
 });

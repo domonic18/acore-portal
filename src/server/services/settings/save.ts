@@ -62,16 +62,26 @@ const groupSchemas = {
     addonNote: z.string().trim().max(32),
     yyNote: z.string().trim().max(48),
   }),
+  // home 组成就字段 optional:轮播设置表单单独提交(缺省字段=保持现值,见序列化 keep 分支)
   home: z.object({
-    achievementUrl: z.union([
-      z.literal(""),
-      z.string().trim().url().refine((v) => /^https:\/\//.test(v), "成就页地址须为 https 链接"),
-    ]),
+    achievementUrl: z
+      .union([
+        z.literal(""),
+        z.string().trim().url().refine((v) => /^https:\/\//.test(v), "成就页地址须为 https 链接"),
+      ])
+      .optional(),
     achievementHeight: z
       .string()
       .trim()
-      .regex(/^\d+(px|vh|rem|%)$/, "高度格式如 185vh / 600px"),
-    achievementScrolling: z.boolean(),
+      .regex(/^\d+(px|vh|rem|%)$/, "高度格式如 185vh / 600px")
+      .optional(),
+    achievementScrolling: z.boolean().optional(),
+    carouselIntervalSec: z.coerce
+      .number()
+      .int()
+      .min(1, "轮播间隔须为 1-60 秒")
+      .max(60, "轮播间隔须为 1-60 秒")
+      .optional(),
   }),
   umami: z.object({
     scriptUrl: z.string().url(),
@@ -119,6 +129,7 @@ const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>> = {
     achievementUrl: "home.achievementUrl",
     achievementHeight: "home.achievementHeight",
     achievementScrolling: "home.achievementScrolling",
+    carouselIntervalSec: "home.carouselIntervalSec",
   },
   umami: {
     scriptUrl: "umami.scriptUrl",
@@ -161,13 +172,18 @@ export async function saveSettingsGroup(
   });
   const current = Object.fromEntries(currentRows.map((r) => [r.key, r.value]));
 
-  // 敏感字段空/缺省=保持原值;其余字段直接序列化
+  // 缺省(undefined,请求未带该字段)=保持现值,无行则跳过回落 flatten 默认;
+  // 敏感字段空串=保持原值;其余字段直接序列化
   const next: Record<string, string> = {};
   for (const field of fields) {
     const key = keys[field];
     if (key === undefined) continue;
     const raw = (parsed.data as Record<string, unknown>)[field];
-    if (sensitiveFields.has(field) && (raw === undefined || raw === "")) {
+    if (raw === undefined) {
+      if (current[key] !== undefined) next[key] = current[key]!;
+      continue;
+    }
+    if (sensitiveFields.has(field) && raw === "") {
       next[key] = current[key] ?? "";
     } else {
       next[key] = String(raw);

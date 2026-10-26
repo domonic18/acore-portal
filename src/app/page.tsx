@@ -39,7 +39,7 @@ export default async function HomePage() {
 
       <div className="flex flex-col gap-6 lg:flex-row">
         <div className="grid min-w-0 flex-1 grid-cols-1 gap-4 md:grid-cols-2">
-          <HomeCarousel banners={banners} />
+          <HomeCarousel banners={banners} intervalMs={config.home.carouselIntervalSec * 1000} />
 
           <section className="rounded border border-[#1e2a3d] bg-[#0d1728] p-4 md:col-span-2">
             <div className="mb-3 flex items-baseline justify-between">

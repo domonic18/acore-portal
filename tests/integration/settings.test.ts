@@ -43,6 +43,12 @@ const UMAMI_KEYS = [
   "umami.apiUsername",
   "umami.apiPassword",
 ];
+const HOME_KEYS = [
+  "home.achievementUrl",
+  "home.achievementHeight",
+  "home.achievementScrolling",
+  "home.carouselIntervalSec",
+];
 const ALL_KEYS = [
   ...SMTP_KEYS,
   ...TURNSTILE_KEYS,
@@ -51,6 +57,7 @@ const ALL_KEYS = [
   ...SITE_KEYS,
   ...DOWNLOAD_KEYS,
   ...UMAMI_KEYS,
+  ...HOME_KEYS,
 ];
 
 let backup: { key: string; value: string }[] = [];
@@ -314,6 +321,54 @@ describe("site/download 组(CRUD 对齐审计)", () => {
       launcherUrl: "",
       addonUrl: "https://cdn.example.com/a.zip",
     });
+  });
+});
+
+describe("home 组(轮播间隔+成就嵌入)", () => {
+  it("键缺失 → 默认值兜底:轮播 5 秒+成就空隐藏+高度 185vh", async () => {
+    await delKeys(HOME_KEYS);
+    expect((await getConfig()).home).toEqual({
+      achievementUrl: "",
+      achievementHeight: "185vh",
+      achievementScrolling: false,
+      carouselIntervalSec: 5,
+    });
+  });
+
+  it("轮播间隔单独提交:缺省字段保持现值;diff 只含变更键", async () => {
+    await saveGroup(
+      "home",
+      {
+        achievementUrl: "https://rank.lokta.local/achievement",
+        achievementHeight: "120vh",
+        achievementScrolling: true,
+        carouselIntervalSec: 5,
+      },
+      { id: ADMIN_ID },
+    );
+    const result = await saveGroup("home", { carouselIntervalSec: 2 }, { id: ADMIN_ID });
+    expect(result).toEqual({ ok: true });
+    expect((await getConfig()).home).toEqual({
+      achievementUrl: "https://rank.lokta.local/achievement",
+      achievementHeight: "120vh",
+      achievementScrolling: true,
+      carouselIntervalSec: 2,
+    });
+    const audit = await latestAudit(AUDIT_ACTION.SETTINGS_CHANGED);
+    expect((audit!.payloadJson as { group?: string }).group).toBe("home");
+    expect(Object.keys((audit!.payloadJson as { diff: Record<string, string> }).diff)).toEqual(
+      ["home.carouselIntervalSec"],
+    );
+  });
+
+  it("轮播间隔越界(0/61/2.5)422 零写入", async () => {
+    for (const bad of [0, 61, 2.5]) {
+      const result = await saveGroup("home", { carouselIntervalSec: bad }, { id: ADMIN_ID });
+      expect(result).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
+    }
+    expect(
+      (await prisma.systemConfig.findUnique({ where: { key: "home.carouselIntervalSec" } }))?.value,
+    ).toBe("2");
   });
 });
 

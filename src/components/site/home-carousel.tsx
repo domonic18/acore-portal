@@ -4,33 +4,31 @@ import { useEffect, useState } from "react";
 
 /**
  * 首页轮播(US 首页轮播):物料由 /admin/home 配置,sort 升序;
- * 自动轮播 5s/张,悬停暂停;单张静态展示,空物料整块隐藏(父级短路)。
- * 初始固定第 0 张,水合后才开定时器——SSR/CSR 首帧一致,无 hydration 抖动。
+ * 自动轮播间隔由后台配置(carouselIntervalSec→intervalMs);不做悬停暂停
+ * (悬停即静默停转,前台无从得知曾被误读为"不轮播"),手动切换走箭头/圆点。
+ * 单张静态展示,空物料整块隐藏(父级短路);初始固定第 0 张,水合后才开定时器。
  */
 export function HomeCarousel({
   banners,
+  intervalMs,
 }: {
   banners: { id: string; title: string; imageUrl: string; linkUrl: string }[];
+  intervalMs: number;
 }) {
   const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
   const count = banners.length;
 
   useEffect(() => {
-    if (paused || count <= 1) return;
-    const timer = setInterval(() => setIndex((i) => (i + 1) % count), 5000);
+    if (count <= 1 || intervalMs <= 0) return;
+    const timer = setInterval(() => setIndex((i) => (i + 1) % count), intervalMs);
     return () => clearInterval(timer);
-  }, [paused, count]);
+  }, [count, intervalMs]);
 
   if (count === 0) return null;
   const current = banners[Math.min(index, count - 1)]!;
 
   return (
-    <section
-      className="md:col-span-2"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-    >
+    <section className="md:col-span-2">
       <div className="relative overflow-hidden rounded border border-[#1e2a3d] bg-[#0d1728]">
         <a href={current.linkUrl || undefined} className="block" draggable={false}>
           {/* eslint-disable-next-line @next/next/no-img-element */}

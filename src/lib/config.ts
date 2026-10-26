@@ -92,11 +92,13 @@ const configSchema = z.object({
     yyNote: z.string().default("频道号见公告"),
   }),
   // 首页配置(US 首页配置):最近成就 iframe 嵌入三参数;url 空=整块隐藏,
-  // 高度为 CSS 长度(185vh/600px 等),scrolling 控制 iframe 滚动条
+  // 高度为 CSS 长度(185vh/600px 等),scrolling 控制 iframe 滚动条;
+  // 轮播间隔秒数(1-60,默认 5)供 HomeCarousel 自动轮播
   home: z.object({
     achievementUrl: z.string().default(""),
     achievementHeight: z.string().default("185vh"),
     achievementScrolling: z.boolean().default(false),
+    carouselIntervalSec: z.coerce.number().int().min(1).max(60).default(5),
   }),
   // Umami 统计(M4 US4):未配置=不注入采集脚本+看板区块「暂不可用」
   umami: z
@@ -189,6 +191,7 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       achievementUrl: flat["home.achievementUrl"] ?? "",
       achievementHeight: flat["home.achievementHeight"] ?? "185vh",
       achievementScrolling: flat["home.achievementScrolling"] === "true",
+      carouselIntervalSec: flat["home.carouselIntervalSec"] ?? "5",
     },
     umami: flat["umami.scriptUrl"]
       ? {
