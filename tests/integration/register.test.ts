@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/business";
 import { authDb } from "@/lib/db/auth";
 import { verifyWpBcrypt } from "@/lib/auth/wp-bcrypt";
-import { gameShaPassHash } from "@/lib/auth/game-hash";
+import { srp6Verifier } from "@/lib/auth/game-hash";
 import { PASSWORD_ALGO, PENDING_HASH_PREFIX } from "@/constants/password";
 import { AUDIT_ACTION } from "@/constants/audit";
 import { redis } from "@/lib/redis";
@@ -213,7 +213,9 @@ describe("US2 激活设密(T029)", () => {
     expect(verifyWpBcrypt("Actpass123", user.passwordHash)).toBe(true);
     expect(user.passwordHash.startsWith("$wp$")).toBe(true);
     const game = await authDb.findByUsername(input.username);
-    expect(game?.shaPassHash).toBe(gameShaPassHash(input.username, "Actpass123"));
+    expect(
+      game && srp6Verifier(input.username, "Actpass123", game.salt).equals(game.verifier),
+    ).toBe(true);
     expect((await loginWithPassword(input.username, "Actpass123")).ok).toBe(true);
 
     const audit = await prisma.auditLog.findFirst({

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/business";
 import { authDb } from "@/lib/db/auth";
-import { gameShaPassHash } from "@/lib/auth/game-hash";
+import { srp6MakeRegistrationData } from "@/lib/auth/game-hash";
 import { loadSystemConfig } from "@/lib/config";
 import { POINT_TX_TYPE } from "@/constants/points";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
@@ -44,7 +44,7 @@ async function makeGameUser(tag: string) {
   const account = await authDb.createAccount({
     username: user.username,
     email: `${user.username}@test.local`,
-    shaPassHash: gameShaPassHash(user.username, "Handler123"),
+    ...srp6MakeRegistrationData(user.username, "Handler123"),
   });
   await prisma.$executeRaw`
     INSERT INTO acore_characters.characters

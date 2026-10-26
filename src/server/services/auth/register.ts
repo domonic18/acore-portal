@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { authDb } from "@/lib/db/auth";
 import { getConfig } from "@/lib/config";
-import { gameShaPassHash } from "@/lib/auth/game-hash";
+import { srp6MakeRegistrationData } from "@/lib/auth/game-hash";
 import { hashWpBcrypt } from "@/lib/auth/wp-bcrypt";
 import { PASSWORD_ALGO, PENDING_HASH_PREFIX } from "@/constants/password";
 import { TOKEN_TYPE } from "@/constants/token";
@@ -159,11 +159,11 @@ export async function registerAccount(
   }
 
   try {
-    // 游戏端建号:占位随机哈希(格式合法但无人知晓),激活时写真哈希
+    // 游戏端建号:占位随机口令凭证(无人知晓),激活时写真凭证
     await authDb.createAccount({
       username,
       email,
-      shaPassHash: gameShaPassHash(username, randomBytes(32).toString("hex")),
+      ...srp6MakeRegistrationData(username, randomBytes(32).toString("hex")),
     });
   } catch (err) {
     // 跨库失败→站点侧整体补偿,0 半成品(SC-004)
@@ -228,9 +228,10 @@ export async function activateAccount(input: {
       try {
         const account = await authDb.findByUsername(user.username);
         if (!account) throw new Error("game_account_missing");
-        await authDb.updateAccountCredential(account.id, {
-          shaPassHash: gameShaPassHash(user.username, input.password),
-        });
+        await authDb.updateAccountCredential(
+          account.id,
+          srp6MakeRegistrationData(user.username, input.password),
+        );
       } catch {
         await prisma.userToken.update({
           where: { id: row.id },

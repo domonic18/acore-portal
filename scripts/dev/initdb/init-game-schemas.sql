@@ -31,42 +31,45 @@ USE acore_auth;
 CREATE TABLE IF NOT EXISTS `account` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Identifier',
   `username` VARCHAR(32) NOT NULL DEFAULT '' COMMENT 'Username(UPPER 存储)',
-  `sha_pass_hash` VARCHAR(40) NOT NULL DEFAULT '' COMMENT 'SHA1(UPPER(user):UPPER(pass))',
-  `sessionkey` VARCHAR(100) NOT NULL DEFAULT '',
-  `v` VARCHAR(64) NOT NULL DEFAULT '',
-  `s` VARCHAR(64) NOT NULL DEFAULT '',
-  `token_key` VARCHAR(100) NOT NULL DEFAULT '',
-  `email` VARCHAR(64) NOT NULL DEFAULT '',
-  `reg_mail` VARCHAR(64) NOT NULL DEFAULT '',
+  `salt` BINARY(32) NOT NULL COMMENT 'SRP6 随机盐',
+  `verifier` BINARY(32) NOT NULL COMMENT 'SRP6 verifier(小端,与 AC BigNumber 口径一致)',
+  `session_key` BINARY(40) NULL DEFAULT NULL,
+  `totp_secret` VARBINARY(128) NULL DEFAULT NULL,
+  `email` VARCHAR(255) NOT NULL DEFAULT '',
+  `reg_mail` VARCHAR(255) NOT NULL DEFAULT '',
   `joindate` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `last_ip` VARCHAR(30) NOT NULL DEFAULT '127.0.0.1',
-  `last_login` TIMESTAMP NULL DEFAULT NULL,
+  `last_ip` VARCHAR(15) NOT NULL DEFAULT '127.0.0.1',
+  `last_attempt_ip` VARCHAR(15) NOT NULL DEFAULT '127.0.0.1',
   `failed_logins` INT UNSIGNED NOT NULL DEFAULT 0,
   `locked` TINYINT UNSIGNED NOT NULL DEFAULT 0,
   `lock_country` VARCHAR(2) NOT NULL DEFAULT '00',
+  `last_login` TIMESTAMP NULL DEFAULT NULL,
   `online` TINYINT UNSIGNED NOT NULL DEFAULT 0,
   `expansion` TINYINT UNSIGNED NOT NULL DEFAULT 2,
-  `mutetime` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  `Flags` INT UNSIGNED NOT NULL DEFAULT 0,
+  `mutetime` BIGINT NOT NULL DEFAULT 0,
   `mutereason` VARCHAR(255) NOT NULL DEFAULT '',
   `muteby` VARCHAR(50) NOT NULL DEFAULT '',
   `locale` TINYINT UNSIGNED NOT NULL DEFAULT 0,
-  `os` VARCHAR(4) NOT NULL DEFAULT '',
-  `gender` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  `os` VARCHAR(3) NOT NULL DEFAULT '',
   `recruiter` INT UNSIGNED NOT NULL DEFAULT 0,
+  `totaltime` INT UNSIGNED NOT NULL DEFAULT 0,
+  `restore_key` VARCHAR(255) NULL DEFAULT '1',
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_username` (`username`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '账号系统(合成种子,无生产数据)';
 
 -- 合成种子:与业务库 seed(scripts/dev/seed.ts)的用户一一对应
--- sha_pass_hash = SHA1(UPPER(username):UPPER(password))(research R3 同密契约)
+-- SRP6 同密契约:v = 7^x mod N,x = SHA1(salt || SHA1(UPPER(user):UPPER(pass))),
+-- x 小端解释、verifier 小端落库(AC BigNumber littleEndian 默认,src/lib/auth/game-hash.ts 同口径)。
 -- 明文仅存在于本地 .env 无关的种子脚本注释,不入生产
---   legacyuser / oldpass123 / 5A0E73BA023DF40E663FF0957B614246B9127FD3
---   bcryptuser / oldpass456 / 3AFFF54A14CF523DA66BBA1330F7D8FD4874986F
---   m1admin / adminpass123 / 327F3BB0E9282E6F06C2650BA2B2EC774E15717C
-INSERT INTO `account` (`id`, `username`, `sha_pass_hash`, `email`, `reg_mail`) VALUES
-  (1, 'LEGACYUSER', '5A0E73BA023DF40E663FF0957B614246B9127FD3', 'legacy@example.local', 'legacy@example.local'),
-  (2, 'BCRYPTUSER', '3AFFF54A14CF523DA66BBA1330F7D8FD4874986F', 'bcrypt@example.local', 'bcrypt@example.local'),
-  (3, 'M1ADMIN', '327F3BB0E9282E6F06C2650BA2B2EC774E15717C', 'admin@example.local', 'admin@example.local');
+--   legacyuser / oldpass123
+--   bcryptuser / oldpass456
+--   m1admin / adminpass123
+INSERT INTO `account` (`id`, `username`, `salt`, `verifier`, `email`, `reg_mail`) VALUES
+  (1, 'LEGACYUSER', UNHEX('855394CC86AFE0293692D8DB7236327B319E35BC6949716FB1121E99A4CFF03B'), UNHEX('6A6CA58E1E5347D0FD848A0F0C1472207B3FC922EC1B938F61D67E082546D22B'), 'legacy@example.local', 'legacy@example.local'),
+  (2, 'BCRYPTUSER', UNHEX('2FFCC3E8343633767DF0DA24ED96E5D182AF02457996E25C056A6BFDC1F82DB2'), UNHEX('65D4A8F149D206B0B9455C6E9A8CCA9032B1D241D1328372812DCD78E28A942B'), 'bcrypt@example.local', 'bcrypt@example.local'),
+  (3, 'M1ADMIN', UNHEX('A0D46F316FA2B2C6A99466F31A5CBE75B76E6695510B757C1F381642DD0369F1'), UNHEX('2D323276636D378074832D5C58666BEC973DB92286DB5E7AF78343E15B9CD618'), 'admin@example.local', 'admin@example.local');
 
 -- account 表已存在,补授权(写契约:注册 INSERT / 改密 UPDATE,research R5)
 GRANT INSERT, UPDATE ON acore_auth.account TO 'acore_auth_writer'@'%';

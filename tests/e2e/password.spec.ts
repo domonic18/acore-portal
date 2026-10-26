@@ -1,6 +1,6 @@
 import Redis from "ioredis";
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { gameShaPassHash, sha256Hex } from "../../src/lib/auth/game-hash";
+import { sha256Hex, srp6MakeRegistrationData } from "../../src/lib/auth/game-hash";
 import { hashWpBcrypt } from "../../src/lib/auth/wp-bcrypt";
 import { PASSWORD_ALGO } from "../../src/constants/password";
 import { getAuthClient, getPrisma } from "./helpers/game-db";
@@ -89,13 +89,15 @@ test.beforeAll(async () => {
       passwordAlgo: PASSWORD_ALGO.BCRYPT_WP,
     },
   });
+  const reg = srp6MakeRegistrationData(USERNAME, OLD_PASS);
   await (
     await getAuthClient()
   ).account.create({
     data: {
       username: USERNAME.toUpperCase(),
       email: EMAIL,
-      shaPassHash: gameShaPassHash(USERNAME, OLD_PASS),
+      salt: Buffer.from(reg.salt, "hex"),
+      verifier: Buffer.from(reg.verifier, "hex"),
     },
   });
   await clearResetGate(EMAIL);

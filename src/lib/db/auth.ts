@@ -19,24 +19,28 @@ async function getClient(): Promise<AuthPrismaClient> {
  * username 约定 UPPER 存储(AzerothCore),本层统一转大写。
  */
 export const authDb = {
-  async createAccount(input: { username: string; email: string; shaPassHash: string }) {
+  async createAccount(input: { username: string; email: string; salt: string; verifier: string }) {
     const client = await getClient();
     return client.account.create({
       data: {
         username: input.username.toUpperCase(),
         email: input.email,
         regMail: input.email,
-        shaPassHash: input.shaPassHash,
+        salt: Buffer.from(input.salt, "hex"),
+        verifier: Buffer.from(input.verifier, "hex"),
       },
       select: { id: true, username: true },
     });
   },
 
-  async updateAccountCredential(id: number, input: { shaPassHash: string }) {
+  async updateAccountCredential(id: number, input: { salt: string; verifier: string }) {
     const client = await getClient();
     await client.account.update({
       where: { id },
-      data: { shaPassHash: input.shaPassHash },
+      data: {
+        salt: Buffer.from(input.salt, "hex"),
+        verifier: Buffer.from(input.verifier, "hex"),
+      },
     });
   },
 
@@ -44,7 +48,7 @@ export const authDb = {
     const client = await getClient();
     return client.account.findFirst({
       where: { username: username.toUpperCase() },
-      select: { id: true, username: true, shaPassHash: true, email: true },
+      select: { id: true, username: true, salt: true, verifier: true, email: true },
     });
   },
 };

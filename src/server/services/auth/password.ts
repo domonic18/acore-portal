@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { authDb } from "@/lib/db/auth";
 import { redis } from "@/lib/redis";
 import { getConfig } from "@/lib/config";
-import { gameShaPassHash, sha256Hex } from "@/lib/auth/game-hash";
+import { sha256Hex, srp6MakeRegistrationData } from "@/lib/auth/game-hash";
 import { hashWpBcrypt, verifyWpBcrypt } from "@/lib/auth/wp-bcrypt";
 import { verifyPhpass } from "@/lib/auth/phpass";
 import {
@@ -109,8 +109,8 @@ async function writeGamePassword(
 ): Promise<void> {
   const account = await authDb.findByUsername(username);
   if (!account) throw new GameSyncError("game_account_missing");
-  const gameHash = gameShaPassHash(username, newPassword);
-  await authDb.updateAccountCredential(account.id, { shaPassHash: gameHash });
+  // 与 AC ChangePassword 同口径:重置随机 salt + verifier
+  await authDb.updateAccountCredential(account.id, srp6MakeRegistrationData(username, newPassword));
 }
 
 async function auditDualWriteFailed(
