@@ -6,16 +6,16 @@
 ## 1. SOAP 真机联调(M2 验收明确延后项)
 
 - [x] 游戏库 schema 代差已适配(2026-10-25):新版 AC account 表为 SRP6(salt/verifier binary(32),无 sha_pass_hash),站点 Prisma 模型+注册/改密/激活已按 SRP6 重写(算法对齐 AC SRP6.cpp,x/verifier 均小端——BigNumber 默认 littleEndian=true,已用真机库双向量验证);dev/test 假游戏库 DDL 同步(init-game-schemas.sql)
-- [ ] soap.url 指向真实 worldserver,`pnpm verify:soap` 通过
-- [ ] SERVICE_COMMANDS mock 回执 vs 真机返回逐类核对(regex 桩与真机输出差异,不中即 usage error;2026-10-26 收敛后余 6 类:四角色服务+send items+transmog add,transmog 成功回执文案待首笔真单)
-- [ ] `.send items` 中文邮件主题/正文真机可达(订单号入邮件,玩家可对账)
+- [x] soap.url 指向真实 worldserver,`pnpm verify:soap` 通过(2026-10-26,test 栈 system_config soap.url=host.docker.internal:7878=本地真机容器 ac-worldserver;`.server info` 成功,审计 soap_attempt 留痕)
+- [x] SERVICE_COMMANDS mock 回执 vs 真机返回逐类核对(regex 桩与真机输出差异,不中即 usage error;2026-10-26 收敛后余 6 类:四角色服务+send items+transmog add;2026-10-26 真机 8 单全成功=六类回执 regex 全命中,transmog add 首笔真单 success 回执确认)
+- [x] `.send items` 中文邮件主题/正文真机可达(2026-10-26,真机 mail 表两封落地:装备恢复单+商品单,主题含订单号,附件 item_instance 数量正确;utf8mb4 无乱码)
 
 ## 2. 每处理器真机抽测(handlers-status.md 六条目闭环)
 
 - [x] 全部发货命令真机 usage 探针核对完成(2026-10-25):`.send items` 修引号形态;rename 双参形态实证为立即改名+踢在线(非下次登录);**真机无 transfer/clone/guild change 原生子命令,且 WP 旧站从未提供此三类服务——商品面对齐 WP,三 SKU 整链移除(处理器/矩阵/白名单/测试已删)**
 
-- [ ] 6 处理器(char-change-race/faction/customize/name/name-unlock/item-restoration)各 ≥1 笔真机小额单,发货结果游戏内核实
-- [ ] rename 双参(已核:立即生效)、四类服务在线/离线生效差异真机确认
+- [x] 6 处理器(char-change-race/faction/customize/name/name-unlock/item-restoration)各 ≥1 笔真机小额单,发货结果游戏内核实(2026-10-26,QA 账号 qasix977720/角色 Qaman→Qasixhero 共 8 单全 completed:改种族 at_login=128 置位下次登录自选;改阵营/faction+customize/rename 标志累积 at_login=201;name-unlock 入车规范化 Qasixhero+双参 rename 立即改名实证;item-restoration 走 `.send items` 邮件附件 19019 落真机;顺带 itemsend_90000_stack qty=3 堆叠单参 `90000:3`+transmog-item_12584 真机 custom_unlocked_appearances 按账号收藏解锁(4990,12584),与契约「外观收藏性质」一致;另核销后台补发链路:首单因手工插行不在 worldserver 角色缓存而 failed,重启容器后 /api/admin/orders/2049/redeliver 补发成功,幂等键=order_item.id 生效)
+- [ ] rename 双参(已核:立即生效)、四类服务在线/离线生效差异真机确认(2026-10-26:离线态全链路 8 单覆盖✓;余在线生效差异——rename 踢在线、邮件即时投递——QA 无法低成本使角色在线,随 §3 SC-001 玩家真实登录时观察核销)
 
 ## 3. SC-001 玩家真实登录(账号无感验收)
 
