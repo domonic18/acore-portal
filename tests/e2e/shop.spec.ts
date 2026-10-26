@@ -85,7 +85,10 @@ test.describe("US2 商城与购物车(T026)", () => {
     await expect(page.getByRole("heading", { name: `E2E 测试坐骑 ${RUN}` })).toBeVisible();
     await expect(page.getByText("登录后选择角色购买。")).toBeVisible();
     await page.getByRole("link", { name: "去登录" }).click();
-    await expect(page).toHaveURL(new RegExp(`/login\\?next=/shop/${ITEM_SLUG}$`));
+    // loginHref 对 next 值做 encodeURIComponent(79f5f90),query 值为规范百分号编码形态
+    await expect(page).toHaveURL(
+      new RegExp(`/login\\?next=%2Fshop%2F${ITEM_SLUG}$`),
+    );
   });
 
   test("登录态全流程:列表筛选→详情→选角色→加购→复核→改数→移除", async ({ page }) => {

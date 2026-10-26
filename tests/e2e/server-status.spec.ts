@@ -8,7 +8,8 @@ import Redis from "ioredis";
  * 注入半(降级缓存语义/峰值 max/审计)由 T042 集成覆盖。
  * mock 态与探针键(status:probe{,:lastok})用后还原,防污染其他 spec/集成测试。
  */
-const MOCK_BASE = process.env.SOAP_MOCK_URL ?? "http://localhost:7878";
+// dev compose 的 soap-mock 宿主端口 17878(7878 让位真机 worldserver)
+const MOCK_BASE = process.env.SOAP_MOCK_URL ?? "http://localhost:17878";
 const UPTIME_SAMPLE = "3 days, 4 hours, 12 minutes";
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6381/0");
 
