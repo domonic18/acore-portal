@@ -42,4 +42,4 @@ services:
     volumes:
       - ../scripts/dev:/app:ro
     ports:
-      - "7878:7878"
+      - "17878:7878" # 7878 让位本地真机 worldserver(acore-deploy);mock 走 17878
