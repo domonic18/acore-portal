@@ -6,10 +6,13 @@ import {
   uploadMediaFiles,
 } from "@/components/admin/media-library";
 
+/** 商品图分类(对齐旧站 FileBird 一级文件夹;媒体库列表/上传均默认落此分类) */
+const PRODUCT_CATEGORY = "商店配图";
+
 /**
  * 商品图片编辑器(WP featured image 对齐,FR-126 扩展):
  * 上传/媒体库选图追加到有序列表(首图=主图,商城卡与详情主图);
- * 上移/下移/移除;图片加载失败缩略显占位。
+ * 媒体库默认筛「商店配图」;上移/下移/移除;图片加载失败缩略显占位。
  */
 export function ProductImagesEditor({
   images,
@@ -42,7 +45,7 @@ export function ProductImagesEditor({
     setBusy(true);
     setError(null);
     try {
-      const assets = await uploadMediaFiles(Array.from(files));
+      const assets = await uploadMediaFiles(Array.from(files), PRODUCT_CATEGORY);
       append(assets.map((a) => a.url));
       setRefreshKey((k) => k + 1);
     } catch (err) {
@@ -132,6 +135,7 @@ export function ProductImagesEditor({
         <div className="max-h-72 overflow-y-auto rounded border border-gray-700 p-2">
           <MediaAssetList
             refreshKey={refreshKey}
+            defaultCategory={PRODUCT_CATEGORY}
             onPick={(asset) => append([asset.url])}
           />
         </div>

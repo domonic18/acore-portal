@@ -649,6 +649,8 @@ model MediaAsset {
   cosKey       String   @unique @map("cos_key") @db.VarChar(255)
   url          String   @db.VarChar(500) // CDN 公开 URL(入库避免读取拼装)
   originalName String   @map("original_name") @db.VarChar(255)
+  // 分类(对齐旧站 FileBird 文件夹:商店配图/网站公告/论坛配文/网站素材/游戏资讯;新上传默认 其他)
+  category     String   @default("其他") @db.VarChar(64)
   sizeBytes    Int      @map("size_bytes")
   mimeType     String   @map("mime_type") @db.VarChar(64)
   uploadedBy   BigInt   @map("uploaded_by")
@@ -657,6 +659,7 @@ model MediaAsset {
   uploader User @relation("MediaAssetUploader", fields: [uploadedBy], references: [id])
 
   @@index([createdAt])
+  @@index([category, id])
   @@map("media_asset")
 }
 

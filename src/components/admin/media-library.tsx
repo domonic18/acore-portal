@@ -11,13 +11,18 @@ export type MediaAssetItem = {
   id: string;
   url: string;
   originalName: string;
+  category: string;
   mimeType: string;
   sizeBytes: number;
 };
 
-export async function uploadMediaFiles(files: File[]): Promise<MediaAssetItem[]> {
+export async function uploadMediaFiles(
+  files: File[],
+  category?: string,
+): Promise<MediaAssetItem[]> {
   const fd = new FormData();
   for (const f of files) fd.append("files", f);
+  if (category) fd.append("category", category);
   const res = await fetch("/api/admin/media", { method: "POST", body: fd });
   const body = await res.json();
   if (!res.ok) throw new Error(body?.error?.message ?? "上传失败,请稍后重试。");
@@ -28,17 +33,22 @@ export function MediaAssetList({
   onPick,
   onDelete,
   refreshKey = 0,
+  defaultCategory = "",
 }: {
   onPick?: (asset: MediaAssetItem) => void;
   onDelete?: () => void;
   refreshKey?: number;
+  /** 初始分类(如商品配图入口默认「商店配图」);空=全部 */
+  defaultCategory?: string;
 }) {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
+  const [category, setCategory] = useState(defaultCategory);
   const [data, setData] = useState<{
     items: MediaAssetItem[];
     total: number;
     totalPages: number;
+    counts: Record<string, number>;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +56,7 @@ export function MediaAssetList({
     let cancelled = false;
     const params = new URLSearchParams({ page: String(page) });
     if (q) params.set("q", q);
+    if (category) params.set("category", category);
     fetch(`/api/admin/media?${params.toString()}`)
       .then((res) => res.json())
       .then((body) => {
@@ -55,7 +66,12 @@ export function MediaAssetList({
     return () => {
       cancelled = true;
     };
-  }, [q, page, refreshKey]);
+  }, [q, page, category, refreshKey]);
+
+  // 分类 tab:按数量降序,稳定呈现(同数按名称)
+  const tabs = data
+    ? Object.entries(data.counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    : [];
 
   async function remove(asset: MediaAssetItem) {
     if (
@@ -92,6 +108,45 @@ export function MediaAssetList({
         />
         <span className="text-gray-500">共 {data?.total ?? "…"} 个</span>
       </div>
+      {tabs.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1" role="tablist" aria-label="媒体分类">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={category === ""}
+            onClick={() => {
+              setCategory("");
+              setPage(1);
+            }}
+            className={`rounded-full border px-3 py-0.5 text-xs ${
+              category === ""
+                ? "border-amber-400 text-amber-300"
+                : "border-gray-700 text-gray-400 hover:border-gray-500"
+            }`}
+          >
+            全部
+          </button>
+          {tabs.map(([name, count]) => (
+            <button
+              key={name}
+              type="button"
+              role="tab"
+              aria-selected={category === name}
+              onClick={() => {
+                setCategory(name);
+                setPage(1);
+              }}
+              className={`rounded-full border px-3 py-0.5 text-xs ${
+                category === name
+                  ? "border-amber-400 text-amber-300"
+                  : "border-gray-700 text-gray-400 hover:border-gray-500"
+              }`}
+            >
+              {name}({count})
+            </button>
+          ))}
+        </div>
+      )}
       {error && (
         <p role="alert" className="text-red-400">
           {error}

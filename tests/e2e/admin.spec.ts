@@ -54,6 +54,23 @@ test.beforeAll(async () => {
   });
   await prisma.cartItem.deleteMany({ where: { productId: { in: staleProducts.map((p) => p.id) } } });
   await prisma.product.deleteMany({ where: { sku: "char-change-name" } });
+  // 媒体分类 tab fixture(dev 库 media_asset 常空,种子 1 条使分类 tab 渲染)
+  await prisma.mediaAsset.deleteMany({ where: { cosKey: { startsWith: "media/e2e-" } } });
+  const admin = await prisma.user.findUniqueOrThrow({
+    where: { username: "m1admin" },
+    select: { id: true },
+  });
+  await prisma.mediaAsset.create({
+    data: {
+      cosKey: `media/e2e-${RUN}.png`,
+      url: "/images/legacy-missing.svg",
+      originalName: `e2e-media-${RUN}.png`,
+      category: "商店配图",
+      sizeBytes: 1,
+      mimeType: "image/png",
+      uploadedBy: admin.id,
+    },
+  });
 });
 
 test.afterAll(async () => {
@@ -87,6 +104,7 @@ test.afterAll(async () => {
       data: { balance: 1_000_000 },
     });
   }
+  await prisma.mediaAsset.deleteMany({ where: { cosKey: { startsWith: "media/e2e-" } } });
   await prisma.$disconnect();
 });
 
@@ -123,10 +141,12 @@ test.describe("US5 运营后台(T055)", () => {
   test("商品表单图片编辑器与 Markdown 详情编辑器(WP 对齐)", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
     await page.goto("/admin/products/new");
-    // 图片编辑器:上传入口+媒体库选择(弹层出列表)
+    // 图片编辑器:上传入口+媒体库选择(弹层出列表,默认「商店配图」分类)
     await expect(page.getByLabel("上传商品图片")).toBeVisible();
     await page.getByRole("button", { name: "从媒体库选择" }).click();
     await expect(page.getByPlaceholder("搜索文件名…")).toBeVisible();
+    await expect(page.getByRole("tab", { name: /商店配图/ })).toBeVisible();
+    await expect(page.getByText(`e2e-media-${RUN}.png`)).toBeVisible();
     // Markdown 编辑器:GFM 工具栏+粘贴上传提示
     await expect(page.getByRole("button", { name: "图片", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "媒体库…" })).toBeVisible();

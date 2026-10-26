@@ -19,7 +19,7 @@ function mapMediaError(err: unknown) {
   throw err;
 }
 
-/** 媒体列表(R13:20/页,q=文件名搜索) */
+/** 媒体列表(R13:20/页,q=文件名搜索,category=分类筛选;counts 供 tab 计数) */
 export async function GET(req: NextRequest) {
   const guard = await requireApiAdmin(req);
   if (!guard.ok) return apiError(guard.status, guard.code, guard.message);
@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
   const result = await listMediaAssets({
     page: Number.isInteger(page) && page > 0 ? page : 1,
     q: sp.get("q") ?? undefined,
+    category: sp.get("category") ?? undefined,
   });
   return apiOk(result);
 }
@@ -49,12 +50,14 @@ export async function POST(req: NextRequest) {
   if (files.length === 0) {
     return apiError(422, "VALIDATION_ERROR", "参数错误:files");
   }
+  const category = form.get("category");
   try {
     const inputs = await Promise.all(
       files.map(async (f) => ({
         name: f.name,
         mimeType: f.type,
         bytes: new Uint8Array(await f.arrayBuffer()),
+        category: typeof category === "string" ? category : undefined,
       })),
     );
     const items = await uploadMediaAssets(inputs, BigInt(guard.session.userId));

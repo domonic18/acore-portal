@@ -177,3 +177,25 @@ describe("媒体列表与删除(T033)", () => {
     );
   });
 });
+
+describe("媒体分类(2026-10-26 FileBird 对齐)", () => {
+  it("上传带 category 入档;缺省归「其他」;category 筛选+counts 汇总", async () => {
+    const [shop] = await upload([
+      { ...fileInput(`shop-${RUN}.png`, "image/png", `shop-${RUN}`), category: "商店配图" },
+    ]);
+    const [misc] = await upload([fileInput(`misc-${RUN}.png`, "image/png", `misc-${RUN}`)]);
+    if (!shop || !misc) throw new Error("upload returned no asset");
+    expect(shop.category).toBe("商店配图");
+    expect(misc.category).toBe("其他");
+
+    const hit = await listMediaAssets({ q: `shop-${RUN}`, category: "商店配图" });
+    expect(hit.total).toBe(1);
+    expect(hit.items[0]!.category).toBe("商店配图");
+    const miss = await listMediaAssets({ q: `shop-${RUN}`, category: "游戏资讯" });
+    expect(miss.total).toBe(0);
+
+    const all = await listMediaAssets({ q: `misc-${RUN}` });
+    expect(all.counts["商店配图"]).toBeGreaterThanOrEqual(1);
+    expect(all.counts["其他"]).toBeGreaterThanOrEqual(1);
+  });
+});

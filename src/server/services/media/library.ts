@@ -14,6 +14,9 @@ import { getCosClient } from "@/lib/cos/client";
 
 export const MEDIA_MAX_BYTES = 10 * 1024 * 1024;
 
+/** 新上传缺省分类(旧站 FileBird 分类经回填脚本派生,见 scripts/migrate/media-library-backfill.mjs) */
+export const MEDIA_DEFAULT_CATEGORY = "其他";
+
 export class MediaError extends Error {
   constructor(
     public code: "TYPE_REJECTED" | "TOO_LARGE" | "NOT_FOUND" | "COS_UNAVAILABLE",
@@ -28,6 +31,7 @@ export type MediaUploadInput = {
   name: string;
   mimeType: string;
   bytes: Uint8Array;
+  category?: string;
 };
 
 export type MediaAssetDto = {
@@ -35,9 +39,15 @@ export type MediaAssetDto = {
   cosKey: string;
   url: string;
   originalName: string;
+  category: string;
   sizeBytes: number;
   mimeType: string;
 };
+
+function normalizeCategory(raw: string | undefined): string {
+  const trimmed = raw?.trim() ?? "";
+  return trimmed ? trimmed.slice(0, 64) : MEDIA_DEFAULT_CATEGORY;
+}
 
 function isAllowedMime(mime: string): boolean {
   return mime.startsWith("image/") || mime === "application/pdf";
@@ -95,6 +105,7 @@ export async function uploadMediaAssets(
         cosKey,
         url,
         originalName: f.name,
+        category: normalizeCategory(f.category),
         sizeBytes: f.bytes.byteLength,
         mimeType: f.mimeType,
         uploadedBy: uploaderId,
@@ -110,6 +121,7 @@ function toDto(row: {
   cosKey: string;
   url: string;
   originalName: string;
+  category: string;
   sizeBytes: number;
   mimeType: string;
 }): MediaAssetDto {
@@ -118,6 +130,7 @@ function toDto(row: {
     cosKey: row.cosKey,
     url: row.url,
     originalName: row.originalName,
+    category: row.category,
     sizeBytes: row.sizeBytes,
     mimeType: row.mimeType,
   };
@@ -125,15 +138,24 @@ function toDto(row: {
 
 export const MEDIA_PAGE_SIZE = 20;
 
-export async function listMediaAssets(opts: { page?: number; q?: string }): Promise<{
+export async function listMediaAssets(opts: {
+  page?: number;
+  q?: string;
+  category?: string;
+}): Promise<{
   items: Array<MediaAssetDto & { createdAt: string }>;
   page: number;
   totalPages: number;
   total: number;
   pageSize: number;
+  counts: Record<string, number>;
 }> {
   const page = Number.isInteger(opts.page) && opts.page! > 0 ? opts.page! : 1;
-  const where = opts.q ? { originalName: { contains: opts.q } } : {};
+  const category = opts.category?.trim() || undefined;
+  const where = {
+    ...(opts.q ? { originalName: { contains: opts.q } } : {}),
+    ...(category ? { category } : {}),
+  };
   const total = await prisma.mediaAsset.count({ where });
   const rows = await prisma.mediaAsset.findMany({
     where,
@@ -141,11 +163,14 @@ export async function listMediaAssets(opts: { page?: number; q?: string }): Prom
     skip: (page - 1) * MEDIA_PAGE_SIZE,
     take: MEDIA_PAGE_SIZE,
   });
+  const grouped = await prisma.mediaAsset.groupBy({ by: ["category"], _count: { _all: true } });
+  const counts = Object.fromEntries(grouped.map((g) => [g.category, g._count._all]));
   return {
     page,
     totalPages: Math.max(1, Math.ceil(total / MEDIA_PAGE_SIZE)),
     total,
     pageSize: MEDIA_PAGE_SIZE,
+    counts,
     items: rows.map((r) => ({ ...toDto(r), createdAt: r.createdAt.toISOString() })),
   };
 }
