@@ -124,13 +124,7 @@ export const EXTERNAL_LINKS = [
   { label: "魔兽世界官网", href: "https://www.worldofwarcraft.com" },
 ] as const;
 
-/** 下载与频道入口(旧站静态事实;客户端/登录器/插件实际文件在教程页下载卡) */
-export const DOWNLOAD_LINKS = {
-  client: { label: "客户端下载", href: "/tutorial", note: "1.12 完整客户端" },
-  launcher: { label: "登录器下载", href: "/tutorial", note: "一键登录" },
-  addon: { label: "插件下载", href: "/tutorial", note: "整合包" },
-  yy: { label: "YY 频道", href: "#", note: "频道号见公告" },
-} as const;
+/** 下载与频道入口(侧栏下载卡)已迁移 settings download 组后台可配(链接空=隐藏卡片) */
 
 /** Markdown 渲染体共享样式(前台详情/静态页与后台编辑器预览同源,所见即所得) */
 export const MARKDOWN_BODY_CLS =

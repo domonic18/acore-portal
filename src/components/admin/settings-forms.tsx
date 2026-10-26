@@ -10,7 +10,7 @@ import type { SettingsView } from "@/lib/settings-types";
  * 已配置显「已配置,留空保持」占位,空提交=保持原值,非空=覆写。
  */
 
-type GroupName = "smtp" | "turnstile" | "security" | "notify" | "umami";
+type GroupName = "smtp" | "turnstile" | "security" | "notify" | "site" | "download" | "umami";
 
 function SecretInput({
   testid,
@@ -327,6 +327,74 @@ function NotifyGroup({ view }: { view: SettingsView["notify"] }) {
   );
 }
 
+function SiteGroup({ view }: { view: SettingsView["site"] }) {
+  const [icp, setIcp] = useState(view.icp);
+  const [qqGroup, setQqGroup] = useState(view.qqGroup);
+  const { busy, saved, error, save } = useGroupSave();
+
+  return (
+    <GroupSection
+      name="site"
+      title="站点信息"
+      description="页脚备案号与联系方式;备案号留空=页脚不显示备案链接"
+    >
+      <TextRow label="ICP 备案号" testid="settings-field-site-icp" value={icp} onChange={setIcp} placeholder="京ICP备…(留空隐藏)" />
+      <TextRow label="QQ 群号" testid="settings-field-site-qqGroup" value={qqGroup} onChange={setQqGroup} placeholder="留空隐藏" />
+      <SaveBar
+        group="site"
+        busy={busy}
+        saved={saved}
+        error={error}
+        onSave={() => save("site", { icp, qqGroup })}
+      />
+    </GroupSection>
+  );
+}
+
+function DownloadGroup({ view }: { view: SettingsView["download"] }) {
+  const [clientUrl, setClientUrl] = useState(view.clientUrl);
+  const [clientNote, setClientNote] = useState(view.clientNote);
+  const [launcherUrl, setLauncherUrl] = useState(view.launcherUrl);
+  const [launcherNote, setLauncherNote] = useState(view.launcherNote);
+  const [addonUrl, setAddonUrl] = useState(view.addonUrl);
+  const [addonNote, setAddonNote] = useState(view.addonNote);
+  const [yyNote, setYyNote] = useState(view.yyNote);
+  const { busy, saved, error, save } = useGroupSave();
+
+  return (
+    <GroupSection
+      name="download"
+      title="下载入口"
+      description="侧栏客户端/登录器/插件下载卡与 YY 频道卡;链接留空=隐藏对应卡片,可直链文件或指向教程页"
+    >
+      <TextRow label="客户端下载链接" testid="settings-field-download-clientUrl" value={clientUrl} onChange={setClientUrl} placeholder="/tutorial 或 https://…" />
+      <TextRow label="客户端文案" testid="settings-field-download-clientNote" value={clientNote} onChange={setClientNote} />
+      <TextRow label="登录器下载链接" testid="settings-field-download-launcherUrl" value={launcherUrl} onChange={setLauncherUrl} placeholder="/tutorial 或 https://…" />
+      <TextRow label="登录器文案" testid="settings-field-download-launcherNote" value={launcherNote} onChange={setLauncherNote} />
+      <TextRow label="插件下载链接" testid="settings-field-download-addonUrl" value={addonUrl} onChange={setAddonUrl} placeholder="/tutorial 或 https://…" />
+      <TextRow label="插件文案" testid="settings-field-download-addonNote" value={addonNote} onChange={setAddonNote} />
+      <TextRow label="YY 频道文案" testid="settings-field-download-yyNote" value={yyNote} onChange={setYyNote} placeholder="留空隐藏 YY 卡" />
+      <SaveBar
+        group="download"
+        busy={busy}
+        saved={saved}
+        error={error}
+        onSave={() =>
+          save("download", {
+            clientUrl,
+            clientNote,
+            launcherUrl,
+            launcherNote,
+            addonUrl,
+            addonNote,
+            yyNote,
+          })
+        }
+      />
+    </GroupSection>
+  );
+}
+
 function UmamiGroup({ view }: { view: SettingsView["umami"] }) {
   const [scriptUrl, setScriptUrl] = useState(view.scriptUrl ?? "");
   const [websiteId, setWebsiteId] = useState(view.websiteId ?? "");
@@ -444,6 +512,8 @@ export function SettingsForms({ view }: { view: SettingsView }) {
       <TurnstileGroup view={view.turnstile} />
       <SecurityGroup view={view.security} />
       <NotifyGroup view={view.notify} />
+      <SiteGroup view={view.site} />
+      <DownloadGroup view={view.download} />
       <UmamiGroup view={view.umami} />
       <TestMailCard />
     </div>

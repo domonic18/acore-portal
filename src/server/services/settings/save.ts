@@ -19,6 +19,14 @@ export type SaveSettingsResult =
   | { ok: false; code: "VALIDATION_FAILED" | "TURNSTILE_KEYS_REQUIRED"; message: string };
 
 /** 各组 zod:敏感字段(password/secretKey/apiPassword)optional——空/缺省语义在下方 keep 逻辑处理 */
+const dlUrlSchema = z.union([
+  z.literal(""),
+  z
+    .string()
+    .trim()
+    .refine((v) => v.startsWith("/") || /^https?:\/\//.test(v), "链接须为站内路径或 http(s) 地址"),
+]);
+
 const groupSchemas = {
   smtp: z.object({
     host: z.string().min(1, "host 必填"),
@@ -39,6 +47,20 @@ const groupSchemas = {
   }),
   notify: z.object({
     pointEmailThreshold: z.coerce.number().int().min(0),
+  }),
+  site: z.object({
+    icp: z.string().trim().max(64),
+    qqGroup: z.string().trim().regex(/^$|^\d{5,20}$/, "QQ 群号须为 5-20 位数字"),
+  }),
+  // 下载链接留空=隐藏对应侧栏卡;链接为站内路径或 http(s)
+  download: z.object({
+    clientUrl: dlUrlSchema,
+    clientNote: z.string().trim().max(32),
+    launcherUrl: dlUrlSchema,
+    launcherNote: z.string().trim().max(32),
+    addonUrl: dlUrlSchema,
+    addonNote: z.string().trim().max(32),
+    yyNote: z.string().trim().max(48),
   }),
   home: z.object({
     achievementUrl: z.union([
@@ -80,6 +102,19 @@ const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>> = {
     loginLockSec: "security.loginLockSec",
   },
   notify: { pointEmailThreshold: "notify.pointEmailThreshold" },
+  site: {
+    icp: "site.icp",
+    qqGroup: "site.qqGroup",
+  },
+  download: {
+    clientUrl: "download.client.url",
+    clientNote: "download.client.note",
+    launcherUrl: "download.launcher.url",
+    launcherNote: "download.launcher.note",
+    addonUrl: "download.addon.url",
+    addonNote: "download.addon.note",
+    yyNote: "download.yy.note",
+  },
   home: {
     achievementUrl: "home.achievementUrl",
     achievementHeight: "home.achievementHeight",
@@ -172,10 +207,12 @@ export async function saveSettingsGroup(
     };
   }
 
-  // 只写有变化的键
+  // 只写有变化的键;无行时提交空串也要落行——空串是显式"清空/隐藏"配置,
+  // 不落行会回落 flatten 的非空默认值(如 site.icp/download.*.url)
   const changedKeys = Object.keys(next).filter((key) => {
     const value = next[key];
-    return value !== undefined && (current[key] ?? "") !== value;
+    if (value === undefined) return false;
+    return (current[key] ?? "") !== value || (current[key] === undefined && value === "");
   });
   if (changedKeys.length > 0) {
     await prisma.$transaction(

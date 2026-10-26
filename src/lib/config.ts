@@ -76,6 +76,21 @@ const configSchema = z.object({
   notify: z.object({
     pointEmailThreshold: z.coerce.number().int().min(0).default(0),
   }),
+  // 站点标识与联系方式(CRUD 对齐审计):icp 空=页脚不渲染备案链接,qqGroup 空=不渲染
+  site: z.object({
+    icp: z.string().default("京ICP备2022035466号"),
+    qqGroup: z.string().default("184670219"),
+  }),
+  // 侧栏下载入口(CRUD 对齐审计):url 空=对应卡片隐藏;默认指向教程页下载区
+  download: z.object({
+    clientUrl: z.string().default("/tutorial"),
+    clientNote: z.string().default("1.12 完整客户端"),
+    launcherUrl: z.string().default("/tutorial"),
+    launcherNote: z.string().default("一键登录"),
+    addonUrl: z.string().default("/tutorial"),
+    addonNote: z.string().default("整合包"),
+    yyNote: z.string().default("频道号见公告"),
+  }),
   // 首页配置(US 首页配置):最近成就 iframe 嵌入三参数;url 空=整块隐藏,
   // 高度为 CSS 长度(185vh/600px 等),scrolling 控制 iframe 滚动条
   home: z.object({
@@ -156,6 +171,19 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
     },
     notify: {
       pointEmailThreshold: flat["notify.pointEmailThreshold"] ?? "0",
+    },
+    site: {
+      icp: flat["site.icp"] ?? "京ICP备2022035466号",
+      qqGroup: flat["site.qqGroup"] ?? "184670219",
+    },
+    download: {
+      clientUrl: flat["download.client.url"] ?? "/tutorial",
+      clientNote: flat["download.client.note"] ?? "1.12 完整客户端",
+      launcherUrl: flat["download.launcher.url"] ?? "/tutorial",
+      launcherNote: flat["download.launcher.note"] ?? "一键登录",
+      addonUrl: flat["download.addon.url"] ?? "/tutorial",
+      addonNote: flat["download.addon.note"] ?? "整合包",
+      yyNote: flat["download.yy.note"] ?? "频道号见公告",
     },
     home: {
       achievementUrl: flat["home.achievementUrl"] ?? "",

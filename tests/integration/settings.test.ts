@@ -26,6 +26,16 @@ const SMTP_KEYS = ["smtp.host", "smtp.port", "smtp.user", "smtp.password", "smtp
 const TURNSTILE_KEYS = ["turnstile.enabled", "turnstile.siteKey", "turnstile.secretKey"];
 const SECURITY_KEYS = ["security.loginMaxFails", "security.loginWindowSec", "security.loginLockSec"];
 const NOTIFY_KEYS = ["notify.pointEmailThreshold"];
+const SITE_KEYS = ["site.icp", "site.qqGroup"];
+const DOWNLOAD_KEYS = [
+  "download.client.url",
+  "download.client.note",
+  "download.launcher.url",
+  "download.launcher.note",
+  "download.addon.url",
+  "download.addon.note",
+  "download.yy.note",
+];
 const UMAMI_KEYS = [
   "umami.scriptUrl",
   "umami.websiteId",
@@ -33,7 +43,15 @@ const UMAMI_KEYS = [
   "umami.apiUsername",
   "umami.apiPassword",
 ];
-const ALL_KEYS = [...SMTP_KEYS, ...TURNSTILE_KEYS, ...SECURITY_KEYS, ...NOTIFY_KEYS, ...UMAMI_KEYS];
+const ALL_KEYS = [
+  ...SMTP_KEYS,
+  ...TURNSTILE_KEYS,
+  ...SECURITY_KEYS,
+  ...NOTIFY_KEYS,
+  ...SITE_KEYS,
+  ...DOWNLOAD_KEYS,
+  ...UMAMI_KEYS,
+];
 
 let backup: { key: string; value: string }[] = [];
 
@@ -239,6 +257,63 @@ describe("saveSettingsGroup(T029)", () => {
       { id: ADMIN_ID },
     );
     expect((await getConfig()).umami?.apiPassword).toBe("rotated-pw");
+  });
+});
+
+describe("site/download 组(CRUD 对齐审计)", () => {
+  it("键缺失 → 默认值兜底(旧站事实):ICP/QQ 群与四卡默认指向教程页", async () => {
+    await delKeys([...SITE_KEYS, ...DOWNLOAD_KEYS]);
+    const config = await getConfig();
+    expect(config.site).toEqual({ icp: "京ICP备2022035466号", qqGroup: "184670219" });
+    expect(config.download).toMatchObject({
+      clientUrl: "/tutorial",
+      launcherUrl: "/tutorial",
+      addonUrl: "/tutorial",
+      yyNote: "频道号见公告",
+    });
+    const view = await getSettingsView();
+    expect(view.site).toEqual(config.site);
+    expect(view.download).toEqual(config.download);
+  });
+
+  it("site 组保存 → 落库+热生效;审计只落键名不落值", async () => {
+    const result = await saveGroup(
+      "site",
+      { icp: "京ICP备E2E000001号", qqGroup: "12345678" },
+      { id: ADMIN_ID },
+    );
+    expect(result).toEqual({ ok: true });
+    expect((await getConfig()).site).toEqual({ icp: "京ICP备E2E000001号", qqGroup: "12345678" });
+    const audit = await latestAudit(AUDIT_ACTION.SETTINGS_CHANGED);
+    expect((audit!.payloadJson as { group?: string }).group).toBe("site");
+    expect(Object.keys((audit!.payloadJson as { diff: Record<string, string> }).diff).sort()).toEqual(
+      ["site.icp", "site.qqGroup"].sort(),
+    );
+    expect(JSON.stringify(audit!.payloadJson)).not.toContain("京ICP备E2E000001号");
+  });
+
+  it("download 组:非法链接 422 零写入;合法保存热生效;留空=卡片隐藏语义", async () => {
+    const bad = await saveGroup(
+      "download",
+      { clientUrl: "ftp://x", clientNote: "", launcherUrl: "", launcherNote: "", addonUrl: "", addonNote: "", yyNote: "" },
+      { id: ADMIN_ID },
+    );
+    expect(bad).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
+    expect(await prisma.systemConfig.count({ where: { key: { in: DOWNLOAD_KEYS } } })).toBe(0);
+
+    const badQq = await saveGroup("site", { icp: "", qqGroup: "abc12" }, { id: ADMIN_ID });
+    expect(badQq).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
+
+    await saveGroup(
+      "download",
+      { clientUrl: "/tutorial#e2e", clientNote: "E2E 客户端", launcherUrl: "", launcherNote: "", addonUrl: "https://cdn.example.com/a.zip", addonNote: "", yyNote: "" },
+      { id: ADMIN_ID },
+    );
+    expect((await getConfig()).download).toMatchObject({
+      clientUrl: "/tutorial#e2e",
+      launcherUrl: "",
+      addonUrl: "https://cdn.example.com/a.zip",
+    });
   });
 });
 

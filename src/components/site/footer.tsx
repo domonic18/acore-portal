@@ -1,11 +1,13 @@
 import Link from "next/link";
+import { getConfig } from "@/lib/config";
 
-/** 全站页脚(M3 US1 T018,FR-204):协议/公约/备案 */
-export function SiteFooter() {
+/** 全站页脚(M3 US1 T018,FR-204):协议/公约/备案;备案号与 QQ 群后台可配,留空不渲染 */
+export async function SiteFooter() {
+  const { site } = await getConfig();
   return (
     <footer className="mt-12 border-t border-[#1e2a3d] bg-[#0a1220]">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-2 px-4 py-6 text-xs text-[#8fa0b8]">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-center gap-4">
           <Link href="/agreement" className="hover:text-[#e6d8a8]">
             用户协议
           </Link>
@@ -18,8 +20,24 @@ export function SiteFooter() {
           <Link href="/sitemap" className="hover:text-[#e6d8a8]">
             网站地图
           </Link>
+          {site.qqGroup && <span>QQ 群:{site.qqGroup}</span>}
         </div>
-        <p>老克塔 · AzerothCore 怀旧社区 · 怀旧公益项目(非营利)</p>
+        <p>
+          老克塔 · AzerothCore 怀旧社区 · 怀旧公益项目(非营利)
+          {site.icp && (
+            <>
+              {" · "}
+              <a
+                href="https://beian.miit.gov.cn"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-[#e6d8a8]"
+              >
+                {site.icp}
+              </a>
+            </>
+          )}
+        </p>
       </div>
     </footer>
   );

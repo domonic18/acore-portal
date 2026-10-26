@@ -3,7 +3,7 @@ import { getConfig } from "@/lib/config";
 import type { SettingsView } from "@/lib/settings-types";
 
 /**
- * 设置视图(T030;api-admin-m4 契约):五组按组返回,敏感字段只回掩码态布尔
+ * 设置视图(T030;api-admin-m4 契约):按组返回,敏感字段只回掩码态布尔
  * (passwordConfigured/secretKeyConfigured),任何明文凭据不出本模块。
  */
 export type { SettingsView };
@@ -31,6 +31,19 @@ export async function getSettingsView(): Promise<SettingsView> {
       loginLockSec: config.security.loginLockSec,
     },
     notify: { pointEmailThreshold: config.notify.pointEmailThreshold },
+    site: {
+      icp: config.site.icp,
+      qqGroup: config.site.qqGroup,
+    },
+    download: {
+      clientUrl: config.download.clientUrl,
+      clientNote: config.download.clientNote,
+      launcherUrl: config.download.launcherUrl,
+      launcherNote: config.download.launcherNote,
+      addonUrl: config.download.addonUrl,
+      addonNote: config.download.addonNote,
+      yyNote: config.download.yyNote,
+    },
     umami: config.umami
       ? {
           configured: true,

@@ -21,6 +21,16 @@ export type SettingsView = {
     loginLockSec: number;
   };
   notify: { pointEmailThreshold: number };
+  site: { icp: string; qqGroup: string };
+  download: {
+    clientUrl: string;
+    clientNote: string;
+    launcherUrl: string;
+    launcherNote: string;
+    addonUrl: string;
+    addonNote: string;
+    yyNote: string;
+  };
   umami: {
     configured: boolean;
     scriptUrl: string | null;
