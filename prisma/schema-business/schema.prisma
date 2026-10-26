@@ -720,3 +720,19 @@ model ForumPost {
   @@index([threadId, deletedAt, floor])
   @@map("forum_post")
 }
+
+/// 首页轮播物料(US 首页轮播):enabled=false 不出前端,sort 升序轮播;
+/// 无外键依赖,删除不级联其他表
+model HomeBanner {
+  id        BigInt   @id @default(autoincrement())
+  title     String   @db.VarChar(64)
+  imageUrl  String   @map("image_url") @db.VarChar(512)
+  linkUrl   String   @default("") @map("link_url") @db.VarChar(512) // 空=纯展示不跳转
+  sort      Int      @default(0)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([enabled, sort])
+  @@map("home_banner")
+}
