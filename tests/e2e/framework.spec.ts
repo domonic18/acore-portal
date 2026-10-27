@@ -1,17 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
-import { PrismaClient } from "../../src/generated/business";
 
 /**
  * T020 US1 全局框架(quickstart S1,SC-205):
  * 游客/登录双菜单互斥(FR-201)+多级结构(FR-202)+移动汉堡折叠(FR-205)+
- * 页脚链接(FR-204)+侧栏按类型渲染与积分余额组件登录态门槛(FR-206)+
- * 最近浏览商品 localStorage 闭环(quickstart S1.4/R9,T050 复核补测)。
+ * 页脚链接(FR-204)+侧栏按类型渲染与积分余额组件登录态门槛(FR-206)。
+ * 首页 2026-10 调整:站内搜索/公告动态/友情链接/日历归档/最近浏览全站下线,
+ * 公告/商品/服务器状态/当前阶段移入首页右栏(区块断言在 content.spec)。
  */
-
-const prisma = new PrismaClient();
-const RUN = Date.now().toString(36);
-const RECENT_SLUG = `e2erecent-${RUN}`;
-const RECENT_CATEGORY_SLUG = `e2erecent-cat-${RUN}`;
 
 const GUEST_TOP = [
   "首页",
@@ -64,21 +59,18 @@ test.describe("游客菜单(FR-201)", () => {
     await expect(footer.getByRole("link", { name: "论坛公约" })).toBeVisible();
   });
 
-  test("侧栏 home 清单渲染,游客无积分余额组件(FR-206)", async ({ page }) => {
+  test("侧栏下线组件不渲染,游客无积分余额组件(FR-206)", async ({ page }) => {
     await page.goto("/");
     const sidebar = page.getByTestId("site-sidebar");
-    await expect(
-      sidebar.getByTestId("sidebar-站内搜索"),
-    ).toBeVisible();
-    await expect(
-      sidebar.getByTestId("sidebar-announcement-banners"),
-    ).toBeVisible();
-    await expect(
-      sidebar.getByTestId("sidebar-external-links"),
-    ).toBeVisible();
-    await expect(
-      sidebar.getByTestId("sidebar-calendar-archive"),
-    ).toBeVisible();
+    for (const id of [
+      "sidebar-站内搜索",
+      "sidebar-announcement-banners",
+      "sidebar-external-links",
+      "sidebar-calendar-archive",
+      "sidebar-recent-products",
+    ]) {
+      await expect(sidebar.getByTestId(id)).toHaveCount(0);
+    }
     await expect(sidebar.getByTestId("sidebar-points-balance")).toHaveCount(0);
   });
 
@@ -119,43 +111,5 @@ test.describe("登录菜单(FR-201)", () => {
     await expect(
       sidebar.getByTestId("sidebar-points-balance").getByRole("link"),
     ).toHaveText("积分明细 →");
-  });
-});
-
-test.describe("最近浏览(quickstart S1.4/R9)", () => {
-  test("访问商品详情后,首页侧栏出现最近浏览卡片", async ({ page }) => {
-    await prisma.product.deleteMany({ where: { slug: { startsWith: "e2erecent-" } } });
-    await prisma.productCategory.deleteMany({ where: { slug: RECENT_CATEGORY_SLUG } });
-    const category = await prisma.productCategory.create({
-      data: { name: `E2E 最近浏览分类 ${RUN}`, slug: RECENT_CATEGORY_SLUG, sort: 99 },
-      select: { id: true },
-    });
-    await prisma.product.create({
-      data: {
-        sku: `e2erecent-sku-${RUN}`,
-        slug: RECENT_SLUG,
-        name: `E2E 最近浏览 ${RUN}`,
-        description: "T050 侧栏最近浏览闭环用",
-        type: "game_item",
-        status: "published",
-        price: 100,
-        gameItemId: 19029,
-        categoryId: category.id,
-      },
-    });
-    try {
-      await page.goto(`/shop/${RECENT_SLUG}`);
-      await expect(page.getByRole("heading", { name: `E2E 最近浏览 ${RUN}` })).toBeVisible();
-      await page.goto("/");
-      const card = page
-        .getByTestId("site-sidebar")
-        .getByTestId("sidebar-recent-products");
-      await expect(card).toBeVisible();
-      await expect(card.getByRole("link", { name: `E2E 最近浏览 ${RUN}` })).toBeVisible();
-    } finally {
-      await prisma.product.deleteMany({ where: { slug: { startsWith: "e2erecent-" } } });
-      await prisma.productCategory.deleteMany({ where: { slug: RECENT_CATEGORY_SLUG } });
-      await prisma.$disconnect();
-    }
   });
 });

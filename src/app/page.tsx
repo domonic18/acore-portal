@@ -8,10 +8,10 @@ import { HomeCarousel } from "@/components/site/home-carousel";
 import { SiteSidebar } from "@/app/_components/sidebar/sidebar";
 
 /**
- * 首页四区块(T027,US3;spec §US3):最新公告 5/服务器状态卡(T044 转正)/
- * 当前渐进阶段/精选商品(featured 优先回退最新上架)。侧栏按 home 类型渲染。
- * 轮播与最近成就嵌入(US 首页配置)由后台配置:轮播空物料整块隐藏,
- * 成就 iframe url 空=隐藏;/admin 改动经 reloadSystemConfig/refresh 即时生效。
+ * 首页两栏布局(US3 调整版):主栏=轮播+最近成就嵌入;
+ * 右栏=最新公告 5/精选商品(featured 优先回退最新上架)/服务器状态卡(T044 转正)/
+ * 当前渐进阶段,尾部接侧栏(home 类型仅积分余额,登录态门槛)。
+ * 轮播空物料整块隐藏,成就 iframe url 空=隐藏;/admin 改动即时生效。
  */
 export default async function HomePage() {
   const [{ announcements, progression, featuredProducts }, activeBanners, config, serverStatus] =
@@ -38,10 +38,37 @@ export default async function HomePage() {
       </section>
 
       <div className="flex flex-col gap-6 lg:flex-row">
-        <div className="grid min-w-0 flex-1 grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
           <HomeCarousel banners={banners} intervalMs={config.home.carouselIntervalSec * 1000} />
 
-          <section className="rounded border border-[#1e2a3d] bg-[#0d1728] p-4 md:col-span-2">
+          {/* 最近成就嵌入(US 首页配置):url 空=整块隐藏;高度/滚动条后台可配 */}
+          {config.home.achievementUrl && (
+            <section className="rounded border border-[#1e2a3d] bg-[#0d1728] p-4">
+              <div className="mb-3 flex items-baseline justify-between">
+                <h2 className="font-bold text-[#e6d8a8]">最近成就</h2>
+                <a
+                  href={config.home.achievementUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-[#8fa0b8] hover:text-[#e6d8a8]"
+                >
+                  新窗口打开 →
+                </a>
+              </div>
+              <iframe
+                src={config.home.achievementUrl}
+                title="最近成就"
+                loading="lazy"
+                scrolling={config.home.achievementScrolling ? "auto" : "no"}
+                className="w-full rounded border-0 bg-[#0d1728]"
+                style={{ height: config.home.achievementHeight }}
+              />
+            </section>
+          )}
+        </div>
+
+        <div className="w-full space-y-4 lg:w-80 lg:shrink-0">
+          <section className="rounded border border-[#1e2a3d] bg-[#0d1728] p-4">
             <div className="mb-3 flex items-baseline justify-between">
               <h2 className="font-bold text-[#e6d8a8]">最新公告</h2>
               <Link
@@ -66,6 +93,34 @@ export default async function HomePage() {
                     <span className="shrink-0 text-xs text-[#5d6b80]">
                       {a.publishedAt?.toISOString().slice(0, 10)}
                     </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="rounded border border-[#1e2a3d] bg-[#0d1728] p-4">
+            <div className="mb-3 flex items-baseline justify-between">
+              <h2 className="font-bold text-[#e6d8a8]">精选商品</h2>
+              <Link href="/shop" className="text-xs text-[#8fa0b8] hover:text-[#e6d8a8]">
+                积分商店 →
+              </Link>
+            </div>
+            {featuredProducts.length === 0 ? (
+              <p className="text-sm text-[#5d6b80]">商品即将上架。</p>
+            ) : (
+              <ul className="space-y-2 text-sm">
+                {featuredProducts.map((p) => (
+                  <li key={p.slug}>
+                    <Link
+                      href={`/shop/${encodeURIComponent(p.slug)}`}
+                      className="flex items-baseline justify-between gap-2 hover:bg-[#16233a]"
+                    >
+                      <span className="line-clamp-1 text-[#c7d2e0]">{p.name}</span>
+                      <span className="shrink-0 font-semibold text-[#c9a227]">
+                        {p.price} 积分
+                      </span>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -100,60 +155,8 @@ export default async function HomePage() {
             )}
           </section>
 
-          <section className="rounded border border-[#1e2a3d] bg-[#0d1728] p-4 md:col-span-2">
-            <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="font-bold text-[#e6d8a8]">精选商品</h2>
-              <Link href="/shop" className="text-xs text-[#8fa0b8] hover:text-[#e6d8a8]">
-                积分商店 →
-              </Link>
-            </div>
-            {featuredProducts.length === 0 ? (
-              <p className="text-sm text-[#5d6b80]">商品即将上架。</p>
-            ) : (
-              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {featuredProducts.map((p) => (
-                  <li key={p.slug}>
-                    <Link
-                      href={`/shop/${encodeURIComponent(p.slug)}`}
-                      className="block rounded border border-[#1e2a3d] p-3 hover:border-[#c9a227]"
-                    >
-                      <p className="line-clamp-1 text-sm text-[#c7d2e0]">{p.name}</p>
-                      <p className="mt-1 text-sm font-semibold text-[#c9a227]">
-                        {p.price} 积分
-                      </p>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          {/* 最近成就嵌入(US 首页配置):url 空=整块隐藏;高度/滚动条后台可配 */}
-          {config.home.achievementUrl && (
-            <section className="rounded border border-[#1e2a3d] bg-[#0d1728] p-4 md:col-span-2">
-              <div className="mb-3 flex items-baseline justify-between">
-                <h2 className="font-bold text-[#e6d8a8]">最近成就</h2>
-                <a
-                  href={config.home.achievementUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-[#8fa0b8] hover:text-[#e6d8a8]"
-                >
-                  新窗口打开 →
-                </a>
-              </div>
-              <iframe
-                src={config.home.achievementUrl}
-                title="最近成就"
-                loading="lazy"
-                scrolling={config.home.achievementScrolling ? "auto" : "no"}
-                className="w-full rounded border-0 bg-[#0d1728]"
-                style={{ height: config.home.achievementHeight }}
-              />
-            </section>
-          )}
+          <SiteSidebar pageType="home" className="lg:w-80" />
         </div>
-        <SiteSidebar pageType="home" />
       </div>
     </main>
   );

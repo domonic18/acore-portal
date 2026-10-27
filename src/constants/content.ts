@@ -52,20 +52,15 @@ export const CORE_PAGE_SLUGS = [
 
 /**
  * 侧栏组件注册键与页面类型清单映射(research R9):
- * 十二组件=10 个注册项(外部三链单组件含 3 链接)。
- * 清单调整=改本常量,不做后台可视化配置(Q4 最小集)。
+ * 五组件=下载四卡+积分余额(站内搜索/公告动态/友情链接/日历归档/最近浏览已下线)。
+ * 清单调整=改本常量,不做后台可视化配置(Q4 最小集);空清单=页面无侧栏。
  */
 export const SIDEBAR_COMPONENT_KEYS = [
-  "search",
-  "announcement-banners",
   "client-download",
   "launcher-download",
   "yy-channel",
-  "external-links",
   "addon-download",
-  "calendar-archive",
   "points-balance",
-  "recent-products",
 ] as const;
 
 export type SidebarComponentKey = (typeof SIDEBAR_COMPONENT_KEYS)[number];
@@ -79,50 +74,26 @@ export type SitePageType =
   | "shop";
 
 export const SIDE_BY_PAGE_TYPE: Record<SitePageType, readonly SidebarComponentKey[]> = {
-  home: [
-    "search",
-    "announcement-banners",
-    "external-links",
-    "calendar-archive",
-    "points-balance",
-    "recent-products",
-  ],
-  archive: ["search", "announcement-banners", "external-links", "calendar-archive"],
+  home: ["points-balance"],
+  archive: [],
   article: [
-    "search",
-    "announcement-banners",
     "client-download",
     "launcher-download",
     "yy-channel",
-    "external-links",
     "addon-download",
-    "calendar-archive",
     "points-balance",
-    "recent-products",
   ],
   page: [
-    "search",
-    "announcement-banners",
     "client-download",
     "launcher-download",
     "yy-channel",
-    "external-links",
     "addon-download",
-    "calendar-archive",
     "points-balance",
-    "recent-products",
   ],
-  progression: ["search", "announcement-banners", "external-links", "calendar-archive"],
-  forum: ["search", "announcement-banners", "external-links", "calendar-archive"],
-  shop: ["search", "announcement-banners", "external-links", "recent-products"],
+  progression: [],
+  forum: [],
+  shop: [],
 };
-
-/** 外部三链(侧栏友情链接;旧站静态事实) */
-export const EXTERNAL_LINKS = [
-  { label: "Wowhead 数据库", href: "https://www.wowhead.com" },
-  { label: "NGA 玩家社区", href: "https://nga.178.com" },
-  { label: "魔兽世界官网", href: "https://www.worldofwarcraft.com" },
-] as const;
 
 /** 下载与频道入口(侧栏下载卡)已迁移 settings download 组后台可配(链接空=隐藏卡片) */
 

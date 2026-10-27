@@ -2,8 +2,8 @@ import "server-only";
 import { prisma } from "@/lib/db";
 
 /**
- * 内容查询层(M3 US1 侧栏数据面 + US3 T022 前台全量):
- * 归档分页/文章详情/阅读计数(R2 原子自增)/公告动态/日历归档。
+ * 内容查询层(M3 US3 T022 前台全量):
+ * 归档分页/文章详情/阅读计数(R2 原子自增)/最新公告。
  */
 
 export async function listLatestAnnouncements(limit = 3) {
@@ -13,17 +13,6 @@ export async function listLatestAnnouncements(limit = 3) {
     take: limit,
     select: { slug: true, title: true, publishedAt: true },
   });
-}
-
-export async function archiveMonthCounts(limit = 6) {
-  const rows = await prisma.$queryRaw<{ ym: string; n: bigint }[]>`
-    SELECT DATE_FORMAT(published_at, '%Y-%m') AS ym, COUNT(*) AS n
-      FROM article
-     WHERE status = 'published' AND published_at IS NOT NULL
-     GROUP BY ym
-     ORDER BY ym DESC
-     LIMIT ${limit}`;
-  return rows.map((r) => ({ month: r.ym, count: Number(r.n) }));
 }
 
 /** 归档列表(FR-209):published 过滤,publishedAt 倒序,10/页分页,标题搜索 */

@@ -14,7 +14,6 @@ import type { CartParamField } from "@/components/shop/add-to-cart-form";
 import { AddToCartForm } from "@/components/shop/add-to-cart-form";
 import { ProductGallery } from "@/components/shop/product-gallery";
 import { WowheadItemLink } from "@/components/shop/wowhead-item-link";
-import { RecentProductTracker } from "@/components/site/sidebar/recent-product-tracker";
 
 /**
  * T021 商品详情(/shop/[slug]):draft/不存在→404;listed=false 直链可达带标记
@@ -60,11 +59,6 @@ export default async function ProductDetailPage({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 p-8">
-      <RecentProductTracker
-        slug={detail.slug}
-        name={detail.name}
-        price={detail.effectivePrice}
-      />
       <nav aria-label="面包屑" className="text-sm text-gray-400">
         <Link href="/shop" className="hover:text-white">
           商城
