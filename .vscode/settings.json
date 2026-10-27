@@ -1,0 +1,32 @@
+{
+  // workspace/ 是 docker MySQL/Redis 数据目录(bind mount),数据库持续写入,
+  // 必须排除出文件监视器,否则 VSCode 打开即卡死;详细体检结论见 2026-10-27
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/workspace/mysql-dev/**": true,
+    "**/workspace/mysql-test/**": true,
+    "**/workspace/redis-dev/**": true,
+    "**/workspace/redis-test/**": true,
+    "**/.next/**": true,
+    "**/src/generated/**": true,
+    "**/test-results/**": true,
+    "**/playwright-report/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/workspace": true,
+    "**/.next": true,
+    "**/src/generated": true,
+    "**/pnpm-lock.yaml": true,
+    "**/tsconfig.tsbuildinfo": true
+  },
+  "files.exclude": {
+    "**/workspace/mysql-dev": true,
+    "**/workspace/mysql-test": true,
+    "**/workspace/redis-dev": true,
+    "**/workspace/redis-test": true,
+    "**/.next": true
+  }
+}
