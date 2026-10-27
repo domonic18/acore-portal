@@ -15,6 +15,8 @@ x-logging: &logging
 services:
   mysql:
     image: mysql:8.4
+    # test 无复制/PITR 需求,关 binlog:防 workspace 数据目录 binlog 无限膨胀
+    command: --skip-log-bin
     ports:
       - "127.0.0.1:3308:3306" # 快照导入/迁移走本机;禁止 LAN 暴露
     environment:
