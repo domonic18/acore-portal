@@ -71,6 +71,66 @@ test.describe("工具页六页(US1,SC-301)", () => {
     await expect(page.getByTestId("tools-iframe")).toBeVisible();
   });
 
+  test("数据库页壳:标题/来源 chip/页内 tab/浏览器框(p05)", async ({ page }) => {
+    await page.goto("/hardcore");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "英雄榜" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('iframe src="https://rank.lokta.cn/hardcore"').first(),
+    ).toBeVisible();
+    await expect(
+      page.getByText("rank.lokta.cn/hardcore", { exact: true }),
+    ).toBeVisible();
+
+    const tabs = page.getByRole("navigation", { name: "数据库工具切换" });
+    await expect(tabs.getByRole("link", { name: "硬核天梯" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(tabs.getByRole("link", { name: "在线玩家" })).toHaveAttribute(
+      "href",
+      "/online-players",
+    );
+    await expect(tabs.getByRole("link", { name: "在线地图" })).toHaveAttribute(
+      "href",
+      "/playermap",
+    );
+
+    await tabs.getByRole("link", { name: "在线地图" }).click();
+    await expect(page).toHaveURL(/\/playermap$/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "在线地图" }),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole("navigation", { name: "数据库工具切换" })
+        .getByRole("link", { name: "在线地图" }),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
+  test("查询/封禁/DKP 页壳:无页内 tab,DKP 外部提示(p06)", async ({ page }) => {
+    await page.goto("/banlist");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "封号记录" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("navigation", { name: "数据库工具切换" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText("rank.lokta.cn/banlist", { exact: true }),
+    ).toBeVisible();
+
+    await page.goto("/dkp");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "DKP查询" }),
+    ).toBeVisible();
+    await expect(page.getByText(/外部系统提示/).first()).toBeVisible();
+    await expect(
+      page.getByText('iframe src="https://webdkp.nfuwow.com/..."').first(),
+    ).toBeVisible();
+  });
+
   test("旧 page_id 六键 301 到六工具页(US1 T024)", async ({ request }) => {
     const probe = await redirectTarget(
       request,

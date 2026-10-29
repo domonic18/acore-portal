@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DKP_URL,
   RANK_BASE,
+  TOOL_DATABASE_TABS,
   TOOL_PAGES,
   findToolPage,
 } from "@/constants/tools";
@@ -61,6 +62,19 @@ describe("TOOL_PAGES 六工具页契约表(SC-301)", () => {
       "/dkp",
     ]);
     expect(TOOL_PAGES.find((p) => p.path === "/banlist")?.nav).toBe("announce");
+  });
+
+  it("数据库页内 tab 只指向真实工具页(p05 设计稿无死链)", () => {
+    expect(TOOL_DATABASE_TABS.map((t) => t.path)).toEqual([
+      "/hardcore",
+      "/online-players",
+      "/playermap",
+    ]);
+    for (const tab of TOOL_DATABASE_TABS) {
+      expect(findToolPage(tab.path)?.nav, `${tab.path} 应为数据库槽位工具页`).toBe(
+        "database",
+      );
+    }
   });
 
   it("导航接线:五项工具页挂 SITE_NAV 真 href,在线查询不进导航(US1 T022)", () => {

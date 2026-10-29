@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { findToolPage } from "@/constants/tools";
-import { ToolsIframe } from "@/components/site/tools-iframe";
+import { ToolPageShell } from "@/components/site/tool-page-shell";
 
 const page = findToolPage("/online-players");
 export const metadata: Metadata = {
@@ -8,5 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default function OnlinePlayersPage() {
-  return page ? <ToolsIframe src={page.iframeSrc} title={page.title} /> : null;
+  return page ? (
+    <ToolPageShell page={page} activePath="/online-players" />
+  ) : null;
 }

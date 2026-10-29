@@ -8,7 +8,19 @@ import { TOOLS_IFRAME_TIMEOUT_MS } from "@/constants/tools";
  * 撑满页头(3.5rem)以下视口;12s 未 load 降级「工具服务暂不可用」卡+新窗口外链出口;
  * iframe 常驻 DOM(外部可用性不参与页面自身 200 断言,SC-301),常驻外链按钮右上角。
  */
-export function ToolsIframe({ src, title }: { src: string; title: string }) {
+export function ToolsIframe({
+  src,
+  title,
+  heightClass = "h-[calc(100vh-3.5rem)]",
+  showExternal = true,
+}: {
+  src: string;
+  title: string;
+  /** 外层高度;p05 工具页壳套浏览器框时由父容器定高 */
+  heightClass?: string;
+  /** 页壳自带外链按钮时关掉浮层按钮,避免压住 iframe 内容 */
+  showExternal?: boolean;
+}) {
   const [loaded, setLoaded] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const timerRef = useRef<number | null>(null);
@@ -24,7 +36,7 @@ export function ToolsIframe({ src, title }: { src: string; title: string }) {
   }, []);
 
   return (
-    <div className="relative h-[calc(100vh-3.5rem)] w-full">
+    <div className={`relative w-full ${heightClass}`}>
       <iframe
         src={src}
         title={title}
@@ -59,15 +71,17 @@ export function ToolsIframe({ src, title }: { src: string; title: string }) {
           </a>
         </div>
       )}
-      <a
-        href={src}
-        target="_blank"
-        rel="noopener noreferrer"
-        data-testid="tools-open-external"
-        className="absolute right-3 top-3 rounded border border-[#243350] bg-[#0d1728]/90 px-3 py-1.5 text-xs text-[#c7d2e0] hover:border-[#c9a227] hover:text-[#e6d8a8]"
-      >
-        新窗口打开 ↗
-      </a>
+      {showExternal && (
+        <a
+          href={src}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-testid="tools-open-external"
+          className="absolute right-3 top-3 rounded border border-[#243350] bg-[#0d1728]/90 px-3 py-1.5 text-xs text-[#c7d2e0] hover:border-[#c9a227] hover:text-[#e6d8a8]"
+        >
+          新窗口打开 ↗
+        </a>
+      )}
     </div>
   );
 }
