@@ -13,10 +13,10 @@ export async function PointsBalance() {
   const balance = await getBalance(BigInt(session.userId)).catch(() => 0);
   return (
     <SidebarCard title="我的积分" testId="sidebar-points-balance">
-      <p className="text-lg font-semibold text-[#e6d8a8]">{balance}</p>
+      <p className="text-[26px] font-bold leading-none text-[#e8c877]">{balance}</p>
       <Link
         href="/account/points"
-        className="mt-1 inline-block text-xs text-[#8fa0b8] hover:text-[#e6d8a8]"
+        className="mt-2 inline-block text-[12px] text-[#93b2ce] hover:text-[#6fb7e0]"
       >
         积分明细 →
       </Link>

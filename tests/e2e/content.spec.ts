@@ -18,7 +18,8 @@ test.describe("归档(T023 FR-209)", () => {
   test("分页 10/页,总数与页码正确,draft 不可见", async ({ page }) => {
     await page.goto("/announcements");
     await expect(page.locator("main h1").first()).toContainText("公告");
-    await expect(page.getByText("共 13 篇")).toBeVisible();
+    // 「共 N 篇」在标题副行与分页汇总各出现一次(设计稿双处),取标题副行
+    await expect(page.getByText("共 13 篇").first()).toBeVisible();
     const list = page.locator("main ul >> nth=0");
     await expect(list.locator("li")).toHaveCount(10);
     // 种子按日期倒序:最新种子公告在页 1 顶部
@@ -38,12 +39,13 @@ test.describe("归档(T023 FR-209)", () => {
     await page.getByPlaceholder("搜索标题…").fill("服务器");
     await page.getByRole("button", { name: "搜索" }).click();
     await expect(page).toHaveURL(/\/announcements\?q=/);
-    await expect(page.getByText("共 1 篇")).toBeVisible();
+    await expect(page.getByText("共 1 篇").first()).toBeVisible();
     await expect(page.getByText("服务器开放公告").first()).toBeVisible();
 
     await page.getByRole("link", { name: "清除" }).click();
     await expect(page).toHaveURL(/\/announcements$/);
-    await expect(page.getByText("共 13 篇")).toBeVisible();
+    // 「共 N 篇」在标题副行与分页汇总各出现一次(设计稿双处),取标题副行
+    await expect(page.getByText("共 13 篇").first()).toBeVisible();
   });
 });
 
@@ -108,6 +110,51 @@ test.describe("静态页与兜底(T025 FR-210/R15)", () => {
   test("随机 slug 落 notFound(404)", async ({ page }) => {
     const res = await page.goto("/this-page-never-exists-9527");
     expect(res?.status()).toBe(404);
+  });
+});
+
+test.describe("p02 设计稿壳(简介/教程/渐进/日志)", () => {
+  test("简介页:面包屑+更新日期+当前阶段联动", async ({ page }) => {
+    await page.goto("/about");
+    const crumb = page.getByRole("navigation", { name: "面包屑" });
+    await expect(crumb.getByRole("link", { name: "首页" })).toHaveAttribute("href", "/");
+    await expect(crumb.getByText("项目简介")).toBeVisible();
+    await expect(page.getByText(/^更新：\d{4}-\d{2}-\d{2}$/)).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "第二阶段·熔火之心" }),
+    ).toHaveAttribute("href", /^\/progression#node-/);
+  });
+
+  test("教程页:面包屑 首页 › 使用教程", async ({ page }) => {
+    await page.goto("/tutorial");
+    const crumb = page.getByRole("navigation", { name: "面包屑" });
+    await expect(crumb.getByRole("link", { name: "首页" })).toBeVisible();
+    await expect(crumb.getByText("使用教程")).toBeVisible();
+  });
+
+  test("渐进页:三状态卡+倒计时+全部阶段锚点", async ({ page }) => {
+    await page.goto("/progression");
+    await expect(page.getByRole("heading", { name: "渐进计划" })).toBeVisible();
+    const overview = page.getByRole("region", { name: "阶段概览" });
+    for (const label of ["当前阶段", "下一阶段", "远期 · 下个大版本"]) {
+      await expect(overview.getByText(label, { exact: true })).toBeVisible();
+    }
+    await expect(page.getByRole("heading", { name: "全部阶段" })).toBeVisible();
+    await expect(page.getByTestId("progression-countdown")).toBeVisible();
+    // 状态卡锚点直达时间轴当前阶段行
+    const current = page.locator('a[href^="#node-"]').first();
+    await expect(current).toHaveText("第二阶段·熔火之心");
+  });
+
+  test("开发日志页:面包屑 公告 › 开发日志 + 持续更新", async ({ page }) => {
+    await page.goto("/devlog");
+    const crumb = page.getByRole("navigation", { name: "面包屑" });
+    await expect(crumb.getByRole("link", { name: "公告" })).toHaveAttribute(
+      "href",
+      "/announcements",
+    );
+    await expect(crumb.getByText("开发日志")).toBeVisible();
+    await expect(page.getByText(/共 \d+ 篇 · 持续更新/)).toBeVisible();
   });
 });
 

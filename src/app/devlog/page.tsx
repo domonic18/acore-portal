@@ -7,5 +7,13 @@ export default function DevlogPage({
 }: {
   searchParams: { page?: string; q?: string };
 }) {
-  return <ArchivePage categorySlug="devlog" title="开发日志" searchParams={searchParams} />;
+  return (
+    <ArchivePage
+      categorySlug="devlog"
+      title="开发日志"
+      searchParams={searchParams}
+      layout="log"
+      parent={{ label: "公告", href: "/announcements" }}
+    />
+  );
 }

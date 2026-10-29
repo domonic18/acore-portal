@@ -33,7 +33,7 @@ const sanitizeSchema = {
     ...defaultSchema.attributes,
     "*": [...(defaultSchema.attributes?.["*"] ?? [])],
     h1: ["id"],
-    h2: ["id"],
+    h2: ["id", ["dataSection", /^note$/]],
     h3: ["id"],
     h4: ["id"],
     h5: ["id"],
@@ -89,6 +89,29 @@ function rehypeCollectToc(toc: TocItem[]) {
   };
 }
 
+/**
+ * 静态页小节标题(p02 设计稿):存量 WP 正文用「**服务器特色：**」独占段落表达小节,
+ * 渲染时提升为 h2 以套用设计稿的分节竖条;「免责声明」额外标记 data-section=note。
+ * 仅显式开启 sections 的调用方生效(文章正文不受影响)。
+ */
+function rehypePageSections() {
+  return (tree: Root) => {
+    visit(tree, "element", (node: Element) => {
+      if (node.tagName !== "p") return;
+      const text = textOf(node);
+      if (!text || text.length > 20 || !/[：:]$/.test(text)) return;
+      const onlyLabels = node.children.every(
+        (c) =>
+          c.type === "text" ||
+          (c.type === "element" && (c.tagName === "strong" || c.tagName === "em")),
+      );
+      if (!onlyLabels) return;
+      node.tagName = "h2";
+      if (/^免责声明/.test(text)) node.properties.dataSection = "note";
+    });
+  };
+}
+
 function textOf(node: Element): string {
   let out = "";
   visit(node, (child) => {
@@ -99,18 +122,20 @@ function textOf(node: Element): string {
 
 export async function renderMarkdown(
   md: string,
-  opts: { cdnHosts?: readonly string[] } = {},
+  opts: { cdnHosts?: readonly string[]; sections?: boolean } = {},
 ): Promise<{ html: string; toc: TocItem[] }> {
   const toc: TocItem[] = [];
   // unified 管线(非 react-dom/server——RSC 禁运):原始 HTML 不渲染
   // (remark-rehype 默认丢弃 raw 节点),sanitize 属性级兜底,双防线不变。
-  const file = await unified()
+  let pipeline = unified()
     .use(remarkParse)
     .use(remarkGfm)
     // CJK 加粗闭合修复:CommonMark 对「**中文：**中文」形态不识别强调(冒号后紧跟
     // 汉字时闭合符不成 right-flanking),WP 迁移存量正文大量该形态,站点级兜底
     .use(remarkCjkFriendly)
-    .use(remarkRehype)
+    .use(remarkRehype);
+  if (opts.sections) pipeline = pipeline.use(rehypePageSections);
+  const file = await pipeline
     .use(rehypeHighlight)
     .use(rehypeSlug)
     .use(rehypeWowhead)

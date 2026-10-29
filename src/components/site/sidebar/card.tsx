@@ -13,9 +13,13 @@ export function SidebarCard({
   return (
     <section
       data-testid={testId ?? `sidebar-${title}`}
-      className="rounded border border-[#1e2a3d] bg-[#0d1728] p-4"
+      className="rounded-xl border border-[#22385a] bg-[#13233a] p-5"
     >
-      <h2 className="mb-3 border-b border-[#1e2a3d] pb-2 text-sm font-medium text-[#e6d8a8]">
+      <h2 className="mb-3 flex items-center gap-2.5 text-[15px] font-semibold text-[#a8d9f5]">
+        <span
+          aria-hidden="true"
+          className="h-[15px] w-[5px] shrink-0 rounded-full bg-[#5ea3cc]"
+        />
         {title}
       </h2>
       {children}
