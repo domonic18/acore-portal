@@ -132,7 +132,7 @@ test("管理闭环:置顶/关闭/标签/删除/回收站恢复 全落库+审计"
     new Set(["forum_thread_pin", "forum_thread_close", "forum_thread_label", "forum_thread_delete", "forum_thread_undelete"]),
   );
 
-  // 前台可达(恢复后浏览层可见)
+  // 前台可达(恢复后浏览层可见);面包屑也含标题,限定 h1 避免 strict 冲突
   await page.goto(`/forum/thread/${threadId}`);
-  await expect(page.getByText(THREAD_TITLE)).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: THREAD_TITLE })).toBeVisible();
 });
