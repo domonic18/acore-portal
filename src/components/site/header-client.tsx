@@ -1,61 +1,78 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import type { SiteNavItem } from "@/constants/navigation";
 import { UnreadBadge } from "@/components/site/unread-badge";
 
 /**
- * 全站页头交互层(M3 US1 T018,R12):桌面多级下拉 + 移动汉堡折叠(FR-205)。
- * 菜单数据由服务端按登录态过滤后下发(双菜单=同一数据源的过滤产物)。
+ * 全站页头交互层(M3 US1 T018,R12;2026-10 ardot 设计稿 p01 对齐):
+ * 深蓝页头 + 金色登录/注册 + 登录态积分 chip 与头像;
+ * 桌面多级下拉 + 移动汉堡折叠(FR-205);当前路由高亮 #6fb7e0。
  */
 export function SiteHeaderClient({
   items,
   portraitUrl,
   authed,
+  points,
 }: {
   items: readonly SiteNavItem[];
   portraitUrl: string;
   authed: boolean;
+  points: number;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
 
-  const navLink = (item: SiteNavItem, className?: string) => {
-    if (item.href) {
-      return (
-        <Link href={item.href} className={className}>
-          {item.label}
-        </Link>
-      );
-    }
-    return <span className={className}>{item.label}</span>;
+  const isActive = (item: SiteNavItem) => {
+    if (!item.href) return false;
+    if (item.href === "/") return pathname === "/";
+    return pathname === item.href || pathname.startsWith(`${item.href}/`);
   };
 
+  const caret = (
+    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" className="mt-0.5">
+      <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+
+  const navLinkClass = (active: boolean) =>
+    `flex items-center gap-1 px-1 py-2 text-base transition-colors ${
+      active ? "text-[#6fb7e0]" : "text-[#93b2ce] hover:text-[#6fb7e0]"
+    }`;
+
   return (
-    <header className="sticky top-0 z-40 border-b border-[#1e2a3d] bg-[#0a1220]/95 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4">
-        <Link href="/" className="flex shrink-0 items-center gap-2">
-          <span className="text-lg font-semibold tracking-wide text-[#e6d8a8]">
-            老克塔
-          </span>
+    <header className="sticky top-0 z-40 border-b border-[#35577f] bg-[#102035]/95 backdrop-blur">
+      <div className="container-site flex h-16 items-center gap-8 lg:h-[72px]">
+        <Link href="/" className="shrink-0" aria-label="老克塔首页">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="老克塔" width={116} height={46} className="h-10 w-auto lg:h-[46px]" />
         </Link>
 
         {/* 桌面导航 */}
-        <nav aria-label="主导航" className="hidden flex-1 md:block">
-          <ul className="flex items-center gap-1 text-sm">
+        <nav aria-label="主导航" className="hidden flex-1 lg:block">
+          <ul className="flex items-center gap-7">
             {items.map((item) => (
               <li key={item.label} className="group relative">
-                {navLink(
-                  item,
-                  "flex items-center gap-1 rounded px-3 py-2 text-[#c7d2e0] hover:bg-[#16233a] hover:text-[#e6d8a8]",
+                {item.href ? (
+                  <Link href={item.href} className={navLinkClass(isActive(item))}>
+                    {item.label}
+                    {item.children && caret}
+                  </Link>
+                ) : (
+                  <span className={navLinkClass(false) + " cursor-pointer"}>
+                    {item.label}
+                    {item.children && caret}
+                  </span>
                 )}
                 {item.children && (
-                  <ul className="invisible absolute left-0 top-full z-50 min-w-40 rounded border border-[#243350] bg-[#0d1728] py-1 opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100">
+                  <ul className="invisible absolute left-0 top-full z-50 min-w-44 rounded-lg border border-[#35577f] bg-[#0d1a2e] py-1.5 opacity-0 shadow-xl shadow-black/40 transition group-hover:visible group-hover:opacity-100">
                     {item.children.map((child) => (
                       <li key={child.label}>
                         <Link
                           href={child.href}
-                          className="block px-3 py-2 text-[#c7d2e0] hover:bg-[#16233a] hover:text-[#e6d8a8]"
+                          className="block px-4 py-2 text-[15px] text-[#93b2ce] hover:bg-[#13233a] hover:text-[#6fb7e0]"
                         >
                           {child.label}
                         </Link>
@@ -68,41 +85,41 @@ export function SiteHeaderClient({
           </ul>
         </nav>
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-4">
           {authed ? (
             <>
               <UnreadBadge />
               <Link
-                href="/account/overview"
-              className="flex items-center gap-2 rounded-full border border-[#243350] p-1 pr-3 hover:border-[#c9a227]"
-              title="我的帐户"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={portraitUrl}
-                alt="随机角色头像"
-                width={28}
-                height={28}
-                className="rounded-full"
-              />
-              <span className="hidden text-xs text-[#c7d2e0] sm:inline">
-                我的帐户
-              </span>
-            </Link>
-            </>
-          ) : (
-            <div className="flex items-center gap-2 text-xs">
-              <Link
-                href="/login"
-                className="rounded border border-[#243350] px-3 py-1.5 text-[#c7d2e0] hover:border-[#c9a227] hover:text-[#e6d8a8]"
+                href="/account/points"
+                data-testid="header-points"
+                className="hidden items-center rounded-md border border-[#e8c877]/50 bg-[#e8c877]/10 px-2.5 py-1 text-sm font-semibold text-[#e8c877] hover:bg-[#e8c877]/20 sm:flex"
+                title="积分明细"
               >
-                登录
+                {points} 积分
               </Link>
               <Link
-                href="/register"
-                className="rounded bg-[#c9a227] px-3 py-1.5 font-medium text-[#1a1408] hover:bg-[#dbb535]"
+                href="/account/overview"
+                className="flex items-center overflow-hidden rounded-lg border border-[#35577f] hover:border-[#e8c877]/60"
+                title="我的账户"
               >
-                注册
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={portraitUrl}
+                  alt="随机角色头像"
+                  width={36}
+                  height={36}
+                  className="h-9 w-9 object-cover"
+                />
+              </Link>
+            </>
+          ) : (
+            <div className="flex items-center gap-3 text-[15px]">
+              <Link href="/login" className="text-[#e8c877] hover:text-[#f5dc9a]">
+                登 录
+              </Link>
+              <span className="text-[#6482a3]">|</span>
+              <Link href="/register" className="text-[#e8c877] hover:text-[#f5dc9a]">
+                注 册
               </Link>
             </div>
           )}
@@ -114,7 +131,7 @@ export function SiteHeaderClient({
             aria-expanded={mobileOpen}
             data-testid="mobile-menu-button"
             onClick={() => setMobileOpen((v) => !v)}
-            className="rounded border border-[#243350] p-2 text-[#c7d2e0] md:hidden"
+            className="rounded-md border border-[#35577f] p-2 text-[#93b2ce] hover:text-[#6fb7e0] lg:hidden"
           >
             <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
               {mobileOpen ? (
@@ -137,26 +154,26 @@ export function SiteHeaderClient({
         </div>
       </div>
 
-      {/* 移动折叠面板 */}
+      {/* 移动折叠面板(设计稿:抽屉式,二级菜单手风琴展开) */}
       {mobileOpen && (
         <nav
           aria-label="移动导航"
           data-testid="mobile-menu"
-          className="border-t border-[#1e2a3d] bg-[#0a1220] md:hidden"
+          className="border-t border-[#22385a] bg-[#0d1a2e] lg:hidden"
         >
-          <ul className="mx-auto max-w-6xl px-4 py-2 text-sm">
+          <ul className="container-site px-4 py-2 text-[15px]">
             {items.map((item) => (
-              <li key={item.label} className="border-b border-[#14203a] last:border-0">
+              <li key={item.label} className="border-b border-[#1a2c47] last:border-0">
                 {item.href ? (
                   <Link
                     href={item.href}
-                    className="block py-2.5 text-[#c7d2e0]"
+                    className="block py-2.5 text-[#c7d5e6]"
                     onClick={() => setMobileOpen(false)}
                   >
                     {item.label}
                   </Link>
                 ) : (
-                  <span className="block py-2.5 text-[#8fa0b8]">{item.label}</span>
+                  <span className="block py-2.5 text-[#93b2ce]">{item.label}</span>
                 )}
                 {item.children && (
                   <ul className="pb-2 pl-4">
@@ -164,7 +181,7 @@ export function SiteHeaderClient({
                       <li key={child.label}>
                         <Link
                           href={child.href}
-                          className="block py-1.5 text-[#9fb6cc]"
+                          className="block py-1.5 text-[#6fb7e0]"
                           onClick={() => setMobileOpen(false)}
                         >
                           {child.label}

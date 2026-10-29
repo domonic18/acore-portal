@@ -4,37 +4,40 @@ import { RESERVED_SLUGS, ARCHIVE_SLUGS } from "@/constants/content";
 
 /**
  * T016 前置(Phase 1 checkpoint):SC-205 多级菜单结构断言。
- * 结构照搬旧站(spec US1):首页｜项目简介/使用教程｜公告▾｜数据库▾｜资讯｜论坛｜积分商店｜我的帐户▾。
+ * 2026-10 与 ardot 设计稿 p01-s3 对齐(原站 GuestMenu/LoginMenu):
+ * 游客=首页｜公告▾｜数据库▾｜论坛｜资讯;登录态追加 积分商店▾｜我的账户。
  */
 const GUEST_LABELS = SITE_NAV.filter((n) => !n.authOnly).map((n) => n.label);
 const AUTHED_LABELS = SITE_NAV.map((n) => n.label);
 
 describe("SITE_NAV 多级菜单结构(SC-205)", () => {
-  it("顶级结构与旧站逐项一致", () => {
+  it("顶级结构与设计稿逐项一致", () => {
     expect(AUTHED_LABELS).toEqual([
       "首页",
-      "项目简介",
-      "使用教程",
       "公告",
       "数据库",
-      "资讯",
       "论坛",
+      "资讯",
       "积分商店",
-      "我的帐户",
+      "我的账户",
     ]);
   });
 
   it("游客/登录菜单集合互斥且游客菜单为登录菜单去掉 authOnly(FR-201)", () => {
-    expect(GUEST_LABELS).not.toContain("我的帐户");
-    expect(AUTHED_LABELS).toContain("我的帐户");
-    expect(GUEST_LABELS).toEqual(AUTHED_LABELS.filter((l) => l !== "我的帐户"));
-    // 仅我的帐户▾ 携带 authOnly
+    expect(GUEST_LABELS).not.toContain("我的账户");
+    expect(GUEST_LABELS).not.toContain("积分商店");
+    expect(AUTHED_LABELS).toContain("我的账户");
+    expect(GUEST_LABELS).toEqual(
+      AUTHED_LABELS.filter((l) => l !== "我的账户" && l !== "积分商店"),
+    );
+    // 商城/账户入口仅登录态(设计稿:商城入口出现)
     expect(SITE_NAV.filter((n) => n.authOnly).map((n) => n.label)).toEqual([
-      "我的帐户",
+      "积分商店",
+      "我的账户",
     ]);
   });
 
-  it("公告▾/数据库▾/我的帐户▾ 下拉子项与旧站一致(FR-202)", () => {
+  it("公告▾/数据库▾/积分商店▾ 下拉子项与旧站一致(FR-202)", () => {
     const byLabel = Object.fromEntries(SITE_NAV.map((n) => [n.label, n]));
     expect(byLabel["公告"]?.children?.map((c) => c.label)).toEqual([
       "开发日志",
@@ -47,7 +50,7 @@ describe("SITE_NAV 多级菜单结构(SC-205)", () => {
       "在线地图",
       "DKP查询",
     ]);
-    expect(byLabel["我的帐户"]?.children?.map((c) => c.label)).toEqual([
+    expect(byLabel["积分商店"]?.children?.map((c) => c.label)).toEqual([
       "购物车",
       "结账",
     ]);
@@ -63,12 +66,14 @@ describe("SITE_NAV 多级菜单结构(SC-205)", () => {
     ).toBe("/banlist");
   });
 
-  it("归档路由项指向归档 slug,保留字清单不含核心内容页 slug", () => {
+  it("核心路由项指向真路由,保留字清单不含核心内容页 slug", () => {
     const byLabel = Object.fromEntries(SITE_NAV.map((n) => [n.label, n]));
+    expect(byLabel["首页"]?.href).toBe("/");
     expect(byLabel["公告"]?.href).toBe("/announcements");
     expect(byLabel["资讯"]?.href).toBe("/news");
     expect(byLabel["论坛"]?.href).toBe("/forum");
     expect(byLabel["积分商店"]?.href).toBe("/shop");
+    expect(byLabel["我的账户"]?.href).toBe("/account/overview");
     // RESERVED_SLUGS 是代码持有段,不得覆盖核心内容页 about/tutorial/...
     for (const core of ["about", "tutorial", "agreement", "convention", "sitemap"]) {
       expect(RESERVED_SLUGS).not.toContain(core);

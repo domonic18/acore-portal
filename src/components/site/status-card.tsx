@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from "react";
 import type { ServerStatusResult } from "@/lib/status-types";
+import { SectionHeader } from "@/components/site/section-header";
 
 /**
- * 首页服务器状态卡(US6/S6):SSR 初值 + 30s 轮询 /api/status。
+ * 首页服务器状态卡(US6/S6;2026-10 ardot 设计稿 p01-s1 对齐):
+ * SSR 初值 + 30s 轮询 /api/status;大数字 + 阵营比条 + 双列 chip。
  * enabled=false 整卡隐藏;degraded 挂「数据延迟」徽标并保留缓存值;
  * 冷启动失败数字字段 null 按 "--"/N/A 两态渲染(SC-208)。
+ * testid 契约:online-count 纯数字、faction "N : M"、queue "N"/"N/A"。
  */
 const POLL_INTERVAL_MS = 30_000;
 
@@ -38,18 +41,59 @@ export function StatusCard({ initial }: { initial: ServerStatusResult }) {
 
   if (!status.enabled) return null;
 
+  const factionTotal = (status.allianceCount ?? 0) + (status.hordeCount ?? 0);
+  const allyPct = factionTotal > 0 ? ((status.allianceCount ?? 0) / factionTotal) * 100 : 50;
+  const online = status.online;
+
+  const chips: { label: string; testid: string; value: string; gold?: boolean }[] = [
+    { label: "登录队列", testid: "status-queue", value: status.queueCount === null ? "N/A" : String(status.queueCount) },
+    { label: "今日峰值", testid: "status-peak", value: fmt(status.todayPeak) },
+    { label: "稳定运行", testid: "status-uptime", value: status.uptimeText ?? "--" },
+    { label: "当前阶段", testid: "status-stage", value: status.currentStage ?? "待定", gold: true },
+    { label: "角色总数", testid: "status-char-total", value: fmt(status.charTotal) },
+    { label: "今日新注册", testid: "status-new-chars", value: fmt(status.todayNewChars) },
+  ];
+
   return (
     <section
       data-testid="home-server-status"
-      className="rounded border border-[#1e2a3d] bg-[#0d1728] p-4"
+      className="rounded-2xl border border-[#22385a] bg-[#13233a] p-5"
     >
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-bold text-[#e6d8a8]">服务器状态</h2>
-        <div className="flex items-center gap-2">
+      <SectionHeader
+        title="服务器状态"
+        meta="实时 · 30s 刷新"
+        className="mb-4"
+      />
+
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <div
+            data-testid="status-online-count"
+            className="text-[42px] font-bold leading-none text-[#a8d9f5]"
+          >
+            {fmt(status.onlineCount)}
+          </div>
+          <div className="mt-1.5 text-xs text-[#6482a3]">当前在线</div>
+        </div>
+        <div className="flex flex-col items-end gap-1.5">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[13px] ${
+              online
+                ? "border-[#57b87d]/60 text-[#57b87d]"
+                : "border-[#c0564e]/60 text-[#c0564e]"
+            }`}
+          >
+            <span
+              className={`inline-block h-1.5 w-1.5 rounded-full ${
+                online ? "bg-[#57b87d]" : "bg-[#c0564e]"
+              }`}
+            />
+            {online ? "运行中" : "离线"}
+          </span>
           {status.maintenanceMode && (
             <span
               data-testid="status-maintenance"
-              className="rounded bg-[#5d4a1e] px-2 py-0.5 text-xs text-[#e6d8a8]"
+              className="rounded bg-[#5d4a1e] px-2 py-0.5 text-xs text-[#e8c877]"
             >
               维护模式
             </span>
@@ -57,7 +101,7 @@ export function StatusCard({ initial }: { initial: ServerStatusResult }) {
           {status.degraded && (
             <span
               data-testid="status-degraded"
-              className="rounded bg-[#5d553a] px-2 py-0.5 text-xs text-[#e6d8a8]"
+              className="rounded bg-[#5d553a] px-2 py-0.5 text-xs text-[#e8c877]"
             >
               数据延迟
             </span>
@@ -65,65 +109,50 @@ export function StatusCard({ initial }: { initial: ServerStatusResult }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <span
-          className={`inline-block h-2.5 w-2.5 rounded-full ${
-            status.online ? "bg-[#4ade80]" : "bg-[#f87171]"
-          }`}
-        />
-        <span className="text-sm text-[#c7d2e0]">{status.online ? "在线" : "离线"}</span>
-        <span className="text-sm text-[#8fa0b8]">
-          <span data-testid="status-online-count" className="font-semibold text-[#e6d8a8]">
-            {fmt(status.onlineCount)}
-          </span>{" "}
-          人在线
-        </span>
+      {/* 阵营比条:联盟蓝/部落红;下方居中 "N : M"(E2E 契约:元素文本恰为该格式) */}
+      <div className="mt-4">
+        <div
+          className="flex h-[22px] overflow-hidden rounded-full border border-[#22385a] text-[11px] leading-[20px] text-white/90"
+          aria-hidden="true"
+        >
+          <span className="bg-[#2e5e96] text-center" style={{ width: `${allyPct}%` }}>
+            {status.allianceCount !== null ? status.allianceCount : "--"}
+          </span>
+          <span className="bg-[#8e2f2a] text-center" style={{ width: `${100 - allyPct}%` }}>
+            {status.hordeCount !== null ? status.hordeCount : "--"}
+          </span>
+        </div>
+        <div className="mt-1.5 flex items-center justify-between text-[11px] text-[#6482a3]">
+          <span>联盟</span>
+          <span data-testid="status-faction">
+            {fmt(status.allianceCount)} : {fmt(status.hordeCount)}
+          </span>
+          <span>部落</span>
+        </div>
       </div>
 
-      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-        <div className="flex justify-between gap-2">
-          <dt className="text-[#5d6b80]">阵营比</dt>
-          <dd data-testid="status-faction" className="text-[#c7d2e0]">
-            {fmt(status.allianceCount)} : {fmt(status.hordeCount)}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt className="text-[#5d6b80]">登录队列</dt>
-          <dd data-testid="status-queue" className="text-[#c7d2e0]">
-            {status.queueCount === null ? "N/A" : status.queueCount}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt className="text-[#5d6b80]">今日峰值</dt>
-          <dd data-testid="status-peak" className="text-[#c7d2e0]">
-            {fmt(status.todayPeak)}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt className="text-[#5d6b80]">稳定运行</dt>
-          <dd data-testid="status-uptime" className="line-clamp-1 text-[#c7d2e0]">
-            {status.uptimeText ?? "--"}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt className="text-[#5d6b80]">角色总数</dt>
-          <dd data-testid="status-char-total" className="text-[#c7d2e0]">
-            {fmt(status.charTotal)}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt className="text-[#5d6b80]">今日新注册</dt>
-          <dd data-testid="status-new-chars" className="text-[#c7d2e0]">
-            {fmt(status.todayNewChars)}
-          </dd>
-        </div>
+      <dl className="mt-4 grid grid-cols-2 gap-2">
+        {chips.map((c) => (
+          <div
+            key={c.label}
+            className="flex items-center justify-between gap-2 rounded-lg bg-[#0d1828] px-3 py-2"
+          >
+            <dt className="shrink-0 text-[13px] text-[#6482a3]">{c.label}</dt>
+            <dd
+              data-testid={c.testid}
+              className={`truncate text-sm font-medium ${
+                c.gold ? "text-[#e8c877]" : "text-[#dcebf7]"
+              }`}
+              title={c.value}
+            >
+              {c.value}
+            </dd>
+          </div>
+        ))}
       </dl>
 
-      <p className="mt-3 border-t border-[#1e2a3d] pt-2 text-xs text-[#5d6b80]">
-        当前阶段:<span className="text-[#8fa0b8]">{status.currentStage ?? "待定"}</span>
-        <span className="ml-2" suppressHydrationWarning>
-          更新于 {new Date(status.updatedAt).toLocaleTimeString("zh-CN", { hour12: false })}
-        </span>
+      <p className="mt-3 text-right text-xs text-[#6482a3]" suppressHydrationWarning>
+        更新于 {new Date(status.updatedAt).toLocaleTimeString("zh-CN", { hour12: false })}
       </p>
     </section>
   );

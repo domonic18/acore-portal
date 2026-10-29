@@ -1,7 +1,8 @@
 /**
- * 全站主导航(M3 US1,结构照搬旧站,SC-205 逐项断言):
- * 游客菜单隐藏 authOnly 节点(我的帐户▾);商店/账户入口游客点击引导登录(FR-201)。
- * 工具页五项 M4 US1 接线(封号记录/英雄榜/在线玩家/在线地图/DKP查询,契约 tools-and-seo);
+ * 全站主导航(2026-10 与 ardot 设计稿 p01-s3 对齐,原站 GuestMenu/LoginMenu 结构):
+ * 游客=首页/公告▾/数据库▾/论坛/资讯;登录态追加 积分商店▾(购物车/结账)+我的账户(FR-201)。
+ * 项目简介/使用教程经首页快捷入口与页脚可达(设计稿口径,不再占顶级导航)。
+ * 工具页 M4 US1 接线(封号记录/英雄榜/在线玩家/在线地图/DKP查询,契约 tools-and-seo);
  * 在线查询不进导航(旧站口径直达+301 可达)。
  */
 export type SiteNavItem = {
@@ -13,8 +14,6 @@ export type SiteNavItem = {
 
 export const SITE_NAV: readonly SiteNavItem[] = [
   { label: "首页", href: "/" },
-  { label: "项目简介", href: "/about" },
-  { label: "使用教程", href: "/tutorial" },
   {
     label: "公告",
     href: "/announcements",
@@ -33,17 +32,18 @@ export const SITE_NAV: readonly SiteNavItem[] = [
       { label: "DKP查询", href: "/dkp" },
     ],
   },
-  { label: "资讯", href: "/news" },
   { label: "论坛", href: "/forum" },
-  { label: "积分商店", href: "/shop" },
+  { label: "资讯", href: "/news" },
   {
-    label: "我的帐户",
+    label: "积分商店",
+    href: "/shop",
     authOnly: true,
     children: [
       { label: "购物车", href: "/cart" },
       { label: "结账", href: "/checkout" },
     ],
   },
+  { label: "我的账户", href: "/account/overview", authOnly: true },
 ] as const;
 
 /** 用户中心导航(M1 八页+M4 通知,SC-007 全部可达) */

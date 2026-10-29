@@ -6,18 +6,11 @@ import { expect, test, type Page } from "@playwright/test";
  * 页脚链接(FR-204)+侧栏按类型渲染与积分余额组件登录态门槛(FR-206)。
  * 首页 2026-10 调整:站内搜索/公告动态/友情链接/日历归档/最近浏览全站下线,
  * 公告/商品/服务器状态/当前阶段移入首页右栏(区块断言在 content.spec)。
+ * 导航 2026-10 与 ardot 设计稿 p01-s3 对齐:游客=首页/公告/数据库/论坛/资讯,
+ * 登录态追加 积分商店▾(购物车/结账)+我的账户;项目简介/使用教程走快捷入口与页脚。
  */
 
-const GUEST_TOP = [
-  "首页",
-  "项目简介",
-  "使用教程",
-  "公告",
-  "数据库",
-  "资讯",
-  "论坛",
-  "积分商店",
-];
+const GUEST_TOP = ["首页", "公告", "数据库", "论坛", "资讯"];
 
 async function login(page: Page) {
   await page.goto("/login");
@@ -28,15 +21,20 @@ async function login(page: Page) {
 }
 
 test.describe("游客菜单(FR-201)", () => {
-  test("顶级菜单无我的帐户,登录/注册入口可见", async ({ page }) => {
+  test("顶级菜单结构对齐设计稿,商城/账户入口不出现,登录/注册入口可见", async ({
+    page,
+  }) => {
     await page.goto("/");
     const nav = page.getByRole("navigation", { name: "主导航" });
     for (const label of GUEST_TOP) {
       await expect(nav.getByText(label, { exact: true })).toBeVisible();
     }
-    await expect(nav.getByText("我的帐户", { exact: true })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "登录" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "注册" })).toBeVisible();
+    // 商城与账户入口仅登录态;项目简介/使用教程走快捷入口+页脚,不占顶级导航
+    for (const label of ["积分商店", "我的账户", "项目简介", "使用教程"]) {
+      await expect(nav.getByText(label, { exact: true })).toHaveCount(0);
+    }
+    await expect(page.getByRole("link", { name: "登 录" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "注 册" })).toBeVisible();
   });
 
   test("公告▾ 多级下拉子项可见(FR-202)", async ({ page }) => {
@@ -57,6 +55,9 @@ test.describe("游客菜单(FR-201)", () => {
     const footer = page.getByRole("contentinfo");
     await expect(footer.getByRole("link", { name: "用户协议" })).toBeVisible();
     await expect(footer.getByRole("link", { name: "论坛公约" })).toBeVisible();
+    // 设计稿口径:项目简介/使用教程经页脚可达
+    await expect(footer.getByRole("link", { name: "项目简介" })).toBeVisible();
+    await expect(footer.getByRole("link", { name: "使用教程" })).toBeVisible();
   });
 
   test("侧栏下线组件不渲染,游客无积分余额组件(FR-206)", async ({ page }) => {
@@ -82,25 +83,29 @@ test.describe("游客菜单(FR-201)", () => {
     await expect(menu).toHaveCount(0);
     await button.click();
     await expect(menu).toBeVisible();
-    await expect(menu.getByText("积分商店", { exact: true })).toBeVisible();
-    // 登录态前游客折叠菜单同样无我的帐户
-    await expect(menu.getByText("我的帐户", { exact: true })).toHaveCount(0);
+    await expect(menu.getByText("公告", { exact: true })).toBeVisible();
+    // 游客折叠菜单无商城/账户入口(设计稿 LoginMenu 口径:登录态才出现)
+    await expect(menu.getByText("积分商店", { exact: true })).toHaveCount(0);
+    await expect(menu.getByText("我的账户", { exact: true })).toHaveCount(0);
     await button.click();
     await expect(menu).toHaveCount(0);
   });
 });
 
 test.describe("登录菜单(FR-201)", () => {
-  test("我的帐户▾ 仅登录态可见,子项购物车/结账", async ({ page }) => {
+  test("积分商店▾/我的账户 仅登录态可见,商店子项购物车/结账", async ({ page }) => {
     await login(page);
     await page.goto("/");
     const nav = page.getByRole("navigation", { name: "主导航" });
-    await expect(nav.getByText("我的帐户", { exact: true })).toBeVisible();
-    await nav.getByText("我的帐户", { exact: true }).hover();
+    await expect(nav.getByText("积分商店", { exact: true })).toBeVisible();
+    await expect(nav.getByText("我的账户", { exact: true })).toBeVisible();
+    // 登录态页头积分余额 chip(设计稿 LoginMenu)
+    await expect(page.getByTestId("header-points")).toContainText("积分");
+    await nav.getByText("积分商店", { exact: true }).hover();
     await expect(nav.getByRole("link", { name: "购物车" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "结账" })).toBeVisible();
     // 登录后页头登录/注册入口退位
-    await expect(page.getByRole("link", { name: "注册" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "注 册" })).toHaveCount(0);
   });
 
   test("登录态侧栏出现积分余额组件(FR-206)", async ({ page }) => {

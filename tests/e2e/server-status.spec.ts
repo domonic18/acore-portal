@@ -37,7 +37,7 @@ test("状态卡正常渲染:mock 样例字段+种子阶段+无降级徽标", asy
   await expect(page.getByTestId("status-faction")).toHaveText(/^\d+ : \d+$/);
   await expect(page.getByTestId("status-uptime")).toHaveText(UPTIME_SAMPLE);
   await expect(page.getByTestId("status-queue")).toHaveText("3");
-  await expect(card).toContainText("当前阶段:");
+  await expect(page.getByTestId("status-stage")).toHaveText("第二阶段·熔火之心");
   await expect(page.getByTestId("status-degraded")).toHaveCount(0);
 });
 

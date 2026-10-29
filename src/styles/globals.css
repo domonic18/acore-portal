@@ -1,11 +1,66 @@
 @import "tailwindcss";
 
+/*
+ * 设计令牌(2026-10 与 ardot 设计稿对齐,p01 首页实证取色):
+ * 深蓝夜色底 + 金色点缀(魔兽怀旧风)。既有页面散落的旧色值(#0d1728 系)
+ * 在各自页面改造时逐步切换,互不影响。
+ */
+@theme {
+  --color-bg: #0a1220; /* 页面底 */
+  --color-bg-deep: #080d16; /* 更深内嵌区(iframe 容器) */
+  --color-header: #102035; /* 页头/页脚底 */
+  --color-panel: #13233a; /* 卡片底 */
+  --color-panel-inset: #0d1828; /* 卡内嵌块(chip)底 */
+  --color-line: #22385a; /* 常规描边 */
+  --color-line-strong: #35577f; /* 强调描边(页头/轮播) */
+  --color-gold: #e8c877; /* 金色点缀(标题条/价格/登录注册) */
+  --color-heading: #dcebf7; /* 区块标题 */
+  --color-body: #93b2ce; /* 正文 */
+  --color-link: #6fb7e0; /* 亮链接 */
+  --color-muted: #6482a3; /* 弱化说明 */
+  --color-accent: #5ea3cc; /* 主题蓝(圆点/进度) */
+  --color-num: #a8d9f5; /* 大数字 */
+  --color-ok: #57b87d; /* 在线/成功 */
+  --color-ally: #2e5e96; /* 联盟 */
+  --color-horde: #8e2f2a; /* 部落 */
+}
+
 :root {
-  --background: #0f1115;
-  --foreground: #e6e8eb;
+  --background: #0a1220;
+  --foreground: #c7d5e6;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
+  font-family:
+    "Sarasa Gothic SC", "Sarasa Term SC", ui-sans-serif, system-ui,
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+/* 全站容器:设计稿 1920 宽为全幅流式(px-40),常规屏收敛到安全宽度 */
+.container-site {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 1800px;
+  padding-inline: 1rem;
+}
+@media (min-width: 640px) {
+  .container-site {
+    padding-inline: 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .container-site {
+    padding-inline: 2.5rem;
+  }
+}
+
+/* 区块标题:金色竖条 + 标题(设计稿 sec-h 模式,全站复用) */
+.sec-bar {
+  width: 6px;
+  height: 22px;
+  border-radius: 3px;
+  background: var(--color-gold);
+  flex-shrink: 0;
 }
