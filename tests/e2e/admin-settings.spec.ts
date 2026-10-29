@@ -5,7 +5,7 @@ import { PrismaClient } from "../../src/generated/business";
 /**
  * M4 US5 系统设置 E2E(T032,quickstart S5.1-S5.3 简版自动化,主链路在集成层):
  * ① 权限口径:游客/user 访问 /admin/settings → 登录页;
- * ② 七组渲染+NAV 入口+敏感字段掩码态(已配置显「已配置,留空保持」,不回显明文);
+ * ② 八组渲染+NAV 入口+敏感字段掩码态(已配置显「已配置,留空保持」,不回显明文);
  * ③ 保存校验:非法值 422 错误回显;合法保存「已保存,即时生效」;
  * ④ 测试发信:正常配置 → Mailpit 收到;坏 SMTP 配置热生效后 → 页面回显失败摘要。
  * smtp 键为全局行:用前快照、用后还原;E2E schema 指向 dev Mailpit(localhost:1025)。
@@ -14,6 +14,12 @@ const prisma = new PrismaClient();
 const SMTP_KEYS = ["smtp.host", "smtp.port", "smtp.user", "smtp.password", "smtp.from"];
 const SECURITY_KEYS = ["security.loginMaxFails", "security.loginWindowSec", "security.loginLockSec"];
 const SITE_KEYS = ["site.icp", "site.qqGroup"];
+const APPEARANCE_KEYS = [
+  "appearance.logoUrl",
+  "appearance.faviconUrl",
+  "appearance.headerBackgroundUrl",
+  "appearance.pageBackgroundUrl",
+];
 const DOWNLOAD_KEYS = [
   "download.client.url",
   "download.client.note",
@@ -30,6 +36,7 @@ const MAILPIT_API = "http://127.0.0.1:8025";
 let smtpBackup: { key: string; value: string }[] = [];
 let securityBackup: { key: string; value: string }[] = [];
 let siteBackup: { key: string; value: string }[] = [];
+let appearanceBackup: { key: string; value: string }[] = [];
 let downloadBackup: { key: string; value: string }[] = [];
 
 async function login(page: Page, username: string, password: string) {
@@ -53,6 +60,10 @@ test.beforeAll(async () => {
     where: { key: { in: SITE_KEYS } },
     select: { key: true, value: true },
   });
+  appearanceBackup = await prisma.systemConfig.findMany({
+    where: { key: { in: APPEARANCE_KEYS } },
+    select: { key: true, value: true },
+  });
   downloadBackup = await prisma.systemConfig.findMany({
     where: { key: { in: DOWNLOAD_KEYS } },
     select: { key: true, value: true },
@@ -61,9 +72,25 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await prisma.systemConfig.deleteMany({
-    where: { key: { in: [...SMTP_KEYS, ...SECURITY_KEYS, ...SITE_KEYS, ...DOWNLOAD_KEYS] } },
+    where: {
+      key: {
+        in: [
+          ...SMTP_KEYS,
+          ...SECURITY_KEYS,
+          ...SITE_KEYS,
+          ...APPEARANCE_KEYS,
+          ...DOWNLOAD_KEYS,
+        ],
+      },
+    },
   });
-  const restore = [...smtpBackup, ...securityBackup, ...siteBackup, ...downloadBackup];
+  const restore = [
+    ...smtpBackup,
+    ...securityBackup,
+    ...siteBackup,
+    ...appearanceBackup,
+    ...downloadBackup,
+  ];
   if (restore.length > 0) {
     await prisma.systemConfig.createMany({ data: restore });
   }
@@ -92,7 +119,16 @@ test.describe.serial("admin 设置页", () => {
     ).toHaveAttribute("href", "/admin/settings");
     await page.goto("/admin/settings");
 
-    for (const group of ["smtp", "turnstile", "security", "notify", "site", "download", "umami"]) {
+    for (const group of [
+      "smtp",
+      "turnstile",
+      "security",
+      "notify",
+      "site",
+      "appearance",
+      "download",
+      "umami",
+    ]) {
       await expect(page.getByTestId(`settings-group-${group}`)).toBeVisible();
     }
     // 服务端 config 是进程级快照:经 UI 保存密码触发 reloadSystemConfig 后,
@@ -162,6 +198,20 @@ test.describe.serial("admin 设置页", () => {
     await expect(
       clientCard.getByRole("link", { name: "客户端下载 · E2E 客户端文案" }),
     ).toHaveAttribute("href", "/tutorial#e2e-client");
+  });
+
+  test("appearance 组保存 → 页头 logo 即时生效", async ({ page }) => {
+    await login(page, "m1admin", "adminpass123");
+    await page.goto("/admin/settings");
+
+    await page.getByTestId("settings-field-appearance-logoUrl").fill("/favicon-192.png");
+    await page.getByTestId("settings-save-appearance").click();
+    await expect(page.getByTestId("settings-result-appearance")).toContainText("已保存");
+
+    await page.goto("/");
+    await expect(
+      page.getByRole("banner").locator('img[alt="老克塔"]'),
+    ).toHaveAttribute("src", "/favicon-192.png");
   });
 
   test("测试发信:Mailpit 收到;坏配置热生效后回显失败摘要", async ({ page }) => {

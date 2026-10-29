@@ -104,6 +104,29 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
     ).toThrow(/system_config 配置校验失败/);
   });
 
+  it("appearance 缺省回落内置资源;显式留空=隐藏背景;非法协议校验失败", () => {
+    const defaults = buildConfigFromRows(rows());
+    expect(defaults.appearance).toEqual({
+      logoUrl: "/logo.png",
+      faviconUrl: "/favicon-32.png",
+      headerBackgroundUrl: "/background.jpg",
+      pageBackgroundUrl: "/background.jpg",
+    });
+
+    const hidden = buildConfigFromRows(
+      rows(
+        ["appearance.headerBackgroundUrl", ""],
+        ["appearance.pageBackgroundUrl", ""],
+      ),
+    );
+    expect(hidden.appearance.headerBackgroundUrl).toBe("");
+    expect(hidden.appearance.pageBackgroundUrl).toBe("");
+
+    expect(() =>
+      buildConfigFromRows(rows(["appearance.logoUrl", "javascript:alert(1)"])),
+    ).toThrow(/system_config 配置校验失败/);
+  });
+
   it("backup 可只给 gameWeekly(retentionDays 取默认 30);retentionDays=0 合法", () => {
     const partial = buildConfigFromRows(rows(["backup.gameWeekly", "false"]));
     expect(partial.backup).toEqual({ retentionDays: 30, gameWeekly: false });

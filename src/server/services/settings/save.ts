@@ -24,7 +24,12 @@ const dlUrlSchema = z.union([
   z
     .string()
     .trim()
-    .refine((v) => v.startsWith("/") || /^https?:\/\//.test(v), "链接须为站内路径或 http(s) 地址"),
+    .refine(
+      (v) =>
+        (v.startsWith("/") || /^https?:\/\//.test(v)) &&
+        !/[\s"'()\\]/.test(v),
+      "链接须为站内路径或 http(s) 地址",
+    ),
 ]);
 
 const groupSchemas = {
@@ -61,6 +66,13 @@ const groupSchemas = {
     addonUrl: dlUrlSchema,
     addonNote: z.string().trim().max(32),
     yyNote: z.string().trim().max(48),
+  }),
+  // 站点外观:logo/favicon 留空=回落内置资源,背景留空=隐藏背景图
+  appearance: z.object({
+    logoUrl: dlUrlSchema,
+    faviconUrl: dlUrlSchema,
+    headerBackgroundUrl: dlUrlSchema,
+    pageBackgroundUrl: dlUrlSchema,
   }),
   // home 组成就字段 optional:轮播设置表单单独提交(缺省字段=保持现值,见序列化 keep 分支)
   home: z.object({
@@ -124,6 +136,12 @@ const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>> = {
     addonUrl: "download.addon.url",
     addonNote: "download.addon.note",
     yyNote: "download.yy.note",
+  },
+  appearance: {
+    logoUrl: "appearance.logoUrl",
+    faviconUrl: "appearance.faviconUrl",
+    headerBackgroundUrl: "appearance.headerBackgroundUrl",
+    pageBackgroundUrl: "appearance.pageBackgroundUrl",
   },
   home: {
     achievementUrl: "home.achievementUrl",

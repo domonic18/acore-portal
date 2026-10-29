@@ -22,6 +22,12 @@ export type SettingsView = {
   };
   notify: { pointEmailThreshold: number };
   site: { icp: string; qqGroup: string };
+  appearance: {
+    logoUrl: string;
+    faviconUrl: string;
+    headerBackgroundUrl: string;
+    pageBackgroundUrl: string;
+  };
   download: {
     clientUrl: string;
     clientNote: string;

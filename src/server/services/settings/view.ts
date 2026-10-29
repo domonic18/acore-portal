@@ -35,6 +35,12 @@ export async function getSettingsView(): Promise<SettingsView> {
       icp: config.site.icp,
       qqGroup: config.site.qqGroup,
     },
+    appearance: {
+      logoUrl: config.appearance.logoUrl,
+      faviconUrl: config.appearance.faviconUrl,
+      headerBackgroundUrl: config.appearance.headerBackgroundUrl,
+      pageBackgroundUrl: config.appearance.pageBackgroundUrl,
+    },
     download: {
       clientUrl: config.download.clientUrl,
       clientNote: config.download.clientNote,

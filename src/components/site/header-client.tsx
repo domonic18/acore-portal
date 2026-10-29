@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import type { SiteNavItem } from "@/constants/navigation";
 import { UnreadBadge } from "@/components/site/unread-badge";
 
@@ -16,14 +16,26 @@ export function SiteHeaderClient({
   portraitUrl,
   authed,
   points,
+  logoUrl,
+  headerBackgroundUrl,
 }: {
   items: readonly SiteNavItem[];
   portraitUrl: string;
   authed: boolean;
   points: number;
+  logoUrl: string;
+  headerBackgroundUrl: string;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  // 页头背景图(后台可配):暗色叠层保证导航可读;留空回落纯色底
+  const headerStyle: CSSProperties | undefined = headerBackgroundUrl
+    ? {
+        backgroundImage: `linear-gradient(rgba(16, 32, 53, 0.82), rgba(16, 32, 53, 0.82)), url("${headerBackgroundUrl}")`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }
+    : undefined;
 
   const isActive = (item: SiteNavItem) => {
     if (!item.href) return false;
@@ -43,11 +55,15 @@ export function SiteHeaderClient({
     }`;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#35577f] bg-[#102035]/95 backdrop-blur">
+    <header
+      className="sticky top-0 z-40 border-b border-[#35577f] bg-[#102035]/95 backdrop-blur"
+      style={headerStyle}
+    >
       <div className="container-site flex h-16 items-center gap-8 lg:h-[72px]">
         <Link href="/" className="shrink-0" aria-label="老克塔首页">
+          {/* 400×157 源图(生产 800×313 缩放),46px 显示下高倍屏不糊 */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="老克塔" width={116} height={46} className="h-10 w-auto lg:h-[46px]" />
+          <img src={logoUrl} alt="老克塔" width={400} height={157} className="h-10 w-auto lg:h-[46px]" />
         </Link>
 
         {/* 桌面导航 */}

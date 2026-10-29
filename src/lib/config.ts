@@ -8,6 +8,18 @@ import { prisma } from "@/lib/db/business";
  * 启动时经 instrumentation 预热 fail-fast;运行期读进程内缓存,
  * 管理端变更配置后调 reloadSystemConfig 写穿失效。凭据值禁止打印/落日志。
  */
+
+/** 外观资源地址:站内路径或 http(s);禁空白/引号/括号/反斜杠,保证内联样式插值安全 */
+const assetUrlSchema = z
+  .string()
+  .trim()
+  .refine(
+    (v) =>
+      (v === "" || v.startsWith("/") || /^https?:\/\//.test(v)) &&
+      !/[\s"'()\\]/.test(v),
+    "须为站内路径或 http(s) 地址",
+  );
+
 const configSchema = z.object({
   app: z.object({
     url: z.string().url(),
@@ -90,6 +102,14 @@ const configSchema = z.object({
     addonUrl: z.string().default("/tutorial"),
     addonNote: z.string().default("整合包"),
     yyNote: z.string().default("频道号见公告"),
+  }),
+  // 站点外观(2026-10 用户反馈):favicon / 页头 logo / 页头背景 / 页面背景均可后台配置;
+  // logo 与 favicon 空=回落内置资源,背景空=不渲染背景图(纯色底)
+  appearance: z.object({
+    logoUrl: assetUrlSchema.default("/logo.png"),
+    faviconUrl: assetUrlSchema.default("/favicon-32.png"),
+    headerBackgroundUrl: assetUrlSchema.default("/background.jpg"),
+    pageBackgroundUrl: assetUrlSchema.default("/background.jpg"),
   }),
   // 首页配置(US 首页配置):最近成就 iframe 嵌入三参数;url 空=整块隐藏,
   // 高度为 CSS 长度(185vh/600px 等),scrolling 控制 iframe 滚动条;
@@ -186,6 +206,12 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       addonUrl: flat["download.addon.url"] ?? "/tutorial",
       addonNote: flat["download.addon.note"] ?? "整合包",
       yyNote: flat["download.yy.note"] ?? "频道号见公告",
+    },
+    appearance: {
+      logoUrl: flat["appearance.logoUrl"] ?? "/logo.png",
+      faviconUrl: flat["appearance.faviconUrl"] ?? "/favicon-32.png",
+      headerBackgroundUrl: flat["appearance.headerBackgroundUrl"] ?? "/background.jpg",
+      pageBackgroundUrl: flat["appearance.pageBackgroundUrl"] ?? "/background.jpg",
     },
     home: {
       achievementUrl: flat["home.achievementUrl"] ?? "",

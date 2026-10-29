@@ -4,6 +4,7 @@ import { SESSION } from "@/constants/session";
 import { getSessionFromToken } from "@/lib/auth/session";
 import { getRandomPortraitUrl } from "@/server/services/shared/portrait";
 import { getBalance } from "@/server/services/points/ledger";
+import { getConfig } from "@/lib/config";
 import { SiteHeaderClient } from "@/components/site/header-client";
 
 /**
@@ -19,6 +20,10 @@ export async function SiteHeader() {
   const points = session
     ? await getBalance(BigInt(session.userId)).catch(() => 0)
     : 0;
+  // 外观配置缺失(build 预渲染)时回落内置资源;显式留空=不渲染背景图
+  const appearance = await getConfig()
+    .then((c) => c.appearance)
+    .catch(() => null);
 
   return (
     <SiteHeaderClient
@@ -26,6 +31,8 @@ export async function SiteHeader() {
       portraitUrl={portraitUrl}
       authed={!!session}
       points={points}
+      logoUrl={appearance?.logoUrl || "/logo.png"}
+      headerBackgroundUrl={appearance?.headerBackgroundUrl ?? "/background.jpg"}
     />
   );
 }
