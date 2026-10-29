@@ -58,11 +58,11 @@ export function ModeratorActions({
   }
 
   const btn =
-    "rounded border px-2 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed";
+    "rounded-lg border px-2.5 py-1.5 text-[12px] disabled:opacity-50 disabled:cursor-not-allowed";
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded border border-[#3a4a63] bg-[#101827]/60 p-3 text-xs">
-      <span className="font-medium text-[#8fa0b8]">版主操作</span>
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#22385a] bg-[#1b2f4c] px-3.5 py-2.5 text-xs">
+      <span className="font-medium text-[#6482a3]">版主操作：</span>
       <button
         type="button"
         disabled={busy}

@@ -115,12 +115,13 @@ test.describe("US5 论坛(T041)", () => {
 
     await page.goto("/forum");
     await expect(page.getByRole("heading", { name: "论坛" })).toBeVisible();
-    await expect(page.getByText("公会大厅")).toBeVisible();
-    await expect(page.getByText("交易行")).toBeVisible();
+    // 版块名同时出现在右栏最新主题,按链接定位避免 strict mode 冲突
+    await expect(page.getByRole("link", { name: "公会大厅" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "交易行" })).toBeVisible();
 
     await page.goto("/forum/guild-hall");
-    // 置顶主题在列 + 置顶徽标;2002 呈现剥标签后的净标题
-    await expect(page.getByText("置顶")).toBeVisible();
+    // 置顶主题在列 + 置顶徽标(分区标题「置顶公告」也会匹配,取精确徽标文本)
+    await expect(page.getByText("置顶", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("公会招收稳定成员")).toBeVisible();
     await expect(page.getByText("附魔材料求购")).toBeVisible();
 
@@ -239,6 +240,25 @@ test.describe("US5 论坛(T041)", () => {
 
     const api = await page.request.get("/api/admin/articles");
     expect(api.status()).toBe(403);
+  });
+
+  test("p07 页壳:版块两栏/分区置顶/数字分页/只读说明", async ({ page }) => {
+    await page.goto("/forum");
+    await expect(page.getByRole("heading", { name: /版块（/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "最新主题" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "版规与说明" })).toBeVisible();
+
+    const seed = await prisma.forumThread.findUniqueOrThrow({
+      where: { legacyWpTopicId: 2002 },
+      select: { id: true, board: { select: { slug: true } } },
+    });
+    await page.goto(`/forum/${seed.board.slug}`);
+    await expect(page.getByRole("heading", { name: "置顶公告" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "全部主题" })).toBeVisible();
+    await expect(page.getByText(/共 \d+ 个主题 · 第 1 \/ \d+ 页/)).toBeVisible();
+
+    await page.goto(`/forum/thread/${seed.id}`);
+    await expect(page.getByRole("heading", { name: "只读说明" })).toBeVisible();
   });
 
   test("/bbs 与 ?topic=/?forum= 301 兼容(FR-219/M3)", async ({ request }) => {

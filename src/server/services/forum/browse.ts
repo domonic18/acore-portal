@@ -9,32 +9,76 @@ export const FORUM_THREAD_PAGE_SIZE = 20;
 export const FORUM_POST_PAGE_SIZE = 20;
 
 export async function listForumBoards() {
-  const boards = await prisma.forumBoard.findMany({
-    orderBy: [{ sort: "asc" }, { id: "asc" }],
-    include: {
-      threads: {
-        where: { deletedAt: null },
-        orderBy: [{ lastPostAt: "desc" }],
-        take: 1,
-        select: { id: true, title: true, lastPostAt: true },
+  const [boards, replyTotals] = await Promise.all([
+    prisma.forumBoard.findMany({
+      orderBy: [{ sort: "asc" }, { id: "asc" }],
+      include: {
+        threads: {
+          where: { deletedAt: null },
+          orderBy: [{ lastPostAt: "desc" }],
+          take: 1,
+          select: {
+            id: true,
+            title: true,
+            authorName: true,
+            lastPostAt: true,
+            replyCount: true,
+            pinned: true,
+            closedAt: true,
+            statusLabel: true,
+          },
+        },
+        _count: { select: { threads: { where: { deletedAt: null } } } },
       },
-      _count: { select: { threads: { where: { deletedAt: null } } } },
-    },
-  });
+    }),
+    prisma.forumThread.groupBy({
+      by: ["boardId"],
+      where: { deletedAt: null },
+      _sum: { replyCount: true },
+    }),
+  ]);
+  const replyByBoard = new Map(
+    replyTotals.map((r) => [r.boardId.toString(), r._sum.replyCount ?? 0]),
+  );
   return boards.map((b) => ({
     id: b.id.toString(),
     slug: b.slug,
     name: b.name,
     description: b.description,
     threadCount: b._count.threads,
+    replyCount: replyByBoard.get(b.id.toString()) ?? 0,
     latestThread: b.threads[0]
       ? {
           id: b.threads[0].id.toString(),
           title: b.threads[0].title,
+          authorName: b.threads[0].authorName,
           lastPostAt: b.threads[0].lastPostAt,
+          replyCount: b.threads[0].replyCount,
+          pinned: b.threads[0].pinned,
+          closedAt: b.threads[0].closedAt,
+          statusLabel: b.threads[0].statusLabel,
         }
       : null,
   }));
+}
+
+/** 全站最新主题(论坛首页右栏;p07 设计稿) */
+export async function listLatestForumThreads(limit = 5) {
+  return prisma.forumThread.findMany({
+    where: { deletedAt: null },
+    orderBy: { lastPostAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      title: true,
+      authorName: true,
+      replyCount: true,
+      pinned: true,
+      closedAt: true,
+      statusLabel: true,
+      board: { select: { name: true, slug: true } },
+    },
+  });
 }
 
 export async function getForumBoardBySlug(slug: string) {
@@ -101,6 +145,7 @@ export async function listThreadPosts(opts: {
         authorName: true,
         contentHtml: true,
         createdAt: true,
+        authorUser: { select: { role: true } },
       },
     }),
     prisma.forumPost.count({ where }),
