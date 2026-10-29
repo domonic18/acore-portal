@@ -108,6 +108,36 @@ test.afterAll(async () => {
   await prisma.$disconnect();
 });
 
+test.describe("p12 后台外壳", () => {
+  test("独立控制台:分组侧栏/面包屑/激活态,门户页头页脚不渲染", async ({ page }) => {
+    await login(page, "m1admin", "adminpass123");
+    await page.goto("/admin");
+
+    const shellNav = page.getByRole("navigation", { name: "后台导航" });
+    await expect(shellNav).toBeVisible();
+    for (const group of ["运营", "社区", "数据", "系统"]) {
+      await expect(shellNav.getByText(group, { exact: true })).toBeVisible();
+    }
+    await expect(shellNav.getByRole("link", { name: "仪表盘" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(page.getByRole("navigation", { name: "面包屑" })).toContainText("运营");
+    // 门户 chrome 不出现在 /admin
+    await expect(page.getByRole("navigation", { name: "主导航" })).toHaveCount(0);
+    await expect(page.locator("footer")).toHaveCount(0);
+
+    await page.goto("/admin/settings");
+    const crumb = page.getByRole("navigation", { name: "面包屑" });
+    await expect(crumb.getByText("系统", { exact: true })).toBeVisible();
+    await expect(crumb.getByText("设置", { exact: true })).toBeVisible();
+    await expect(shellNav.getByRole("link", { name: "设置" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+});
+
 test.describe("US5 运营后台(T055)", () => {
   test("越权拒绝:user 访问后台页被 middleware 拦截回登录页(FR-125)", async ({ page }) => {
     await login(page, "legacyuser", "oldpass123");

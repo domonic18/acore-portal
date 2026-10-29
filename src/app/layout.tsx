@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import { SiteFooter } from "@/components/site/footer";
+import { HideOnAdmin } from "@/components/site/chrome-gate";
 import { SiteHeader } from "@/app/_components/site-header";
 import { getConfig } from "@/lib/config";
 import "@/styles/globals.css";
@@ -24,9 +25,13 @@ export default async function RootLayout({
   return (
     <html lang="zh-CN">
       <body className="flex min-h-screen flex-col antialiased">
-        <SiteHeader />
+        <HideOnAdmin>
+          <SiteHeader />
+        </HideOnAdmin>
         <div className="flex-1">{children}</div>
-        <SiteFooter />
+        <HideOnAdmin>
+          <SiteFooter />
+        </HideOnAdmin>
         {umami && (
           <Script
             src={umami.scriptUrl}
