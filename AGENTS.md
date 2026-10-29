@@ -47,7 +47,7 @@ pnpm db:migrate                                # 业务库迁移
 pnpm db:seed                                   # 开发种子数据(scripts/dev/seed.ts)
 pnpm soap:mock                                 # 本地 SOAP worldserver 模拟(开发/联调用)
 pnpm dev                                       # 开发服务器
-make check                                     # 质量门禁: lint + typecheck + vitest(329 用例)
+make check                                     # 质量门禁: lint + typecheck + vitest(331 用例)
 pnpm test:e2e                                  # Playwright E2E 关态档(79 场景, 含路由兼容 301/商城结账/内容前台/论坛/状态卡/工具页/通知/看板/SEO)
 pnpm test:e2e:turnstile                        # E2E 开态档(E2E_TURNSTILE=1, Turnstile 测试密钥直通, 与关态同量)
 pnpm verify:soap                               # SOAP 通道连通性自检(连真实 worldserver 或 mock)
