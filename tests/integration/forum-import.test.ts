@@ -46,9 +46,9 @@ async function seedFixture() {
   for (const [id, parent, title, status, content] of topics) {
     await pool.query(
       `INSERT INTO wp_legacy.wp_posts
-         (ID, post_author, post_date, post_content, post_title, post_status, post_name,
+         (ID, post_author, post_date, post_date_gmt, post_modified, post_modified_gmt, post_content, post_title, post_status, post_name,
           post_parent, post_type, post_excerpt, to_ping, pinged, post_content_filtered)
-       VALUES (?, 1, '2026-01-01 00:00:00', ?, ?, ?, ?, ?, 'topic', '', '', '', '')`,
+       VALUES (?, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00', '2026-01-01 00:00:00', '2026-01-01 00:00:00', ?, ?, ?, ?, ?, 'topic', '', '', '', '')`,
       [id, content, title, status, `t36-topic-${id}`, parent],
     );
   }
@@ -60,10 +60,10 @@ async function seedFixture() {
   for (const [id, parent, date, status, content] of replies) {
     await pool.query(
       `INSERT INTO wp_legacy.wp_posts
-         (ID, post_author, post_date, post_content, post_title, post_status, post_name,
+         (ID, post_author, post_date, post_date_gmt, post_modified, post_modified_gmt, post_content, post_title, post_status, post_name,
           post_parent, post_type, post_excerpt, to_ping, pinged, post_content_filtered)
-       VALUES (?, 1, ?, ?, ?, ?, ?, ?, 'reply', '', '', '', '')`,
-      [id, date, content, `T36 回复 ${id}`, status, `t36-reply-${id}`, parent],
+       VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reply', '', '', '', '')`,
+      [id, date, date, date, date, content, `T36 回复 ${id}`, status, `t36-reply-${id}`, parent],
     );
   }
 }

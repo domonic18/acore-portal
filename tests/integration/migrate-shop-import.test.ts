@@ -68,9 +68,9 @@ async function seedWpFixture() {
   // 商品×3:itemsend_ 游戏物品(含促销/库存 meta)、transmog 非契约 SKU、改名服务
   for (const [i, pid] of PRODUCT_WP_IDS.entries()) {
     await pool.query(
-      `INSERT INTO wp_legacy.wp_posts (ID, post_author, post_date, post_content, post_title,
+      `INSERT INTO wp_legacy.wp_posts (ID, post_author, post_date, post_date_gmt, post_modified, post_modified_gmt, post_content, post_title,
          post_excerpt, to_ping, pinged, post_content_filtered, post_name, post_type, post_status)
-       VALUES (?, ?, '2023-05-01 00:00:00', '', ?, '', '', '', '', ?, 'product', 'publish')`,
+       VALUES (?, ?, '2023-05-01 00:00:00', '2023-05-01 00:00:00', '2023-05-01 00:00:00', '2023-05-01 00:00:00', '', ?, '', '', '', '', ?, 'product', 'publish')`,
       [pid, WP_USER_ID, `T056 商品${i} ${RUN}`, `${SLUG_PREFIX}p${i}`],
     );
   }
@@ -157,9 +157,9 @@ async function seedWpFixture() {
   ];
   for (const o of orders) {
     await pool.query(
-      `INSERT INTO wp_legacy.wp_posts (ID, post_author, post_date, post_content, post_title,
+      `INSERT INTO wp_legacy.wp_posts (ID, post_author, post_date, post_date_gmt, post_modified, post_modified_gmt, post_content, post_title,
          post_excerpt, to_ping, pinged, post_content_filtered, post_name, post_type, post_status)
-       VALUES (?, ?, '2023-06-01 12:00:00', '', ?, '', '', '', '', ?, 'shop_order', 'wc-processing')`,
+       VALUES (?, ?, '2023-06-01 12:00:00', '2023-06-01 12:00:00', '2023-06-01 12:00:00', '2023-06-01 12:00:00', '', ?, '', '', '', '', ?, 'shop_order', 'wc-processing')`,
       [o.id, WP_USER_ID, o.title, `order-${o.id}`],
     );
     await pool.query(

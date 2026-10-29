@@ -78,8 +78,8 @@ async function seedFixture() {
   for (const [id, name, title, status, content] of posts) {
     await pool.query(
       `INSERT INTO wp_legacy.wp_posts
-         (ID, post_author, post_date, post_title, post_content, post_excerpt, post_status, post_name, to_ping, pinged, post_content_filtered, post_type)
-       VALUES (?, 1, '2023-06-01 12:00:00', ?, ?, '', ?, ?, '', '', '', 'post')`,
+         (ID, post_author, post_date, post_date_gmt, post_modified, post_modified_gmt, post_title, post_content, post_excerpt, post_status, post_name, to_ping, pinged, post_content_filtered, post_type)
+       VALUES (?, 1, '2023-06-01 12:00:00', '2023-06-01 12:00:00', '2023-06-01 12:00:00', '2023-06-01 12:00:00', ?, ?, '', ?, ?, '', '', '', 'post')`,
       [id, title, content, status, name],
     );
   }
@@ -99,14 +99,14 @@ async function seedFixture() {
   );
   await pool.query(
     `INSERT INTO wp_legacy.wp_posts
-       (ID, post_author, post_date, post_title, post_content, post_excerpt, post_status, post_name, to_ping, pinged, post_content_filtered, post_type)
-     VALUES (?, 1, '2023-07-01 00:00:00', 'T12 静态页', ?, '', 'publish', 't12-page', '', '', '', 'page')`,
+       (ID, post_author, post_date, post_date_gmt, post_modified, post_modified_gmt, post_title, post_content, post_excerpt, post_status, post_name, to_ping, pinged, post_content_filtered, post_type)
+     VALUES (?, 1, '2023-07-01 00:00:00', '2023-07-01 00:00:00', '2023-07-01 00:00:00', '2023-07-01 00:00:00', 'T12 静态页', ?, '', 'publish', 't12-page', '', '', '', 'page')`,
     [PAGE_X, `<p>页面正文。</p><img src="http://lokta.cn${IMG_OLD}" alt="页图" />`],
   );
   await pool.query(
     `INSERT INTO wp_legacy.wp_posts
-       (ID, post_author, post_date, post_title, post_content, post_excerpt, post_status, post_name, to_ping, pinged, post_content_filtered, post_type)
-     VALUES (?, 1, '2023-07-02 00:00:00', 'T12 渐进源', ?, '', 'publish', 't12-prog', '', '', '', 'page')`,
+       (ID, post_author, post_date, post_date_gmt, post_modified, post_modified_gmt, post_title, post_content, post_excerpt, post_status, post_name, to_ping, pinged, post_content_filtered, post_type)
+     VALUES (?, 1, '2023-07-02 00:00:00', '2023-07-02 00:00:00', '2023-07-02 00:00:00', '2023-07-02 00:00:00', 'T12 渐进源', ?, '', 'publish', 't12-prog', '', '', '', 'page')`,
     [PROG_PAGE, t12ProgressionHtml()],
   );
 }
