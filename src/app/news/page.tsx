@@ -7,5 +7,13 @@ export default function NewsPage({
 }: {
   searchParams: { page?: string; q?: string };
 }) {
-  return <ArchivePage categorySlug="news" title="资讯" searchParams={searchParams} />;
+  return (
+    <ArchivePage
+      categorySlug="news"
+      title="资讯"
+      searchParams={searchParams}
+      layout="cards"
+      pageSize={6}
+    />
+  );
 }

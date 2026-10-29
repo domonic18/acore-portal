@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import {
+  getAdjacentArticles,
   getArticleBySlug,
   incrementArticleViews,
   listArchiveArticles,
@@ -74,6 +75,10 @@ afterAll(async () => {
     where: { article: { slug: { in: created.articles } } },
   });
   await prisma.article.deleteMany({ where: { slug: { in: created.articles } } });
+  // 跨分类用例的副分类:先清其文章再删分类(失败中断也不留残行污染后台默认分类)
+  const sideCat = `${CAT_SLUG}-x`;
+  await prisma.article.deleteMany({ where: { category: { slug: sideCat } } });
+  await prisma.articleCategory.deleteMany({ where: { slug: sideCat } });
   await prisma.contentPage.deleteMany({ where: { slug: PAGE_SLUG } });
   await prisma.progressionNode.deleteMany({
     where: { legacyWpKey: { in: NODE_KEYS } },
@@ -180,6 +185,37 @@ describe("静态页与文章详情查询(T021 FR-210)", () => {
     expect(detail?.category.slug).toBe(CAT_SLUG);
     expect(detail?.tags).toHaveLength(1);
     expect(await getArticleBySlug(`nope-${RUN}`)).toBeNull();
+  });
+
+  it("同分类上一篇=更新一篇,下一篇=更旧一篇;跨分类不串", async () => {
+    // 比 arch 组(≥1 天前)更新,隔离相邻关系
+    const olderSlug = await makeArticle("adj-older", 0.3, "published");
+    const midSlug = await makeArticle("adj-mid", 0.2, "published");
+    const newerSlug = await makeArticle("adj-newer", 0.1, "published");
+    const mid = await prisma.article.findUniqueOrThrow({
+      where: { slug: midSlug },
+      select: { id: true, categoryId: true, publishedAt: true },
+    });
+    const adj = await getAdjacentArticles(mid);
+    expect(adj.prev?.slug).toBe(newerSlug);
+    expect(adj.next?.slug).toBe(olderSlug);
+
+    const otherCat = await prisma.articleCategory.create({
+      data: { name: "T21 异类", slug: `${CAT_SLUG}-x` },
+    });
+    await prisma.article.create({
+      data: {
+        slug: `adj-other-${RUN}`,
+        title: "异类",
+        bodyMd: "<p>x</p>",
+        categoryId: otherCat.id,
+        status: "published",
+        publishedAt: new Date(),
+      },
+    });
+    created.articles.push(`adj-other-${RUN}`);
+    const adj2 = await getAdjacentArticles(mid);
+    expect(adj2.prev?.slug).toBe(newerSlug);
   });
 });
 
