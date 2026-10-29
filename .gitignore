@@ -27,6 +27,7 @@ src/generated/
 # Playwright
 playwright-report/
 test-results/
+.playwright-mcp/
 
 # 测试覆盖率
 coverage/
