@@ -44,8 +44,8 @@
 
 ## 7. M3 内容/状态域前置项(T049 扩)
 
-- [ ] SOAP `.server info` 真机解析核对:uptime 行/登录队列行解析正则 vs 真机输出(mock 固定样例先行,解析失败置 null 前台 N/A;在线数走 characters 库 `online=1` 计数不走文本解析,契约 specs/003 contracts/server-status.md)
-- [ ] characters 今日新注册口径核对:`create_date`(unix 秒,M1 迁移既有字段)在真机库的语义确认为账号建号时间,避免状态卡统计口径漂移(T043 偏差注记)
+- [x] SOAP `.server info` 真机解析核对:2026-10-29 真机(master-b9ba5a689)uptime 行为中文「服务器运行时间」,无 `Uptime:` 英文行;解析已加中英文回退(`status/parse.ts`,单测覆盖),登录队列真机无输出→前台 N/A;在线数走 characters 库 `online=1` 计数不走文本解析(契约 specs/003 contracts/server-status.md)
+- [x] characters 今日新注册口径核对:2026-10-29 真机列为 `creation_date TIMESTAMP`(非 `create_date` unix 秒);模型/fixture/集成夹具已对齐,比较改用 Date(T043 偏差注记,原推断不成立)
 - [ ] 内容迁移正式跑清单(切换日全幂等,顺序权威口径见 specs/003 migration-report §6):`cos-upload.mjs`(去 --scan-only,新增扫描面 forum_post.contentHtml/progression_node.imageUrl) → `content-import.mjs`(article/content_page/progression_node 三落地表+正文死链扫描) → `route-map-m3.sql`(p/page_id/cat 三键 124 行,断言见文件尾;topic/forum 两键随 `forum-import.mjs` 扩充) → 对账 JSON 全零(viewsDiffRows=0/deadlinks=0)
 
 ## 8. M4 防滥用/统计/备份前置项(T037 扩)

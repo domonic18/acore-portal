@@ -48,6 +48,7 @@
 
 | 日期 | 变更 | 原因 |
 |------|------|------|
+| 2026-10-29 | 设计稿对齐(ardot p01):首页两栏重构+快捷入口+状态卡右栏/页头导航与积分 chip/页脚/轮播/设计令牌;真机联调修复:characters 建号列对齐 `creation_date TIMESTAMP`(原 `create_date` INT 致状态卡降级)+`.server info` 中文输出解析回退;测试基线 327 vitest;launch-checklist §7 两条真机核对项核销 | 用户验收前视觉对齐+真机端到端联调 |
 | 2026-10-25 | M4 收口:42 任务全完成(US1 工具页六页+route_map 六键/US2 Turnstile+登录限速/US3 通知中心+积分通知/US4 Umami+统计看板/US5 系统设置+mysqldump→COS 备份/US6 sitemap+robots;Polish=launch-checklist §8/性能快测三项达标/安全核查四项零改动/文档三层同步/SC-301~309 核销表),状态→开发完成(验收顺延);测试基线 292 vitest + 79 E2E×2 档(关态/开态) | M4 Polish(T037-T042)完成 |
 | 2026-10-25 | COS 桶定名 wow-lokta-staging（用户命名裁决）+ 测试库全量追平（shop 1,897 单/积分 10,330 流水/COS 真实上传 15,297/内容论坛迁移/route_map 392 行）+ 部署 bug 两枚修复（/api/status force-dynamic、node 路由相对 Location）；M4 开工：全局搜索取消（飞书池已取消为准）、RAF/文章评论/SEO 工具后置二期、统计源定 Umami 自托管、备份属 M4 | 用户指令 COS 迁移+本机部署；M4 范围四项裁决 |
 | 2026-10-24 | M3 收口:50 任务全完成(Polish=性能 profile 三项大幅优于阈值/审计安全核查[揪出分类标签保存缺审计+渐进后台 CRUD 缺域,用户裁决补实现]/文档三层同步/最终核验[E2E 复核补最近浏览例至 60+wp_comments 盘点 2,089=订单 2,070+文章 18+论坛 1]),状态→开发完成(验收顺延);SC-201~208 核销表 specs/003 checklists/sc-acceptance.md;launch-checklist §7 M3 前置项 | M3 Polish(T047-T050)完成 |
