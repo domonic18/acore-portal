@@ -17,7 +17,7 @@ import {
  * ③ 冷启动失败(无缓存)→ 数字字段 null;④ 峰值 max 语义(失败不污染/更大值保留);
  * ⑤ enabled=false → {enabled:false};⑥ saveStatusConfig PUT 后即时生效+审计前后值
  * +指针失效回退告警(SC-208 注入半)。
- * fixture:characters RUN 段直写(dev 库,create_date=今日 1 行);mock 态用后还原。
+ * fixture:characters RUN 段直写(dev 库,creation_date=今日 1 行);mock 态用后还原。
  */
 const RUN = Date.now().toString(36);
 const GUID_BASE = 9_960_000 + (Number.parseInt(RUN, 36) % 9_000);
@@ -47,20 +47,18 @@ beforeAll(async () => {
   const { reloadSystemConfig } = await import("@/lib/config");
   await reloadSystemConfig();
 
-  const db = await getCharactersDb();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayUnix = Math.floor(today.getTime() / 1000);
+  const oldDate = new Date("2024-01-01T00:00:00Z");
+  const todayDate = new Date();
   // 游戏 DB 账号只读(R5):fixture 走业务连接跨库写(M1/M2 同款)
   await prisma.$executeRaw`
     INSERT INTO acore_characters.characters
-      (guid, account, name, race, class, gender, level, map, zone, online, health, create_date)
+      (guid, account, name, race, class, gender, level, map, zone, online, health, creation_date)
     VALUES
-      (${GUID_BASE}, 1, ${`S42a${RUN.slice(-4)}`}, 1, 1, 0, 60, 0, 1519, 1, 4200, 0),
-      (${GUID_BASE + 1}, 1, ${`S42b${RUN.slice(-4)}`}, 4, 4, 1, 60, 0, 1519, 1, 3900, 0),
-      (${GUID_BASE + 2}, 1, ${`S42c${RUN.slice(-4)}`}, 2, 7, 0, 60, 0, 1519, 1, 5100, 0),
-      (${GUID_BASE + 3}, 1, ${`S42d${RUN.slice(-4)}`}, 6, 1, 0, 60, 0, 1519, 1, 8000, 0),
-      (${GUID_BASE + 4}, 1, ${`S42e${RUN.slice(-4)}`}, 10, 3, 1, 58, 0, 1519, 0, 2800, ${todayUnix})
+      (${GUID_BASE}, 1, ${`S42a${RUN.slice(-4)}`}, 1, 1, 0, 60, 0, 1519, 1, 4200, ${oldDate}),
+      (${GUID_BASE + 1}, 1, ${`S42b${RUN.slice(-4)}`}, 4, 4, 1, 60, 0, 1519, 1, 3900, ${oldDate}),
+      (${GUID_BASE + 2}, 1, ${`S42c${RUN.slice(-4)}`}, 2, 7, 0, 60, 0, 1519, 1, 5100, ${oldDate}),
+      (${GUID_BASE + 3}, 1, ${`S42d${RUN.slice(-4)}`}, 6, 1, 0, 60, 0, 1519, 1, 8000, ${oldDate}),
+      (${GUID_BASE + 4}, 1, ${`S42e${RUN.slice(-4)}`}, 10, 3, 1, 58, 0, 1519, 0, 2800, ${todayDate})
   `;
 
   await redis.del("status:probe");

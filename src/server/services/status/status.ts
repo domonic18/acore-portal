@@ -5,6 +5,7 @@ import { getConfig, reloadSystemConfig } from "@/lib/config";
 import { getCharactersDb } from "@/lib/db/characters";
 import type { ServerStatusPayload, ServerStatusResult } from "@/lib/status-types";
 import { rawExecuteCommand } from "@/server/soap/client";
+import { parseServerInfo } from "@/server/services/status/parse";
 import { resolveProgressionPosition } from "@/server/services/progression/progression";
 import { writeAudit } from "@/server/services/audit/audit";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
@@ -37,16 +38,6 @@ export function todayPeakKey(): string {
   return `status:peak:${yyyy}${mm}${dd}`;
 }
 
-/** .server info 文本解析(契约 §5:mock 固定样例;真机格式差异入 launch-checklist 核对) */
-export function parseServerInfo(text: string): {
-  uptimeText: string | null;
-  queueCount: number | null;
-} {
-  const uptime = /^Uptime:\s*(.+)$/m.exec(text)?.[1]?.trim() ?? null;
-  const queue = /Connection queue:\s*(\d+)/.exec(text);
-  return { uptimeText: uptime, queueCount: queue ? Number(queue[1]) : null };
-}
-
 type ProbeSnapshot = {
   ok: boolean;
   online: boolean;
@@ -73,7 +64,7 @@ async function charactersStats(db: Awaited<ReturnType<typeof getCharactersDb>>) 
       _count: { race: true },
     }),
     db.characters.count({
-      where: { createDate: { gte: Math.floor(startOfDay.getTime() / 1000) } },
+      where: { createDate: { gte: startOfDay } },
     }),
   ]);
   let allianceCount = 0;
