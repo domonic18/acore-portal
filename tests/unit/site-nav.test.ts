@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { SITE_NAV } from "@/constants/navigation";
+import { ACCOUNT_NAV, SITE_NAV } from "@/constants/navigation";
 import { RESERVED_SLUGS, ARCHIVE_SLUGS } from "@/constants/content";
 
 /**
  * T016 前置(Phase 1 checkpoint):SC-205 多级菜单结构断言。
- * 2026-10 与 ardot 设计稿 p01-s3 对齐(原站 GuestMenu/LoginMenu):
- * 游客=首页｜公告▾｜数据库▾｜论坛｜资讯;登录态追加 积分商店▾｜我的账户。
+ * 2026-10 与生产原站对齐(GuestMenu/LoginMenu):
+ * 游客=首页▾｜公告▾｜数据库▾｜资讯｜论坛;登录态追加 积分商店▾｜我的账户▾。
  */
 const GUEST_LABELS = SITE_NAV.filter((n) => !n.authOnly).map((n) => n.label);
 const AUTHED_LABELS = SITE_NAV.map((n) => n.label);
@@ -16,8 +16,8 @@ describe("SITE_NAV 多级菜单结构(SC-205)", () => {
       "首页",
       "公告",
       "数据库",
-      "论坛",
       "资讯",
+      "论坛",
       "积分商店",
       "我的账户",
     ]);
@@ -35,6 +35,25 @@ describe("SITE_NAV 多级菜单结构(SC-205)", () => {
       "积分商店",
       "我的账户",
     ]);
+  });
+
+  it("首页▾/我的账户▾ 子项与生产原站一致", () => {
+    const byLabel = Object.fromEntries(SITE_NAV.map((n) => [n.label, n]));
+    expect(byLabel["首页"]?.children?.map((c) => c.label)).toEqual([
+      "项目简介",
+      "使用教程",
+      "客户端下载",
+      "登录器下载",
+      "补丁下载",
+    ]);
+    expect(byLabel["首页"]?.children?.map((c) => c.href)).toEqual([
+      "/about",
+      "/tutorial",
+      "/tutorial",
+      "/tutorial",
+      "/tutorial",
+    ]);
+    expect(byLabel["我的账户"]?.children).toEqual(ACCOUNT_NAV);
   });
 
   it("公告▾/数据库▾/积分商店▾ 下拉子项与旧站一致(FR-202)", () => {

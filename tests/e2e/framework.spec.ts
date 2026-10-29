@@ -10,7 +10,7 @@ import { expect, test, type Page } from "@playwright/test";
  * 登录态追加 积分商店▾(购物车/结账)+我的账户;项目简介/使用教程走快捷入口与页脚。
  */
 
-const GUEST_TOP = ["首页", "公告", "数据库", "论坛", "资讯"];
+const GUEST_TOP = ["首页", "公告", "数据库", "资讯", "论坛"];
 
 async function login(page: Page) {
   await page.goto("/login");
@@ -29,8 +29,8 @@ test.describe("游客菜单(FR-201)", () => {
     for (const label of GUEST_TOP) {
       await expect(nav.getByText(label, { exact: true })).toBeVisible();
     }
-    // 商城与账户入口仅登录态;项目简介/使用教程走快捷入口+页脚,不占顶级导航
-    for (const label of ["积分商店", "我的账户", "项目简介", "使用教程"]) {
+    // 商城与账户入口仅登录态
+    for (const label of ["积分商店", "我的账户"]) {
       await expect(nav.getByText(label, { exact: true })).toHaveCount(0);
     }
     await expect(page.getByRole("link", { name: "登 录" })).toBeVisible();
@@ -48,6 +48,23 @@ test.describe("游客菜单(FR-201)", () => {
       "href",
       "/banlist",
     );
+  });
+
+  test("首页▾ 二级菜单对齐原站(项目简介/教程/下载)", async ({ page }) => {
+    await page.goto("/");
+    const nav = page.getByRole("navigation", { name: "主导航" });
+    const labels = ["项目简介", "使用教程", "客户端下载", "登录器下载", "补丁下载"];
+    // 折叠态只占 DOM 不可见,悬停首页后展开
+    for (const label of labels) {
+      await expect(nav.getByRole("link", { name: label, exact: true })).toBeHidden();
+    }
+    await nav.getByText("首页", { exact: true }).hover();
+    for (const label of labels) {
+      await expect(nav.getByRole("link", { name: label, exact: true })).toBeVisible();
+    }
+    await expect(
+      nav.getByRole("link", { name: "项目简介", exact: true }),
+    ).toHaveAttribute("href", "/about");
   });
 
   test("页脚协议/公约链接(FR-204)", async ({ page }) => {
@@ -104,6 +121,10 @@ test.describe("登录菜单(FR-201)", () => {
     await nav.getByText("积分商店", { exact: true }).hover();
     await expect(nav.getByRole("link", { name: "购物车" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "结账" })).toBeVisible();
+    // 我的账户▾ 直达用户中心各页
+    await nav.getByText("我的账户", { exact: true }).hover();
+    await expect(nav.getByRole("link", { name: "我的角色" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "账户设置" })).toBeVisible();
     // 登录后页头登录/注册入口退位
     await expect(page.getByRole("link", { name: "注 册" })).toHaveCount(0);
   });
