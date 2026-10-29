@@ -38,11 +38,12 @@ body {
     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
 }
 
-/* 全站容器:设计稿 1920 宽为全幅流式(px-40),常规屏收敛到安全宽度 */
+/* 全站容器:对齐 lokta.cn 固定版心(内容 1140px 居中,两侧露页面背景);
+ * max-width 含 2×40px 内边距,故 1220 = 1140 内容宽 */
 .container-site {
   margin-inline: auto;
   width: 100%;
-  max-width: 1800px;
+  max-width: 1220px;
   padding-inline: 1rem;
 }
 @media (min-width: 640px) {

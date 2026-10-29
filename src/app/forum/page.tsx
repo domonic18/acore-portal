@@ -59,7 +59,7 @@ export default async function ForumPage() {
             </span>
           </div>
 
-          <div className="hidden grid-cols-[minmax(0,1fr)_130px_262px_72px] gap-4 px-5 py-2.5 text-[12px] text-[#93b2ce] lg:grid">
+          <div className="hidden grid-cols-[minmax(0,1.3fr)_110px_minmax(0,1fr)_64px] gap-4 px-5 py-2.5 text-[12px] text-[#93b2ce] lg:grid">
             <span>版块</span>
             <span>主题 · 回复</span>
             <span>最新动态</span>
@@ -69,7 +69,7 @@ export default async function ForumPage() {
           <ul>
             {boards.map((b) => (
               <li key={b.slug} className="border-t border-[#22385a] first:border-t-0">
-                <div className="grid grid-cols-1 gap-3 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_130px_262px_72px] lg:items-center lg:gap-4">
+                <div className="grid grid-cols-1 gap-3 px-5 py-4 lg:grid-cols-[minmax(0,1.3fr)_110px_minmax(0,1fr)_64px] lg:items-center lg:gap-4">
                   <div className="flex min-w-0 items-start gap-3">
                     <span
                       aria-hidden="true"

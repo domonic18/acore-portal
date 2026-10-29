@@ -81,6 +81,28 @@ export async function listLatestForumThreads(limit = 5) {
   });
 }
 
+/** 首页「论坛精华」:置顶优先,其次按回复/浏览热度取前 N 条(无精华字段,以热度近似) */
+export async function listHighlightedForumThreads(limit = 5) {
+  return prisma.forumThread.findMany({
+    where: { deletedAt: null },
+    orderBy: [
+      { pinned: "desc" },
+      { replyCount: "desc" },
+      { viewCount: "desc" },
+      { lastPostAt: "desc" },
+    ],
+    take: limit,
+    select: {
+      id: true,
+      title: true,
+      authorName: true,
+      replyCount: true,
+      pinned: true,
+      board: { select: { name: true, slug: true } },
+    },
+  });
+}
+
 export async function getForumBoardBySlug(slug: string) {
   return prisma.forumBoard.findUnique({ where: { slug } });
 }

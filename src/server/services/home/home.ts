@@ -2,7 +2,10 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { listLatestAnnouncements } from "@/server/services/content/articles";
 import { resolveProgressionPosition } from "@/server/services/progression/progression";
-import { effectivePrice } from "@/server/services/catalog/products";
+import {
+  effectivePrice,
+  normalizeProductImages,
+} from "@/server/services/catalog/products";
 
 /**
  * 首页四区块聚合(M3 US3 T022/T027;spec §US3):
@@ -27,6 +30,7 @@ export async function getHomeBlocks() {
         salePrice: true,
         saleStart: true,
         saleEnd: true,
+        images: true,
       },
     }),
     prisma.product.findMany({
@@ -40,6 +44,7 @@ export async function getHomeBlocks() {
         salePrice: true,
         saleStart: true,
         saleEnd: true,
+        images: true,
       },
     }),
   ]);
@@ -54,6 +59,7 @@ export async function getHomeBlocks() {
     slug: p.slug,
     name: p.name,
     price: effectivePrice(p, now),
+    image: normalizeProductImages(p.images)[0] ?? null,
     featured: featuredRaw.some((f) => f.slug === p.slug),
   }));
 

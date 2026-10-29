@@ -2,9 +2,11 @@ import Link from "next/link";
 import { getHomeBlocks } from "@/server/services/home/home";
 import { listActiveBanners } from "@/server/services/home/banners";
 import { getServerStatus } from "@/server/services/status/status";
+import { listHighlightedForumThreads } from "@/server/services/forum/browse";
 import { getConfig } from "@/lib/config";
 import { StatusCard } from "@/components/site/status-card";
 import { HomeCarousel } from "@/components/site/home-carousel";
+import { HomeProductCarousel } from "@/components/site/home-product-carousel";
 import { SectionHeader } from "@/components/site/section-header";
 import { SiteSidebar } from "@/app/_components/sidebar/sidebar";
 
@@ -67,13 +69,19 @@ const QUICK_LINKS: { title: string; links: { label: string; href: string }[] }[]
 ];
 
 export default async function HomePage() {
-  const [{ announcements, progression, featuredProducts }, activeBanners, config, serverStatus] =
-    await Promise.all([
-      getHomeBlocks(),
-      listActiveBanners(),
-      getConfig(),
-      getServerStatus(),
-    ]);
+  const [
+    { announcements, progression, featuredProducts },
+    activeBanners,
+    config,
+    serverStatus,
+    forumHighlights,
+  ] = await Promise.all([
+    getHomeBlocks(),
+    listActiveBanners(),
+    getConfig(),
+    getServerStatus(),
+    listHighlightedForumThreads(5),
+  ]);
   const banners = activeBanners.map((b) => ({
     id: b.id.toString(),
     title: b.title,
@@ -83,16 +91,22 @@ export default async function HomePage() {
 
   return (
     <main className="container-site flex-1 py-6">
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_440px]">
-        {/* 左栏:轮播 + 最近成就 */}
-        <div className="flex min-w-0 flex-col gap-6">
-          <HomeCarousel banners={banners} intervalMs={config.home.carouselIntervalSec * 1000} />
+      {/* 版心固定 1140px 后栏宽不随视口放大,右栏对齐 lokta.cn 的 ~340px */}
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        {/* 左栏:轮播 + 最近成就;轮播与右栏快捷入口等高(对齐 lokta.cn 497/798 比例);
+         * gap-5 与右栏 space-y-5 同步,使两栏第二块(成就/状态卡)标题行水平对齐 */}
+        <div className="flex min-w-0 flex-col gap-5">
+          <div className="lg:h-[486px]">
+            <HomeCarousel banners={banners} intervalMs={config.home.carouselIntervalSec * 1000} />
+          </div>
 
-          {/* 最近成就嵌入(US 首页配置):url 空=整块隐藏;高度/滚动条后台可配 */}
+          {/* 最近成就嵌入(US 首页配置):url 空=整块隐藏;高度/滚动条后台可配。
+           * 与右栏卡片同壳(p-5 + mb-4 标题行),保证两栏标题基线对齐 */}
           {config.home.achievementUrl && (
-            <section>
+            <section className="rounded-2xl border border-[#22385a] bg-[#13233a] p-5">
               <SectionHeader
                 title="最近成就事件"
+                className="mb-4"
                 meta={
                   <a
                     href={config.home.achievementUrl}
@@ -104,13 +118,13 @@ export default async function HomePage() {
                   </a>
                 }
               />
-              <div className="overflow-hidden rounded-xl border border-[#35577f] bg-[#080d16] p-1.5">
+              <div className="overflow-hidden rounded-xl bg-[#080d16]">
                 <iframe
                   src={config.home.achievementUrl}
                   title="最近成就"
                   loading="lazy"
                   scrolling={config.home.achievementScrolling ? "auto" : "no"}
-                  className="w-full rounded-lg border-0 bg-[#080d16]"
+                  className="w-full border-0 bg-[#080d16]"
                   style={{ height: config.home.achievementHeight }}
                 />
               </div>
@@ -120,18 +134,17 @@ export default async function HomePage() {
 
         {/* 右栏:快捷入口 / 服务器状态 / 公告 / 商品 / 阶段 */}
         <div className="w-full space-y-5 lg:w-auto">
-          <section className="rounded-2xl border border-[#22385a] bg-[#13233a] px-5 py-4">
-            <div className="divide-y divide-[#1a2c47]">
+          {/* 快捷入口:对齐 lokta.cn 双行排版(金色组名独占一行,链接行在下) */}
+          <section className="rounded-2xl border border-[#22385a] bg-[#13233a] px-5 py-5 lg:h-[486px]">
+            <div className="flex h-full flex-col justify-between gap-2.5">
               {QUICK_LINKS.map((row) => (
-                <div key={row.title} className="flex items-baseline gap-4 py-2.5 first:pt-1 last:pb-1">
-                  <span className="w-[72px] shrink-0 text-[15px] font-bold text-[#e8c877]">
-                    {row.title}
-                  </span>
-                  <p className="min-w-0 flex flex-wrap items-baseline gap-x-1 text-[15px] leading-6">
+                <div key={row.title}>
+                  <p className="text-[15px] font-semibold leading-6 text-[#e8c877]">{row.title}</p>
+                  <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1 text-[13px] leading-6">
                     {row.links.map((l, i) => (
                       <span key={l.label} className="whitespace-nowrap">
-                        {i > 0 && <span className="mx-1.5 text-[#3d5a80]">|</span>}
-                        <Link href={l.href} className="text-[#6fb7e0] hover:text-[#a8d9f5] hover:underline">
+                        {i > 0 && <span className="mx-1 text-[#3d5a80]">|</span>}
+                        <Link href={l.href} className="text-[#d7c48d] hover:text-[#f4e3b0] hover:underline">
                           {l.label}
                         </Link>
                       </span>
@@ -173,21 +186,10 @@ export default async function HomePage() {
             {featuredProducts.length === 0 ? (
               <p className="text-sm text-[#6482a3]">商品即将上架。</p>
             ) : (
-              <ul className="space-y-2.5 text-[15px]">
-                {featuredProducts.map((p) => (
-                  <li key={p.slug}>
-                    <Link
-                      href={`/shop/${encodeURIComponent(p.slug)}`}
-                      className="flex items-baseline justify-between gap-2 rounded-md px-1 py-0.5 hover:bg-[#0d1828]"
-                    >
-                      <span className="line-clamp-1 text-[#c7d5e6]">{p.name}</span>
-                      <span className="shrink-0 font-semibold text-[#e8c877]">
-                        {p.price} 积分
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <HomeProductCarousel
+                products={featuredProducts}
+                intervalMs={config.home.carouselIntervalSec * 1000}
+              />
             )}
           </section>
 
@@ -205,6 +207,30 @@ export default async function HomePage() {
               <p className="mt-2 text-sm text-[#93b2ce]">
                 下一阶段:{progression.next.title}
               </p>
+            )}
+          </section>
+
+          {/* 论坛精华:填右侧留白(置顶优先,其次回复/浏览热度) */}
+          <section className="rounded-2xl border border-[#22385a] bg-[#13233a] p-5">
+            <SectionHeader title="论坛精华" moreHref="/forum" moreLabel="玩家论坛 →" />
+            {forumHighlights.length === 0 ? (
+              <p className="text-sm text-[#6482a3]">论坛暂无主题。</p>
+            ) : (
+              <ul className="space-y-2.5 text-[15px]">
+                {forumHighlights.map((t) => (
+                  <li key={t.id.toString()} className="flex items-baseline justify-between gap-3">
+                    <Link
+                      href={`/forum/thread/${t.id}`}
+                      className="line-clamp-1 text-[#c7d5e6] hover:text-[#6fb7e0]"
+                    >
+                      {t.title}
+                    </Link>
+                    <span className="shrink-0 text-xs text-[#6482a3]">
+                      {t.board.name} · 回复 {t.replyCount}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
 

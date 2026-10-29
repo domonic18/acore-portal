@@ -77,7 +77,7 @@ test.describe("文章详情(T024 FR-210/211)", () => {
     const before = await viewsText(page);
 
     const res = await page.request.post(
-      "http://localhost:3000/api/content/article/seed-announcement-welcome/view",
+      "/api/content/article/seed-announcement-welcome/view",
     );
     expect(res.status()).toBe(200);
     expect((await res.json()).views).toBe(before + 1);
@@ -171,5 +171,70 @@ test.describe("首页四区块(T027)", () => {
     const featured = page.getByRole("heading", { name: "精选商品" });
     await expect(featured).toBeVisible();
     await expect(page.locator("main").getByRole("link", { name: /积分/ }).first()).toBeVisible();
+  });
+
+  test("精选商品轮播:主图/名称/积分,箭头可切换", async ({ page }) => {
+    await page.goto("/");
+    const card = page
+      .getByRole("heading", { name: "精选商品" })
+      .locator("xpath=ancestor::section[1]");
+    const slide = card.locator('a[href^="/shop/"]').first();
+    await expect(slide).toBeVisible();
+    await expect(slide).toContainText(/积分/);
+    const first = await slide.innerText();
+    await card.getByRole("button", { name: "下一件商品" }).click();
+    const next = card.locator('a[href^="/shop/"]').first();
+    await expect(next).not.toHaveText(first);
+    await expect(card.getByRole("button", { name: "第 1 件商品" })).toBeVisible();
+  });
+
+  test("首行等高:轮播与快捷入口 486px,右栏含论坛精华", async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.goto("/");
+    const carousel = page.locator('section[aria-label="首页轮播"]');
+    // 版心内仅首页快捷入口含「项目简介」分组名(页脚同名链接不在 main section 下)
+    const quickLinks = page.locator("main section").filter({ hasText: "项目简介" }).first();
+    const sliderBox = await carousel.boundingBox();
+    const quickBox = await quickLinks.boundingBox();
+    expect(sliderBox?.height).toBe(486);
+    expect(Math.round(quickBox!.height)).toBe(Math.round(sliderBox!.height));
+
+    const highlights = page.getByRole("heading", { name: "论坛精华" });
+    await expect(highlights).toBeVisible();
+    const card = highlights.locator("xpath=ancestor::section[1]");
+    await expect(card.locator('a[href^="/forum/thread/"]').first()).toBeVisible();
+  });
+
+  test("站点外观:favicon/页面背景/页头背景与高清 logo", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator('link[rel="icon"]')).toHaveAttribute(
+      "href",
+      /favicon-32\.png$/,
+    );
+
+    const bodyBg = await page
+      .locator("body")
+      .evaluate((el) => getComputedStyle(el).backgroundImage);
+    expect(bodyBg).toContain("background.jpg");
+
+    const headerBg = await page
+      .getByRole("banner")
+      .evaluate((el) => getComputedStyle(el).backgroundImage);
+    expect(headerBg).toContain("background.jpg");
+
+    // 400×157 高倍源图,46px 显示不糊
+    await expect(
+      page.getByRole("banner").locator('img[alt="老克塔"]'),
+    ).toHaveAttribute("width", "400");
+  });
+
+  test("版心对齐 lokta.cn:1920 下内容 1140px 居中,两侧露出页面背景", async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.goto("/");
+    const box = await page.locator("main.container-site").boundingBox();
+    expect(box).not.toBeNull();
+    // max-width 1220 含左右各 40px 内边距 → 内容 1140,与生产版心一致
+    expect(Math.round(box!.width)).toBe(1220);
+    expect(Math.round(box!.x)).toBe(350);
   });
 });

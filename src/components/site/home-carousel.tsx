@@ -31,14 +31,14 @@ export function HomeCarousel({
   return (
     <section
       aria-label="首页轮播"
-      className="relative overflow-hidden rounded-2xl border border-[#35577f] bg-[#13233a]"
+      className="relative aspect-[8/3] overflow-hidden rounded-2xl border border-[#35577f] bg-[#13233a] lg:aspect-auto lg:h-full"
     >
-      <a href={current.linkUrl || undefined} className="block" draggable={false}>
+      <a href={current.linkUrl || undefined} className="block h-full" draggable={false}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={current.imageUrl}
           alt={current.title}
-          className="aspect-[8/3] max-h-[462px] w-full object-cover"
+          className="absolute inset-0 h-full w-full object-cover"
           draggable={false}
         />
       </a>
