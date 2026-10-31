@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatDateTime } from "@/lib/format";
+import { POINT_TX_TYPE_LABEL, type PointTxTypeValue } from "@/constants/points";
 
 export type PointTx = {
   id: string;
@@ -10,10 +11,6 @@ export type PointTx = {
   balanceAfter: number;
   remark: string | null;
   createdAt: string;
-};
-
-const TYPE_LABEL: Record<string, string> = {
-  register_reward: "注册奖励",
 };
 
 /** 服务端注入首页数据,翻页走 GET /api/account/points?page=(契约:客户端翻页) */
@@ -57,25 +54,27 @@ export function PointsPager({
             <th className="py-2">变动</th>
             <th className="py-2">变动后余额</th>
             <th className="py-2">时间</th>
+            <th className="py-2">备注</th>
           </tr>
         </thead>
         <tbody>
           {txs.length === 0 ? (
             <tr>
-              <td colSpan={4} className="py-4 text-gray-400">
+              <td colSpan={5} className="py-4 text-gray-400">
                 暂无积分流水。
               </td>
             </tr>
           ) : (
             txs.map((t) => (
               <tr key={t.id} className="border-b border-gray-900">
-                <td className="py-2">{t.remark ?? TYPE_LABEL[t.type] ?? t.type}</td>
+                <td className="py-2">{POINT_TX_TYPE_LABEL[t.type as PointTxTypeValue] ?? t.type}</td>
                 <td className={`py-2 ${t.amount >= 0 ? "text-green-400" : "text-red-400"}`}>
                   {t.amount >= 0 ? "+" : ""}
                   {t.amount}
                 </td>
                 <td className="py-2 text-gray-300">{t.balanceAfter}</td>
                 <td className="py-2 text-gray-400">{formatDateTime(t.createdAt)}</td>
+                <td className="py-2 text-gray-400">{t.remark ?? "—"}</td>
               </tr>
             ))
           )}

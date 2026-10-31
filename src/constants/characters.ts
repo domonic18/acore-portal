@@ -45,6 +45,10 @@ export function raceName(race: number): string {
   return RACE_NAMES[race] ?? `种族${race}`;
 }
 
+/** 阵营聚合(US6 状态探针阵营比;60 时代+TBC 两族,数值外种族不计入阵营) */
+export const ALLIANCE_RACES: ReadonlySet<number> = new Set([1, 3, 4, 7, 11]);
+export const HORDE_RACES: ReadonlySet<number> = new Set([2, 5, 6, 8, 10]);
+
 export function className(classId: number): string {
   return CLASS_NAMES[classId] ?? `职业${classId}`;
 }

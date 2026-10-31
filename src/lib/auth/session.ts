@@ -8,7 +8,7 @@ import { SESSION } from "@/constants/session";
 
 const secret = new TextEncoder().encode(env.SESSION_SECRET);
 
-export type SessionRole = "user" | "admin";
+export type SessionRole = "user" | "moderator" | "admin";
 
 export type SessionPayload = {
   userId: string;
@@ -55,7 +55,9 @@ export async function getSessionFromToken(
     const { payload } = await jwtVerify(token, secret);
     userId = payload.sub ?? undefined;
     jti = payload.jti ?? undefined;
-    if (payload.role === "admin") role = "admin";
+    if (payload.role === "admin" || payload.role === "moderator") {
+      role = payload.role;
+    }
   } catch {
     return null;
   }

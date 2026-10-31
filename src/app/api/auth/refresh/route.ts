@@ -15,10 +15,16 @@ import { SESSION } from "@/constants/session";
  * GET(导航跳转,302 回原路径)与 POST(前端 fetch)双形态。
  * 角色以业务库为准回查(access JWT 可能已过期不可信)。
  */
+/** 相对路径 307:node runtime 的 NextResponse.redirect(new URL(x, req.url)) 会烙死
+ * 容器内部 origin(localhost:3000),经 frpc/反代访问时把用户带偏(与 legacy-redirect 同坑) */
+function redirectTo(path: string) {
+  return new NextResponse(null, { status: 307, headers: { Location: path } });
+}
+
 async function handle(req: NextRequest) {
   const presented = req.cookies.get(SESSION.REFRESH_COOKIE)?.value;
   if (!presented) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return redirectTo("/login");
   }
 
   // 定位用户:从 access cookie 取 sub。仅作索引用:不验签(jose 5.10 已移除
@@ -33,7 +39,7 @@ async function handle(req: NextRequest) {
     }
   }
   if (!userIdRaw) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return redirectTo("/login");
   }
 
   const user = await prisma.user.findUnique({
@@ -41,13 +47,13 @@ async function handle(req: NextRequest) {
     select: { id: true, role: true, status: true },
   });
   if (!user || user.status === "banned") {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return redirectTo("/login");
   }
 
   const rotated = await consumeRefreshToken(user.id, presented);
   if (!rotated) {
     // 重放/过期:consumeRefreshToken 已全吊销
-    const res = NextResponse.redirect(new URL("/login", req.url));
+    const res = redirectTo("/login");
     res.cookies.set(SESSION.REFRESH_COOKIE, "", { httpOnly: true, path: "/", maxAge: 0 });
     return res;
   }
@@ -55,9 +61,7 @@ async function handle(req: NextRequest) {
   const { accessToken } = await createSession(user.id, user.role);
   const res =
     req.method === "GET"
-      ? NextResponse.redirect(
-          new URL(req.nextUrl.searchParams.get("next") ?? "/account/overview", req.url),
-        )
+      ? redirectTo(req.nextUrl.searchParams.get("next") ?? "/account/overview")
       : NextResponse.json({ ok: true });
   setSessionCookies(res, { accessToken, refreshToken: rotated.token });
   return res;

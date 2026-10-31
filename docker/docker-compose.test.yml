@@ -2,11 +2,21 @@
 # 与 dev 栈(3307/6381/3000)和生产快照数据完全隔离;DB/缓存/邮件 UI 只绑 127.0.0.1
 # 数据落 workspace/mysql-test、workspace/redis-test(重置=删目录重建)
 # worldserver/authserver 二期接入:SOAP 暂指栈内 mock,boot 自检 degraded 不阻塞
+# 加固口径照 ai-invest prod compose:全服务 restart+日志旋转,web 健康检查,TZ 上海
+# (mysql 容器保持 UTC:DATETIME 为字面量语义,改时区=存量数据迁移,另案处理)
 name: acore-portal-test
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
 
 services:
   mysql:
     image: mysql:8.4
+    # test 无复制/PITR 需求,关 binlog:防 workspace 数据目录 binlog 无限膨胀
+    command: --skip-log-bin
     ports:
       - "127.0.0.1:3308:3306" # 快照导入/迁移走本机;禁止 LAN 暴露
     environment:
@@ -22,6 +32,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    restart: unless-stopped
+    logging: *logging
 
   redis:
     image: redis:7-alpine
@@ -34,29 +46,54 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+    restart: unless-stopped
+    logging: *logging
 
   mailpit:
     image: axllent/mailpit:latest
     ports:
       - "127.0.0.1:8026:8025" # UI;1025 已被 docker-mailpit-1 占用故不发布
+    restart: unless-stopped
+    logging: *logging
 
   soap-mock:
     image: node:22-alpine
     working_dir: /app
     command: node /app/soap-mock.mjs
     environment:
+      TZ: Asia/Shanghai
       SOAP_MOCK_PORT: "7878"
       SOAP_MOCK_USER: ${SOAP_USER:-soaper}
       SOAP_MOCK_PASSWORD: ${SOAP_PASSWORD:-change-me}
     volumes:
       - ../scripts/dev:/app:ro
+    restart: unless-stopped
+    logging: *logging
+
+  # M4 US4 统计源(自托管,SC-306):独立 umami schema+独立账号,首启自跑迁移
+  # 注意钉 v2 mysql 变体:umami v3 起移除 MySQL 支持(prisma 仅 postgresql://)
+  umami:
+    image: ghcr.io/umami-software/umami:mysql-v2.18.0
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      DATABASE_URL: mysql://umami:${UMAMI_PASSWORD:-umami_pass}@mysql:3306/umami
+      DATABASE_TYPE: mysql
+      APP_SECRET: ${UMAMI_APP_SECRET:-umami-test-secret}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
 
   web:
     build:
       context: ..
-      dockerfile: docker/Dockerfile
+      dockerfile: docker/web/Dockerfile
     env_file:
       - ../.env.test
+    environment:
+      TZ: Asia/Shanghai # 404 日键/邮件模板按北京日期切;DB 时间戳走驱动会话转换不受影响
     ports:
       - "9000:3000" # frpc dev.17aitech.com → 宿主 9000(必须 0.0.0.0 可达)
     depends_on:
@@ -68,4 +105,12 @@ services:
         condition: service_started
       soap-mock:
         condition: service_started
+    healthcheck:
+      # node:22-slim 无 curl,用内置 fetch;/api/status 探针降级语义恒 200,liveness 口径
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/status').then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped
+    logging: *logging

@@ -2,8 +2,9 @@ import { expect, test, type APIRequestContext } from "@playwright/test";
 import { PrismaClient } from "../../src/generated/business";
 
 /**
- * T055 US7 旧路由兼容 E2E(quickstart S7 → FR-025/026/027 + SC-005):
- * /wp-login.php 三变体 302;route_map 命中 301/未命中 404;/shop 类路径不被兼容层触碰。
+ * T055 US7 旧路由兼容 E2E(quickstart S7 → FR-025/026/027 + SC-005;T064 M2 扩充):
+ * /wp-login.php 三变体 302;route_map 命中 301/未命中 404;/shop 类路径不被兼容层触碰;
+ * /my-account 301 到 /account(子路径同构透传,FR-109 四件套路径不变收口)。
  * p:999 条目由 globalSetup 在 webServer 启动前落库(服务端 route 缓存是进程内快照,
  * 长驻 dev server 若在播种前已加载缓存则不可见,此时该用例显式跳过并提示重启)。
  * 注:Next 的 Location 为相对路径(浏览器按当前 URL 解析),断言需补 base。
@@ -60,10 +61,25 @@ test.describe("US7 旧路由兼容", () => {
     }
   });
 
-  test("shop 类路径不被兼容层触碰(FR-027,M2 前为 404 框架缺位)", async ({ request }) => {
-    for (const path of ["/shop", "/cart", "/checkout", "/my-account"]) {
+  test("shop 类路径归商城域,兼容层不触碰(FR-027;M2 起 /shop /cart /checkout 已实现)", async ({ request }) => {
+    for (const path of ["/shop", "/cart", "/checkout"]) {
       const res = await request.get(path, { maxRedirects: 0 });
-      expect(res.status(), path).toBe(404);
+      expect(res.status(), path).toBe(200);
     }
+  });
+
+  test("my-account 301 到账户中心,子路径同构透传(FR-109;M2 T064)", async ({ request }) => {
+    const { res, target } = await redirectTarget(request, "/my-account");
+    expect(res.status()).toBe(301);
+    expect(target).toBe("/account");
+
+    const sub = await redirectTarget(request, "/my-account/orders");
+    expect(sub.res.status()).toBe(301);
+    expect(sub.target).toBe("/account/orders");
+
+    // 链路末端:账户中心未登录 → 登录页(RSC redirect 307 引导),旧链最终可达登录
+    const tail = await redirectTarget(request, "/account");
+    expect(tail.res.status()).toBe(307);
+    expect(tail.target).toBe("/login");
   });
 });

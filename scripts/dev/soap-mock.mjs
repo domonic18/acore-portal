@@ -2,7 +2,9 @@
 // 三态开关: normal(正常) / timeout(挂起不响应) / failure(SOAP Fault)
 // 运行态切换: GET /__mode            -> 查询当前态
 //             GET /__mode?mode=...   -> 切换(normal|timeout|failure)
-// 命令处理: 仅认识 `.server info`,其余命令返回错误文本(供白名单/非幂等路径测试)
+// 按命令失败注入: GET /__fail?command=.send%20items&on=1|0  -> 命中命令返回 Fault
+// 已执行命令: GET /__executed -> JSON 列表(调试/测试断言)
+// 命令处理: `.server info` / 发货 `.send items` / US4 服务类(.character *、.guild change 确定性回执)
 // 零依赖纯 Node http,compose 与 `pnpm soap:mock` 共用本文件
 import http from "node:http";
 
@@ -11,6 +13,13 @@ const USER = process.env.SOAP_MOCK_USER ?? "soaper";
 const PASSWORD = process.env.SOAP_MOCK_PASSWORD ?? "change-me";
 
 let mode = "normal";
+const failCommands = new Set();
+const executed = [];
+
+/** 命令前缀(前两个 token,如 ".send items"),注入与路由共用 */
+function commandKey(command) {
+  return command.split(/\s+/).slice(0, 2).join(" ");
+}
 
 function extractCommand(xml) {
   // AzerothCore 风格:<command>...</command>(CDATA 或转义文本)
@@ -92,6 +101,19 @@ function faultString(msg) {
 </SOAP-ENV:Fault>`;
 }
 
+// US4 服务类命令确定性回执(商品面对齐 WP 旧站):
+// [regex, receipt];regex 不中即 usage error(参数形态由处理器保证,mock 只验形态)
+// 真机 2026-10-25 核对:rename 双参=立即强制改名(回执取真机形态)
+// 真机 2026-10-26 核对:.transmog add $player $item(外观收藏模块)
+const SERVICE_COMMANDS = [
+  [/^\.character\s+changerace\s+(\S+)$/, (m) => `${m[1]}: race change will complete on next login.`],
+  [/^\.character\s+changefaction\s+(\S+)$/, (m) => `${m[1]}: faction change will complete on next login.`],
+  [/^\.character\s+customize\s+(\S+)$/, (m) => `${m[1]}: customize queued, effective on next login.`],
+  [/^\.character\s+rename\s+(\S+)$/, (m) => `${m[1]}: rename flag set, choose new name at next login.`],
+  [/^\.character\s+rename\s+(\S+)\s+(\S+)$/, (m) => `角色 '${m[1]}' 强制更名为 '${m[2]}'`],
+  [/^\.transmog\s+add\s+(\S+)\s+(\d+)$/, (m) => `${m[1]}: item ${m[2]} added to appearance collection.`],
+];
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
 
@@ -104,6 +126,24 @@ const server = http.createServer((req, res) => {
     }
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ mode }));
+    return;
+  }
+
+  // 按命令失败注入(dev only)
+  if (url.pathname === "/__fail") {
+    const command = url.searchParams.get("command") ?? "";
+    const on = url.searchParams.get("on") === "1";
+    if (on) failCommands.add(command);
+    else failCommands.delete(command);
+    console.log(`[soap-mock] fail(${command}) -> ${on}`);
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ failCommands: [...failCommands] }));
+    return;
+  }
+
+  if (url.pathname === "/__executed") {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ executed }));
     return;
   }
 
@@ -141,16 +181,46 @@ const server = http.createServer((req, res) => {
     }
 
     const command = extractCommand(body);
+    if (command !== "") executed.push({ at: new Date().toISOString(), command });
+    const key = commandKey(command);
+
+    if (failCommands.has(command) || failCommands.has(key)) {
+      res.writeHead(500, { "content-type": "text/xml" });
+      res.end(soapEnvelope(faultString("mock injected failure")));
+      return;
+    }
+
     let result;
     if (command === ".server info") {
-      result =
-        "AzerothCore rev. mock 2026-10-23 (Unix, Static) \nConnected players: 0. Character in world: 0.\n";
-    } else if (command === "") {
-      res.writeHead(500, { "content-type": "text/xml" });
-      res.end(soapEnvelope(faultString("missing command")));
-      return;
+      // M3 状态探针契约(server-status.md §5):版本行/在线行/队列行/uptime 行,固定样例
+      result = [
+        "AzerothCore rev. mock 2026-10-24 (Unix, Static) (worldserver-daemon)",
+        "Connected players: 12. Characters in world: 12.",
+        "Connection queue: 3.",
+        "Uptime: 3 days, 4 hours, 12 minutes",
+        "",
+      ].join("\n");
+    } else if (key === ".send items") {
+      // .send items {char} "{subject}" "{text}" {itemId}:{count} → 确定性成功回执
+      // (对齐 AC cs_send.cpp:玩家名裸 token,subject/text QuotedString 双引号)
+      const m = command.match(/^\.send\s+items\s+(\S+)\s+"([^"]*)"\s+"([^"]*)"\s+(\d+):(\d+)$/);
+      if (!m) {
+        result = `[mock] .send items usage error: ${command}`;
+      } else {
+        const [, char, , , itemId, count] = m;
+        result = `Item sent to player: ${char} (item ${itemId} x${count})\n`;
+      }
     } else {
-      result = `[mock] unknown or denied command: ${command}`;
+      const svc = SERVICE_COMMANDS.find(([re]) => re.test(command));
+      if (svc) {
+        result = `${svc[1](command.match(svc[0]))}\n`;
+      } else if (command === "") {
+        res.writeHead(500, { "content-type": "text/xml" });
+        res.end(soapEnvelope(faultString("missing command")));
+        return;
+      } else {
+        result = `[mock] unknown or denied command: ${command}`;
+      }
     }
 
     const escaped = result

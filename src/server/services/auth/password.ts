@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { authDb } from "@/lib/db/auth";
 import { redis } from "@/lib/redis";
 import { getConfig } from "@/lib/config";
-import { gameShaPassHash, sha256Hex } from "@/lib/auth/game-hash";
+import { sha256Hex, srp6MakeRegistrationData } from "@/lib/auth/game-hash";
 import { hashWpBcrypt, verifyWpBcrypt } from "@/lib/auth/wp-bcrypt";
 import { verifyPhpass } from "@/lib/auth/phpass";
 import {
@@ -13,17 +13,17 @@ import {
 } from "@/constants/password";
 import { TOKEN_TYPE } from "@/constants/token";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { writeAudit } from "@/server/services/audit";
+import { writeAudit } from "@/server/services/audit/audit";
 import {
   enqueueMail,
   scheduleDrain,
   checkResendRate,
-} from "@/server/services/mail-outbox";
+} from "@/server/services/mail/outbox";
 import {
   issueUserToken,
   findLiveUserToken,
   consumeUserToken,
-} from "@/server/services/user-token";
+} from "@/server/services/token/user-token";
 import { revokeAllSessions, revokeAllRefreshTokens } from "@/lib/auth/session";
 import { MAIL_TEMPLATE } from "@/constants/mail";
 import { hitRateLimit } from "@/lib/redis/rate-limit";
@@ -109,8 +109,8 @@ async function writeGamePassword(
 ): Promise<void> {
   const account = await authDb.findByUsername(username);
   if (!account) throw new GameSyncError("game_account_missing");
-  const gameHash = gameShaPassHash(username, newPassword);
-  await authDb.updateAccountCredential(account.id, { shaPassHash: gameHash });
+  // 与 AC ChangePassword 同口径:重置随机 salt + verifier
+  await authDb.updateAccountCredential(account.id, srp6MakeRegistrationData(username, newPassword));
 }
 
 async function auditDualWriteFailed(

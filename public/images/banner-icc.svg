@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="600" viewBox="0 0 1600 600">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#160b14"/>
+      <stop offset="0.55" stop-color="#33121f"/>
+      <stop offset="1" stop-color="#5c1f2e"/>
+    </linearGradient>
+    <linearGradient id="peak" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f0d9c0"/>
+      <stop offset="1" stop-color="#8a4a3a"/>
+    </linearGradient>
+    <linearGradient id="peak2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d9a98c"/>
+      <stop offset="1" stop-color="#5c2f24"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="600" fill="url(#sky)"/>
+  <circle cx="1280" cy="140" r="70" fill="#e8f4ff" opacity="0.9"/>
+  <circle cx="1258" cy="128" r="60" fill="#dcecfb"/>
+  <polygon points="0,600 260,240 420,430 560,200 760,600" fill="url(#peak2)" opacity="0.85"/>
+  <polygon points="420,600 700,180 900,420 1080,260 1360,600" fill="url(#peak)"/>
+  <polygon points="900,600 1200,300 1600,600" fill="url(#peak2)" opacity="0.9"/>
+  <polygon points="700,180 760,260 700,270 650,240" fill="#eaf6ff" opacity="0.8"/>
+  <polygon points="560,200 610,270 560,275 520,250" fill="#dceefc" opacity="0.7"/>
+  <rect width="1600" height="600" fill="#0a1220" opacity="0.15"/>
+</svg>

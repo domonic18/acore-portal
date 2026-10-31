@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { gameShaPassHash } from "../../src/lib/auth/game-hash";
+import { srp6Verifier } from "../../src/lib/auth/game-hash";
 import { PENDING_HASH_PREFIX } from "../../src/constants/password";
 import { getAuthClient, getPrisma } from "./helpers/game-db";
 
@@ -53,6 +53,7 @@ test.afterAll(async () => {
     await prisma.pointTransaction.deleteMany({ where: { userId: user.id } });
     await prisma.pointAccount.deleteMany({ where: { userId: user.id } });
     await prisma.mailOutbox.deleteMany({ where: { relatedUserId: user.id } });
+    await prisma.notification.deleteMany({ where: { userId: user.id } });
     await prisma.user.delete({ where: { id: user.id } });
   }
   await prisma.$executeRaw`
@@ -91,7 +92,7 @@ test.describe("US2 注册(quickstart S1)", () => {
       page.getByRole("heading", { name: "账号总览" }),
     ).toBeVisible();
 
-    // 库内断言:站点 $wp$ bcrypt、游戏端同密 SHA1、占位哈希已消失
+    // 库内断言:站点 $wp$ bcrypt、游戏端 SRP6 同密、占位凭证已消失
     const user = await prisma.user.findUniqueOrThrow({
       where: { username: USERNAME },
     });
@@ -102,7 +103,9 @@ test.describe("US2 注册(quickstart S1)", () => {
     ).account.findFirst({
       where: { username: USERNAME.toUpperCase() },
     });
-    expect(game?.shaPassHash).toBe(gameShaPassHash(USERNAME, PASSWORD));
+    expect(
+      game && srp6Verifier(USERNAME, PASSWORD, game.salt).equals(game.verifier),
+    ).toBe(true);
 
     // 积分:余额 +2,SUM(amount)=balance(账本重算,宪法 III)
     const account = await prisma.pointAccount.findUniqueOrThrow({

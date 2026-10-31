@@ -12,30 +12,13 @@ datasource db {
 }
 
 model Account {
-  id           Int       @id @default(autoincrement()) @db.UnsignedInt
-  username     String    @unique @db.VarChar(32) // UPPER 存储
-  shaPassHash  String    @map("sha_pass_hash") @db.VarChar(40) // SHA1(UPPER(user):UPPER(pass))
-  sessionkey   String    @default("") @db.VarChar(100)
-  v            String    @default("") @db.VarChar(64)
-  s            String    @default("") @db.VarChar(64)
-  tokenKey     String    @map("token_key") @default("") @db.VarChar(100)
-  email        String    @default("") @db.VarChar(64)
-  regMail      String    @map("reg_mail") @default("") @db.VarChar(64)
-  joindate     DateTime  @default(now()) @db.Timestamp
-  lastIp       String    @map("last_ip") @default("127.0.0.1") @db.VarChar(30)
-  lastLogin    DateTime? @map("last_login") @db.Timestamp(0)
-  failedLogins Int       @map("failed_logins") @default(0) @db.UnsignedInt
-  locked       Int       @default(0) @db.UnsignedTinyInt
-  lockCountry  String    @map("lock_country") @default("00") @db.VarChar(2)
-  online       Int       @default(0) @db.UnsignedTinyInt
-  expansion    Int       @default(2) @db.UnsignedTinyInt
-  mutetime     BigInt    @default(0) @db.UnsignedBigInt
-  mutereason   String    @map("mutereason") @default("") @db.VarChar(255)
-  muteby       String    @default("") @db.VarChar(50)
-  locale       Int       @default(0) @db.UnsignedTinyInt
-  os           String    @default("") @db.VarChar(4)
-  gender       Int       @default(0) @db.UnsignedTinyInt
-  recruiter    Int       @default(0) @db.UnsignedInt
+  id       Int      @id @default(autoincrement()) @db.UnsignedInt
+  username String   @unique @db.VarChar(32) // UPPER 存储
+  salt     Bytes    @db.Binary(32) // SRP6 随机盐
+  verifier Bytes    @db.Binary(32) // SRP6 verifier(小端落库,口径见 game-hash.ts)
+  email    String   @default("") @db.VarChar(255)
+  regMail  String   @map("reg_mail") @default("") @db.VarChar(255)
+  joindate DateTime @default(now()) @db.Timestamp
 
   @@map("account")
 }

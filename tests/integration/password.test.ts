@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/business";
 import { authDb } from "@/lib/db/auth";
 import { hashWpBcrypt, verifyWpBcrypt } from "@/lib/auth/wp-bcrypt";
-import { gameShaPassHash, sha256Hex } from "@/lib/auth/game-hash";
+import { sha256Hex, srp6MakeRegistrationData, srp6Verifier } from "@/lib/auth/game-hash";
 import { PASSWORD_ALGO } from "@/constants/password";
 import { AUDIT_ACTION } from "@/constants/audit";
 import { redis } from "@/lib/redis";
@@ -31,6 +31,27 @@ import { loginWithPassword } from "@/server/services/auth/login";
 const RUN = Date.now().toString(36);
 const createdUsers: string[] = [];
 
+/** 游戏端凭证校验:同 salt 复算 verifier 比对(SRP6 随机盐,无确定性哈希可比) */
+function verifyGameCreds(
+  game: { salt: Uint8Array; verifier: Uint8Array } | null | undefined,
+  username: string,
+  password: string,
+): boolean {
+  return !!game && srp6Verifier(username, password, Buffer.from(game.salt)).equals(game.verifier);
+}
+
+function sameGameCreds(
+  a: { salt: Uint8Array; verifier: Uint8Array } | null | undefined,
+  b: { salt: Uint8Array; verifier: Uint8Array } | null | undefined,
+): boolean {
+  return (
+    !!a &&
+    !!b &&
+    Buffer.compare(Buffer.from(a.salt), Buffer.from(b.salt)) === 0 &&
+    Buffer.compare(Buffer.from(a.verifier), Buffer.from(b.verifier)) === 0
+  );
+}
+
 async function makeUser(input: { withGame?: boolean } = {}) {
   const username = `t_${RUN}_pw_${createdUsers.length}`;
   const email = `${username}@test.local`;
@@ -48,7 +69,7 @@ async function makeUser(input: { withGame?: boolean } = {}) {
     await authDb.createAccount({
       username,
       email,
-      shaPassHash: gameShaPassHash(username, "oldpass456"),
+      ...srp6MakeRegistrationData(username, "oldpass456"),
     });
   }
   return { ...user, username, email };
@@ -110,7 +131,7 @@ describe("US3 改密双写(quickstart S3)", () => {
     expect(site.passwordAlgo).toBe(PASSWORD_ALGO.BCRYPT_WP);
 
     const game = await authDb.findByUsername(u.username);
-    expect(game?.shaPassHash).toBe(gameShaPassHash(u.username, "Newpass123"));
+    expect(verifyGameCreds(game, u.username, "Newpass123")).toBe(true);
 
     expect((await loginWithPassword(u.username, "Newpass123")).ok).toBe(true);
     expect((await loginWithPassword(u.username, "oldpass456")).ok).toBe(false);
@@ -127,7 +148,7 @@ describe("US3 改密双写(quickstart S3)", () => {
       where: { id: u.id },
       select: { passwordHash: true },
     });
-    const beforeGame = (await authDb.findByUsername(u.username))?.shaPassHash;
+    const beforeGame = await authDb.findByUsername(u.username);
 
     const outcome = await changePassword({
       userId: u.id,
@@ -141,7 +162,7 @@ describe("US3 改密双写(quickstart S3)", () => {
       select: { passwordHash: true },
     });
     expect(afterSite.passwordHash).toBe(beforeSite.passwordHash);
-    expect((await authDb.findByUsername(u.username))?.shaPassHash).toBe(beforeGame);
+    expect(sameGameCreds(await authDb.findByUsername(u.username), beforeGame)).toBe(true);
   });
 
   it("弱密码拒绝:短/无数字/同用户名", async () => {
@@ -163,7 +184,7 @@ describe("US3 改密双写(quickstart S3)", () => {
       where: { id: u.id },
       select: { passwordHash: true },
     });
-    const beforeGame = (await authDb.findByUsername(u.username))?.shaPassHash;
+    const beforeGame = await authDb.findByUsername(u.username);
 
     const spy = vi
       .spyOn(authDb, "updateAccountCredential")
@@ -181,7 +202,7 @@ describe("US3 改密双写(quickstart S3)", () => {
       select: { passwordHash: true },
     });
     expect(midSite.passwordHash).toBe(beforeSite.passwordHash);
-    expect((await authDb.findByUsername(u.username))?.shaPassHash).toBe(beforeGame);
+    expect(sameGameCreds(await authDb.findByUsername(u.username), beforeGame)).toBe(true);
 
     const alert = await prisma.auditLog.findFirst({
       where: {
@@ -199,7 +220,7 @@ describe("US3 改密双写(quickstart S3)", () => {
     });
     expect(retried).toEqual({ ok: true });
     const game = await authDb.findByUsername(u.username);
-    expect(game?.shaPassHash).toBe(gameShaPassHash(u.username, "Retry123"));
+    expect(verifyGameCreds(game, u.username, "Retry123")).toBe(true);
   });
 
   it("改密后旧会话与 refresh 全部吊销(FR-014)", async () => {
@@ -237,7 +258,7 @@ describe("US3 找回密码(quickstart S3 + R11)", () => {
     expect(outcome).toEqual({ ok: true });
 
     const game = await authDb.findByUsername(u.username);
-    expect(game?.shaPassHash).toBe(gameShaPassHash(u.username, "Reset123"));
+    expect(verifyGameCreds(game, u.username, "Reset123")).toBe(true);
     expect((await loginWithPassword(u.username, "Reset123")).ok).toBe(true);
 
     // 一次性:同一 token 复用 → invalid_token,密码不再变化

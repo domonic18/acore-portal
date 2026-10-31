@@ -32,7 +32,9 @@ test.describe("US1 登录 MVP", () => {
 
   test("错误密码 → 统一失败语义(不泄露账号存在性)", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel("用户名").fill("bcryptuser");
+    // 不存在用户名:与真实账号 401 文案逐字一致(集成层已断言),
+    // 且避免向共享 Redis 累计真实账号的失败计数(M4 连错锁定会误伤后续运行)
+    await page.getByLabel("用户名").fill(`nouser_${Date.now().toString(36)}`);
     await page.getByLabel("密码", { exact: true }).fill("wrong-password");
     await page.getByRole("button", { name: "登录" }).click();
 

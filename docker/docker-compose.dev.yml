@@ -7,6 +7,8 @@ name: acore-portal-dev
 services:
   mysql:
     image: mysql:8.4
+    # dev 无复制/PITR 需求,关 binlog:防 workspace 数据目录 binlog 无限膨胀
+    command: --skip-log-bin
     ports:
       - "3307:3306"
     environment:
@@ -42,4 +44,4 @@ services:
     volumes:
       - ../scripts/dev:/app:ro
     ports:
-      - "7878:7878"
+      - "17878:7878" # 7878 让位本地真机 worldserver(acore-deploy);mock 走 17878

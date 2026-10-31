@@ -3,17 +3,18 @@ import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { authDb } from "@/lib/db/auth";
 import { getConfig } from "@/lib/config";
-import { gameShaPassHash } from "@/lib/auth/game-hash";
+import { srp6MakeRegistrationData } from "@/lib/auth/game-hash";
 import { hashWpBcrypt } from "@/lib/auth/wp-bcrypt";
 import { PASSWORD_ALGO, PENDING_HASH_PREFIX } from "@/constants/password";
 import { TOKEN_TYPE } from "@/constants/token";
 import { MAIL_TEMPLATE } from "@/constants/mail";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { REGISTER_REWARD_AMOUNT, POINT_TX_TYPE } from "@/constants/points";
-import { writeAudit } from "@/server/services/audit";
-import { enqueueMail, scheduleDrain, checkResendRate } from "@/server/services/mail-outbox";
-import { creditLedger } from "@/server/services/ledger";
-import { issueUserToken, findLiveUserToken } from "@/server/services/user-token";
+import { POINT_TX_TYPE, POINT_RULE_EVENT } from "@/constants/points";
+import { writeAudit } from "@/server/services/audit/audit";
+import { enqueueMail, scheduleDrain, checkResendRate } from "@/server/services/mail/outbox";
+import { creditLedger } from "@/server/services/points/ledger";
+import { getEarnAmount } from "@/server/services/points/rules";
+import { issueUserToken, findLiveUserToken } from "@/server/services/token/user-token";
 import {
   withPasswordLock,
   validateNewPassword,
@@ -23,7 +24,7 @@ import { isUniqueViolation } from "@/server/http";
 
 /**
  * US2 注册→激活链路:
- * 注册受理=站点事务(占位 user+奖励+2+activate token+outbox)→游戏端建号;
+ * 注册受理=站点事务(占位 user+规则表奖励+activate token+outbox)→游戏端建号;
  * 游戏端失败→站点侧整体补偿删除,0 半成品(SC-004,跨库无原子性,补偿方向
  * 选站点因 writer 无 DELETE 无法回滚游戏端,而站点可完全回收)。
  * 激活(设密)=游戏端先写真哈希→站点落 $wp$ bcrypt+审计,失败则 token 释放可重试
@@ -62,6 +63,8 @@ async function purgeSiteUser(userId: bigint): Promise<void> {
     prisma.pointTransaction.deleteMany({ where: { userId } }),
     prisma.pointAccount.deleteMany({ where: { userId } }),
     prisma.mailOutbox.deleteMany({ where: { relatedUserId: userId } }),
+    // 注册奖励同事务派生的站内信一并回收(M4 US3 账本挂钩副作用)
+    prisma.notification.deleteMany({ where: { userId } }),
     prisma.user.delete({ where: { id: userId } }),
   ]);
 }
@@ -110,7 +113,9 @@ export async function registerAccount(
   let userId: bigint;
   try {
     const { app } = await getConfig();
-    // 站点事务:占位 user + 奖励 +2 + activate token + outbox 同事务原子
+    // 注册奖励走规则表(FR-104):amount=0 或规则停用则不入账(不发分)
+    const reward = await getEarnAmount(POINT_RULE_EVENT.REGISTER);
+    // 站点事务:占位 user + 奖励 + activate token + outbox 同事务原子
     const created = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
@@ -121,12 +126,14 @@ export async function registerAccount(
         },
         select: { id: true },
       });
-      await creditLedger(tx, {
-        userId: user.id,
-        amount: REGISTER_REWARD_AMOUNT,
-        type: POINT_TX_TYPE.REGISTER_REWARD,
-        remark: "注册奖励",
-      });
+      if (reward > 0) {
+        await creditLedger(tx, {
+          userId: user.id,
+          amount: reward,
+          type: POINT_TX_TYPE.REGISTER_REWARD,
+          remark: "注册奖励",
+        });
+      }
       const token = await issueUserToken(tx, {
         userId: user.id,
         type: TOKEN_TYPE.ACTIVATE,
@@ -152,11 +159,11 @@ export async function registerAccount(
   }
 
   try {
-    // 游戏端建号:占位随机哈希(格式合法但无人知晓),激活时写真哈希
+    // 游戏端建号:占位随机口令凭证(无人知晓),激活时写真凭证
     await authDb.createAccount({
       username,
       email,
-      shaPassHash: gameShaPassHash(username, randomBytes(32).toString("hex")),
+      ...srp6MakeRegistrationData(username, randomBytes(32).toString("hex")),
     });
   } catch (err) {
     // 跨库失败→站点侧整体补偿,0 半成品(SC-004)
@@ -221,9 +228,10 @@ export async function activateAccount(input: {
       try {
         const account = await authDb.findByUsername(user.username);
         if (!account) throw new Error("game_account_missing");
-        await authDb.updateAccountCredential(account.id, {
-          shaPassHash: gameShaPassHash(user.username, input.password),
-        });
+        await authDb.updateAccountCredential(
+          account.id,
+          srp6MakeRegistrationData(user.username, input.password),
+        );
       } catch {
         await prisma.userToken.update({
           where: { id: row.id },

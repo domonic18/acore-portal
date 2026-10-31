@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import {
   listOwnCharacters,
   resolveGameAccountId,
-} from "@/server/services/characters";
+} from "@/server/services/shared/game-identity";
 
 /**
  * 本人角色投影组装:业务侧定位(username→game account)+游戏侧只读列表。

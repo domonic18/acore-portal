@@ -89,6 +89,13 @@ test.describe("US4 用户中心(quickstart S4)", () => {
       ).toBeVisible();
     }
 
+    // 登录后正文落在深色面板上(2026-10-29:不再透明直压页面背景图)
+    await page.goto("/account/overview");
+    const shellBg = await page
+      .getByTestId("account-shell")
+      .evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(shellBg).not.toBe("rgba(0, 0, 0, 0)");
+
     // 角色页:仅本人 3 角色(account=1 服务端过滤)
     await page.goto("/account/characters");
     await expect(page.getByText("Oldwarrior")).toBeVisible();
@@ -117,8 +124,8 @@ test.describe("US4 用户中心(quickstart S4)", () => {
     expect(options).toHaveLength(3);
     expect(options.join()).toContain("Oldwarrior");
     expect(options.join()).not.toContain("Notmine");
-    // 首个角色自动加载恢复列表(Oldwarrior guid=10 → 2 件)
-    await expect(page.getByText("物品 #19019")).toBeVisible();
+    // 首个角色自动加载恢复列表(Oldwarrior guid=10 → 2 件;T040 起有模板显名/缺模板回退)
+    await expect(page.getByText("测试坐骑·限量")).toBeVisible();
     await expect(page.getByText("物品 #17182")).toBeVisible();
   });
 

@@ -1,12 +1,13 @@
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { normalizeLegacyKey } from "@/constants/legacy-routes";
+import { TOOL_PAGES } from "@/constants/tools";
 import {
   invalidateRouteCache,
   lookupLegacyRoute,
   removeRouteMapping,
   saveRouteMapping,
-} from "@/server/services/route-map";
+} from "@/server/services/routes/route-map";
 
 // 高位数字键避开 dev/其他测试数据;route_map 为共享表,只动自己的键
 const KEYS = ["p:990001", "page_id:990002", "cat:990003"];
@@ -36,6 +37,15 @@ describe("normalizeLegacyKey(FR-026 规范化)", () => {
     expect(normalizeLegacyKey("", "", "")).toBeNull();
     expect(normalizeLegacyKey(null, null, null)).toBeNull();
     expect(normalizeLegacyKey("-5", null, null)).toBeNull();
+  });
+
+  it("M3 扩展:topic/forum 键与内容键优先级 p > page_id > cat > topic > forum(FR-219)", () => {
+    expect(normalizeLegacyKey(null, null, null, "45", null)).toBe("topic:45");
+    expect(normalizeLegacyKey(null, null, null, null, "12")).toBe("forum:12");
+    expect(normalizeLegacyKey(null, null, null, "45", "12")).toBe("topic:45");
+    expect(normalizeLegacyKey("1", null, null, "45", "12")).toBe("p:1");
+    expect(normalizeLegacyKey(null, null, null, "4.5", null)).toBeNull();
+    expect(normalizeLegacyKey(null, null, null, "abc", null)).toBeNull();
   });
 });
 
@@ -94,5 +104,43 @@ describe("lookupLegacyRoute(FR-026 查表)", () => {
       where: { oldKey: KEYS[2]! },
     });
     expect(rows).toHaveLength(0);
+  });
+
+  it("saveRouteMapping 拒绝协议相对路径(//host 与 /\\host 开放重定向)", async () => {
+    await expect(saveRouteMapping(KEYS[2]!, "//evil.example")).rejects.toThrow(
+      /以 \/ 开头/,
+    );
+    await expect(saveRouteMapping(KEYS[2]!, "/\\evil.example")).rejects.toThrow(
+      /以 \/ 开头/,
+    );
+    const rows = await prisma.routeMap.findMany({
+      where: { oldKey: KEYS[2]! },
+    });
+    expect(rows).toHaveLength(0);
+  });
+});
+
+describe("工具页六键 route_map(M4 US1 T023,契约 tools-and-seo)", () => {
+  // 六真键为生产映射(切换日由 route-map-m4.sql 落库),此处仅 upsert 自愈不清理
+  beforeAll(async () => {
+    for (const tool of TOOL_PAGES) {
+      const oldKey = `page_id:${tool.legacyPageId}`;
+      await prisma.routeMap.upsert({
+        where: { oldKey },
+        create: { oldKey, newPath: tool.path },
+        update: { newPath: tool.path, enabled: true },
+      });
+    }
+    invalidateRouteCache();
+  });
+
+  afterAll(() => invalidateRouteCache());
+
+  it("六键全部命中且指向六薄壳路由", async () => {
+    for (const tool of TOOL_PAGES) {
+      await expect(
+        lookupLegacyRoute(`page_id:${tool.legacyPageId}`),
+      ).resolves.toBe(tool.path);
+    }
   });
 });

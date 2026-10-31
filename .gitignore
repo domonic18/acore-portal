@@ -1,8 +1,8 @@
-# 环境变量与密钥(只提交 .env.example)
+# 环境变量与密钥(白名单:只提交 *.example 模板,其余 .env* 一律忽略防误入库)
 .env
-.env.local
-.env.*.local
-.env.test
+.env.*
+!.env.example
+!.env.test.example
 
 # 宿主机持久化数据(workspace 内容不入库,保留目录)
 workspace/*
@@ -27,6 +27,7 @@ src/generated/
 # Playwright
 playwright-report/
 test-results/
+.playwright-mcp/
 
 # 测试覆盖率
 coverage/
@@ -38,4 +39,4 @@ coverage/
 !.vscode/settings.json
 
 # TS 增量构建缓存
-tsconfig.tsbuildinfo
+*.tsbuildinfo
