@@ -38,6 +38,9 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
     if (result.reason === "OUT_OF_STOCK") {
       return apiError(409, "OUT_OF_STOCK", "该商品已售罄,无法增加数量。");
     }
+    if (result.reason === "PURCHASE_LIMIT_EXCEEDED") {
+      return apiError(409, "PURCHASE_LIMIT_EXCEEDED", "已达到该商品的每人限购数量。");
+    }
     return apiError(422, "QTY_INVALID", "数量不合法。");
   }
   return apiOk({ cartCount: result.cartCount });

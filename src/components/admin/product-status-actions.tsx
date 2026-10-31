@@ -13,10 +13,12 @@ export function ProductStatusActions({
   productId,
   status,
   listed,
+  type,
 }: {
   productId: string;
   status: string;
   listed: boolean;
+  type: string;
 }) {
   const router = useRouter();
   const hydrated = useHydrated();
@@ -35,6 +37,26 @@ export function ProductStatusActions({
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         setError(body?.error?.message ?? "操作失败,请稍后重试。");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("网络异常,请稍后重试。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function duplicate() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/products/${productId}/duplicate`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setError(body?.error?.message ?? "复制失败,请稍后重试。");
         return;
       }
       router.refresh();
@@ -93,6 +115,19 @@ export function ProductStatusActions({
           className="rounded border border-gray-600 px-2 py-1 text-gray-300 hover:bg-gray-800 disabled:opacity-50"
         >
           {listed ? "目录隐藏" : "目录可见"}
+        </button>
+        <button
+          type="button"
+          disabled={busy || !hydrated || type === "game_item"}
+          onClick={() => void duplicate()}
+          title={
+            type === "game_item"
+              ? "物品类商品不可复制:同一物品只能映射一个 itemsend_{id} SKU"
+              : "复制为草稿副本"
+          }
+          className="rounded border border-gray-600 px-2 py-1 text-gray-300 hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          复制
         </button>
         <button
           type="button"

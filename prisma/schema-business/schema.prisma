@@ -417,6 +417,7 @@ model Product {
   stockEnabled      Boolean       @default(false) @map("stock_enabled")
   stock             Int? // enabled 时必填;0=售罄(推导态,research R3)
   lowStockThreshold Int?          @map("low_stock_threshold")
+  maxPerUser        Int?          @map("max_per_user") // 每用户累计可购件数;null=不限购
   gameItemId        Int?          @map("game_item_id")
   featured          Boolean       @default(false) // 首页精选区块(R14;后台表单开关,M3)
   legacyWpProductId Int?          @unique @map("legacy_wp_product_id") // 存量映射幂等键

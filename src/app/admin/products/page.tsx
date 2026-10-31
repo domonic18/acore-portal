@@ -4,6 +4,12 @@ import {
   listAdminProducts,
 } from "@/server/services/catalog/admin";
 import { ProductStatusActions } from "@/components/admin/product-status-actions";
+import {
+  ProductBatchToolbar,
+  ProductRowCheckbox,
+  ProductSelectAllCheckbox,
+  ProductSelectionProvider,
+} from "@/components/admin/product-selection";
 
 /**
  * 商品列表(FR-127/128):分页+低库存高亮(?lowStock=1 筛选,阈值因商品而异);
@@ -43,14 +49,19 @@ export default async function AdminProductsPage({
         </Link>
       </div>
 
-      {items.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-700 px-6 py-10 text-center text-gray-400">
-          {lowStock ? "没有低库存商品。" : "暂无商品。"}
-        </p>
-      ) : (
+      <ProductSelectionProvider ids={items.map((p) => p.id)}>
+        {items.length > 0 && <ProductBatchToolbar />}
+        {items.length === 0 ? (
+          <p className="rounded border border-dashed border-gray-700 px-6 py-10 text-center text-gray-400">
+            {lowStock ? "没有低库存商品。" : "暂无商品。"}
+          </p>
+        ) : (
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-800 text-left text-gray-400">
+              <th className="py-2 pr-3 font-normal">
+                <ProductSelectAllCheckbox />
+              </th>
               <th className="py-2 pr-3 font-normal">图</th>
               <th className="py-2 pr-3 font-normal">名称</th>
               <th className="py-2 pr-3 font-normal">SKU</th>
@@ -69,6 +80,9 @@ export default async function AdminProductsPage({
                   p.lowStock ? "bg-amber-950/40" : ""
                 }`}
               >
+                <td className="py-2 pr-3">
+                  <ProductRowCheckbox id={p.id} />
+                </td>
                 <td className="py-2 pr-3">
                   {p.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -128,13 +142,19 @@ export default async function AdminProductsPage({
                   )}
                 </td>
                 <td className="py-2 pr-3">
-                  <ProductStatusActions productId={p.id} status={p.status} listed={p.listed} />
+                  <ProductStatusActions
+                    productId={p.id}
+                    status={p.status}
+                    listed={p.listed}
+                    type={p.type}
+                  />
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-      )}
+        )}
+      </ProductSelectionProvider>
 
       <div className="flex items-center justify-between text-sm text-gray-500">
         <span>共 {total} 件</span>

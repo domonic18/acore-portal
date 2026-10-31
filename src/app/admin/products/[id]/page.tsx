@@ -34,6 +34,7 @@ export default async function EditProductPage({
     stockEnabled: product.stockEnabled,
     stock: product.stock,
     lowStockThreshold: product.lowStockThreshold,
+    maxPerUser: product.maxPerUser,
     gameItemId: product.gameItemId,
     status: product.status,
     listed: product.listed,

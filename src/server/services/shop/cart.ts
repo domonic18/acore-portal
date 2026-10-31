@@ -15,6 +15,7 @@ import {
   type ValidatedCartParams,
 } from "@/server/services/shop/param-schemas";
 import { effectivePrice, isOnSale } from "@/server/services/catalog/products";
+import { getUserPurchasedQty } from "@/server/services/catalog/purchase-limit";
 
 /**
  * 购物车(research R6 DB 行模型,无唯一约束):
@@ -33,6 +34,7 @@ export type CartMutationResult =
         | "NO_HANDLER"
         | "CHARACTER_NOT_OWNED"
         | "OUT_OF_STOCK"
+        | "PURCHASE_LIMIT_EXCEEDED"
         | "CART_ITEM_NOT_FOUND"
         | "QTY_INVALID";
     };
@@ -82,10 +84,21 @@ export async function addToCart(input: {
     return { ok: false, reason: "OUT_OF_STOCK" };
   }
 
-  const paramsKey = normalizeCartParams(validated.params);
   const rows = await prisma.cartItem.findMany({
     where: { userId: input.userId, productId: input.productId },
   });
+
+  // 限购软拦截(加购即提示;结账事务内为强制关)。同一商品多行合并计数。
+  if (product.maxPerUser != null) {
+    const purchased = await getUserPurchasedQty(prisma, input.userId, [input.productId]);
+    const already = purchased.get(product.id.toString()) ?? 0;
+    const inCart = rows.reduce((sum, r) => sum + r.qty, 0);
+    if (already + inCart + qty > product.maxPerUser) {
+      return { ok: false, reason: "PURCHASE_LIMIT_EXCEEDED" };
+    }
+  }
+
+  const paramsKey = normalizeCartParams(validated.params);
   const twin = rows.find((r) => normalizeCartParams(r.params as CartParams) === paramsKey);
   if (twin) {
     await prisma.cartItem.update({ where: { id: twin.id }, data: { qty: { increment: qty } } });
@@ -112,12 +125,31 @@ export async function updateCartItem(input: {
   }
   const row = await prisma.cartItem.findFirst({
     where: { id: input.itemId, userId: input.userId },
-    include: { product: { select: { stockEnabled: true, stock: true } } },
+    include: {
+      product: {
+        select: { id: true, stockEnabled: true, stock: true, maxPerUser: true },
+      },
+    },
   });
   if (!row) return { ok: false, reason: "CART_ITEM_NOT_FOUND" };
   // 售罄(推导态 stock<=0)时禁止增数,减数放行(契约 PATCH 语义)
   const soldOut = row.product.stockEnabled && (row.product.stock ?? 0) <= 0;
   if (soldOut && input.qty > row.qty) return { ok: false, reason: "OUT_OF_STOCK" };
+
+  // 限购软拦截:已购 + 同商品其他行 + 本行新数量 > 上限即拒(减数天然放行)
+  if (row.product.maxPerUser != null) {
+    const siblings = await prisma.cartItem.findMany({
+      where: { userId: input.userId, productId: row.productId, id: { not: row.id } },
+      select: { qty: true },
+    });
+    const otherInCart = siblings.reduce((sum, r) => sum + r.qty, 0);
+    const purchased = await getUserPurchasedQty(prisma, input.userId, [row.productId]);
+    const already = purchased.get(row.productId.toString()) ?? 0;
+    if (already + otherInCart + input.qty > row.product.maxPerUser) {
+      return { ok: false, reason: "PURCHASE_LIMIT_EXCEEDED" };
+    }
+  }
+
   await prisma.cartItem.update({ where: { id: row.id }, data: { qty: input.qty } });
   return { ok: true, cartCount: await cartCount(input.userId) };
 }

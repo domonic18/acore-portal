@@ -47,6 +47,8 @@ export async function POST(req: NextRequest) {
           return apiError(403, "CHARACTER_NOT_OWNED", "所选角色不属于当前账号。");
         case "OUT_OF_STOCK":
           return apiError(409, "OUT_OF_STOCK", "该商品已售罄。");
+        case "PURCHASE_LIMIT_EXCEEDED":
+          return apiError(409, "PURCHASE_LIMIT_EXCEEDED", "已达到该商品的每人限购数量。");
         default:
           return apiError(404, "CART_ITEM_NOT_FOUND", "购物车项不存在。");
       }

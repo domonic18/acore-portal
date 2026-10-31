@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { PRODUCT_STATUS } from "@/constants/shop";
 import { POINT_TX_TYPE } from "@/constants/points";
 import { effectivePrice } from "@/server/services/catalog/products";
+import { getUserPurchasedQty } from "@/server/services/catalog/purchase-limit";
 import { debitLedger, LedgerError } from "@/server/services/points/ledger";
 import { resolveGameAccountId } from "@/server/services/shared/game-identity";
 import { validateCartParams } from "./param-schemas";
@@ -22,7 +23,8 @@ export type CheckoutErrorCode =
   | "CART_EMPTY"
   | "PRODUCT_UNAVAILABLE"
   | "OUT_OF_STOCK"
-  | "PRECHECK_FAILED";
+  | "PRECHECK_FAILED"
+  | "PURCHASE_LIMIT_EXCEEDED";
 
 export class CheckoutError extends Error {
   constructor(
@@ -147,6 +149,33 @@ async function checkoutOnce(userId: bigint): Promise<CheckoutResult> {
     for (const r of rows) {
       if (r.product.status !== PRODUCT_STATUS.PUBLISHED) {
         throw new CheckoutError("PRODUCT_UNAVAILABLE");
+      }
+    }
+
+    // 限购(事务内强制关):已购 + 本次购物车件数(同商品多行合并)> maxPerUser 即拦。
+    // 插在扣分前,失败整体回滚零写入。
+    const limited = rows.filter((r) => r.product.maxPerUser != null);
+    if (limited.length > 0) {
+      const cartQtyByProduct = new Map<string, number>();
+      for (const r of rows) {
+        const key = r.productId.toString();
+        cartQtyByProduct.set(key, (cartQtyByProduct.get(key) ?? 0) + r.qty);
+      }
+      const purchased = await getUserPurchasedQty(
+        tx,
+        userId,
+        limited.map((r) => r.productId),
+      );
+      for (const r of limited) {
+        const key = r.productId.toString();
+        const already = purchased.get(key) ?? 0;
+        const requested = cartQtyByProduct.get(key) ?? 0;
+        if (already + requested > r.product.maxPerUser!) {
+          throw new CheckoutError(
+            "PURCHASE_LIMIT_EXCEEDED",
+            `商品「${r.product.name}」每人限购 ${r.product.maxPerUser} 件,您已购买 ${already} 件。`,
+          );
+        }
       }
     }
 

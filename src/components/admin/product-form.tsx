@@ -27,6 +27,7 @@ export type ProductFormValues = {
   stockEnabled: boolean;
   stock?: number | null;
   lowStockThreshold?: number | null;
+  maxPerUser?: number | null;
   gameItemId?: number | null;
   status: string;
   listed: boolean;
@@ -208,6 +209,26 @@ export function ProductForm({
           </>
         )}
       </div>
+      <label className="flex items-center gap-2">
+        <span className="text-gray-300">每人限购(留空=不限购)</span>
+        <input
+          type="number"
+          min={1}
+          value={values.maxPerUser ?? ""}
+          onChange={(e) =>
+            set(
+              "maxPerUser",
+              e.target.value === ""
+                ? null
+                : Math.max(1, Math.floor(Number(e.target.value) || 1)),
+            )
+          }
+          className={`${inputCls} w-24`}
+        />
+        <span className="text-xs text-gray-500">
+          按用户累计已购件数(不含已取消/退款单)
+        </span>
+      </label>
       <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1">
           <span className="text-gray-300">状态</span>

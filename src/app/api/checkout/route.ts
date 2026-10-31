@@ -34,6 +34,8 @@ export async function POST(req: NextRequest) {
       switch (err.code) {
         case "OUT_OF_STOCK":
           return apiError(409, "OUT_OF_STOCK", "部分商品已售罄,请调整数量后重试。");
+        case "PURCHASE_LIMIT_EXCEEDED":
+          return apiError(409, "PURCHASE_LIMIT_EXCEEDED", err.message);
         case "PRODUCT_UNAVAILABLE":
           return apiError(422, "PRODUCT_UNAVAILABLE", "购物车中存在已下架商品,请移除后结算。");
         case "CART_EMPTY":
