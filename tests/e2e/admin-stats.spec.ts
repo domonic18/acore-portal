@@ -115,6 +115,7 @@ test.describe("US4 统计看板(T027)", () => {
     for (const testid of [
       "stats-online",
       "stats-article-top",
+      "stats-product-sales",
       "stats-notfound-top",
       "stats-trade",
       "stats-umami",
@@ -122,6 +123,10 @@ test.describe("US4 统计看板(T027)", () => {
       await expect(page.getByTestId(testid)).toBeVisible();
     }
     await expect(page.getByTestId("stats-umami")).toContainText("未接入 Umami");
+    // 商品销量榜:累计/近 30 天切换链接
+    await expect(
+      page.getByTestId("stats-product-sales").getByRole("link", { name: "近 30 天" }),
+    ).toHaveAttribute("href", "/admin/stats?sales=30d");
 
     await page.getByTestId("stats-refresh").click();
     await expect(page.getByTestId("stats-refresh")).toHaveText(/刷新中…|再刷新一次/);

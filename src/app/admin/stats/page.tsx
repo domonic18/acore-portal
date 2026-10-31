@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { requireAdmin } from "@/server/session-guard";
 import { getDashboard } from "@/server/services/stats/dashboard";
+import { getProductSales } from "@/server/services/stats/sales";
 import { StatsRefresh } from "@/components/admin/stats-refresh";
 
 /**
@@ -28,9 +30,23 @@ function Block({
   );
 }
 
-export default async function AdminStatsPage() {
+export default async function AdminStatsPage({
+  searchParams,
+}: {
+  searchParams: { sales?: string };
+}) {
   await requireAdmin();
-  const data = await getDashboard();
+  const salesRange = searchParams.sales === "30d" ? "30d" : "all";
+  const [data, sales] = await Promise.all([
+    getDashboard(),
+    getProductSales({
+      limit: 10,
+      since:
+        salesRange === "30d"
+          ? new Date(Date.now() - 30 * 24 * 3600 * 1000)
+          : undefined,
+    }),
+  ]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -66,6 +82,55 @@ export default async function AdminStatsPage() {
                     {a.title}
                   </span>
                   <span>{a.views}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </Block>
+
+        <Block title="商品销量 Top 10" testid="stats-product-sales">
+          <div className="flex items-center gap-3 text-xs">
+            <Link
+              href="/admin/stats?sales=30d"
+              className={
+                salesRange === "30d"
+                  ? "rounded bg-gray-800 px-2 py-0.5 text-gray-100"
+                  : "text-gray-400 hover:text-gray-200"
+              }
+            >
+              近 30 天
+            </Link>
+            <Link
+              href="/admin/stats"
+              className={
+                salesRange === "all"
+                  ? "rounded bg-gray-800 px-2 py-0.5 text-gray-100"
+                  : "text-gray-400 hover:text-gray-200"
+              }
+            >
+              累计
+            </Link>
+            <span className="text-gray-500">
+              共售出 {sales.totalUnits} 件
+            </span>
+          </div>
+          {sales.top.length === 0 ? (
+            <p className="text-gray-500">暂无数据。</p>
+          ) : (
+            <ol className="flex flex-col gap-1 text-gray-400">
+              {sales.top.map((s, i) => (
+                <li key={s.productId} className="flex items-center gap-2">
+                  <span className="w-5 text-right text-gray-600">{i + 1}.</span>
+                  <span className="min-w-0 flex-1 truncate text-gray-300">
+                    {s.name}
+                    <span className="ml-2 font-mono text-xs text-gray-600">
+                      {s.sku}
+                    </span>
+                  </span>
+                  <span className="w-16 text-right">{s.soldQty} 件</span>
+                  <span className="w-24 text-right text-amber-400">
+                    {s.revenue} 积分
+                  </span>
                 </li>
               ))}
             </ol>
