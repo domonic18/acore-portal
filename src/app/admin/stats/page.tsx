@@ -2,13 +2,34 @@ import Link from "next/link";
 import { requireAdmin } from "@/server/session-guard";
 import { getDashboard } from "@/server/services/stats/dashboard";
 import { getProductSales } from "@/server/services/stats/sales";
+import {
+  getSpiderSummary,
+  getTrafficSource,
+  getTrafficTrend,
+  type SpiderSummary,
+  type TrafficSourceData,
+  type TrafficTrendData,
+} from "@/server/services/stats/traffic";
 import { StatsRefresh } from "@/components/admin/stats-refresh";
 
 /**
- * 统计看板(US4 T027,FR-313/SC-306,quickstart S4):五区块+手动刷新;
+ * 统计看板(US4 T027,FR-313/SC-306,quickstart S4):六区块+手动刷新;
+ * 流量/SEO 三区块(二期)读 wp_legacy 存档,独立容错(无存档→「暂无数据」,不拖垮整页);
  * Umami 区块独立容错(未配置/失败→「暂不可用」,不拖垮整页)。
  */
 export const dynamic = "force-dynamic";
+
+const EMPTY_TREND: TrafficTrendData = { points: [], totalUv: 0, totalPv: 0 };
+const EMPTY_SOURCE: TrafficSourceData = { sources: [], devices: [], platforms: [] };
+const EMPTY_SPIDER: SpiderSummary = { statuses: [], top404: [], lastCrawl: null };
+
+function statusBadge(code: string): string {
+  const base = "rounded px-1.5 py-0.5";
+  if (code === "200") return `${base} bg-emerald-900/40 text-emerald-300`;
+  if (code === "404") return `${base} bg-amber-900/40 text-amber-300`;
+  if (code === "500" || code === "504") return `${base} bg-red-900/40 text-red-300`;
+  return `${base} bg-gray-800 text-gray-300`;
+}
 
 function Block({
   title,
@@ -37,7 +58,7 @@ export default async function AdminStatsPage({
 }) {
   await requireAdmin();
   const salesRange = searchParams.sales === "30d" ? "30d" : "all";
-  const [data, sales] = await Promise.all([
+  const [data, sales, trend, source, spider] = await Promise.all([
     getDashboard(),
     getProductSales({
       limit: 10,
@@ -46,7 +67,12 @@ export default async function AdminStatsPage({
           ? new Date(Date.now() - 30 * 24 * 3600 * 1000)
           : undefined,
     }),
+    getTrafficTrend().catch(() => EMPTY_TREND),
+    getTrafficSource().catch(() => EMPTY_SOURCE),
+    getSpiderSummary().catch(() => EMPTY_SPIDER),
   ]);
+  const lastDay = trend.points[trend.points.length - 1];
+  const trendMaxPv = Math.max(1, ...trend.points.map((p) => p.pv));
 
   return (
     <div className="flex flex-col gap-4">
@@ -175,6 +201,108 @@ export default async function AdminStatsPage({
               </dd>
             </div>
           </dl>
+        </Block>
+
+        <Block title="流量趋势(近 30 日)" testid="stats-traffic-trend">
+          {trend.points.length === 0 ? (
+            <p className="text-gray-500">暂无数据。</p>
+          ) : (
+            <div className="flex flex-col gap-2 text-gray-400">
+              <p>
+                UV 合计{" "}
+                <span className="text-lg font-bold text-gray-100">
+                  {trend.totalUv}
+                </span>
+                <span className="ml-4">
+                  PV 合计{" "}
+                  <span className="text-lg font-bold text-gray-100">
+                    {trend.totalPv}
+                  </span>
+                </span>
+              </p>
+              <div className="flex h-16 items-end gap-0.5">
+                {trend.points.map((p) => (
+                  <div
+                    key={p.date}
+                    title={`${p.date} · UV ${p.uv} / PV ${p.pv}`}
+                    className="flex-1 rounded-t bg-sky-700/70"
+                    style={{
+                      height: `${Math.max(2, Math.round((p.pv / trendMaxPv) * 100))}%`,
+                    }}
+                  />
+                ))}
+              </div>
+              {lastDay && (
+                <p className="text-xs text-gray-500">
+                  最新:{lastDay.date} · UV {lastDay.uv} / PV {lastDay.pv}
+                </p>
+              )}
+            </div>
+          )}
+        </Block>
+
+        <Block title="访客来源 / 设备 / 平台" testid="stats-traffic-source">
+          <div className="grid grid-cols-1 gap-3 text-gray-400 sm:grid-cols-3">
+            {[
+              { label: "来源 Top 10", rows: source.sources },
+              { label: "设备 Top 10", rows: source.devices },
+              { label: "平台 Top 10", rows: source.platforms },
+            ].map(({ label, rows }) => (
+              <div key={label} className="flex flex-col gap-1">
+                <h3 className="text-xs text-gray-500">{label}</h3>
+                {rows.length === 0 ? (
+                  <p className="text-gray-500">暂无数据。</p>
+                ) : (
+                  <ol className="flex flex-col gap-1">
+                    {rows.map((r) => (
+                      <li key={r.name} className="flex items-center gap-2">
+                        <span className="min-w-0 flex-1 truncate text-gray-300">
+                          {r.name}
+                        </span>
+                        <span>{r.count}</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            ))}
+          </div>
+        </Block>
+
+        <Block title="百度蜘蛛抓取" testid="stats-spider">
+          {spider.statuses.length === 0 ? (
+            <p className="text-gray-500">暂无数据。</p>
+          ) : (
+            <div className="flex flex-col gap-2 text-gray-400">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                {spider.statuses.map((s) => (
+                  <span key={s.code} className={statusBadge(s.code)}>
+                    {s.code}: {s.count}
+                  </span>
+                ))}
+                {spider.lastCrawl && (
+                  <span className="text-gray-500">
+                    最近抓取:{spider.lastCrawl}
+                  </span>
+                )}
+              </div>
+              {spider.top404.length > 0 && (
+                <>
+                  <h3 className="text-xs text-gray-500">404 URL Top 10</h3>
+                  <ol className="flex flex-col gap-1">
+                    {spider.top404.map((r) => (
+                      <li key={r.url} className="flex items-center gap-2">
+                        <code className="min-w-0 flex-1 truncate text-gray-300">
+                          {r.url}
+                        </code>
+                        <span>{r.count}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              )}
+            </div>
+          )}
         </Block>
 
         <Block title="Umami 流量(24h)" testid="stats-umami">
