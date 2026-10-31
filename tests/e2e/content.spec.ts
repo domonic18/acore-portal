@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { PrismaClient } from "../../src/generated/business";
 
 /**
  * T028 US3 内容前台 E2E(quickstart S3,SC-202 前台半/SC-204):
@@ -159,6 +160,50 @@ test.describe("p02 设计稿壳(简介/教程/渐进/日志)", () => {
 });
 
 test.describe("首页四区块(T027)", () => {
+  // e2e 独立库无存量导入数据:轮播位/精选商品需自带物料与商品夹具
+  const prisma = new PrismaClient();
+  const FIX_RUN = Date.now().toString(36);
+  const FIX_PRODUCT_PREFIX = `e2econtent-${FIX_RUN}-`;
+  const FIX_CATEGORY_SLUG = `e2econtent-cat-${FIX_RUN}`;
+
+  test.beforeAll(async () => {
+    const category = await prisma.productCategory.create({
+      data: { name: `E2E 首页商品 ${FIX_RUN}`, slug: FIX_CATEGORY_SLUG, sort: 99 },
+      select: { id: true },
+    });
+    await prisma.homeBanner.createMany({
+      data: [1, 2, 3].map((i) => ({
+        title: `E2E 轮播 ${i} ${FIX_RUN}`,
+        imageUrl: `/images/e2e-banner-${i}.jpg`,
+        linkUrl: "",
+        sort: i,
+        enabled: true,
+      })),
+    });
+    await prisma.product.createMany({
+      data: [1, 2, 3].map((i) => ({
+        type: "game_item" as const,
+        sku: `e2econtent_fix_${FIX_RUN}_${i}`,
+        slug: `${FIX_PRODUCT_PREFIX}${i}`,
+        name: `E2E 精选商品 ${i} ${FIX_RUN}`,
+        description: "",
+        images: [`/images/e2e-product-${i}.jpg`],
+        categoryId: category.id,
+        price: 100 + i,
+        status: "published" as const,
+        listed: true,
+        featured: true,
+      })),
+    });
+  });
+
+  test.afterAll(async () => {
+    await prisma.homeBanner.deleteMany({ where: { title: { contains: FIX_RUN } } });
+    await prisma.product.deleteMany({ where: { slug: { startsWith: FIX_PRODUCT_PREFIX } } });
+    await prisma.productCategory.deleteMany({ where: { slug: FIX_CATEGORY_SLUG } });
+    await prisma.$disconnect();
+  });
+
   test("公告/服务器状态/当前阶段/精选商品齐备", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "最新公告" })).toBeVisible();

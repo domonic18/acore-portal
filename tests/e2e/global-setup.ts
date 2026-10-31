@@ -11,7 +11,8 @@ import { TOOL_PAGES } from "../../src/constants/tools";
  */
 const DEV_CONFIG: Record<string, string> = {
   "app.url": "http://localhost:3000",
-  "soap.url": "http://localhost:7878/",
+  // dev compose 的 soap-mock 宿主端口 17878(7878 让位真机 worldserver)
+  "soap.url": "http://localhost:17878/",
   "soap.user": "soaper",
   "soap.password": "change-me",
   "soap.realm": "Dev",
