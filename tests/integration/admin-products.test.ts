@@ -5,7 +5,9 @@ import { makePointsUser } from "../fixtures/shop-seed";
 import { getProductDetail, listProducts } from "@/server/services/catalog/products";
 import {
   ProductAdminError,
+  batchSetProducts,
   deleteProduct,
+  duplicateProduct,
   listAdminProducts,
   saveProduct,
   setProductStatus,
@@ -295,6 +297,119 @@ describe("deleteProduct(零订单删除/有订单拒绝)", () => {
 
     // 不存在:NOT_FOUND
     await expect(errCode(deleteProduct(9_999_999n, DEL_ACTOR))).resolves.toBe("NOT_FOUND");
+  });
+});
+
+describe("批量上下架与复制(二期商城增强)", () => {
+  it("batchSetProducts:批量下架/目录隐藏生效并落聚合审计", async () => {
+    const a = await saveProduct(
+      baseInput({ sku: `itemsend_b${RUN}a`, slug: `${SLUG_PREFIX}batch-a`, gameItemId: 19021 }),
+    );
+    const b = await saveProduct(
+      baseInput({ sku: `itemsend_b${RUN}b`, slug: `${SLUG_PREFIX}batch-b`, gameItemId: 19021 }),
+    );
+
+    expect(await batchSetProducts([a.id, b.id], "draft", DEL_ACTOR)).toEqual({ updated: 2 });
+    const drafted = await prisma.product.findMany({
+      where: { id: { in: [a.id, b.id] } },
+      select: { status: true },
+    });
+    expect(drafted.every((r) => r.status === PRODUCT_STATUS.DRAFT)).toBe(true);
+
+    expect(await batchSetProducts([a.id], "unlist", DEL_ACTOR)).toEqual({ updated: 1 });
+    const listed = await prisma.product.findUniqueOrThrow({
+      where: { id: a.id },
+      select: { listed: true },
+    });
+    expect(listed.listed).toBe(false);
+
+    const audit = await prisma.auditLog.findFirstOrThrow({
+      where: { actorUserId: DEL_ACTOR, action: AUDIT_ACTION.PRODUCT_BATCH_UPDATED },
+      orderBy: { id: "desc" },
+    });
+    expect(audit.payloadJson).toMatchObject({ action: "unlist", count: 1 });
+  });
+
+  it("duplicateProduct:服务类生成 -copy 草稿副本,重名追加序号;物品类拒绝", async () => {
+    const source = await saveProduct(
+      baseInput({
+        type: PRODUCT_TYPE.SERVICE,
+        sku: `itemsend_dup${RUN}`,
+        slug: `${SLUG_PREFIX}dup-src`,
+        gameItemId: null,
+        price: 250,
+        maxPerUser: 2,
+        stockEnabled: true,
+        stock: 9,
+        salePrice: 200,
+      }),
+    );
+
+    const first = await duplicateProduct(source.id, DEL_ACTOR);
+    const copy1 = await prisma.product.findUniqueOrThrow({ where: { id: first.id } });
+    expect(copy1.sku).toBe(`itemsend_dup${RUN}-copy`);
+    expect(copy1.slug).toBe(`${SLUG_PREFIX}dup-src-copy`);
+    expect(copy1.status).toBe(PRODUCT_STATUS.DRAFT);
+    expect(copy1.listed).toBe(true);
+    expect(copy1.stockEnabled).toBe(false);
+    expect(copy1.stock).toBeNull();
+    expect(copy1.salePrice).toBeNull();
+    expect(copy1.price).toBe(250);
+    expect(copy1.maxPerUser).toBe(2);
+
+    const second = await duplicateProduct(source.id, DEL_ACTOR);
+    const copy2 = await prisma.product.findUniqueOrThrow({ where: { id: second.id } });
+    expect(copy2.sku).toBe(`itemsend_dup${RUN}-copy-2`);
+    expect(copy2.slug).toBe(`${SLUG_PREFIX}dup-src-copy-2`);
+
+    const audit = await prisma.auditLog.findFirstOrThrow({
+      where: { actorUserId: DEL_ACTOR, action: AUDIT_ACTION.PRODUCT_DUPLICATED },
+      orderBy: { id: "desc" },
+    });
+    expect(audit.payloadJson).toMatchObject({
+      sourceId: source.id.toString(),
+      targetId: second.id.toString(),
+    });
+
+    // 物品类:itemsend_{id} 唯一映射契约禁止复制
+    const item = await saveProduct(
+      baseInput({ sku: `itemsend_g${RUN}`, slug: `${SLUG_PREFIX}gamecopy`, gameItemId: 19021 }),
+    );
+    await expect(errCode(duplicateProduct(item.id, DEL_ACTOR))).resolves.toBe(
+      "DUPLICATE_UNSUPPORTED",
+    );
+    await expect(errCode(duplicateProduct(9_999_999n, DEL_ACTOR))).resolves.toBe("NOT_FOUND");
+  });
+
+  it("saveProduct 透传 maxPerUser(null=不限购)", async () => {
+    const { id } = await saveProduct(
+      baseInput({
+        sku: `itemsend_m${RUN}`,
+        slug: `${SLUG_PREFIX}maxper`,
+        gameItemId: 19021,
+        maxPerUser: 3,
+      }),
+    );
+    const saved = await prisma.product.findUniqueOrThrow({
+      where: { id },
+      select: { maxPerUser: true },
+    });
+    expect(saved.maxPerUser).toBe(3);
+
+    await saveProduct(
+      baseInput({
+        id,
+        sku: `itemsend_m${RUN}`,
+        slug: `${SLUG_PREFIX}maxper`,
+        gameItemId: 19021,
+        maxPerUser: null,
+      }),
+    );
+    const cleared = await prisma.product.findUniqueOrThrow({
+      where: { id },
+      select: { maxPerUser: true },
+    });
+    expect(cleared.maxPerUser).toBeNull();
   });
 });
 

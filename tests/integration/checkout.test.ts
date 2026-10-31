@@ -9,7 +9,7 @@ import {
   seedShopFixtures,
   SHOP_FIXTURE,
 } from "../fixtures/shop-seed";
-import { addToCart } from "@/server/services/shop/cart";
+import { addToCart, updateCartItem } from "@/server/services/shop/cart";
 import { checkoutCart } from "@/server/services/shop/checkout";
 import { recalculateLedger } from "@/server/services/points/ledger";
 
@@ -292,6 +292,129 @@ describe("US3 结账单事务(T028)", () => {
     const seq2 = Number(second.orderNo.slice(-6));
     expect(seq2).toBe(seq1 + 1);
     expect(first.orderNo.slice(2, 10)).toBe(second.orderNo.slice(2, 10)); // 同日 YYYYMMDD
+  });
+});
+
+describe("商品限购(per-user purchase limit)", () => {
+  it("限购 1:首单成功,再次加购软拦截,绕过加购直插购物车结账被强制关拦截", async () => {
+    const user = await makeGameUser("rich", "limit1");
+    const product = await makeInlineProduct("limit1", {
+      price: 100,
+      maxPerUser: 1,
+      gameItemId: 19019,
+    });
+
+    const first = await addToCart({
+      userId: user.id,
+      productId: product.id,
+      qty: 1,
+      params: { characterGuid: user.guid },
+    });
+    expect(first.ok).toBe(true);
+    await checkoutCart(user.id);
+
+    const blocked = await addToCart({
+      userId: user.id,
+      productId: product.id,
+      qty: 1,
+      params: { characterGuid: user.guid },
+    });
+    expect(blocked).toEqual({ ok: false, reason: "PURCHASE_LIMIT_EXCEEDED" });
+
+    // 旧购物车/并发旁路:直插行模拟,结账事务内强制关拦截且零写入
+    await prisma.cartItem.create({
+      data: {
+        userId: user.id,
+        productId: product.id,
+        qty: 1,
+        params: { characterGuid: user.guid },
+      },
+    });
+    await expect(checkoutCart(user.id)).rejects.toMatchObject({
+      code: "PURCHASE_LIMIT_EXCEEDED",
+    });
+    expect(await prisma.order.count({ where: { userId: user.id } })).toBe(1);
+    expect(await accountBalance(user.id)).toBe(100_000 - 100);
+  });
+
+  it("退款/取消订单不计入限购额度(积分已退还)", async () => {
+    const user = await makeGameUser("rich", "limit-refund");
+    const product = await makeInlineProduct("limit-refund", {
+      price: 100,
+      maxPerUser: 1,
+      gameItemId: 19019,
+    });
+
+    for (const [tag, status] of [
+      ["refunded", "refunded"],
+      ["cancelled", "cancelled"],
+    ] as const) {
+      const order = await prisma.order.create({
+        data: {
+          orderNo: `T${RUN}L${tag.toUpperCase()}`,
+          userId: user.id,
+          status,
+          pointCost: 100,
+          ...(status === "refunded"
+            ? { refundedAt: new Date() }
+            : { cancelledAt: new Date() }),
+        },
+        select: { id: true },
+      });
+      await prisma.orderItem.create({
+        data: {
+          orderId: order.id,
+          productId: product.id,
+          sku: product.id.toString(),
+          name: "历史退单",
+          unitPrice: 100,
+          qty: 5,
+          params: {},
+        },
+      });
+    }
+
+    const added = await addToCart({
+      userId: user.id,
+      productId: product.id,
+      qty: 1,
+      params: { characterGuid: user.guid },
+    });
+    expect(added.ok).toBe(true);
+    await expect(checkoutCart(user.id)).resolves.toMatchObject({ pointCost: 100 });
+  });
+
+  it("购物车累加与改数超限即拦(同参数合并/改数路径)", async () => {
+    const user = await makeGameUser("rich", "limit-cart");
+    const product = await makeInlineProduct("limit-cart", {
+      price: 10,
+      maxPerUser: 2,
+      gameItemId: 19019,
+    });
+    const params = { characterGuid: user.guid };
+
+    expect(await addToCart({ userId: user.id, productId: product.id, qty: 1, params })).toMatchObject({
+      ok: true,
+    });
+    expect(await addToCart({ userId: user.id, productId: product.id, qty: 1, params })).toMatchObject({
+      ok: true,
+    });
+    expect(await addToCart({ userId: user.id, productId: product.id, qty: 1, params })).toEqual({
+      ok: false,
+      reason: "PURCHASE_LIMIT_EXCEEDED",
+    });
+
+    const row = await prisma.cartItem.findFirstOrThrow({
+      where: { userId: user.id, productId: product.id },
+      select: { id: true },
+    });
+    expect(
+      await updateCartItem({ userId: user.id, itemId: row.id, qty: 3 }),
+    ).toEqual({ ok: false, reason: "PURCHASE_LIMIT_EXCEEDED" });
+    // 减数放行
+    expect(
+      await updateCartItem({ userId: user.id, itemId: row.id, qty: 1 }),
+    ).toMatchObject({ ok: true });
   });
 });
 

@@ -13,6 +13,7 @@ const RUN = Date.now().toString(36);
 const CATEGORY_SLUG = `e2eckout-${RUN}`;
 const PAY_SLUG = `e2eckout-pay-${RUN}`;
 const BROKE_SLUG = `e2eckout-broke-${RUN}`;
+const LIMIT_SLUG = `e2eckout-limit-${RUN}`;
 
 async function login(page: Page) {
   await page.goto("/login");
@@ -86,6 +87,18 @@ test.beforeAll(async () => {
         status: "published",
         price: 100,
         gameItemId: 19062,
+        categoryId: category.id,
+      },
+      {
+        sku: `itemsend_19063`,
+        slug: LIMIT_SLUG,
+        name: `E2E 限购商品 ${RUN}`,
+        description: "每人限购 1",
+        type: "game_item",
+        status: "published",
+        price: 100,
+        gameItemId: 19063,
+        maxPerUser: 1,
         categoryId: category.id,
       },
     ],
@@ -177,5 +190,54 @@ test.describe("US3 结账支付(T036)", () => {
     expect(res.status()).toBe(402);
     expect((await res.json()).error.code).toBe("INSUFFICIENT_BALANCE");
     expect(await prisma.order.count({ where: { userId: legacy.id } })).toBe(ordersBefore);
+  });
+
+  test("限购 1:首单成功,再次加购即提示,绕过加购直插车结账 409", async ({ page }) => {
+    // 前置「余额不足」用例把余额压到 10,本用例需恢复标准余额
+    const buyer = await prisma.user.findUniqueOrThrow({
+      where: { username: "legacyuser" },
+      select: { id: true },
+    });
+    await prisma.pointAccount.update({
+      where: { userId: buyer.id },
+      data: { balance: 1_000_000 },
+    });
+    // 前置「余额不足」用例的购物车行未支付,清空以免本用例应付额翻倍
+    await prisma.cartItem.deleteMany({ where: { userId: buyer.id } });
+
+    await login(page);
+    await addAndOpenCheckout(page, LIMIT_SLUG);
+    await page.getByRole("button", { name: /确认支付 100 积分/ }).click();
+    await expect(page).toHaveURL(/\/account\/orders\/\d+$/, { timeout: 15_000 });
+
+    // 二次加购:软拦截在加购即提示
+    await page.goto(`/shop/${LIMIT_SLUG}`);
+    await page.getByLabel("选择角色").selectOption("10");
+    await page.getByRole("button", { name: "加入购物车" }).click();
+    // Next 的 route announcer 也是 role=alert,按文案收窄避免 strict 冲突
+    await expect(
+      page.getByRole("alert").filter({ hasText: "已达到该商品的每人限购数量" }),
+    ).toBeVisible();
+
+    // 旧车/并发旁路:直插购物车行,结账事务内强制关拦截
+    const legacy = await prisma.user.findUniqueOrThrow({
+      where: { username: "legacyuser" },
+      select: { id: true },
+    });
+    const product = await prisma.product.findUniqueOrThrow({
+      where: { slug: LIMIT_SLUG },
+      select: { id: true },
+    });
+    await prisma.cartItem.create({
+      data: {
+        userId: legacy.id,
+        productId: product.id,
+        qty: 1,
+        params: { characterGuid: 10 },
+      },
+    });
+    const res = await page.request.post("/api/checkout");
+    expect(res.status()).toBe(409);
+    expect((await res.json()).error.code).toBe("PURCHASE_LIMIT_EXCEEDED");
   });
 });
