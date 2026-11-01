@@ -2,7 +2,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { SESSION } from "@/constants/session";
 import { getSessionFromToken } from "@/lib/auth/session";
-import { getBalance } from "@/server/services/points/ledger";
+import { getBalance } from "@/server/services/shared/ledger";
 import { SidebarCard } from "@/components/site/sidebar/card";
 
 /** 积分余额(R9):登录态才渲染,游客返回 null */

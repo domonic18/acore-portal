@@ -2,7 +2,7 @@ import "server-only";
 import type { NextRequest } from "next/server";
 import { apiError, apiOk } from "@/server/http";
 import { getApiSession } from "@/server/session-guard";
-import { LedgerError } from "@/server/services/points/ledger";
+import { LedgerError } from "@/server/services/shared/ledger";
 import { GameDbError } from "@/server/services/shared/game-identity";
 import { checkoutCart, CheckoutError } from "@/server/services/shop/checkout";
 import { driveOrderDelivery } from "@/server/services/shop/delivery";

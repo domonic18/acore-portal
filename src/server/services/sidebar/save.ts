@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/business";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { SITE_PAGE_TYPES } from "@/constants/content";
 import { SIDEBAR_LIMITS } from "@/constants/sidebar";
-import { writeAudit } from "@/server/services/audit/audit";
+import { writeAudit } from "@/server/services/shared/audit";
 
 /**
  * 侧栏快捷卡整树保存(后台 CRUD 的唯一写入口):

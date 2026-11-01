@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/business";
 import { POINT_TX_TYPE, type PointTxTypeValue } from "@/constants/points";
-import { notifyPointsChange } from "@/server/services/notification/notify";
+import { notifyPointsChange } from "@/server/services/shared/points-notify";
 
 /**
  * 积分账本(宪法 III:流水为真相源,余额为缓存):

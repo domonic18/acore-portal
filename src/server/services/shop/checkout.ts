@@ -5,7 +5,7 @@ import { ORDER_STATUS, PRODUCT_STATUS } from "@/constants/shop";
 import { POINT_TX_TYPE } from "@/constants/points";
 import { effectivePrice } from "@/server/services/catalog/products";
 import { getUserPurchasedQty } from "@/server/services/catalog/purchase-limit";
-import { debitLedger, LedgerError } from "@/server/services/points/ledger";
+import { debitLedger, LedgerError } from "@/server/services/shared/ledger";
 import { resolveGameAccountId } from "@/server/services/shared/game-identity";
 import { validateCartParams } from "./param-schemas";
 import type { ValidatedCartParams } from "./param-schemas";

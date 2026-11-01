@@ -7,7 +7,7 @@ import {
   setLock,
 } from "@/lib/redis/rate-limit";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { writeAudit } from "@/server/services/audit/audit";
+import { writeAudit } from "@/server/services/shared/audit";
 
 /** 键格式统一定义(M4 防滥用设计;调用方不感知,测试可按此格式注入状态) */
 export const loginFailKey = (username: string) =>

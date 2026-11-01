@@ -99,7 +99,7 @@ docs/            # 文档中心
 
 **目录规范（2026-10-23 CodeReview 沉淀，借鉴 acore-manager/ai-invest）**:
 1. **目录即架构**：新增一级/域目录须先修订本节（借鉴 acore-manager《代码目录结构规范》守门做法）
-2. **services 分域**：`services/` 根目录禁新增平文件，新域一律 `services/<域>/`（现有 auth/points/shop/orders/catalog/users-admin/images/account/mail/token/audit/routes/content/progression/forum/status/media/home/notification/stats/settings/tools/seo 均此模式）；跨域基础服务（审计/outbox/token/账本/路由映射/游戏身份）入 `services/shared/`（借鉴 ai-invest 按子域分包、根目录禁平文件；M2 T004 已完成存量平文件归位）
+2. **services 分域**：`services/` 根目录禁新增平文件，新域一律 `services/<域>/`（现有 auth/points/shop/orders/catalog/users-admin/images/account/content/progression/forum/status/media/home/notification/stats/settings/seo/sidebar/tools 均此模式）；跨域基础服务（审计/outbox/token/账本/积分通知/路由映射/游戏身份）入 `services/shared/`（借鉴 ai-invest 按子域分包、根目录禁平文件）。**域间横向 import 由 eslint-plugin-boundaries 机械拦截**：域服务只能引用 `services/shared/*` 与 `eslint.config.mjs` 中 `ORCHESTRATION_EDGES` 登记的编排边，未登记直接 lint 失败（issue #6）
 3. **RSC 页面禁直连 prisma**：app/ 下页面只做 校验/会话/编排，数据组装收敛 service 层（页面私有取数函数放 `services/<域>/`）
 4. **components 准入**：`components/ui/` 只收 ≥2 个消费者的通用组件；页面私有组件与 page 同目录（colocation）；域组件入 `components/<域>/`
 5. **业务域服务禁互引**：`services/auth` 与 `services/shop` 等域间不直接 import，经 `services/shared/` 或上层编排（防循环依赖，借鉴 ai-invest）

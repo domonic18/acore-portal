@@ -10,7 +10,7 @@ import {
   MAIL_STATUS,
 } from "@/constants/mail";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { writeAudit } from "@/server/services/audit/audit";
+import { writeAudit } from "@/server/services/shared/audit";
 import type { Prisma } from "@/generated/business";
 
 /**

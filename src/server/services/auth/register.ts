@@ -10,11 +10,11 @@ import { TOKEN_TYPE } from "@/constants/token";
 import { MAIL_TEMPLATE } from "@/constants/mail";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { POINT_TX_TYPE, POINT_RULE_EVENT } from "@/constants/points";
-import { writeAudit } from "@/server/services/audit/audit";
-import { enqueueMail, scheduleDrain, checkResendRate } from "@/server/services/mail/outbox";
-import { creditLedger } from "@/server/services/points/ledger";
+import { writeAudit } from "@/server/services/shared/audit";
+import { enqueueMail, scheduleDrain, checkResendRate } from "@/server/services/shared/mail-outbox";
+import { creditLedger } from "@/server/services/shared/ledger";
 import { getEarnAmount } from "@/server/services/points/rules";
-import { issueUserToken, findLiveUserToken } from "@/server/services/token/user-token";
+import { issueUserToken, findLiveUserToken } from "@/server/services/shared/user-token";
 import {
   withPasswordLock,
   validateNewPassword,

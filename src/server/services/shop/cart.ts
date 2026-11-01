@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { PRODUCT_STATUS } from "@/constants/shop";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { writeAudit } from "@/server/services/audit/audit";
+import { writeAudit } from "@/server/services/shared/audit";
 import {
   GameDbError,
   characterOwnedBy,

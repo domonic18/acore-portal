@@ -9,8 +9,8 @@ import {
 } from "@/constants/pagination";
 import { paginate } from "@/lib/pagination";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { writeAudit } from "@/server/services/audit/audit";
-import { creditLedgerDetailed, LedgerError } from "@/server/services/points/ledger";
+import { writeAudit } from "@/server/services/shared/audit";
+import { creditLedgerDetailed, LedgerError } from "@/server/services/shared/ledger";
 import { getEarnAmount } from "@/server/services/points/rules";
 
 /**

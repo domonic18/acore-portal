@@ -7,7 +7,7 @@ import {
   debitLedger,
   LedgerError,
   recalculateLedger,
-} from "@/server/services/points/ledger";
+} from "@/server/services/shared/ledger";
 import { adjustPoints } from "@/server/services/points/adjust";
 import { reconcileAllPoints } from "@/server/services/points/reconcile";
 

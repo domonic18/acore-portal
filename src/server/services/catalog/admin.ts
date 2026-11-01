@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { writeAudit } from "@/server/services/audit/audit";
+import { writeAudit } from "@/server/services/shared/audit";
 import { PRODUCT_STATUS, type ProductStatusValue } from "@/constants/shop";
 import { ADMIN_PRODUCT_PAGE_SIZE } from "@/constants/pagination";
 import { paginate } from "@/lib/pagination";

@@ -5,7 +5,7 @@ import { RESERVED_SLUGS } from "@/constants/content";
 import { ADMIN_ARTICLE_PAGE_SIZE } from "@/constants/pagination";
 import { paginate } from "@/lib/pagination";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { writeAudit } from "@/server/services/audit/audit";
+import { writeAudit } from "@/server/services/shared/audit";
 
 /**
  * 内容后台最小集(api-admin-m3 契约,FR-215~217,Q4 无版本历史/审核流):

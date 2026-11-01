@@ -11,7 +11,7 @@ import {
 } from "../fixtures/shop-seed";
 import { addToCart, updateCartItem } from "@/server/services/shop/cart";
 import { checkoutCart } from "@/server/services/shop/checkout";
-import { recalculateLedger } from "@/server/services/points/ledger";
+import { recalculateLedger } from "@/server/services/shared/ledger";
 
 /**
  * T028 结账单事务集成测试(research R2/quickstart S3):

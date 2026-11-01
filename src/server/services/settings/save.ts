@@ -4,7 +4,7 @@ import { buildConfigFromRows, getConfig, reloadSystemConfig } from "@/lib/config
 import { prisma } from "@/lib/db/business";
 import { getTransporter } from "@/lib/mail";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { writeAudit } from "@/server/services/audit/audit";
+import { writeAudit } from "@/server/services/shared/audit";
 
 /**
  * 设置保存与测试发信(T030;api-admin-m4 契约):
