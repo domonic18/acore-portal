@@ -11,6 +11,7 @@ import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
 import { visit, SKIP } from "unist-util-visit";
 import type { Element, Root } from "hast";
+import { toSameSiteHref } from "@/constants/legacy-routes";
 
 /**
  * Markdown 渲染管线收口(M3 research R3):
@@ -55,6 +56,23 @@ function rehypeWowhead() {
       const href = (node.properties?.href as string | undefined) ?? "";
       const m = WOWHEAD_URL.exec(href);
       if (m) node.properties.dataWowhead = `${m[1]}=${m[2]}`;
+    });
+  };
+}
+
+/**
+ * 旧站绝对链接改为站内相对地址(issue #24):迁移正文硬编码了
+ * http://lokta.cn/?p=… 等地址,dev/test 环境点开会被带到线上站点。
+ * 改写成 /?p=… 后由 middleware 按 route_map 解析到当前环境的对应页面。
+ */
+function rehypeLegacyLinks() {
+  return (tree: Root) => {
+    visit(tree, "element", (node: Element) => {
+      if (node.tagName !== "a") return;
+      const href = node.properties?.href;
+      if (typeof href !== "string") return;
+      const sameSite = toSameSiteHref(href);
+      if (sameSite) node.properties.href = sameSite;
     });
   };
 }
@@ -168,6 +186,7 @@ export async function renderMarkdown(
   pipeline = pipeline.use(rehypeHighlight).use(rehypeSlug);
   let tail = pipeline
     .use(rehypeWowhead)
+    .use(rehypeLegacyLinks)
     .use(rehypeImageAllowlist, opts.cdnHosts ?? [])
     .use(rehypeSanitize, sanitizeSchema as never);
   if (opts.sectionAnchors?.length) {
@@ -192,6 +211,7 @@ export async function renderLegacyHtml(
   const file = await unified()
     .use(rehypeParse, { fragment: true })
     .use(rehypeWowhead)
+    .use(rehypeLegacyLinks)
     .use(rehypeImageAllowlist, opts.cdnHosts ?? [])
     .use(rehypeSanitize, sanitizeSchema as never)
     .use(rehypeStringify)

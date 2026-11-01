@@ -118,6 +118,15 @@ describe("markdown 渲染管线(T008)", () => {
     expect(html).not.toContain('data-wowhead="https://example.com"');
   });
 
+  it("旧站绝对链接改写为站内相对地址,外链保持原样(issue #24)", async () => {
+    const { html } = await render(
+      "[积分](http://lokta.cn/?p=98) [公约](https://www.lokta.cn/wp-login.php?action=register) [站外](https://example.com/x)",
+    );
+    expect(html).toContain('href="/?p=98"');
+    expect(html).toContain('href="/wp-login.php?action=register"');
+    expect(html).toContain('href="https://example.com/x"');
+  });
+
   it("空输入与纯文本不产生额外标签", async () => {
     const { html, toc } = await render("纯文本一行");
     expect(html).toContain("<p>纯文本一行</p>");
