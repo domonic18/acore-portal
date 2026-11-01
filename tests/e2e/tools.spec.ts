@@ -1,5 +1,17 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { TOOL_PAGES } from "../../src/constants/tools";
+import {
+  TOOL_PAGES,
+  resolveToolIframeSrc,
+  type ToolPageMeta,
+} from "../../src/constants/tools";
+
+/** E2E 库 globalSetup 未覆写 tools.* 键,服务端取 config.ts 默认值 */
+const BASES = {
+  rankBase: "https://rank.lokta.cn",
+  dkpUrl: "https://webdkp.nfuwow.com",
+};
+
+const srcOf = (tool: ToolPageMeta) => resolveToolIframeSrc(tool, BASES);
 
 /**
  * T024 US1 工具页六页 E2E(契约 tools-and-seo,SC-301):
@@ -21,11 +33,11 @@ test.describe("工具页六页(US1,SC-301)", () => {
       const res = await page.goto(tool.path);
       expect(res?.status(), `${tool.path} 状态`).toBe(200);
       const frame = page.getByTestId("tools-iframe");
-      await expect(frame).toHaveAttribute("src", tool.iframeSrc);
+      await expect(frame).toHaveAttribute("src", srcOf(tool));
       await expect(frame).toHaveAttribute("title", tool.title);
       await expect(page.getByTestId("tools-open-external")).toHaveAttribute(
         "href",
-        tool.iframeSrc,
+        srcOf(tool),
       );
     }
   });
@@ -37,7 +49,7 @@ test.describe("工具页六页(US1,SC-301)", () => {
     expect(res?.status()).toBe(200);
     await expect(page.getByTestId("tools-iframe")).toHaveAttribute(
       "src",
-      online!.iframeSrc,
+      srcOf(online!),
     );
   });
 

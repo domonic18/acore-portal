@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import { findToolPage } from "@/constants/tools";
 import { ToolPageShell } from "@/components/site/tool-page-shell";
+import { getToolPageView } from "@/server/services/tools/pages";
 
-const page = findToolPage("/online-players");
+const meta = findToolPage("/online-players");
 export const metadata: Metadata = {
-  title: `${page?.title ?? "在线玩家"} · 老克塔`,
+  title: `${meta?.title ?? "在线玩家"} · 老克塔`,
 };
 
-export default function OnlinePlayersPage() {
+export default async function OnlinePlayersPage() {
+  const page = await getToolPageView("/online-players");
   return page ? (
     <ToolPageShell page={page} activePath="/online-players" />
   ) : null;

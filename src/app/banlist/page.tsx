@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { findToolPage } from "@/constants/tools";
 import { ToolPageShell } from "@/components/site/tool-page-shell";
+import { getToolPageView } from "@/server/services/tools/pages";
 
-const page = findToolPage("/banlist");
+const meta = findToolPage("/banlist");
 export const metadata: Metadata = {
-  title: `${page?.title ?? "封号记录"} · 老克塔`,
+  title: `${meta?.title ?? "封号记录"} · 老克塔`,
 };
 
-export default function BanlistPage() {
+export default async function BanlistPage() {
+  const page = await getToolPageView("/banlist");
   return page ? <ToolPageShell page={page} activePath="/banlist" /> : null;
 }

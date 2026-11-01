@@ -16,7 +16,9 @@ INSERT INTO acore_portal.system_config (`key`, `value`, `updated_at`) VALUES
   ('gamedb.auth',       'mysql://acore_auth_writer:auth_writer_pass@localhost:3307/acore_auth', NOW()),
   ('gamedb.characters', 'mysql://acore_reader:reader_pass@localhost:3307/acore_characters', NOW()),
   ('gamedb.world',      'mysql://acore_reader:reader_pass@localhost:3307/acore_world', NOW()),
-  ('gamedb.eluna',      'mysql://acore_reader:reader_pass@localhost:3307/eluna', NOW())
+  ('gamedb.eluna',      'mysql://acore_reader:reader_pass@localhost:3307/eluna', NOW()),
+  ('tools.rankBase',    'https://rank.lokta.cn', NOW()),
+  ('tools.dkpUrl',      'https://webdkp.nfuwow.com', NOW())
 ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW();
 
 -- 容器内栈(测试环境)参考取值(compose 服务名互访;真实凭据不入库不入 git):

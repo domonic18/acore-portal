@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   TOOL_DATABASE_TABS,
-  type ToolPageMeta,
+  type ToolPageView,
 } from "@/constants/tools";
 import { ToolsIframe } from "@/components/site/tools-iframe";
 
@@ -14,7 +14,7 @@ export function ToolPageShell({
   page,
   activePath,
 }: {
-  page: ToolPageMeta;
+  page: ToolPageView;
   activePath: string;
 }) {
   const heading = page.heading ?? page.title;

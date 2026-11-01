@@ -1,44 +1,66 @@
 import { describe, expect, it } from "vitest";
 import {
-  DKP_URL,
-  RANK_BASE,
   TOOL_DATABASE_TABS,
   TOOL_PAGES,
   findToolPage,
+  resolveToolIframeSrc,
+  toToolPageView,
+  type ToolSource,
 } from "@/constants/tools";
 import { SITE_NAV } from "@/constants/navigation";
 
 /**
  * T002 前置(SC-301 锚点):六工具页契约表自洽 + 与导航 m4 占位对齐。
- * 该表同时是页面薄壳/tools-iframe/route_map-m4.sql/legacy-redirect 的契约源。
+ * 该表同时是页面薄壳/tools-iframe/route_map-m4.sql/legacy-redirect 的契约源;
+ * 外部域地址来自运行时配置(tools.rankBase/tools.dkpUrl),测试用固定基准拼期望值。
  */
-const CONTRACT_REPLAY: readonly [string, string, number][] = [
-  ["/online", "https://rank.lokta.cn/ranking", 1287],
-  ["/online-players", "https://rank.lokta.cn/online", 1897],
-  ["/playermap", "https://rank.lokta.cn/playermap", 4371],
-  ["/hardcore", "https://rank.lokta.cn/hardcore", 1880],
-  ["/banlist", "https://rank.lokta.cn/banlist", 537],
-  ["/dkp", "https://webdkp.nfuwow.com", 1699],
+const BASES = {
+  rankBase: "https://rank.lokta.cn",
+  dkpUrl: "https://webdkp.nfuwow.com",
+};
+
+const CONTRACT_REPLAY: readonly [string, ToolSource, string, number][] = [
+  ["/online", "rank", "/ranking", 1287],
+  ["/online-players", "rank", "/online", 1897],
+  ["/playermap", "rank", "/playermap", 4371],
+  ["/hardcore", "rank", "/hardcore", 1880],
+  ["/banlist", "rank", "/banlist", 537],
+  ["/dkp", "dkp", "", 1699],
 ];
 
 describe("TOOL_PAGES 六工具页契约表(SC-301)", () => {
   it("六页路由/iframe 目标/旧 page_id 与契约表逐行一致", () => {
     expect(TOOL_PAGES).toHaveLength(6);
-    CONTRACT_REPLAY.forEach(([path, iframeSrc, pageId]) => {
+    CONTRACT_REPLAY.forEach(([path, source, externalPath, pageId]) => {
       const page = findToolPage(path);
       expect(page, `${path} 应在契约表`).toBeDefined();
-      expect(page?.iframeSrc).toBe(iframeSrc);
+      expect(page?.source).toBe(source);
+      expect(page?.externalPath).toBe(externalPath);
       expect(page?.legacyPageId).toBe(pageId);
+      const expected =
+        source === "dkp" ? BASES.dkpUrl : `${BASES.rankBase}${externalPath}`;
+      expect(resolveToolIframeSrc(page!, BASES)).toBe(expected);
     });
   });
 
-  it("iframe 目标只用 RANK_BASE/DKP_URL 两个外部源", () => {
+  it("iframe 目标只用 rank/dkp 两个配置源(常量内不存外部域)", () => {
     for (const p of TOOL_PAGES) {
+      const src = resolveToolIframeSrc(p, BASES);
       expect(
-        p.iframeSrc === DKP_URL || p.iframeSrc.startsWith(`${RANK_BASE}/`),
+        src === BASES.dkpUrl || src.startsWith(`${BASES.rankBase}/`),
         `${p.path} iframe 目标越出契约域`,
       ).toBe(true);
     }
+  });
+
+  it("配置地址去尾斜杠,DKP chip 由同一配置拼出", () => {
+    const bases = { rankBase: "https://rank.example/", dkpUrl: "https://dkp.example/" };
+    expect(toToolPageView(findToolPage("/hardcore")!, bases).iframeSrc).toBe(
+      "https://rank.example/hardcore",
+    );
+    const dkp = toToolPageView(findToolPage("/dkp")!, bases);
+    expect(dkp.iframeSrc).toBe("https://dkp.example");
+    expect(dkp.chipLabel).toBe("https://dkp.example/...");
   });
 
   it("路由与旧 page_id 均无重复(route_map 301 键一一对应)", () => {

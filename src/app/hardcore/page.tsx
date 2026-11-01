@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { findToolPage } from "@/constants/tools";
 import { ToolPageShell } from "@/components/site/tool-page-shell";
+import { getToolPageView } from "@/server/services/tools/pages";
 
-const page = findToolPage("/hardcore");
+const meta = findToolPage("/hardcore");
 export const metadata: Metadata = {
-  title: `${page?.title ?? "英雄榜"} · 老克塔`,
+  title: `${meta?.title ?? "英雄榜"} · 老克塔`,
 };
 
-export default function HardcorePage() {
+export default async function HardcorePage() {
+  const page = await getToolPageView("/hardcore");
   return page ? <ToolPageShell page={page} activePath="/hardcore" /> : null;
 }

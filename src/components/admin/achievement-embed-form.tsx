@@ -11,8 +11,11 @@ import { errorMessage, requestJson } from "@/lib/api-client";
  */
 export function AchievementEmbedForm({
   initial,
+  rankBase,
 }: {
   initial: { achievementUrl: string; achievementHeight: string; achievementScrolling: boolean };
+  /** 占位示例取自 tools.rankBase 运行时配置,不在组件内写死外部域 */
+  rankBase: string;
 }) {
   const router = useRouter();
   const hydrated = useHydrated();
@@ -69,7 +72,7 @@ export function AchievementEmbedForm({
           <input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://rank.lokta.cn/achievement"
+            placeholder={`${rankBase.replace(/\/+$/, "")}/achievement`}
             className={`${inputCls} w-96`}
           />
         </label>
