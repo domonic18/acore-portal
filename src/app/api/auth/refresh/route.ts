@@ -1,7 +1,7 @@
 import "server-only";
 import { NextResponse, type NextRequest } from "next/server";
 import { decodeJwt } from "jose";
-import { prisma } from "@/lib/db";
+import { findRefreshSubject } from "@/server/services/auth/session-refresh";
 import {
   consumeRefreshToken,
   createSession,
@@ -43,10 +43,7 @@ async function handle(req: NextRequest) {
     return redirectTo("/login");
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: BigInt(userIdRaw) },
-    select: { id: true, role: true, status: true },
-  });
+  const user = await findRefreshSubject(BigInt(userIdRaw));
   if (!user || user.status === "banned") {
     return redirectTo("/login");
   }
