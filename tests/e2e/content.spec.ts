@@ -133,18 +133,43 @@ test.describe("p02 设计稿壳(简介/教程/渐进/日志)", () => {
     await expect(crumb.getByText("使用教程")).toBeVisible();
   });
 
-  test("渐进页:三状态卡+倒计时+全部阶段锚点", async ({ page }) => {
+  test("渐进页:源站同款左右交替时间轴", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/progression");
-    await expect(page.getByRole("heading", { name: "渐进计划" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "渐进计划", level: 1 })).toBeVisible();
     const overview = page.getByRole("region", { name: "阶段概览" });
-    for (const label of ["当前阶段", "下一阶段", "远期 · 下个大版本"]) {
-      await expect(overview.getByText(label, { exact: true })).toBeVisible();
-    }
-    await expect(page.getByRole("heading", { name: "全部阶段" })).toBeVisible();
+    await expect(overview.getByText("当前阶段")).toBeVisible();
+    await expect(overview.getByText("下一阶段")).toBeVisible();
+    await expect(
+      overview.getByRole("link", { name: "第二阶段·熔火之心" }),
+    ).toHaveAttribute("href", /^#node-/);
+    await expect(
+      overview.getByRole("link", { name: "第三阶段·黑翼之巢" }),
+    ).toHaveAttribute("href", /^#node-/);
     await expect(page.getByTestId("progression-countdown")).toBeVisible();
-    // 状态卡锚点直达时间轴当前阶段行
-    const current = page.locator('a[href^="#node-"]').first();
-    await expect(current).toHaveText("第二阶段·熔火之心");
+
+    // 时间轴逐档渲染:日期 + 标题 + 节点锚点
+    const timeline = page.locator("ol li[id^='node-']");
+    await expect(timeline).toHaveCount(3);
+    await expect(
+      timeline.getByRole("heading", { name: "第一阶段·开放测试" }),
+    ).toBeVisible();
+    await expect(
+      timeline.getByRole("heading", { name: "第三阶段·黑翼之巢" }),
+    ).toBeVisible();
+    await expect(
+      timeline.getByText(/^\d{4}年\d{1,2}月\d{1,2}日$/).first(),
+    ).toBeVisible();
+
+    // 桌面左右交替:奇数档卡片在右列,偶数档在左列(卡片位由外层栅格容器决定)
+    const firstCard = timeline.first().locator("article");
+    const secondCard = timeline.nth(1).locator("article");
+    expect(
+      await firstCard.evaluate((el) => getComputedStyle(el.parentElement!).gridColumnStart),
+    ).toBe("3");
+    expect(
+      await secondCard.evaluate((el) => getComputedStyle(el.parentElement!).gridColumnStart),
+    ).toBe("1");
   });
 
   test("侧栏快捷菜单:补丁下载卡直达锚点,长栏吸顶", async ({ page }) => {
