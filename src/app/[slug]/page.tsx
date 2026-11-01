@@ -7,7 +7,8 @@ import { resolveProgressionPosition } from "@/server/services/progression/progre
 import { renderMarkdown } from "@/lib/markdown";
 import { formatDate } from "@/lib/format";
 import { getCdnHosts } from "@/lib/config";
-import { SiteSidebar } from "@/app/_components/sidebar/sidebar";
+import { SiteSidebar } from "@/components/site/sidebar/site-sidebar";
+import { getSidebarView } from "@/server/services/sidebar/view";
 import { ContentPanel } from "@/components/site/content-panel";
 
 /**
@@ -56,7 +57,7 @@ export default async function ContentStaticPage({
   const page = await getPublishedPage(params.slug);
   if (!page) notFound();
   const cdnHosts = await getCdnHosts();
-  const [{ html }, position] = await Promise.all([
+  const [{ html }, position, sidebar] = await Promise.all([
     renderMarkdown(page.bodyMd, {
       cdnHosts,
       sections: true,
@@ -64,6 +65,7 @@ export default async function ContentStaticPage({
         params.slug === "tutorial" ? TUTORIAL_ANCHOR_ALIASES : undefined,
     }),
     params.slug === "about" ? resolveProgressionPosition() : Promise.resolve(null),
+    getSidebarView("page"),
   ]);
 
   return (
@@ -109,7 +111,7 @@ export default async function ContentStaticPage({
             />
           </article>
         </ContentPanel>
-        <SiteSidebar pageType="page" sticky />
+        <SiteSidebar pageType="page" {...sidebar} sticky />
       </div>
     </main>
   );

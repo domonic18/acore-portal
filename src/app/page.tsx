@@ -10,7 +10,8 @@ import { StatusCard } from "@/components/site/status-card";
 import { HomeCarousel } from "@/components/site/home-carousel";
 import { HomeProductCarousel } from "@/components/site/home-product-carousel";
 import { SectionHeader } from "@/components/site/section-header";
-import { SiteSidebar } from "@/app/_components/sidebar/sidebar";
+import { SiteSidebar } from "@/components/site/sidebar/site-sidebar";
+import { getSidebarView } from "@/server/services/sidebar/view";
 
 /**
  * 首页(2026-10 与 ardot 设计稿 p01 对齐):左栏=轮播+最近成就嵌入;
@@ -80,12 +81,14 @@ export default async function HomePage() {
     config,
     serverStatus,
     forumHighlights,
+    sidebar,
   ] = await Promise.all([
     getHomeBlocks(),
     listActiveBanners(),
     getConfig(),
     getServerStatus(),
     listHighlightedForumThreads(5),
+    getSidebarView("home"),
   ]);
   const banners = activeBanners.map((b) => ({
     id: b.id.toString(),
@@ -239,7 +242,7 @@ export default async function HomePage() {
             )}
           </section>
 
-          <SiteSidebar pageType="home" className="lg:w-auto" />
+          <SiteSidebar pageType="home" {...sidebar} className="lg:w-auto" />
         </div>
       </div>
     </main>

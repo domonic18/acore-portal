@@ -11,7 +11,8 @@ import { renderMarkdown } from "@/lib/markdown";
 import { formatDate } from "@/lib/format";
 import { getCdnHosts } from "@/lib/config";
 import { MARKDOWN_BODY_CLS } from "@/constants/content";
-import { SiteSidebar } from "@/app/_components/sidebar/sidebar";
+import { SiteSidebar } from "@/components/site/sidebar/site-sidebar";
+import { getSidebarView } from "@/server/services/sidebar/view";
 import { ContentPanel } from "@/components/site/content-panel";
 import { ArticleAside } from "@/components/content/article-aside";
 import { ViewCounter } from "@/components/content/view-counter";
@@ -39,11 +40,12 @@ export default async function PostPage({
 }) {
   const article = await getArticleBySlug(decodeURIComponent(params.slug));
   if (!article) notFound();
-  const [{ html, toc }, adjacent, latest, status] = await Promise.all([
+  const [{ html, toc }, adjacent, latest, status, sidebar] = await Promise.all([
     renderMarkdown(article.bodyMd, { cdnHosts: await getCdnHosts() }),
     getAdjacentArticles(article),
     listLatestNews(5),
     getServerStatus(),
+    getSidebarView("article"),
   ]);
   const published = article.publishedAt ? formatDate(article.publishedAt) : null;
 
@@ -155,7 +157,7 @@ export default async function PostPage({
             status={status}
             isAnnouncement={article.category.slug === "announcements"}
           />
-          <SiteSidebar pageType="article" className="lg:w-auto" />
+          <SiteSidebar pageType="article" {...sidebar} className="lg:w-auto" />
         </div>
       </div>
 

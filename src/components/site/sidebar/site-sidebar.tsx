@@ -1,27 +1,28 @@
 import { SIDE_BY_PAGE_TYPE, type SitePageType } from "@/constants/content";
-import { listSidebarCards } from "@/server/services/sidebar/query";
-import { SidebarQuickCards } from "@/components/site/sidebar/quick-cards";
+import type { SidebarCardConfig } from "@/constants/sidebar";
+import { SidebarQuickCards } from "./quick-cards";
 import { SIDEBAR_COMPONENTS } from "./registry";
 
 /**
- * 按页面类型渲染侧栏(R9,FR-206):快捷卡来自 sidebar_card 表(后台可配),
+ * 按页面类型渲染侧栏(R9,FR-206):数据由页面层经 getSidebarView 取好后传入,
  * 固定组件来自注册表;两者都空则不占位。className 可覆写宽度。
  * sticky=true 时长栏随页面滚动吸顶(静态页快捷菜单;内容页右栏仅此一列时使用,
  * 与 ArticleAside 等已有吸顶侧栏同列会重叠,勿叠加)。
  */
-export async function SiteSidebar({
+export function SiteSidebar({
   pageType,
+  cards,
+  balance,
   className = "lg:w-64",
   sticky = false,
 }: {
   pageType: SitePageType;
+  cards: SidebarCardConfig[];
+  balance: number | null;
   className?: string;
   sticky?: boolean;
 }) {
-  const [keys, cards] = await Promise.all([
-    Promise.resolve(SIDE_BY_PAGE_TYPE[pageType]),
-    listSidebarCards(pageType),
-  ]);
+  const keys = SIDE_BY_PAGE_TYPE[pageType];
   if (keys.length === 0 && cards.length === 0) return null;
 
   return (
@@ -34,7 +35,7 @@ export async function SiteSidebar({
       <SidebarQuickCards cards={cards} />
       {keys.map((key) => {
         const Component = SIDEBAR_COMPONENTS[key];
-        return <Component key={key} />;
+        return <Component key={key} balance={balance} />;
       })}
     </aside>
   );

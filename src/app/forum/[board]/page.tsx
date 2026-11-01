@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ForumPagination } from "@/app/_components/forum/forum-pagination";
-import { PinnedBadge, ThreadStatusBadge } from "@/app/_components/forum/thread-badge";
+import { ForumPagination } from "@/components/forum/forum-pagination";
+import { PinnedBadge, ThreadStatusBadge } from "@/components/forum/thread-badge";
 import { FORUM_PAGE_SIZE } from "@/constants/pagination";
 import { formatShortDate } from "@/lib/format";
 import { paginate } from "@/lib/pagination";
