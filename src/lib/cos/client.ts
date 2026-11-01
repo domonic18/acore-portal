@@ -10,11 +10,17 @@ type CosConfig = NonNullable<Awaited<ReturnType<typeof getConfig>>["cos"]>;
 
 let cached: { client: Cos; config: CosConfig } | null = null;
 
+/** 未配置 ≠ 故障:媒体服务据此回退本地存储,迁移脚本仍视为硬错误 */
+export class CosNotConfiguredError extends Error {
+  constructor() {
+    super("COS 未配置(system_config 缺少 cos.* 键组)");
+    this.name = "CosNotConfiguredError";
+  }
+}
+
 export async function getCosConfig(): Promise<CosConfig> {
   const cos = (await getConfig()).cos;
-  if (!cos) {
-    throw new Error("COS 未配置(system_config 缺少 cos.* 键组),图片迁移不可用");
-  }
+  if (!cos) throw new CosNotConfiguredError();
   return cos;
 }
 

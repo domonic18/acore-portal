@@ -1,9 +1,13 @@
 import type { NextRequest } from "next/server";
 import { apiError, apiOk } from "@/server/http";
 import { requireApiAdmin } from "@/server/session-guard";
-import { MediaError, deleteMediaAsset } from "@/server/services/media/library";
+import {
+  MediaError,
+  deleteMediaAsset,
+  mediaErrorStatus,
+} from "@/server/services/media/library";
 
-/** 媒体删除(FR-217):删行+COS 对象;不追踪引用,warning 提示正文死链风险(前端二次确认) */
+/** 媒体删除(FR-217):删行+存储对象(COS/本地);不追踪引用,warning 提示正文死链风险(前端二次确认) */
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const guard = await requireApiAdmin(req);
   if (!guard.ok) return apiError(guard.status, guard.code, guard.message);
@@ -19,7 +23,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     });
   } catch (err) {
     if (err instanceof MediaError) {
-      return apiError(err.code === "NOT_FOUND" ? 404 : err.code === "COS_UNAVAILABLE" ? 503 : 422, err.code, err.message);
+      return apiError(mediaErrorStatus(err.code), err.code, err.message);
     }
     throw err;
   }

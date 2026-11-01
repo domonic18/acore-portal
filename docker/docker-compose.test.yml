@@ -96,6 +96,9 @@ services:
       TZ: Asia/Shanghai # 404 日键/邮件模板按北京日期切;DB 时间戳走驱动会话转换不受影响
     ports:
       - "9000:3000" # frpc dev.17aitech.com → 宿主 9000(必须 0.0.0.0 可达)
+    volumes:
+      # 无 COS 时的媒体本地上传回退(容器重建不丢图)
+      - ../workspace/uploads:/app/workspace/uploads
     depends_on:
       mysql:
         condition: service_healthy
