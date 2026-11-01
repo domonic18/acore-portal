@@ -45,30 +45,61 @@ export function rewriteForumImages(html, imageMap) {
   );
 }
 
-/** 版块导入(幂等:legacy_wp_forum_id NOT EXISTS) */
+/** WP 版块正文 → 纯文本说明(版块卡只展示短说明,HTML 标签不入库) */
+export function plainDescription(html, limit = 255) {
+  const text = (html ?? "")
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&[a-z]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
+}
+
+/** 版块导入(幂等:legacy_wp_forum_id 已存在则仅补空白说明) */
 export async function importBoards(pool, { forumIds } = {}) {
   const defs = BOARD_DEFS.filter((b) => !forumIds || forumIds.includes(b.wpId));
   const ids = defs.map((b) => b.wpId);
   const [rows] = await pool.query(
-    `SELECT ID, post_title FROM wp_legacy.wp_posts
-      WHERE post_type = 'forum' AND ID IN (${ids.map(() => "?").join(",")})
-        AND NOT EXISTS (
-          SELECT 1 FROM acore_portal.forum_board b WHERE b.legacy_wp_forum_id = wp_posts.ID
-        )`,
+    `SELECT ID, post_title, post_content FROM wp_legacy.wp_posts
+      WHERE post_type = 'forum' AND ID IN (${ids.map(() => "?").join(",")})`,
     ids,
   );
   let imported = 0;
+  let updated = 0;
   for (const [i, def] of defs.entries()) {
     const row = rows.find((r) => r.ID === def.wpId);
     if (!row) continue;
+    const description = plainDescription(row.post_content) || null;
+    const [existing] = await pool.query(
+      `SELECT id, description FROM acore_portal.forum_board WHERE legacy_wp_forum_id = ?`,
+      [def.wpId],
+    );
+    if (existing.length > 0) {
+      // 早前导入把 description 写成了 NULL(issue #35);只补空值,不覆盖后台已改内容
+      if (existing[0].description == null && description) {
+        await pool.query(
+          `UPDATE acore_portal.forum_board SET description = ? WHERE id = ?`,
+          [description, existing[0].id],
+        );
+        updated += 1;
+      }
+      continue;
+    }
     await pool.query(
       `INSERT INTO acore_portal.forum_board (slug, name, description, sort, legacy_wp_forum_id)
-       VALUES (?, ?, NULL, ?, ?)`,
-      [def.slug, row.post_title ?? def.name, i + 1, def.wpId],
+       VALUES (?, ?, ?, ?, ?)`,
+      [def.slug, row.post_title ?? def.name, description, i + 1, def.wpId],
     );
     imported += 1;
   }
-  return { scanned: defs.length, imported };
+  return { scanned: defs.length, imported, updated };
 }
 
 /** 主题导入;返回 topicId→threadId 映射(楼层导入用) */
