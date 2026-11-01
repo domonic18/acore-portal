@@ -16,6 +16,7 @@ export default async function AdminHomePage() {
       <CarouselSettingsForm initial={{ carouselIntervalSec: config.home.carouselIntervalSec }} />
       <hr className="border-gray-800" />
       <AchievementEmbedForm
+        rankBase={config.tools.rankBase}
         initial={{
           achievementUrl: config.home.achievementUrl,
           achievementHeight: config.home.achievementHeight,

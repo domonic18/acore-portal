@@ -7,6 +7,7 @@ import {
   isSoapCommandAllowed,
   type SoapCommand,
 } from "@/constants/soap-commands";
+import { SOAP_STATUS } from "@/constants/soap";
 import { rawExecuteCommand } from "./client";
 
 const DEFAULT_TIMEOUT_MS = 5000;
@@ -52,7 +53,7 @@ async function insertPendingCall(
         idempotencyKey: options.idempotencyKey,
         command,
         argsJson: args,
-        status: "pending",
+        status: SOAP_STATUS.PENDING,
         requestedBy: options.requestedBy,
       },
     });
@@ -68,7 +69,7 @@ async function waitForFirstCall(idempotencyKey: string) {
   for (;;) {
     const row = await prisma.soapCall.findUnique({ where: { idempotencyKey } });
     if (!row) throw new Error("soap_call 首次记录缺失(异常状态)");
-    if (row.status !== "pending" || Date.now() >= deadline) return row;
+    if (row.status !== SOAP_STATUS.PENDING || Date.now() >= deadline) return row;
     await sleep(DEDUPE_POLL_INTERVAL_MS);
   }
 }
@@ -81,7 +82,7 @@ function replayFirstResult(row: {
   attempts: number;
   durationMs: number | null;
 }): SoapResult {
-  if (row.status === "success") {
+  if (row.status === SOAP_STATUS.SUCCESS) {
     // 回放的是 result_digest(≤500 摘要);M1 输出均在界内,与原结果一致
     return {
       status: "success",
@@ -93,7 +94,7 @@ function replayFirstResult(row: {
   return {
     status: "failed",
     error:
-      row.status === "failed"
+      row.status === SOAP_STATUS.FAILED
         ? (row.lastError ?? "unknown")
         : "首次调用仍在执行,请稍后用同一幂等键重试获取首次结果",
     attempts: row.attempts,
@@ -156,7 +157,7 @@ export async function executeSoapCommand(
       await prisma.soapCall.update({
         where: { id: own.id },
         data: {
-          status: "success",
+          status: SOAP_STATUS.SUCCESS,
           resultDigest: output.slice(0, DIGEST_MAX),
           attempts: attempt,
           durationMs,
@@ -174,7 +175,7 @@ export async function executeSoapCommand(
   await prisma.soapCall.update({
     where: { id: own.id },
     data: {
-      status: "failed",
+      status: SOAP_STATUS.FAILED,
       lastError: lastError.slice(0, DIGEST_MAX),
       attempts: totalAttempts,
       durationMs,

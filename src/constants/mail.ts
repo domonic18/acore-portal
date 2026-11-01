@@ -10,6 +10,15 @@ export const MAIL_TEMPLATE = {
 export type MailTemplateValue =
   (typeof MAIL_TEMPLATE)[keyof typeof MAIL_TEMPLATE];
 
+/** 邮件 outbox 状态机(research R7):pending → sent,投递失败落 failed 可重发 */
+export const MAIL_STATUS = {
+  PENDING: "pending",
+  SENT: "sent",
+  FAILED: "failed",
+} as const;
+
+export type MailStatusValue = (typeof MAIL_STATUS)[keyof typeof MAIL_STATUS];
+
 /** 重发限速(FR-010):≥60s 间隔、≤5 次/天 */
 export const MAIL_RESEND_MIN_INTERVAL_SEC = 60;
 export const MAIL_RESEND_DAILY_MAX = 5;

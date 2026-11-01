@@ -1,5 +1,6 @@
 import "server-only";
 import { ITEMSEND_SKU_PREFIX, parseItemSendSku } from "@/constants/shop";
+import { SOAP_STATUS } from "@/constants/soap";
 import { ITEM_SEND_PARAM_SCHEMA } from "@/server/services/shop/param-schemas";
 import { prisma } from "@/lib/db";
 import { executeDeliveryCommand } from "@/server/soap/delivery";
@@ -44,12 +45,12 @@ export const itemSendHandler: DeliveryHandler = {
 
     if (!parsed.isStack && mails.length > 1) {
       const sent = await prisma.soapCall.count({
-        where: { requestedBy, status: "success" },
+        where: { requestedBy, status: SOAP_STATUS.SUCCESS },
       });
       if (sent >= mails.length) {
         // 全部封数已成功但行未落 delivered(崩溃边界):补记首封 callId 收口
         const first = await prisma.soapCall.findFirst({
-          where: { requestedBy, status: "success" },
+          where: { requestedBy, status: SOAP_STATUS.SUCCESS },
           orderBy: { id: "asc" },
           select: { id: true },
         });

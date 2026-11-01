@@ -110,6 +110,11 @@ const configSchema = z.object({
     achievementScrolling: z.boolean().default(false),
     carouselIntervalSec: z.coerce.number().int().min(1).max(60).default(5),
   }),
+  // 外部工具站地址(M4 US1):rank 排行榜子站与 DKP 独立站,换环境只改 system_config
+  tools: z.object({
+    rankBase: z.string().url().default("https://rank.lokta.cn"),
+    dkpUrl: z.string().url().default("https://webdkp.nfuwow.com"),
+  }),
   // Umami 统计(M4 US4):未配置=不注入采集脚本+看板区块「暂不可用」
   umami: z
     .object({
@@ -199,6 +204,10 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       achievementHeight: flat["home.achievementHeight"] ?? "185vh",
       achievementScrolling: flat["home.achievementScrolling"] === "true",
       carouselIntervalSec: flat["home.carouselIntervalSec"] ?? "5",
+    },
+    tools: {
+      rankBase: flat["tools.rankBase"] ?? "https://rank.lokta.cn",
+      dkpUrl: flat["tools.dkpUrl"] ?? "https://webdkp.nfuwow.com",
     },
     umami: flat["umami.scriptUrl"]
       ? {

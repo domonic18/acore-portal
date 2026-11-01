@@ -7,6 +7,7 @@ import { hitRateLimit } from "@/lib/redis/rate-limit";
 import {
   MAIL_RESEND_DAILY_MAX,
   MAIL_RESEND_MIN_INTERVAL_SEC,
+  MAIL_STATUS,
 } from "@/constants/mail";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/audit/audit";
@@ -47,7 +48,7 @@ export async function drainOutbox(limit = 10): Promise<void> {
   draining = true;
   try {
     const pending = await prisma.mailOutbox.findMany({
-      where: { status: "pending" },
+      where: { status: MAIL_STATUS.PENDING },
       orderBy: { createdAt: "asc" },
       take: limit,
     });
@@ -68,14 +69,14 @@ export async function drainOutbox(limit = 10): Promise<void> {
         });
         await prisma.mailOutbox.update({
           where: { id: mail.id },
-          data: { status: "sent", sentAt: new Date() },
+          data: { status: MAIL_STATUS.SENT, sentAt: new Date() },
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         await prisma.mailOutbox.update({
           where: { id: mail.id },
           data: {
-            status: "failed",
+            status: MAIL_STATUS.FAILED,
             attempts: { increment: 1 },
             lastError: message.slice(0, 500),
           },

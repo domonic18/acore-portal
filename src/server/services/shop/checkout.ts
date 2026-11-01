@@ -1,7 +1,7 @@
 import "server-only";
 import type { Prisma } from "@/generated/business";
 import { prisma } from "@/lib/db";
-import { PRODUCT_STATUS } from "@/constants/shop";
+import { ORDER_STATUS, PRODUCT_STATUS } from "@/constants/shop";
 import { POINT_TX_TYPE } from "@/constants/points";
 import { effectivePrice } from "@/server/services/catalog/products";
 import { getUserPurchasedQty } from "@/server/services/catalog/purchase-limit";
@@ -197,7 +197,7 @@ async function checkoutOnce(userId: bigint): Promise<CheckoutResult> {
       data: {
         orderNo,
         userId,
-        status: "paid",
+        status: ORDER_STATUS.PAID,
         pointCost,
         paidAt: now,
         items: {
