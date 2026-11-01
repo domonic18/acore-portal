@@ -261,6 +261,22 @@ test.describe("US5 论坛(T041)", () => {
     await expect(page.getByRole("heading", { name: "只读说明" })).toBeVisible();
   });
 
+  // 用户反馈 2026-11-01:版块页/主题页顶部(面包屑+标题+元信息)直压站点背景图,缺区域底色
+  test("版块页与主题页顶部有内容区底色面板", async ({ page }) => {
+    const seed = await prisma.forumThread.findUniqueOrThrow({
+      where: { legacyWpTopicId: 2002 },
+      select: { id: true, board: { select: { slug: true } } },
+    });
+
+    for (const path of [`/forum/${seed.board.slug}`, `/forum/thread/${seed.id}`]) {
+      await page.goto(path);
+      const panel = page.getByTestId("content-panel").first();
+      await expect(panel).toBeVisible();
+      const bg = await panel.evaluate((el) => getComputedStyle(el).backgroundColor);
+      expect(bg).not.toBe("rgba(0, 0, 0, 0)");
+    }
+  });
+
   test("/bbs 与 ?topic=/?forum= 301 兼容(FR-219/M3)", async ({ request }) => {
     const bbs = await redirectTarget(request, "/bbs");
     expect(bbs.res.status()).toBe(301);
