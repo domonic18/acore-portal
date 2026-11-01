@@ -8,3 +8,12 @@ export async function getAccountProfile(userId: bigint) {
     select: { username: true, email: true, nickname: true },
   });
 }
+
+/** 仅昵称可自助修改(邮箱走 change-email 独立流程) */
+export async function updateAccountNickname(userId: bigint, nickname: string) {
+  return prisma.user.update({
+    where: { id: userId },
+    data: { nickname },
+    select: { id: true, username: true, nickname: true, email: true },
+  });
+}
