@@ -11,37 +11,30 @@ export default async function ForumPage() {
   const [boards, latest] = await Promise.all([listForumBoards(), listLatestForumThreads(5)]);
 
   return (
-    <main className="flex-1 pb-10">
-      <section className="relative hidden h-[250px] overflow-hidden border-b border-[#1b2f4c] bg-[#0a1220] lg:block">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_22%_18%,rgba(111,183,224,0.2),transparent_55%),radial-gradient(ellipse_at_82%_120%,rgba(232,200,119,0.12),transparent_52%)]" />
-        <div className="container-site relative flex h-full flex-col justify-center gap-2.5">
-          <span className="inline-flex w-fit items-center rounded-full bg-[#6fb7e0]/15 px-3 py-1 text-[12.5px] text-[#a8d9f5]">
-            玩家社区 · FORUM
-          </span>
-          <h1 className="text-[36px] font-bold leading-tight text-[#f2f8fd]">玩家论坛</h1>
-          <p className="text-[14.5px] text-[#93b2ce]">
-            存量社区归档 · 版块讨论与工单浏览 · 只读模式
-          </p>
-        </div>
-      </section>
+    <main className="container-site flex-1 py-6">
+      {/* 与其他页一致的页头节奏:面包屑 + 30px 标题 + 副标,不再独占 250px hero */}
+      <nav aria-label="面包屑" className="mb-4 flex items-center gap-2 text-[11px] lg:text-[13.5px]">
+        <Link href="/" className="text-[#6482a3] hover:text-[#6fb7e0]">
+          首页
+        </Link>
+        <span aria-hidden="true" className="text-[#6482a3]">
+          ›
+        </span>
+        <span className="text-[#93b2ce] lg:text-[#a8d9f5]">玩家社区 · FORUM</span>
+      </nav>
+      <div className="flex flex-wrap items-center gap-3 lg:gap-3.5">
+        <h1 className="text-[18px] font-bold leading-tight text-[#a8d9f5] lg:text-[30px] lg:text-[#dcebf7]">
+          玩家论坛
+        </h1>
+        <span className="hidden text-[13.5px] text-[#6482a3] lg:inline">
+          存量社区归档 · 版块讨论与工单浏览 · 只读模式
+        </span>
+      </div>
+      <p className="mt-1 text-[10px] text-[#6482a3] lg:hidden">存量社区归档 · 只读浏览</p>
 
-      <div className="container-site mt-4 lg:mt-6">
+      <div className="mt-4">
         <ContentPanel className="p-4 lg:p-5">
-          <div className="lg:hidden">
-            <nav aria-label="面包屑" className="mb-2 flex items-center gap-2 text-[11px]">
-              <Link href="/" className="text-[#6482a3]">
-                首页
-              </Link>
-              <span aria-hidden="true" className="text-[#6482a3]">
-                ›
-              </span>
-              <span className="text-[#93b2ce]">玩家社区 · FORUM</span>
-            </nav>
-            <h1 className="text-xl font-bold text-[#dcebf7]">玩家论坛</h1>
-            <p className="mt-1 text-[12px] text-[#6482a3]">存量社区归档 · 只读浏览</p>
-          </div>
-
-          <div className="mt-4 grid items-start gap-5 lg:mt-0 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
             <section className="order-2 overflow-hidden rounded-xl border border-[#22385a] bg-[#13233a] lg:order-none lg:col-start-1 lg:row-start-1">
               <div className="flex h-[50px] items-center gap-3 border-b border-[#22385a] px-5">
                 <span className="h-4 w-1 rounded-sm bg-[#6fb7e0]" aria-hidden="true" />

@@ -4,6 +4,7 @@ import {
   type ToolPageView,
 } from "@/constants/tools";
 import { ToolsIframe } from "@/components/site/tools-iframe";
+import { ContentPanel } from "@/components/site/content-panel";
 
 /**
  * 数据库工具页共用壳(2026-10 ardot p05 对齐):
@@ -19,55 +20,41 @@ export function ToolPageShell({
 }) {
   const heading = page.heading ?? page.title;
   const urlLabel = page.iframeSrc.replace(/^https?:\/\//, "");
-  const chipSrc = page.chipLabel ?? page.iframeSrc;
-  // 设计稿 iframe 区填满首屏:按标题/tab/提示条占位差补高度
-  const desktopHeight = page.notice
-    ? "lg:h-[calc(100vh-20rem)]"
-    : page.tabs
-      ? "lg:h-[calc(100vh-18.5rem)]"
-      : "lg:h-[calc(100vh-15.25rem)]";
 
   return (
     <main className="container-site flex-1 py-6">
-      <nav
-        aria-label="面包屑"
-        className="mb-4 flex items-center gap-2 text-[11px] lg:text-[13.5px]"
-      >
-        <Link href="/" className="text-[#6482a3] hover:text-[#6fb7e0]">
-          首页
-        </Link>
-        <span aria-hidden="true" className="text-[#6482a3]">
-          ›
-        </span>
-        <Link href="/hardcore" className="text-[#93b2ce] hover:text-[#6fb7e0]">
-          数据库
-        </Link>
-        <span aria-hidden="true" className="text-[#6482a3]">
-          ›
-        </span>
-        <span className="text-[#93b2ce] lg:text-[#a8d9f5]">{heading}</span>
-      </nav>
-
-      <div className="flex flex-wrap items-center gap-3 lg:gap-3.5">
-        <h1 className="text-[18px] font-bold leading-tight text-[#a8d9f5] lg:text-[30px] lg:text-[#dcebf7]">
-          {heading}
-        </h1>
-        <span className="hidden items-center gap-2 rounded-[7px] bg-[#6fb7e0]/[0.07] px-3 py-1.5 text-[13px] lg:inline-flex">
-          <span className="font-bold text-[#e8c877]">{"</>"}</span>
-          <span className="text-[#6fb7e0]">{`iframe src="${chipSrc}"`}</span>
-        </span>
-        {page.tagline && (
-          <span className="hidden text-[13.5px] text-[#6482a3] lg:inline">
-            {page.tagline}
+      {/* 标题区套内容面板:文字不再直接压在背景图上;iframe 源码串不外显 */}
+      <ContentPanel className="px-4 py-3 lg:px-5 lg:py-4">
+        <nav
+          aria-label="面包屑"
+          className="mb-2 flex items-center gap-2 text-[11px] lg:mb-3 lg:text-[13.5px]"
+        >
+          <Link href="/" className="text-[#6482a3] hover:text-[#6fb7e0]">
+            首页
+          </Link>
+          <span aria-hidden="true" className="text-[#6482a3]">
+            ›
           </span>
-        )}
-      </div>
-      {/* 移动端设计稿:来源与副标合并为单行 */}
-      {page.tagline && (
-        <p className="mt-1 text-[10px] text-[#6482a3] lg:hidden">
-          {`iframe src="${chipSrc}"`} · {page.tagline}
-        </p>
-      )}
+          <Link href="/hardcore" className="text-[#93b2ce] hover:text-[#6fb7e0]">
+            数据库
+          </Link>
+          <span aria-hidden="true" className="text-[#6482a3]">
+            ›
+          </span>
+          <span className="text-[#93b2ce] lg:text-[#a8d9f5]">{heading}</span>
+        </nav>
+
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1 className="text-[18px] font-bold leading-tight text-[#a8d9f5] lg:text-[30px] lg:text-[#dcebf7]">
+            {heading}
+          </h1>
+          {page.tagline && (
+            <span className="text-[11px] text-[#6482a3] lg:text-[13.5px]">
+              {page.tagline}
+            </span>
+          )}
+        </div>
+      </ContentPanel>
 
       {page.tabs && (
         <nav
@@ -137,7 +124,7 @@ export function ToolPageShell({
           src={page.iframeSrc}
           title={page.title}
           showExternal={false}
-          heightClass={`h-[calc(100vh-17rem)] min-h-[360px] lg:min-h-[480px] ${desktopHeight}`}
+          heightClass="h-[calc(100dvh-17rem)] min-h-[520px] lg:min-h-[640px]"
         />
       </div>
 
