@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderMarkdown } from "@/lib/markdown";
+import { TUTORIAL_ANCHOR_ALIASES } from "@/constants/content";
 
 /**
  * T008 MD 渲染管线单测(R3/R3b):
@@ -64,6 +65,27 @@ describe("markdown 渲染管线(T008)", () => {
     for (const item of toc) {
       expect(html).toContain(`id="${item.id}"`);
     }
+  });
+
+  it("sectionAnchors 按标题文案覆写稳定锚点 id(教程下载区,TOC 同源)", async () => {
+    const md = [
+      "## 第三步： 下载客户端",
+      "## 第四步：下载补丁文件",
+      "## 第五步：下载登录器",
+      "## 第六步：运行登录器并登录账号",
+    ].join("\n\n");
+    const { html, toc } = await renderMarkdown(md, {
+      sectionAnchors: TUTORIAL_ANCHOR_ALIASES,
+    });
+    expect(html).toContain('id="client_download"');
+    expect(html).toContain('id="patch_download"');
+    expect(html).toContain('id="login_download"');
+    expect(toc.map((t) => t.id)).toEqual([
+      "client_download",
+      "patch_download",
+      "login_download",
+      expect.stringMatching(/^user-content-/),
+    ]);
   });
 
   it("图片域白名单:站内相对路径通过,白名单域通过,外域整节点移除", async () => {

@@ -49,15 +49,15 @@ export default function RegisterForm({
 
   return (
     <div className="flex w-full max-w-sm flex-col gap-4">
-      <h1 className="text-2xl font-bold">注册账号</h1>
+      <h1 className="text-2xl font-bold text-[#dcebf7]">注册账号</h1>
       {sent ? (
-        <p className="text-sm text-gray-300" role="status">
+        <p className="text-sm text-[#93b2ce]" role="status">
           注册受理成功,激活邮件已发送至 {email},请查收(含垃圾箱)。邮件 24
           小时内有效,点击链接设置密码。
         </p>
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[#6482a3]">
             用户名即游戏账号名,注册后用于登录站点与游戏。
           </p>
           <label className="flex flex-col gap-1 text-sm">
@@ -70,7 +70,7 @@ export default function RegisterForm({
               minLength={2}
               maxLength={32}
               autoComplete="username"
-              className="rounded border border-gray-600 bg-transparent px-3 py-2"
+              className="rounded-md border border-[#22385a] bg-[#0d1828] px-3 py-2 text-[#dcebf7] focus:border-[#5ea3cc] focus:outline-none"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
@@ -81,7 +81,7 @@ export default function RegisterForm({
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="rounded border border-gray-600 bg-transparent px-3 py-2"
+              className="rounded-md border border-[#22385a] bg-[#0d1828] px-3 py-2 text-[#dcebf7] focus:border-[#5ea3cc] focus:outline-none"
             />
           </label>
           {turnstileEnabled && (
@@ -98,11 +98,11 @@ export default function RegisterForm({
           <button
             type="submit"
             disabled={submitting || (turnstileEnabled && !turnstileToken)}
-            className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+            className="rounded-md bg-[#5ea3cc] px-4 py-2 font-medium text-[#0a1220] hover:bg-[#6fb7e0] disabled:opacity-50"
           >
             {submitting ? "提交中…" : "发送激活邮件"}
           </button>
-          <a href="/login" className="text-sm text-gray-400 hover:text-gray-200">
+          <a href="/login" className="text-sm text-[#6482a3] hover:text-[#6fb7e0]">
             已有账号?去登录
           </a>
         </form>

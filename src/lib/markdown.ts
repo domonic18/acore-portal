@@ -76,6 +76,28 @@ function rehypeImageAllowlist(cdnHosts: readonly string[]) {
   };
 }
 
+/**
+ * 稳定章节锚点:按标题文案把 rehype-slug 生成的中文 id 覆写为约定英文 id
+ * (教程页下载区沿用旧站锚点,菜单与外链共用;取首个命中标题)。
+ * 置于 sanitize 之后:仅覆写本模块常量锚点,sanitize 的 clobberPrefix 不作用于
+ * 该 id,保证 URL 与旧站 #client_download 一致。
+ */
+function rehypeSectionAnchors(
+  anchors: readonly { id: string; match: RegExp }[],
+) {
+  return (tree: Root) => {
+    for (const { id, match } of anchors) {
+      let assigned = false;
+      visit(tree, "element", (node: Element) => {
+        if (assigned || !/^h[1-6]$/.test(node.tagName)) return;
+        if (!match.test(textOf(node))) return;
+        node.properties.id = id;
+        assigned = true;
+      });
+    }
+  };
+}
+
 /** TOC 提取(rehype-slug 生成 id 后收 h2-h4;渲染产物同源锚点) */
 function rehypeCollectToc(toc: TocItem[]) {
   return (tree: Root) => {
@@ -122,7 +144,11 @@ function textOf(node: Element): string {
 
 export async function renderMarkdown(
   md: string,
-  opts: { cdnHosts?: readonly string[]; sections?: boolean } = {},
+  opts: {
+    cdnHosts?: readonly string[];
+    sections?: boolean;
+    sectionAnchors?: readonly { id: string; match: RegExp }[];
+  } = {},
 ): Promise<{ html: string; toc: TocItem[] }> {
   const toc: TocItem[] = [];
   // unified 管线(非 react-dom/server——RSC 禁运):原始 HTML 不渲染
@@ -135,12 +161,15 @@ export async function renderMarkdown(
     .use(remarkCjkFriendly)
     .use(remarkRehype);
   if (opts.sections) pipeline = pipeline.use(rehypePageSections);
-  const file = await pipeline
-    .use(rehypeHighlight)
-    .use(rehypeSlug)
+  pipeline = pipeline.use(rehypeHighlight).use(rehypeSlug);
+  let tail = pipeline
     .use(rehypeWowhead)
     .use(rehypeImageAllowlist, opts.cdnHosts ?? [])
-    .use(rehypeSanitize, sanitizeSchema as never)
+    .use(rehypeSanitize, sanitizeSchema as never);
+  if (opts.sectionAnchors?.length) {
+    tail = tail.use(rehypeSectionAnchors, opts.sectionAnchors);
+  }
+  const file = await tail
     .use(rehypeCollectToc, toc)
     .use(rehypeStringify)
     .process(md);

@@ -51,7 +51,7 @@ export default function LoginForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex w-full max-w-sm flex-col gap-4">
-      <h1 className="text-2xl font-bold">登录</h1>
+      <h1 className="text-2xl font-bold text-[#dcebf7]">登录</h1>
       <label className="flex flex-col gap-1 text-sm">
         用户名
         <input
@@ -60,7 +60,7 @@ export default function LoginForm({
           required
           maxLength={32}
           autoComplete="username"
-          className="rounded border border-gray-600 bg-transparent px-3 py-2"
+          className="rounded-md border border-[#22385a] bg-[#0d1828] px-3 py-2 text-[#dcebf7] focus:border-[#5ea3cc] focus:outline-none"
         />
       </label>
       <label className="flex flex-col gap-1 text-sm">
@@ -71,7 +71,7 @@ export default function LoginForm({
           onChange={(e) => setPassword(e.target.value)}
           required
           autoComplete="current-password"
-          className="rounded border border-gray-600 bg-transparent px-3 py-2"
+          className="rounded-md border border-[#22385a] bg-[#0d1828] px-3 py-2 text-[#dcebf7] focus:border-[#5ea3cc] focus:outline-none"
         />
       </label>
       <label className="flex items-center gap-2 text-sm">
@@ -96,15 +96,15 @@ export default function LoginForm({
       <button
         type="submit"
         disabled={submitting || (turnstileEnabled && !turnstileToken)}
-        className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+        className="rounded-md bg-[#5ea3cc] px-4 py-2 font-medium text-[#0a1220] hover:bg-[#6fb7e0] disabled:opacity-50"
       >
         {submitting ? "登录中…" : "登录"}
       </button>
-      <div className="flex justify-between text-sm text-gray-400">
-        <a href="/forgot-password" className="hover:text-gray-200">
+      <div className="flex justify-between text-sm text-[#6482a3]">
+        <a href="/forgot-password" className="hover:text-[#6fb7e0]">
           忘记密码?
         </a>
-        <a href="/register" className="hover:text-gray-200">
+        <a href="/register" className="hover:text-[#6fb7e0]">
           没有账号?注册
         </a>
       </div>

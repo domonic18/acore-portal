@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { ContentPanel } from "@/components/site/content-panel";
 
 function ResendForm() {
   const [email, setEmail] = useState("");
@@ -28,14 +29,14 @@ function ResendForm() {
 
   if (sent) {
     return (
-      <p className="text-sm text-gray-300" role="status">
+      <p className="text-sm text-[#93b2ce]" role="status">
         若该邮箱可重发,激活邮件将很快送达,请查收(含垃圾箱)。
       </p>
     );
   }
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <p className="text-sm text-gray-400" role="alert">
+      <p className="text-sm text-[#93b2ce]" role="alert">
         链接无效或已过期。请重新注册,或在下方输入注册邮箱重发激活邮件。
       </p>
       <label className="flex flex-col gap-1 text-sm">
@@ -46,13 +47,13 @@ function ResendForm() {
           onChange={(e) => setEmail(e.target.value)}
           required
           autoComplete="email"
-          className="rounded border border-gray-600 bg-transparent px-3 py-2"
+          className="rounded-md border border-[#22385a] bg-[#0d1828] px-3 py-2 text-[#dcebf7] focus:border-[#5ea3cc] focus:outline-none"
         />
       </label>
       <button
         type="submit"
         disabled={submitting}
-        className="self-start rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+        className="self-start rounded-md bg-[#5ea3cc] px-4 py-2 text-sm font-medium text-[#0a1220] hover:bg-[#6fb7e0] disabled:opacity-50"
       >
         {submitting ? "提交中…" : "重发激活邮件"}
       </button>
@@ -109,7 +110,7 @@ function SetPasswordForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <p className="text-sm text-gray-400">
+      <p className="text-sm text-[#93b2ce]">
         设置密码完成激活。用户名即游戏账号,两端同密。
       </p>
       <label className="flex flex-col gap-1 text-sm">
@@ -121,7 +122,7 @@ function SetPasswordForm() {
           required
           minLength={8}
           autoComplete="new-password"
-          className="rounded border border-gray-600 bg-transparent px-3 py-2"
+          className="rounded-md border border-[#22385a] bg-[#0d1828] px-3 py-2 text-[#dcebf7] focus:border-[#5ea3cc] focus:outline-none"
         />
       </label>
       <label className="flex flex-col gap-1 text-sm">
@@ -133,7 +134,7 @@ function SetPasswordForm() {
           required
           minLength={8}
           autoComplete="new-password"
-          className="rounded border border-gray-600 bg-transparent px-3 py-2"
+          className="rounded-md border border-[#22385a] bg-[#0d1828] px-3 py-2 text-[#dcebf7] focus:border-[#5ea3cc] focus:outline-none"
         />
       </label>
       {error && (
@@ -144,7 +145,7 @@ function SetPasswordForm() {
       <button
         type="submit"
         disabled={submitting}
-        className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+        className="rounded-md bg-[#5ea3cc] px-4 py-2 font-medium text-[#0a1220] hover:bg-[#6fb7e0] disabled:opacity-50"
       >
         {submitting ? "提交中…" : "设置密码并激活"}
       </button>
@@ -154,13 +155,15 @@ function SetPasswordForm() {
 
 export default function SetPasswordPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center p-8">
-      <div className="flex w-full max-w-sm flex-col gap-4">
-        <h1 className="text-2xl font-bold">设置密码</h1>
-        <Suspense fallback={null}>
-          <SetPasswordForm />
-        </Suspense>
-      </div>
+    <main className="flex min-h-screen items-center justify-center p-6 lg:p-8">
+      <ContentPanel className="w-full max-w-md p-7 lg:p-8">
+        <div className="flex w-full flex-col gap-4">
+          <h1 className="text-2xl font-bold text-[#dcebf7]">设置密码</h1>
+          <Suspense fallback={null}>
+            <SetPasswordForm />
+          </Suspense>
+        </div>
+      </ContentPanel>
     </main>
   );
 }

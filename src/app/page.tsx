@@ -4,6 +4,7 @@ import { listActiveBanners } from "@/server/services/home/banners";
 import { getServerStatus } from "@/server/services/status/status";
 import { listHighlightedForumThreads } from "@/server/services/forum/browse";
 import { getConfig } from "@/lib/config";
+import { TUTORIAL_ANCHORS } from "@/constants/content";
 import { StatusCard } from "@/components/site/status-card";
 import { HomeCarousel } from "@/components/site/home-carousel";
 import { HomeProductCarousel } from "@/components/site/home-product-carousel";
@@ -17,7 +18,10 @@ import { SiteSidebar } from "@/app/_components/sidebar/sidebar";
  * 轮播空物料整块隐藏,成就 iframe url 空=隐藏;/admin 改动即时生效。
  */
 
-/** 快捷入口(设计稿 qlinks 六行;链接落站内真实路由) */
+/**
+ * 快捷入口(设计稿 qlinks 六行,对齐生产原站链接):下载项走教程页锚点,
+ * 高清端/解压/登录问题/补丁生效/插件教程落迁移后的文章详情页。
+ */
 const QUICK_LINKS: { title: string; links: { label: string; href: string }[] }[] = [
   {
     title: "项目简介",
@@ -31,30 +35,30 @@ const QUICK_LINKS: { title: string; links: { label: string; href: string }[] }[]
   {
     title: "客户端",
     links: [
-      { label: "普清端", href: "/tutorial" },
-      { label: "高清端", href: "/tutorial" },
-      { label: "解压方法", href: "/tutorial" },
+      { label: "普清端", href: `/tutorial#${TUTORIAL_ANCHORS.client}` },
+      { label: "高清端", href: "/post/【教程】魔兽世界3-35高清端试用指南" },
+      { label: "解压方法", href: "/post/客户端下载解压方法" },
     ],
   },
   {
     title: "登录器",
     links: [
-      { label: "下载", href: "/tutorial" },
-      { label: "常见登录问题", href: "/tutorial" },
+      { label: "下载", href: `/tutorial#${TUTORIAL_ANCHORS.launcher}` },
+      { label: "常见登录问题", href: "/post/关于登录不了游戏的排查方法" },
     ],
   },
   {
     title: "补丁",
     links: [
-      { label: "下载", href: "/tutorial" },
-      { label: "补丁生效方法", href: "/tutorial" },
+      { label: "下载", href: `/tutorial#${TUTORIAL_ANCHORS.patch}` },
+      { label: "补丁生效方法", href: "/post/经验加成合剂显示问号解决方法" },
     ],
   },
   {
     title: "插件",
     links: [
-      { label: "魔盒插件教程", href: "/tutorial" },
-      { label: "黑盒插件教程", href: "/tutorial" },
+      { label: "魔盒插件教程", href: "/post/【教程】魔盒插件的下载使用方法" },
+      { label: "黑盒插件教程", href: "/post/【插件使用】黑盒工坊的使用方法教程" },
     ],
   },
   {

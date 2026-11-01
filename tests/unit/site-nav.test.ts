@@ -46,12 +46,13 @@ describe("SITE_NAV 多级菜单结构(SC-205)", () => {
       "登录器下载",
       "补丁下载",
     ]);
+    // 下载三项沿用旧站锚点直达教程页对应下载区(规格 §菜单结构)
     expect(byLabel["首页"]?.children?.map((c) => c.href)).toEqual([
       "/about",
       "/tutorial",
-      "/tutorial",
-      "/tutorial",
-      "/tutorial",
+      "/tutorial#client_download",
+      "/tutorial#login_download",
+      "/tutorial#patch_download",
     ]);
     expect(byLabel["我的账户"]?.children).toEqual(ACCOUNT_NAV);
   });
