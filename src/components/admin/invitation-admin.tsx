@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 邀请码批量生成 + 行内启停(api-admin;M1 表与状态机复用,注册侧消费仍后置)。
@@ -22,7 +23,7 @@ export function InvitationGenerateForm() {
     setError(null);
     setCodes(null);
     try {
-      const res = await fetch("/api/admin/invitation-codes/generate", {
+      const body = await requestJson<{ codes: string[] }>("/api/admin/invitation-codes/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -33,15 +34,10 @@ export function InvitationGenerateForm() {
           expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
         }),
       });
-      const body = await res.json();
-      if (!res.ok) {
-        setError(body?.error?.message ?? "生成失败,请稍后重试。");
-        return;
-      }
       setCodes(body.codes);
       router.refresh();
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 type Board = {
   id: string;
@@ -28,20 +29,15 @@ export function ForumBoardManager({ boards }: { boards: Board[] }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(path, {
+      await requestJson(path, {
         method,
         headers: { "content-type": "application/json" },
         body: body ? JSON.stringify(body) : undefined,
       });
-      if (!res.ok) {
-        const resp = await res.json().catch(() => null);
-        setError(resp?.error?.message ?? "操作失败,请稍后重试。");
-        return false;
-      }
       router.refresh();
       return true;
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
       return false;
     } finally {
       setBusy(false);

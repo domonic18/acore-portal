@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatDateTime } from "@/lib/format";
+import { requestJson } from "@/lib/api-client";
 import { POINT_TX_TYPE_LABEL, type PointTxTypeValue } from "@/constants/points";
 
 export type PointTx = {
@@ -33,9 +34,9 @@ export function PointsPager({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/account/points?page=${next}`);
-      if (!res.ok) throw new Error("failed");
-      const body = (await res.json()) as { transactions: PointTx[]; page: number };
+      const body = await requestJson<{ transactions: PointTx[]; page: number }>(
+        `/api/account/points?page=${next}`,
+      );
       setTxs(body.transactions);
       setCurrent(body.page);
     } catch {

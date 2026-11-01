@@ -12,6 +12,7 @@ import {
   type ProgressionDraftItem,
 } from "./progression-card-editor";
 import { uploadMediaFiles } from "./media-library";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 渐进计划后台(M4 深化):在渐进页同款时间轴上就地编辑(WP 区块编辑器语义)。
@@ -201,19 +202,11 @@ export function ProgressionAdmin({ nodes }: { nodes: AdminProgressionNode[] }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/progression", {
+      const body = await requestJson<{ items?: { id: string }[] }>("/api/admin/progression", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const body = (await res.json().catch(() => ({}))) as {
-        items?: { id: string }[];
-        error?: { message?: string };
-      };
-      if (!res.ok) {
-        setError(body.error?.message ?? "保存失败。");
-        return;
-      }
       const savedIds = body.items ?? [];
       const next = items.map((item, index) => ({
         ...item,
@@ -224,8 +217,8 @@ export function ProgressionAdmin({ nodes }: { nodes: AdminProgressionNode[] }) {
       setSavedJson(JSON.stringify(toPayload(next, [], currentId)));
       setSaved(true);
       router.refresh();
-    } catch {
-      setError("保存失败,请检查网络后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }

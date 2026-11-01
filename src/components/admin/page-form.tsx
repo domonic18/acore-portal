@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MarkdownEditor } from "@/components/admin/markdown-editor";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /** 静态页表单(T032,FR-216):slug 保留字/冲突错误由服务端 422 原样呈现 */
 export type PageFormValues = {
@@ -32,23 +33,15 @@ export function PageForm({ initial }: { initial?: PageFormValues }) {
     setError(null);
     setBusy(true);
     try {
-      const res = await fetch(
-        initial?.id ? `/api/admin/pages/${initial.id}` : "/api/admin/pages",
-        {
-          method: initial?.id ? "PUT" : "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(values),
-        },
-      );
-      const body = await res.json();
-      if (!res.ok) {
-        setError(body?.error?.message ?? "保存失败,请稍后重试。");
-        return;
-      }
+      await requestJson(initial?.id ? `/api/admin/pages/${initial.id}` : "/api/admin/pages", {
+        method: initial?.id ? "PUT" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(values),
+      });
       router.push("/admin/pages");
       router.refresh();
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }

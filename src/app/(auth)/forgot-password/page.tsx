@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ContentPanel } from "@/components/site/content-panel";
+import { ApiRequestError, errorMessage, requestJson } from "@/lib/api-client";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -14,18 +15,19 @@ export default function ForgotPasswordPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch("/api/auth/forgot-password", {
+      await requestJson("/api/auth/forgot-password", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      if (res.ok || res.status === 429) {
+      setSent(true);
+    } catch (err) {
+      // 429 为限速,同样按受理成功处理(不泄露邮箱是否存在)
+      if (err instanceof ApiRequestError && err.status === 429) {
         setSent(true);
         return;
       }
-      setError("提交失败,请稍后再试。");
-    } catch {
-      setError("网络异常,请稍后再试。");
+      setError(errorMessage(err));
     } finally {
       setSubmitting(false);
     }

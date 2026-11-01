@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { requestJson } from "@/lib/api-client";
 
 /**
  * 站点页头未读徽标+弹泡(FR-310,契约 api-notification 弹泡口径):
@@ -16,11 +17,10 @@ export function UnreadBadge() {
     let alive = true;
     const poll = async () => {
       try {
-        const res = await fetch("/api/account/notifications/unread", {
-          cache: "no-store",
-        });
-        if (!res.ok) return; // 失败静默
-        const body = (await res.json()) as { count: number };
+        const body = await requestJson<{ count: number }>(
+          "/api/account/notifications/unread",
+          { cache: "no-store" },
+        );
         if (!alive) return;
         const last = lastRef.current;
         if (last !== null && body.count > last) {

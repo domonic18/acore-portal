@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { className, raceName } from "@/constants/characters";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 type Character = {
   guid: number;
@@ -32,17 +33,12 @@ export default function ItemRestorePage() {
     setItemsError(null);
     setItems(null);
     try {
-      const res = await fetch(`/api/account/restore-items?guid=${target}`);
-      const body = (await res.json().catch(() => null)) as
-        | { items?: RestorableItem[]; error?: { code?: string; message?: string } }
-        | null;
-      if (res.ok) {
-        setItems(body?.items ?? []);
-      } else {
-        setItemsError(body?.error?.message ?? "恢复列表加载失败,请稍后重试。");
-      }
-    } catch {
-      setItemsError("网络异常,请稍后重试。");
+      const body = await requestJson<{ items?: RestorableItem[] }>(
+        `/api/account/restore-items?guid=${target}`,
+      );
+      setItems(body.items ?? []);
+    } catch (err) {
+      setItemsError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -51,9 +47,7 @@ export default function ItemRestorePage() {
   useEffect(() => {
     void (async () => {
       try {
-        const res = await fetch("/api/account/characters");
-        if (!res.ok) throw new Error("failed");
-        const body = (await res.json()) as { characters: Character[] };
+        const body = await requestJson<{ characters: Character[] }>("/api/account/characters");
         setCharacters(body.characters);
         const first = body.characters[0];
         if (first) {

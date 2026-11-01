@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import TurnstileWidget from "@/components/auth/TurnstileWidget";
+import { errorMessage, requestJson } from "@/lib/api-client";
+import { safeNextPath } from "@/lib/safe-redirect";
 
 export default function LoginForm({
   turnstileEnabled,
@@ -28,22 +30,14 @@ export default function LoginForm({
         setError("请先完成人机验证。");
         return;
       }
-      const res = await fetch("/api/auth/login", {
+      await requestJson("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ username, password, remember, turnstileToken }),
       });
-      if (res.ok) {
-        const next = searchParams.get("next") ?? "/account/overview";
-        window.location.href = next;
-        return;
-      }
-      const body = (await res.json().catch(() => null)) as
-        | { error?: { message?: string } }
-        | null;
-      setError(body?.error?.message ?? "登录失败,请稍后再试。");
-    } catch {
-      setError("网络异常,请稍后再试。");
+      window.location.href = safeNextPath(searchParams.get("next"));
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setSubmitting(false);
     }

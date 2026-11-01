@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ContentPanel } from "@/components/site/content-panel";
+import { ApiRequestError, errorMessage, requestJson } from "@/lib/api-client";
 
 function ResendForm() {
   const [email, setEmail] = useState("");
@@ -79,26 +80,19 @@ function SetPasswordForm() {
     }
     setSubmitting(true);
     try {
-      const res = await fetch("/api/auth/set-password", {
+      await requestJson("/api/auth/set-password", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ token, password }),
       });
-      if (res.ok) {
-        // 激活即登录:Cookie 已由端点下发
-        window.location.href = "/account/overview";
-        return;
-      }
-      const body = (await res.json().catch(() => null)) as
-        | { error?: { code?: string; message?: string } }
-        | null;
-      if (body?.error?.code === "TOKEN_INVALID_OR_EXPIRED") {
+      // 激活即登录:Cookie 已由端点下发
+      window.location.href = "/account/overview";
+    } catch (err) {
+      if (err instanceof ApiRequestError && err.code === "TOKEN_INVALID_OR_EXPIRED") {
         setExpired(true);
         return;
       }
-      setError(body?.error?.message ?? "设置失败,请稍后再试。");
-    } catch {
-      setError("网络异常,请稍后再试。");
+      setError(errorMessage(err));
     } finally {
       setSubmitting(false);
     }

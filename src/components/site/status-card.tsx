@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ServerStatusResult } from "@/lib/status-types";
+import { requestJson } from "@/lib/api-client";
 import { SectionHeader } from "@/components/site/section-header";
 
 /**
@@ -24,9 +25,9 @@ export function StatusCard({ initial }: { initial: ServerStatusResult }) {
     let alive = true;
     const poll = async () => {
       try {
-        const res = await fetch("/api/status", { cache: "no-store" });
-        if (!res.ok) return;
-        const next = (await res.json()) as ServerStatusResult;
+        const next = await requestJson<ServerStatusResult>("/api/status", {
+          cache: "no-store",
+        });
         if (alive) setStatus(next);
       } catch {
         // 网络抖动保留上次渲染,下个周期重试

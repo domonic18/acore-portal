@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MarkdownEditor } from "@/components/admin/markdown-editor";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 文章新建/编辑表单(T032,FR-215):分类/标签(多选)选择,正文走
@@ -62,7 +63,7 @@ export function ArticleForm({
     setError(null);
     setBusy(true);
     try {
-      const res = await fetch(
+      await requestJson(
         initial?.id ? `/api/admin/articles/${initial.id}` : "/api/admin/articles",
         {
           method: initial?.id ? "PUT" : "POST",
@@ -78,15 +79,10 @@ export function ArticleForm({
           }),
         },
       );
-      const body = await res.json();
-      if (!res.ok) {
-        setError(body?.error?.message ?? "保存失败,请稍后重试。");
-        return;
-      }
       router.push("/admin/articles");
       router.refresh();
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }

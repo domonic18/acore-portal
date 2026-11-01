@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 function EmailTokenConfirmer() {
   const searchParams = useSearchParams();
@@ -12,12 +13,12 @@ function EmailTokenConfirmer() {
     if (!token) return;
     void (async () => {
       try {
-        const res = await fetch("/api/account/confirm-email", {
+        await requestJson("/api/account/confirm-email", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ token }),
         });
-        setStatus(res.ok ? "ok" : "fail");
+        setStatus("ok");
       } catch {
         setStatus("fail");
       }
@@ -48,21 +49,14 @@ function NicknameForm({ initial }: { initial: string }) {
     setMessage(null);
     setSubmitting(true);
     try {
-      const res = await fetch("/api/account/profile", {
+      const body = await requestJson<{ user?: { nickname?: string } }>("/api/account/profile", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ nickname }),
       });
-      const body = (await res.json().catch(() => null)) as
-        | { user?: { nickname?: string }; error?: { message?: string } }
-        | null;
-      if (res.ok) {
-        setMessage(`昵称已更新为「${body?.user?.nickname ?? nickname}」。`);
-      } else {
-        setError(body?.error?.message ?? "保存失败,请稍后再试。");
-      }
-    } catch {
-      setError("网络异常,请稍后再试。");
+      setMessage(`昵称已更新为「${body.user?.nickname ?? nickname}」。`);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -117,7 +111,7 @@ function ChangePasswordForm() {
     setMessage(null);
     setSubmitting(true);
     try {
-      const res = await fetch("/api/account/change-password", {
+      await requestJson("/api/account/change-password", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -125,19 +119,12 @@ function ChangePasswordForm() {
           new_password: next,
         }),
       });
-      const body = (await res.json().catch(() => null)) as
-        | { message?: string; error?: { message?: string } }
-        | null;
-      if (res.ok) {
-        setMessage("密码已更新,请使用新密码重新登录。");
-        setTimeout(() => {
-          window.location.href = "/login";
-        }, 1500);
-        return;
-      }
-      setError(body?.error?.message ?? "修改失败,请稍后再试。");
-    } catch {
-      setError("网络异常,请稍后再试。");
+      setMessage("密码已更新,请使用新密码重新登录。");
+      setTimeout(() => {
+        window.location.href = "/login";
+      }, 1500);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -203,21 +190,14 @@ function ChangeEmailForm() {
     setMessage(null);
     setSubmitting(true);
     try {
-      const res = await fetch("/api/account/change-email", {
+      const body = await requestJson<{ message?: string }>("/api/account/change-email", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ new_email: newEmail, current_password: current }),
       });
-      const body = (await res.json().catch(() => null)) as
-        | { message?: string; error?: { message?: string } }
-        | null;
-      if (res.ok) {
-        setMessage(body?.message ?? "确认邮件已发送。");
-        return;
-      }
-      setError(body?.error?.message ?? "提交失败,请稍后再试。");
-    } catch {
-      setError("网络异常,请稍后再试。");
+      setMessage(body.message ?? "确认邮件已发送。");
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setSubmitting(false);
     }

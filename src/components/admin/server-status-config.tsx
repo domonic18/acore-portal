@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 状态人工三键表单(T045;p15 字段二分:实时读数为只读由页面渲染,本表单只管三键)。
@@ -32,7 +33,7 @@ export function ServerStatusConfigForm({
     setError(null);
     setSaved(false);
     try {
-      const res = await fetch("/api/admin/status-config", {
+      const body = await requestJson<{ pointerInvalid?: boolean }>("/api/admin/status-config", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -41,17 +42,11 @@ export function ServerStatusConfigForm({
           ...(nodeId === "" ? {} : { currentNodeId: nodeId }),
         }),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        setError(body?.error?.message ?? "保存失败,请稍后重试。");
-        return;
-      }
-      const body = (await res.json()) as { pointerInvalid?: boolean };
       setPointerInvalid(body.pointerInvalid === true);
       setSaved(true);
       router.refresh();
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ITEM_QUALITY_COLOR } from "@/constants/shop";
+import { ApiRequestError, errorMessage, requestJson } from "@/lib/api-client";
 import { CharacterSelect, type CharacterOption } from "./character-select";
 
 /**
@@ -63,14 +64,13 @@ export function AddToCartForm({
     }
     let alive = true;
     setRestoreDegraded(false);
-    fetch(`/api/account/restore-items?guid=${guid}`)
-      .then(async (res) => {
-        const body = await res.json();
-        if (!alive) return;
-        if (res.ok) setRestorable(body.items as RestorableItem[]);
-        else setRestoreDegraded(true);
+    requestJson<{ items: RestorableItem[] }>(`/api/account/restore-items?guid=${guid}`)
+      .then((body) => {
+        if (alive) setRestorable(body.items);
       })
-      .catch(() => alive && setRestoreDegraded(true));
+      .catch(() => {
+        if (alive) setRestoreDegraded(true);
+      });
     return () => {
       alive = false;
     };
@@ -99,25 +99,23 @@ export function AddToCartForm({
       if (fields.includes("characterGuid")) params.characterGuid = Number(guid);
       if (needRestore) params.restoreItemEntry = Number(restoreEntry);
       if (fields.includes("unlockName")) params.unlockName = unlockName;
-      const res = await fetch("/api/cart", {
+      await requestJson("/api/cart", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ productId: Number(productId), qty, params }),
       });
-      const body = await res.json();
-      if (res.status === 401) {
+      setOk(true);
+    } catch (err) {
+      if (err instanceof ApiRequestError && err.status === 401) {
         window.location.href = loginHref;
         return;
       }
-      if (!res.ok) {
-        setError(
-          ERROR_MESSAGES[body?.error?.code as string] ?? (body?.error?.message as string) ?? "加购失败,请稍后重试。",
-        );
+      const known = err instanceof ApiRequestError && err.code ? ERROR_MESSAGES[err.code] : undefined;
+      if (known) {
+        setError(known);
         return;
       }
-      setOk(true);
-    } catch {
-      setError("网络异常,请稍后重试。");
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }

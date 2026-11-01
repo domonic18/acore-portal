@@ -9,6 +9,7 @@ import {
   type SidebarCardConfig,
   type SidebarLinkConfig,
 } from "@/constants/sidebar";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 侧栏快捷卡编辑器(M4 通用化):整树本地编辑 → 一次 PUT /api/admin/sidebar。
@@ -138,22 +139,15 @@ export function SidebarManager({ cards: initial }: { cards: SidebarCardConfig[] 
     setSaved(false);
     setError(null);
     try {
-      const res = await fetch("/api/admin/sidebar", {
+      await requestJson("/api/admin/sidebar", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ cards: cards.map(normalize) }),
       });
-      const body = (await res.json().catch(() => null)) as
-        | { error?: { message?: string } }
-        | null;
-      if (!res.ok) {
-        setError(body?.error?.message ?? "保存失败,请检查填写内容。");
-        return;
-      }
       setSaved(true);
       router.refresh();
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }

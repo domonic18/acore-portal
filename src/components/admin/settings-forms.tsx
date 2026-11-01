@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SettingsView } from "@/lib/settings-types";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 七组设置表单+测试发信卡片(T032;api-admin-m4 契约)。
@@ -140,23 +141,16 @@ function useGroupSave() {
     setSaved(false);
     setError(null);
     try {
-      const res = await fetch("/api/admin/settings", {
+      await requestJson("/api/admin/settings", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ group, values }),
       });
-      const body = (await res.json().catch(() => null)) as
-        | { ok?: boolean; error?: { message?: string } }
-        | null;
-      if (!res.ok) {
-        setError(body?.error?.message ?? "保存失败,请稍后重试。");
-        return false;
-      }
       setSaved(true);
       router.refresh();
       return true;
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
       return false;
     } finally {
       setBusy(false);

@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MediaAssetList, uploadMediaFiles } from "@/components/admin/media-library";
 import { useHydrated } from "@/lib/use-hydrated";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 type Banner = {
   id: string;
@@ -117,20 +118,15 @@ export function BannerManager({ banners }: { banners: Banner[] }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(path, {
+      await requestJson(path, {
         method,
         headers: { "content-type": "application/json" },
         body: body ? JSON.stringify(body) : undefined,
       });
-      if (!res.ok) {
-        const resp = await res.json().catch(() => null);
-        setError(resp?.error?.message ?? "操作失败,请稍后重试。");
-        return false;
-      }
       router.refresh();
       return true;
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
       return false;
     } finally {
       setBusy(false);

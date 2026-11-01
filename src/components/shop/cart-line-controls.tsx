@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ApiRequestError, errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 购物车行数量/移除控件:PATCH·DELETE /api/cart/[id];
@@ -25,23 +26,18 @@ export function CartLineControls({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/cart/${itemId}`, {
+      await requestJson(`/api/cart/${itemId}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ qty: next }),
       });
-      if (res.ok) {
-        router.refresh();
-        return;
-      }
-      const body = await res.json();
+      router.refresh();
+    } catch (err) {
       setError(
-        body?.error?.code === "OUT_OF_STOCK"
+        err instanceof ApiRequestError && err.code === "OUT_OF_STOCK"
           ? "商品已售罄,无法增加数量。"
-          : (body?.error?.message as string) ?? "操作失败。",
+          : errorMessage(err),
       );
-    } catch {
-      setError("网络异常,请稍后重试。");
     } finally {
       setBusy(false);
     }
@@ -52,11 +48,10 @@ export function CartLineControls({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/cart/${itemId}`, { method: "DELETE" });
-      if (res.ok) router.refresh();
-      else setError("移除失败,请稍后重试。");
-    } catch {
-      setError("网络异常,请稍后重试。");
+      await requestJson(`/api/cart/${itemId}`, { method: "DELETE" });
+      router.refresh();
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 用户详情操作(FR-105/FR-104):积分手调(原因必填 2-255,402=禁止负余额)
@@ -30,25 +31,23 @@ export function UserActions({
     setAdjustError(null);
     setAdjustMsg(null);
     try {
-      const res = await fetch(`/api/admin/users/${userId}/points-adjust`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          amount: sign * (Number(amount) || 0),
-          reason,
-        }),
-      });
-      const body = await res.json();
-      if (!res.ok) {
-        setAdjustError(body?.error?.message ?? "调整失败,请稍后重试。");
-        return;
-      }
+      const body = await requestJson<{ balance: number }>(
+        `/api/admin/users/${userId}/points-adjust`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            amount: sign * (Number(amount) || 0),
+            reason,
+          }),
+        },
+      );
       setAdjustMsg(`已调整,当前余额 ${body.balance}`);
       setAmount("");
       setReason("");
       router.refresh();
-    } catch {
-      setAdjustError("网络异常,请稍后重试。");
+    } catch (err) {
+      setAdjustError(errorMessage(err));
     } finally {
       setAdjustBusy(false);
     }
@@ -58,19 +57,14 @@ export function UserActions({
     setBadgeBusy(true);
     setBadgeError(null);
     try {
-      const res = await fetch(`/api/admin/users/${userId}/badges`, {
+      await requestJson(`/api/admin/users/${userId}/badges`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ badgeId }),
       });
-      const body = await res.json();
-      if (!res.ok) {
-        setBadgeError(body?.error?.message ?? "授予失败,请稍后重试。");
-        return;
-      }
       router.refresh();
-    } catch {
-      setBadgeError("网络异常,请稍后重试。");
+    } catch (err) {
+      setBadgeError(errorMessage(err));
     } finally {
       setBadgeBusy(false);
     }

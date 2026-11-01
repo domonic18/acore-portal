@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { THREAD_LABEL_OPTIONS, THREAD_STATUS_LABEL } from "@/constants/forum";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 版主操作条(T040,FR-220):仅 moderator/admin 服务端渲染可见;
@@ -29,19 +30,14 @@ export function ModeratorActions({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/forum/moderate/thread/${threadId}${path}`, {
+      await requestJson(`/api/forum/moderate/thread/${threadId}${path}`, {
         method,
         headers: body === undefined ? undefined : { "content-type": "application/json" },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
-      if (!res.ok) {
-        const payload = await res.json().catch(() => null);
-        setError(payload?.error?.message ?? "操作失败,请稍后重试。");
-        return false;
-      }
       return true;
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
       return false;
     } finally {
       setBusy(false);

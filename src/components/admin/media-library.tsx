@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MEDIA_CATEGORIES, MEDIA_DEFAULT_CATEGORY } from "@/constants/media";
 import { prepareUploadFile } from "@/lib/media/prepare-upload";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 媒体选择弹层(FR-217,编辑器插入 + /admin/media 管理共用列表逻辑):
@@ -21,6 +22,13 @@ export type MediaAssetItem = {
 type UploadResponse = {
   items?: MediaAssetItem[];
   error?: { message?: string };
+};
+
+type MediaListResponse = {
+  items: MediaAssetItem[];
+  total: number;
+  totalPages: number;
+  counts: Record<string, number>;
 };
 
 export async function uploadMediaFiles(
@@ -80,8 +88,7 @@ export function MediaAssetList({
     const params = new URLSearchParams({ page: String(page) });
     if (q) params.set("q", q);
     if (category) params.set("category", category);
-    fetch(`/api/admin/media?${params.toString()}`)
-      .then((res) => res.json())
+    requestJson<MediaListResponse>(`/api/admin/media?${params.toString()}`)
       .then((body) => {
         if (!cancelled) setData(body);
       })
@@ -105,10 +112,10 @@ export function MediaAssetList({
       return;
     }
     setError(null);
-    const res = await fetch(`/api/admin/media/${asset.id}`, { method: "DELETE" });
-    if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      setError(body?.error?.message ?? "删除失败");
+    try {
+      await requestJson(`/api/admin/media/${asset.id}`, { method: "DELETE" });
+    } catch (err) {
+      setError(errorMessage(err));
       return;
     }
     setData((prev) =>

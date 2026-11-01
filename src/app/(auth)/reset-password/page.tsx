@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ContentPanel } from "@/components/site/content-panel";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 function ResetForm() {
   const [password, setPassword] = useState("");
@@ -22,21 +23,14 @@ function ResetForm() {
     }
     setSubmitting(true);
     try {
-      const res = await fetch("/api/auth/reset-password", {
+      await requestJson("/api/auth/reset-password", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ token, password }),
       });
-      if (res.ok) {
-        setDone(true);
-        return;
-      }
-      const body = (await res.json().catch(() => null)) as
-        | { error?: { message?: string } }
-        | null;
-      setError(body?.error?.message ?? "重置失败,请稍后再试。");
-    } catch {
-      setError("网络异常,请稍后再试。");
+      setDone(true);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setSubmitting(false);
     }

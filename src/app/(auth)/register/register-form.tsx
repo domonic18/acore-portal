@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import TurnstileWidget from "@/components/auth/TurnstileWidget";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /** 注册页无密码输入(FR-005):激活链接设密 */
 export default function RegisterForm({
@@ -27,21 +28,14 @@ export default function RegisterForm({
         setError("请先完成人机验证。");
         return;
       }
-      const res = await fetch("/api/auth/register", {
+      await requestJson("/api/auth/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ username, email, turnstileToken }),
       });
-      if (res.status === 202) {
-        setSent(true);
-        return;
-      }
-      const body = (await res.json().catch(() => null)) as
-        | { error?: { message?: string } }
-        | null;
-      setError(body?.error?.message ?? "提交失败,请稍后再试。");
-    } catch {
-      setError("网络异常,请稍后再试。");
+      setSent(true);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setSubmitting(false);
     }

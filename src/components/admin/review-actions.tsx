@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * D3 复核操作(T062):通过→订单 completed/驳回→cancelled;
@@ -26,19 +27,14 @@ export function ReviewActions({ reviewId }: { reviewId: string }) {
     setBusy(approve ? "approve" : "reject");
     setError(null);
     try {
-      const res = await fetch(`/api/admin/review-items/${reviewId}/resolve`, {
+      await requestJson(`/api/admin/review-items/${reviewId}/resolve`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ approve, note: note.trim() || undefined }),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        setError(body?.error?.message ?? "复核失败,请稍后重试。");
-        return;
-      }
       router.refresh();
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(null);
     }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 分类新建行(api-admin POST /api/admin/categories):slug 唯一冲突 409 原样呈现。
@@ -18,21 +19,16 @@ export function CategoryForm() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/categories", {
+      await requestJson("/api/admin/categories", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ name, slug, sort: Number(sort) || 0 }),
       });
-      const body = await res.json();
-      if (!res.ok) {
-        setError(body?.error?.message ?? "保存失败,请稍后重试。");
-        return;
-      }
       setName("");
       setSlug("");
       router.refresh();
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }
