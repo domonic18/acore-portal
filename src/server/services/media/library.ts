@@ -5,7 +5,7 @@ import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { MEDIA_DEFAULT_CATEGORY } from "@/constants/media";
 import { MEDIA_PAGE_SIZE } from "@/constants/pagination";
 import { paginate } from "@/lib/pagination";
-import { writeAudit } from "@/server/services/audit/audit";
+import { writeAudit } from "@/server/services/shared/audit";
 import { CosNotConfiguredError, getCosClient } from "@/lib/cos/client";
 import {
   deleteLocalMedia,

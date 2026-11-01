@@ -7,7 +7,7 @@ import type { ServerStatusPayload, ServerStatusResult } from "@/lib/status-types
 import { rawExecuteCommand } from "@/server/soap/client";
 import { parseServerInfo } from "@/server/services/status/parse";
 import { resolveProgressionPosition } from "@/server/services/progression/progression";
-import { writeAudit } from "@/server/services/audit/audit";
+import { writeAudit } from "@/server/services/shared/audit";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { ALLIANCE_RACES, HORDE_RACES } from "@/constants/characters";
 

@@ -9,7 +9,7 @@ import {
 } from "@/lib/auth/session";
 import { SESSION } from "@/constants/session";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { writeAudit } from "@/server/services/audit/audit";
+import { writeAudit } from "@/server/services/shared/audit";
 
 /**
  * RSC 深校验守卫(middleware 浅校验之外的吊销态兜底,FR-014):

@@ -3,7 +3,7 @@ import { SITE_NAV } from "@/constants/navigation";
 import { SESSION } from "@/constants/session";
 import { getSessionFromToken } from "@/lib/auth/session";
 import { getRandomPortraitUrl } from "@/server/services/shared/portrait";
-import { getBalance } from "@/server/services/points/ledger";
+import { getBalance } from "@/server/services/shared/ledger";
 import { getConfig } from "@/lib/config";
 import { SiteHeaderClient } from "@/components/site/header-client";
 

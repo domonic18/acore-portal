@@ -10,7 +10,7 @@ import {
   creditLedger,
   debitLedger,
   LedgerError,
-} from "@/server/services/points/ledger";
+} from "@/server/services/shared/ledger";
 import { adjustPoints } from "@/server/services/points/adjust";
 import {
   listInbox,

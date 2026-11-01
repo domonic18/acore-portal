@@ -4,7 +4,7 @@ import type { Prisma } from "@/generated/business";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { ADMIN_FORUM_PAGE_SIZE } from "@/constants/pagination";
 import { paginate } from "@/lib/pagination";
-import { writeAudit } from "@/server/services/audit/audit";
+import { writeAudit } from "@/server/services/shared/audit";
 
 /**
  * 后台论坛管理查询与版块 CRUD(M4):

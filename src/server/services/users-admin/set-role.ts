@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { revokeAllSessions } from "@/lib/auth/session";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { writeAudit } from "@/server/services/audit/audit";
+import { writeAudit } from "@/server/services/shared/audit";
 
 /**
  * 后台用户角色分配(US 用户角色权限管理):

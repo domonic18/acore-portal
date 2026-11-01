@@ -9,7 +9,7 @@ import { AUDIT_ACTION } from "@/constants/audit";
 import { redis } from "@/lib/redis";
 import { getSessionFromToken } from "@/lib/auth/session";
 import { registerAccount, activateAccount, resendActivation } from "@/server/services/auth/register";
-import { recalculateLedger } from "@/server/services/points/ledger";
+import { recalculateLedger } from "@/server/services/shared/ledger";
 import { loginWithPassword } from "@/server/services/auth/login";
 
 /**

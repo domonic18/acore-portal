@@ -3,7 +3,7 @@ import type { Prisma } from "@/generated/business";
 import { getConfig } from "@/lib/config";
 import { MAIL_TEMPLATE } from "@/constants/mail";
 import { POINT_TX_TYPE_LABEL, type PointTxTypeValue } from "@/constants/points";
-import { enqueueMail } from "@/server/services/mail/outbox";
+import { enqueueMail } from "@/server/services/shared/mail-outbox";
 
 /**
  * 站内信写入(FR-309,SC-304):账本阻塞点同事务调用,

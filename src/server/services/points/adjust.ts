@@ -6,8 +6,8 @@ import {
   POINT_TX_TYPE,
 } from "@/constants/points";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { writeAudit } from "@/server/services/audit/audit";
-import { creditLedger, debitLedger, LedgerError } from "@/server/services/points/ledger";
+import { writeAudit } from "@/server/services/shared/audit";
+import { creditLedger, debitLedger, LedgerError } from "@/server/services/shared/ledger";
 
 export type AdjustOutcome =
   | { ok: true; balanceAfter: number }

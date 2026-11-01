@@ -1,6 +1,6 @@
 import "server-only";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { writeAudit } from "@/server/services/audit/audit";
+import { writeAudit } from "@/server/services/shared/audit";
 import {
   characterOwnedBy,
   listRestorableItems,

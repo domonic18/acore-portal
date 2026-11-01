@@ -7,7 +7,7 @@ import { loadSystemConfig } from "@/lib/config";
 import { POINT_TX_TYPE } from "@/constants/points";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { makePointsUser } from "../fixtures/shop-seed";
-import { debitLedger } from "@/server/services/points/ledger";
+import { debitLedger } from "@/server/services/shared/ledger";
 import { addToCart } from "@/server/services/shop/cart";
 import { checkoutCart } from "@/server/services/shop/checkout";
 import { driveOrderDelivery } from "@/server/services/shop/delivery";

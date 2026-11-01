@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { invalidateRouteCache, lookupLegacyRoute } from "@/server/services/routes/route-map";
+import { invalidateRouteCache, lookupLegacyRoute } from "@/server/services/shared/route-map";
 
 // vi.spyOn 对 Prisma model Proxy 不可用(spyOn 会破坏 delegate),故整文件 mock @/lib/db:
 // findMany 首调用 reject 模拟 DB 瞬断,后续调用透传真实库。
