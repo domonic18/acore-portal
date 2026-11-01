@@ -5,8 +5,9 @@ import {
 } from "@/server/services/content/articles";
 import { ArchiveAside } from "@/components/content/archive-aside";
 import { ArchiveSearch } from "@/components/content/archive-search";
+import { ARCHIVE_PAGE_SIZE } from "@/constants/pagination";
 import { formatDate } from "@/lib/format";
-import { pageWindow } from "@/lib/pagination";
+import { pageWindow, paginate } from "@/lib/pagination";
 
 /**
  * 归档页共用壳(T023,FR-209;2026-10 ardot p04 对齐):
@@ -18,7 +19,7 @@ export async function ArchivePage({
   title,
   searchParams,
   layout = "rows",
-  pageSize = 10,
+  pageSize = ARCHIVE_PAGE_SIZE,
   parent = { label: "首页", href: "/" },
 }: {
   categorySlug: string;
@@ -34,7 +35,7 @@ export async function ArchivePage({
     listArchiveArticles({ categorySlug, page, q, pageSize }),
     listHotNews(5),
   ]);
-  const totalPages = Math.max(1, Math.ceil(total / size));
+  const { totalPages } = paginate(total, page, size);
   const href = (p: number) => {
     const sp = new URLSearchParams();
     if (q) sp.set("q", q);

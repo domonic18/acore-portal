@@ -1,13 +1,14 @@
 import { prisma } from "@/lib/db";
+import {
+  FORUM_POST_PAGE_SIZE,
+  FORUM_THREAD_PAGE_SIZE,
+} from "@/constants/pagination";
 
 /**
  * 论坛浏览查询层(T038,FR-219;Q1 完全只读——零写路径):
  * 版块列表(聚合主题数/最新主题)/版块主题列表 20/页(pinned desc+lastPostAt desc)/
  * 主题楼层 20/页(floor asc);软删(deletedAt)全域过滤;阅读数原子自增(R2 Q7 口径)。
  */
-export const FORUM_THREAD_PAGE_SIZE = 20;
-export const FORUM_POST_PAGE_SIZE = 20;
-
 export async function listForumBoards() {
   const [boards, replyTotals] = await Promise.all([
     prisma.forumBoard.findMany({

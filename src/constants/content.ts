@@ -9,8 +9,6 @@ export const ARCHIVE_CATEGORIES = [
 
 export type ArchiveCategorySlug = (typeof ARCHIVE_CATEGORIES)[number]["slug"];
 
-export const ARCHIVE_PAGE_SIZE = 10;
-
 /** 归档 slug 集合(运行时校验用) */
 export const ARCHIVE_SLUGS: readonly string[] = ARCHIVE_CATEGORIES.map((c) => c.slug);
 

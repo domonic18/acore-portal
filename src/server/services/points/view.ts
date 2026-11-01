@@ -1,9 +1,9 @@
 import "server-only";
 import { prisma } from "@/lib/db";
+import { POINTS_PAGE_SIZE } from "@/constants/pagination";
+import { paginate } from "@/lib/pagination";
 
 /** 积分页与 /api/account/points 共用取数(余额 + 流水分页) */
-export const POINTS_PAGE_SIZE = 10;
-
 export type PointTxRow = {
   id: string;
   type: string;
@@ -59,7 +59,7 @@ export async function getPointsPage(
   return {
     balance,
     page,
-    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    totalPages: paginate(total, page, pageSize).totalPages,
     transactions: rows.map((t) => ({
       id: t.id.toString(),
       type: t.type,

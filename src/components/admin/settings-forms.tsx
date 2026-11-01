@@ -456,26 +456,21 @@ function TestMailCard() {
     setBusy(true);
     setResult(null);
     try {
-      const res = await fetch("/api/admin/settings/test-mail", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ to }),
-      });
-      const body = (await res.json().catch(() => null)) as
-        | { ok?: boolean; error?: string | { message?: string } }
-        | null;
-      if (!res.ok) {
-        const msg = typeof body?.error === "object" ? body?.error?.message : body?.error;
-        setResult({ ok: false, text: msg ?? "请求失败" });
-        return;
-      }
-      setResult(
-        body?.ok
-          ? { ok: true, text: "测试邮件已发送,请到收件箱查收" }
-          : { ok: false, text: `发送失败:${body?.error ?? "未知错误"}` },
+      const body = await requestJson<{ ok?: boolean; error?: string }>(
+        "/api/admin/settings/test-mail",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ to }),
+        },
       );
-    } catch {
-      setResult({ ok: false, text: "网络异常,请稍后重试。" });
+      setResult(
+        body.ok
+          ? { ok: true, text: "测试邮件已发送,请到收件箱查收" }
+          : { ok: false, text: `发送失败:${body.error ?? "未知错误"}` },
+      );
+    } catch (err) {
+      setResult({ ok: false, text: errorMessage(err) });
     } finally {
       setBusy(false);
     }

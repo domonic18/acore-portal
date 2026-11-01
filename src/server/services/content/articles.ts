@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
+import { ARCHIVE_PAGE_SIZE } from "@/constants/pagination";
 
 /**
  * 内容查询层(M3 US3 T022 前台全量):
@@ -43,7 +44,7 @@ export async function listArchiveArticles(opts: {
   q?: string;
 }) {
   const page = Math.max(1, opts.page ?? 1);
-  const pageSize = Math.min(50, Math.max(1, opts.pageSize ?? 10));
+  const pageSize = Math.min(50, Math.max(1, opts.pageSize ?? ARCHIVE_PAGE_SIZE));
   const where = {
     status: "published" as const,
     ...(opts.categorySlug ? { category: { slug: opts.categorySlug } } : {}),

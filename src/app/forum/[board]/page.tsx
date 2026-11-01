@@ -2,8 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ForumPagination } from "@/app/_components/forum/forum-pagination";
 import { PinnedBadge, ThreadStatusBadge } from "@/app/_components/forum/thread-badge";
-import { FORUM_PAGE_SIZE } from "@/constants/forum";
+import { FORUM_PAGE_SIZE } from "@/constants/pagination";
 import { formatShortDate } from "@/lib/format";
+import { paginate } from "@/lib/pagination";
 import {
   getForumBoardBySlug,
   listBoardThreads,
@@ -58,7 +59,7 @@ export default async function ForumBoardPage({
     page,
     pageSize: FORUM_PAGE_SIZE,
   });
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const { totalPages } = paginate(total, page, pageSize);
   const href = (p: number) =>
     p > 1 ? `/forum/${board.slug}?page=${p}` : `/forum/${board.slug}`;
   const pinned = page === 1 ? items.filter((t) => t.pinned) : [];

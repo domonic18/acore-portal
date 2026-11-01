@@ -1,13 +1,13 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import type { OrderItemDeliveryStatus, OrderStatus } from "@/generated/business";
+import { ORDER_PAGE_SIZE } from "@/constants/pagination";
+import { paginate } from "@/lib/pagination";
 
 /**
  * 用户订单查询(归属强制过滤;api-shop 契约 GET /api/account/orders[/id]):
  * 列表带条目数分页;详情 404 防枚举(他人订单与不存在订单同响应 null)。
  */
-
-export const ORDER_PAGE_SIZE = 10;
 
 export type OrderListEntry = {
   id: string;
@@ -27,12 +27,12 @@ export type OrderListResult = {
 export async function listOrders(userId: bigint, page = 1): Promise<OrderListResult> {
   const safePage = Number.isInteger(page) && page > 0 ? page : 1;
   const total = await prisma.order.count({ where: { userId } });
-  const totalPages = Math.max(1, Math.ceil(total / ORDER_PAGE_SIZE));
+  const { totalPages, skip, take } = paginate(total, safePage, ORDER_PAGE_SIZE);
   const rows = await prisma.order.findMany({
     where: { userId },
     orderBy: { id: "desc" },
-    skip: (safePage - 1) * ORDER_PAGE_SIZE,
-    take: ORDER_PAGE_SIZE,
+    skip,
+    take,
     select: {
       id: true,
       orderNo: true,

@@ -1,6 +1,8 @@
 import "server-only";
 import { prisma } from "@/lib/db";
-import { PRODUCT_STATUS, SHOP_PAGE_SIZE, type ProductSortValue } from "@/constants/shop";
+import { SHOP_PAGE_SIZE } from "@/constants/pagination";
+import { PRODUCT_STATUS, type ProductSortValue } from "@/constants/shop";
+import { paginate } from "@/lib/pagination";
 
 /**
  * 商品目录读取(前台):published+listed 过滤,一切价格以服务端
@@ -93,10 +95,11 @@ export async function listProducts(
   else items.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
   const total = items.length;
-  const totalPages = Math.max(1, Math.ceil(total / SHOP_PAGE_SIZE));
+  const totalPages = paginate(total, 1, SHOP_PAGE_SIZE).totalPages;
   const page = Math.min(Math.max(opts.page ?? 1, 1), totalPages);
+  const { skip, take } = paginate(total, page, SHOP_PAGE_SIZE);
   return {
-    items: items.slice((page - 1) * SHOP_PAGE_SIZE, page * SHOP_PAGE_SIZE),
+    items: items.slice(skip, skip + take),
     page,
     totalPages,
     total,

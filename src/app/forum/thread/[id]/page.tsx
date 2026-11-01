@@ -7,7 +7,9 @@ import { renderLegacyHtml } from "@/lib/markdown";
 import { formatDateTimeShort } from "@/lib/format";
 import { getCdnHosts } from "@/lib/config";
 import { getServerSession } from "@/server/session-guard";
-import { FORUM_POST_PAGE_SIZE, incrementThreadViews } from "@/server/services/forum/browse";
+import { FORUM_POST_PAGE_SIZE } from "@/constants/pagination";
+import { incrementThreadViews } from "@/server/services/forum/browse";
+import { paginate } from "@/lib/pagination";
 import {
   getForumThread,
   listThreadPosts,
@@ -41,7 +43,7 @@ export default async function ForumThreadPage({
     page,
     pageSize: FORUM_POST_PAGE_SIZE,
   });
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const { totalPages } = paginate(total, page, pageSize);
   const href = (p: number) =>
     p > 1 ? `/forum/thread/${thread.id}?page=${p}` : `/forum/thread/${thread.id}`;
   const cdnHosts = await getCdnHosts();

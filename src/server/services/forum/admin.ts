@@ -2,6 +2,8 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/business";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
+import { ADMIN_FORUM_PAGE_SIZE } from "@/constants/pagination";
+import { paginate } from "@/lib/pagination";
 import { writeAudit } from "@/server/services/audit/audit";
 
 /**
@@ -24,8 +26,6 @@ export class ForumAdminError extends Error {
     this.name = "ForumAdminError";
   }
 }
-
-export const ADMIN_FORUM_PAGE_SIZE = 20;
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -79,7 +79,7 @@ export async function adminListThreads(opts: {
   ]);
   return {
     page,
-    totalPages: Math.max(1, Math.ceil(total / ADMIN_FORUM_PAGE_SIZE)),
+    totalPages: paginate(total, page, ADMIN_FORUM_PAGE_SIZE).totalPages,
     total,
     items: rows.map((t) => ({
       id: t.id.toString(),

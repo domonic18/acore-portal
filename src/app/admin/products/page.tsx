@@ -1,8 +1,6 @@
 import Link from "next/link";
-import {
-  ADMIN_PRODUCT_PAGE_SIZE,
-  listAdminProducts,
-} from "@/server/services/catalog/admin";
+import { ADMIN_PRODUCT_PAGE_SIZE } from "@/constants/pagination";
+import { listAdminProducts } from "@/server/services/catalog/admin";
 import { AdminPager } from "@/components/ui/pagination";
 import { buildPageHref } from "@/lib/pagination";
 import { ProductStatusActions } from "@/components/admin/product-status-actions";

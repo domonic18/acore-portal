@@ -14,15 +14,15 @@ function ResendForm() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const res = await fetch("/api/auth/resend-activation", {
+      await requestJson("/api/auth/resend-activation", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      if (res.ok || res.status === 429) setSent(true);
-    } catch {
-      // 恒定文案,不区分失败细节
       setSent(true);
+    } catch (err) {
+      // 恒定文案,不区分失败细节;429 与网络异常同样视为已提交(防枚举)
+      if (!(err instanceof ApiRequestError) || err.status === 429) setSent(true);
     } finally {
       setSubmitting(false);
     }
