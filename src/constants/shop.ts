@@ -68,9 +68,6 @@ export function parseTransmogSku(sku: string): number | null {
   return Number.isInteger(itemId) && itemId > 0 ? itemId : null;
 }
 
-/** 列表分页大小(contracts/api-shop) */
-export const SHOP_PAGE_SIZE = 24;
-
 /** 列表排序(contracts/api-shop;price_* 按生效价排) */
 export const PRODUCT_SORT = {
   PRICE_ASC: "price_asc",

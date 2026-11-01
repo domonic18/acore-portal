@@ -2,6 +2,8 @@ import "server-only";
 import { Prisma } from "@/generated/business";
 import { prisma } from "@/lib/db";
 import { RESERVED_SLUGS } from "@/constants/content";
+import { ADMIN_ARTICLE_PAGE_SIZE } from "@/constants/pagination";
+import { paginate } from "@/lib/pagination";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/audit/audit";
 
@@ -32,8 +34,6 @@ type ContentStatus = "draft" | "published";
 
 // ===== 文章 =====
 
-export const ADMIN_ARTICLE_PAGE_SIZE = 20;
-
 export async function listAdminArticles(opts: {
   page?: number;
   pageSize?: number;
@@ -60,16 +60,17 @@ export async function listAdminArticles(opts: {
     ...(opts.q ? { title: { contains: opts.q } } : {}),
   };
   const total = await prisma.article.count({ where });
+  const { totalPages, skip, take } = paginate(total, page, pageSize);
   const rows = await prisma.article.findMany({
     where,
     include: { category: { select: { name: true } } },
     orderBy: { id: "desc" },
-    skip: (page - 1) * pageSize,
-    take: pageSize,
+    skip,
+    take,
   });
   return {
     page,
-    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    totalPages,
     total,
     items: rows.map((r) => ({
       id: r.id.toString(),

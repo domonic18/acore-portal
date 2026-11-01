@@ -1,6 +1,8 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { ORDER_ITEM_DELIVERY_STATUS, ORDER_STATUS, type OrderStatusValue } from "@/constants/shop";
+import { ADMIN_ORDER_PAGE_SIZE } from "@/constants/pagination";
+import { paginate } from "@/lib/pagination";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/audit/audit";
 import { creditLedger } from "@/server/services/points/ledger";
@@ -25,8 +27,6 @@ export class OrderAdminError extends Error {
   }
 }
 
-export const ADMIN_ORDER_PAGE_SIZE = 20;
-
 export async function listAdminOrders(opts: { status?: string; page?: number }): Promise<{
   orders: {
     id: string;
@@ -48,12 +48,12 @@ export async function listAdminOrders(opts: { status?: string; page?: number }):
     : undefined;
   const where = status ? { status } : {};
   const total = await prisma.order.count({ where });
-  const totalPages = Math.max(1, Math.ceil(total / ADMIN_ORDER_PAGE_SIZE));
+  const { totalPages, skip, take } = paginate(total, page, ADMIN_ORDER_PAGE_SIZE);
   const rows = await prisma.order.findMany({
     where,
     orderBy: { id: "desc" },
-    skip: (page - 1) * ADMIN_ORDER_PAGE_SIZE,
-    take: ADMIN_ORDER_PAGE_SIZE,
+    skip,
+    take,
     select: {
       id: true,
       orderNo: true,
@@ -117,12 +117,12 @@ export async function listMigrationReviews(opts: {
     opts.resolved === "1" ? true : opts.resolved === "all" ? undefined : false;
   const where = resolved === undefined ? {} : { resolvedAt: resolved ? { not: null } : null };
   const total = await prisma.migrationReviewItem.count({ where });
-  const totalPages = Math.max(1, Math.ceil(total / ADMIN_ORDER_PAGE_SIZE));
+  const { totalPages, skip, take } = paginate(total, page, ADMIN_ORDER_PAGE_SIZE);
   const rows = await prisma.migrationReviewItem.findMany({
     where,
     orderBy: { id: "asc" },
-    skip: (page - 1) * ADMIN_ORDER_PAGE_SIZE,
-    take: ADMIN_ORDER_PAGE_SIZE,
+    skip,
+    take,
     select: {
       id: true,
       legacyWpOrderId: true,

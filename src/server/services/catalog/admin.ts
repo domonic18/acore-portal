@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/audit/audit";
 import { PRODUCT_STATUS, type ProductStatusValue } from "@/constants/shop";
+import { ADMIN_PRODUCT_PAGE_SIZE } from "@/constants/pagination";
+import { paginate } from "@/lib/pagination";
 import { gameItemExists } from "./sku-check";
 import { normalizeProductImages } from "./products";
 import { resolveHandler } from "@/server/services/shop/handlers/registry";
@@ -283,8 +285,6 @@ export async function duplicateProduct(
   }
 }
 
-export const ADMIN_PRODUCT_PAGE_SIZE = 20;
-
 export type AdminProductListItem = {
   id: string;
   sku: string;
@@ -324,12 +324,12 @@ export async function listAdminProducts(opts: {
     ? rows.filter((r) => r.stock !== null && r.stock <= (r.lowStockThreshold ?? 1))
     : rows;
   const total = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(total / ADMIN_PRODUCT_PAGE_SIZE));
+  const { totalPages, skip, take } = paginate(total, page, ADMIN_PRODUCT_PAGE_SIZE);
   return {
     page,
     totalPages,
     total,
-    items: filtered.slice((page - 1) * ADMIN_PRODUCT_PAGE_SIZE, page * ADMIN_PRODUCT_PAGE_SIZE).map(
+    items: filtered.slice(skip, skip + take).map(
       (r) => ({
         id: r.id.toString(),
         sku: r.sku,

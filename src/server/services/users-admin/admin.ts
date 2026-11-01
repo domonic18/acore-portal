@@ -3,6 +3,11 @@ import { randomInt } from "node:crypto";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/business";
 import { POINT_RULE_EVENT, POINT_TX_TYPE } from "@/constants/points";
+import {
+  ADMIN_INVITATION_PAGE_SIZE,
+  ADMIN_USER_PAGE_SIZE,
+} from "@/constants/pagination";
+import { paginate } from "@/lib/pagination";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/audit/audit";
 import { creditLedgerDetailed, LedgerError } from "@/server/services/points/ledger";
@@ -24,8 +29,6 @@ export class UsersAdminError extends Error {
     this.name = "UsersAdminError";
   }
 }
-
-export const ADMIN_USER_PAGE_SIZE = 20;
 
 export async function listAdminUsers(opts: {
   query?: string;
@@ -60,12 +63,12 @@ export async function listAdminUsers(opts: {
     where.role = opts.role;
   }
   const total = await prisma.user.count({ where });
-  const totalPages = Math.max(1, Math.ceil(total / ADMIN_USER_PAGE_SIZE));
+  const { totalPages, skip, take } = paginate(total, page, ADMIN_USER_PAGE_SIZE);
   const rows = await prisma.user.findMany({
     where,
     orderBy: { id: "desc" },
-    skip: (page - 1) * ADMIN_USER_PAGE_SIZE,
-    take: ADMIN_USER_PAGE_SIZE,
+    skip,
+    take,
     select: {
       id: true,
       username: true,
@@ -252,8 +255,6 @@ export type InvitationListItem = {
   createdAt: string;
 };
 
-export const ADMIN_INVITATION_PAGE_SIZE = 20;
-
 export async function listInvitationCodes(opts: { page?: number }): Promise<{
   items: InvitationListItem[];
   page: number;
@@ -262,11 +263,11 @@ export async function listInvitationCodes(opts: { page?: number }): Promise<{
 }> {
   const page = Number.isInteger(opts.page) && opts.page! > 0 ? opts.page! : 1;
   const total = await prisma.invitationCode.count();
-  const totalPages = Math.max(1, Math.ceil(total / ADMIN_INVITATION_PAGE_SIZE));
+  const { totalPages, skip, take } = paginate(total, page, ADMIN_INVITATION_PAGE_SIZE);
   const rows = await prisma.invitationCode.findMany({
     orderBy: { id: "desc" },
-    skip: (page - 1) * ADMIN_INVITATION_PAGE_SIZE,
-    take: ADMIN_INVITATION_PAGE_SIZE,
+    skip,
+    take,
     include: { uses: { include: { user: { select: { username: true } } } } },
   });
   const now = Date.now();

@@ -1,3 +1,16 @@
+/** 分页切片:页码公式单一来源(前后端共用,无 IO) */
+export function paginate(
+  total: number,
+  page: number,
+  pageSize: number,
+): { totalPages: number; skip: number; take: number } {
+  return {
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  };
+}
+
 /** 数字页码窗口:≤7 全列,否则 首/…/当前±1/…/末(null=省略号) */
 export function pageWindow(page: number, total: number): (number | null)[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);

@@ -3,6 +3,8 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { MEDIA_DEFAULT_CATEGORY } from "@/constants/media";
+import { MEDIA_PAGE_SIZE } from "@/constants/pagination";
+import { paginate } from "@/lib/pagination";
 import { writeAudit } from "@/server/services/audit/audit";
 import { CosNotConfiguredError, getCosClient } from "@/lib/cos/client";
 import {
@@ -164,8 +166,6 @@ function toDto(row: {
   };
 }
 
-export const MEDIA_PAGE_SIZE = 20;
-
 export async function listMediaAssets(opts: {
   page?: number;
   q?: string;
@@ -185,17 +185,18 @@ export async function listMediaAssets(opts: {
     ...(category ? { category } : {}),
   };
   const total = await prisma.mediaAsset.count({ where });
+  const { totalPages, skip, take } = paginate(total, page, MEDIA_PAGE_SIZE);
   const rows = await prisma.mediaAsset.findMany({
     where,
     orderBy: { id: "desc" },
-    skip: (page - 1) * MEDIA_PAGE_SIZE,
-    take: MEDIA_PAGE_SIZE,
+    skip,
+    take,
   });
   const grouped = await prisma.mediaAsset.groupBy({ by: ["category"], _count: { _all: true } });
   const counts = Object.fromEntries(grouped.map((g) => [g.category, g._count._all]));
   return {
     page,
-    totalPages: Math.max(1, Math.ceil(total / MEDIA_PAGE_SIZE)),
+    totalPages,
     total,
     pageSize: MEDIA_PAGE_SIZE,
     counts,
