@@ -10,70 +10,18 @@ import {
 import {
   ProgressionCardEditor,
   type ProgressionDraftItem,
-} from "./progression-card-editor";
-import { uploadMediaFiles } from "./media-library";
+} from "../progression-card-editor";
+import { uploadMediaFiles } from "../media-library";
 import { errorMessage, requestJson } from "@/lib/api-client";
+import { toDraft, toPayload, type AdminProgressionNode } from "./draft";
+
+export type { AdminProgressionNode };
 
 /**
  * 渐进计划后台(M4 深化):在渐进页同款时间轴上就地编辑(WP 区块编辑器语义)。
  * 本地整树编辑(数组顺序=时间轴顺序,↑↓ 排序)→ 一次 PUT /api/admin/progression。
  * 卡片查看态与前台渲染一致,「编辑」原位展开表单;顶部同步当前阶段指针与未保存状态。
  */
-export type AdminProgressionNode = {
-  id: string;
-  title: string;
-  phaseDate: string | null;
-  imageUrl: string | null;
-  bodyMd: string | null;
-  status: string;
-  icon: string | null;
-  sort: number;
-  isCurrent: boolean;
-};
-
-type PayloadItem = {
-  id: string | null;
-  title: string;
-  phaseDate: string | null;
-  imageUrl: string | null;
-  bodyMd: string | null;
-  status: "locked" | "open";
-  icon: string | null;
-};
-
-function toDraft(node: AdminProgressionNode): ProgressionDraftItem {
-  return {
-    uid: node.id,
-    id: node.id,
-    title: node.title,
-    phaseDate: node.phaseDate ?? "",
-    imageUrl: node.imageUrl ?? "",
-    bodyMd: node.bodyMd ?? "",
-    status: node.status === "open" ? "open" : "locked",
-    icon: node.icon ?? "",
-  };
-}
-
-function toPayload(
-  items: ProgressionDraftItem[],
-  deletedIds: string[],
-  currentId: string | null,
-) {
-  return {
-    items: items.map<PayloadItem>((item) => ({
-      id: item.id,
-      title: item.title.trim(),
-      phaseDate: item.phaseDate || null,
-      imageUrl: item.imageUrl.trim() || null,
-      bodyMd: item.bodyMd.trim() ? item.bodyMd : null,
-      status: item.status,
-      icon: item.icon.trim() || null,
-    })),
-    deletedIds,
-    currentId,
-  };
-}
-
 export function ProgressionAdmin({ nodes }: { nodes: AdminProgressionNode[] }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
