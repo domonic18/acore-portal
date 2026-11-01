@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ITEM_QUALITY_COLOR } from "@/constants/shop";
 import { ApiRequestError, errorMessage, requestJson } from "@/lib/api-client";
@@ -54,6 +54,17 @@ export function AddToCartForm({
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
   const [busy, setBusy] = useState(false);
+  // 加购成功后的短暂冷却 + 提交中互斥:防连点导致同一商品被重复加购(issue #30)
+  const [cooldown, setCooldown] = useState(false);
+  const inFlight = useRef(false);
+  const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+    },
+    [],
+  );
 
   const needRestore = fields.includes("restoreItemEntry");
 
@@ -91,6 +102,8 @@ export function AddToCartForm({
   }
 
   async function submit() {
+    if (inFlight.current || cooldown) return;
+    inFlight.current = true;
     setError(null);
     setOk(false);
     setBusy(true);
@@ -105,6 +118,9 @@ export function AddToCartForm({
         body: JSON.stringify({ productId: Number(productId), qty, params }),
       });
       setOk(true);
+      setCooldown(true);
+      if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+      cooldownTimer.current = setTimeout(() => setCooldown(false), 1500);
     } catch (err) {
       if (err instanceof ApiRequestError && err.status === 401) {
         window.location.href = loginHref;
@@ -117,12 +133,14 @@ export function AddToCartForm({
       }
       setError(errorMessage(err));
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   }
 
   const canSubmit =
     !busy &&
+    !cooldown &&
     (!fields.includes("characterGuid") || guid !== "") &&
     (!needRestore || restoreEntry !== "");
 
@@ -201,7 +219,7 @@ export function AddToCartForm({
           disabled={!canSubmit || soldOut}
           className="rounded bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
         >
-          {soldOut ? "已售罄" : busy ? "加入中…" : "加入购物车"}
+          {soldOut ? "已售罄" : busy ? "加入中…" : cooldown ? "已加入 ✓" : "加入购物车"}
         </button>
       </div>
       {error && (

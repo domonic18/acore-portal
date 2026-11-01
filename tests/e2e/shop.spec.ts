@@ -121,6 +121,26 @@ test.describe("US2 商城与购物车(T026)", () => {
     await expect(page.getByText("购物车还是空的")).toBeVisible();
   });
 
+  test("连点加购只入一次(issue #30):同步双击被 inFlight 守卫拦下", async ({
+    page,
+  }) => {
+    await login(page);
+    await page.goto(`/shop/${ITEM_SLUG}`);
+    await page.getByLabel("选择角色").selectOption("10");
+    // 同一 tick 内连触发两次点击,验证 ref 互斥(而非异步 state)兜住重复提交
+    await page.getByRole("button", { name: "加入购物车" }).evaluate((el) => {
+      (el as HTMLButtonElement).click();
+      (el as HTMLButtonElement).click();
+    });
+    await expect(page.getByRole("status")).toContainText("已加入购物车");
+
+    await page.getByRole("link", { name: "去结算" }).click();
+    await expect(page).toHaveURL(/\/cart$/);
+    await expect(page.getByLabel("数量", { exact: true })).toHaveText("1");
+    await page.getByRole("button", { name: "移除" }).click();
+    await expect(page.getByText("购物车还是空的")).toBeVisible();
+  });
+
   test("售罄商品:详情可见但按钮禁购", async ({ page }) => {
     await login(page);
     await page.goto(`/shop/${SOLDOUT_SLUG}`);

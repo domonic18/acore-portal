@@ -152,6 +152,8 @@ test.describe("US3 结账支付(T036)", () => {
 
     await expect(page).toHaveURL(/\/account\/orders\/\d+$/, { timeout: 15_000 });
     await expect(page.getByRole("heading", { name: "订单详情" })).toBeVisible();
+    // 页头积分 chip 随扣分刷新(issue #29):客户端跳转不重取根布局,靠 router.refresh
+    await expect(page.getByTestId("header-points")).toHaveText("999900 积分");
 
     // 发货异步驱动:轮询 reload 直至 completed(发货成功全程无人工,SC-102)
     await expect(
