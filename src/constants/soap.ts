@@ -13,6 +13,15 @@ export const SOAP_COMMAND_IDEMPOTENT: Record<string, boolean> = {
   [SOAP_COMMANDS.SERVER_INFO]: true,
 };
 
+/** soap_call 作业状态(Prisma SoapStatus):落库即 pending,终态 success/failed */
+export const SOAP_STATUS = {
+  PENDING: "pending",
+  SUCCESS: "success",
+  FAILED: "failed",
+} as const;
+
+export type SoapStatusValue = (typeof SOAP_STATUS)[keyof typeof SOAP_STATUS];
+
 export const SOAP_TIMEOUT_MS = 5000;
 export const SOAP_MAX_ATTEMPTS = 3;
 /** 指数退避基数(ms):1s/2s/4s */
