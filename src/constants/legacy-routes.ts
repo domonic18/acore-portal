@@ -6,6 +6,22 @@
 
 export const LEGACY_KEY_PATTERN = /^(p|page_id|cat|topic|forum):(\d+)$/;
 
+/** 旧站域名:迁移正文里的绝对链接在渲染期改回站内相对地址,交给 middleware 走 route_map */
+export const LEGACY_SITE_HOSTS = ["lokta.cn", "www.lokta.cn"] as const;
+
+/** 旧站绝对地址 → 站内相对地址(非旧站/非 http(s) 返回 null) */
+export function toSameSiteHref(href: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  if (!(LEGACY_SITE_HOSTS as readonly string[]).includes(url.hostname)) return null;
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
 /** 多参数并存按 p > page_id > cat > topic > forum 取值;仅纯数字,其余一律未命中(不做模糊猜测) */
 export function normalizeLegacyKey(
   p: string | null,

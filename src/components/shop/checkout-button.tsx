@@ -22,6 +22,8 @@ export function CheckoutButton({ total, disabled }: { total: number; disabled: b
         return;
       }
       router.push(`/account/orders/${body.orderId}`);
+      // 同布局的页头积分 chip 需随扣分重取(issue #29)
+      router.refresh();
     } catch (err) {
       setError(errorMessage(err));
     } finally {

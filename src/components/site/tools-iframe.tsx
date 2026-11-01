@@ -43,19 +43,21 @@ export function ToolsIframe({
         data-testid="tools-iframe"
         onLoad={() => {
           setLoaded(true);
+          setTimedOut(false);
           if (timerRef.current !== null) window.clearTimeout(timerRef.current);
         }}
         className="h-full w-full border-0"
       />
+      {/* 加载提示不遮挡 iframe:慢加载时也能看到逐步绘制的内容(issue #23) */}
       {!loaded && !timedOut && (
         <div
           role="status"
-          className="absolute inset-0 flex items-center justify-center bg-[#0a1220]"
+          className="pointer-events-none absolute left-3 top-3 rounded bg-[#0a1220]/90 px-2.5 py-1 text-xs text-[#8fa0b8]"
         >
-          <span className="text-sm text-[#8fa0b8]">加载中…</span>
+          加载中…
         </div>
       )}
-      {timedOut && (
+      {timedOut && !loaded && (
         <div
           data-testid="tools-fallback"
           className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#0a1220]"

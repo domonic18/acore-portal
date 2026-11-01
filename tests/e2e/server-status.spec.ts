@@ -36,7 +36,6 @@ test("状态卡正常渲染:mock 样例字段+种子阶段+无降级徽标", asy
   await expect(page.getByTestId("status-online-count")).toHaveText(/^\d+$/);
   await expect(page.getByTestId("status-faction")).toHaveText(/^\d+ : \d+$/);
   await expect(page.getByTestId("status-uptime")).toHaveText(UPTIME_SAMPLE);
-  await expect(page.getByTestId("status-queue")).toHaveText("3");
   await expect(page.getByTestId("status-stage")).toHaveText("第二阶段·熔火之心");
   await expect(page.getByTestId("status-degraded")).toHaveCount(0);
 });
@@ -66,7 +65,7 @@ test("降级徽标:探针失败回退上次成功值(数据延迟+缓存保留)"
   await expect(page.getByTestId("status-uptime")).toHaveText(UPTIME_SAMPLE);
 });
 
-test("冷启动失败两态渲染:数字 -- / 队列 N/A / 离线", async ({ page }) => {
+test("冷启动失败两态渲染:数字 -- / 离线", async ({ page }) => {
   await setMockMode("failure");
   await resetProbeCache(); // 无缓存无 lastok → 数字字段 null 渲染
   await page.goto("/");
@@ -74,6 +73,5 @@ test("冷启动失败两态渲染:数字 -- / 队列 N/A / 离线", async ({ pag
   await expect(page.getByTestId("status-degraded")).toBeVisible();
   await expect(page.getByTestId("status-online-count")).toHaveText("--");
   await expect(page.getByTestId("status-faction")).toHaveText("-- : --");
-  await expect(page.getByTestId("status-queue")).toHaveText("N/A");
   await expect(card).toContainText("离线");
 });

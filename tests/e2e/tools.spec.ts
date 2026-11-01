@@ -88,12 +88,11 @@ test.describe("工具页六页(US1,SC-301)", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: "英雄榜" }),
     ).toBeVisible();
-    await expect(
-      page.getByText('iframe src="https://rank.lokta.cn/hardcore"').first(),
-    ).toBeVisible();
+    // 源码串不外显(issue #22):浏览器框只展示来源域名,不渲染 iframe 标签文本
     await expect(
       page.getByText("rank.lokta.cn/hardcore", { exact: true }),
     ).toBeVisible();
+    await expect(page.getByText(/iframe src=/)).toHaveCount(0);
 
     const tabs = page.getByRole("navigation", { name: "数据库工具切换" });
     await expect(tabs.getByRole("link", { name: "硬核天梯" })).toHaveAttribute(
@@ -138,9 +137,8 @@ test.describe("工具页六页(US1,SC-301)", () => {
       page.getByRole("heading", { level: 1, name: "DKP查询" }),
     ).toBeVisible();
     await expect(page.getByText(/外部系统提示/).first()).toBeVisible();
-    await expect(
-      page.getByText('iframe src="https://webdkp.nfuwow.com/..."').first(),
-    ).toBeVisible();
+    await expect(page.getByText("webdkp.nfuwow.com", { exact: true })).toBeVisible();
+    await expect(page.getByText(/iframe src=/)).toHaveCount(0);
   });
 
   test("旧 page_id 六键 301 到六工具页(US1 T024)", async ({ request }) => {
