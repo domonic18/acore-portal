@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { listAdminUsers } from "@/server/services/users-admin/admin";
 import { RoleSelect } from "@/components/admin/role-select";
+import { AdminPager } from "@/components/ui/pagination";
 import { displayUserName } from "@/lib/format";
+import { buildPageHref } from "@/lib/pagination";
 
 const ROLE_TABS = [
   { value: "", label: "全部" },
@@ -22,9 +24,7 @@ export default async function AdminUsersPage({
   const { users, totalPages, total } = await listAdminUsers({ query, role, page });
 
   const pageHref = (p: number) =>
-    `/admin/users?page=${p}${query ? `&query=${encodeURIComponent(query)}` : ""}${
-      role ? `&role=${role}` : ""
-    }`;
+    buildPageHref("/admin/users", { query: query || undefined, role: role || undefined }, p);
 
   return (
     <div className="flex flex-col gap-4">
@@ -120,30 +120,13 @@ export default async function AdminUsersPage({
         </table>
       )}
 
-      <div className="flex items-center justify-between text-sm text-gray-500">
-        <span>共 {total} 人</span>
-        {totalPages > 1 && (
-          <nav className="flex items-center gap-4">
-            {page > 1 ? (
-              <Link href={pageHref(page - 1)} className="text-blue-400 hover:underline">
-                上一页
-              </Link>
-            ) : (
-              <span className="text-gray-600">上一页</span>
-            )}
-            <span>
-              第 {page} / {totalPages} 页
-            </span>
-            {page < totalPages ? (
-              <Link href={pageHref(page + 1)} className="text-blue-400 hover:underline">
-                下一页
-              </Link>
-            ) : (
-              <span className="text-gray-600">下一页</span>
-            )}
-          </nav>
-        )}
-      </div>
+      <AdminPager
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        unit="人"
+        href={pageHref}
+      />
     </div>
   );
 }

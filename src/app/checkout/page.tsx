@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { getSessionFromToken } from "@/lib/auth/session";
 import { SESSION } from "@/constants/session";
-import { prisma } from "@/lib/db";
+import { getPointBalance } from "@/server/services/points/view";
 import { getCartLines } from "@/server/services/shop/cart";
 import { listAccountCharacters } from "@/server/services/account/characters";
 import type { CartLine } from "@/server/services/shop/cart";
@@ -51,15 +51,15 @@ export default async function CheckoutPage() {
   }
 
   const userId = BigInt(session.userId);
-  const [lines, characters, account] = await Promise.all([
+  const [lines, characters, balance] = await Promise.all([
     getCartLines(userId),
     listAccountCharacters(userId).catch(() => null),
-    prisma.pointAccount.findUnique({ where: { userId }, select: { balance: true } }),
+    getPointBalance(userId),
   ]);
   const guidNames = new Map((characters ?? []).map((c) => [c.guid, c.name]));
   const total = lines.reduce((sum, l) => sum + l.subtotal, 0);
   const blocked = lines.length === 0 || lines.some((l) => l.soldOut || !l.published);
-  const insufficient = account !== null && account.balance < total;
+  const insufficient = balance !== null && balance < total;
 
   return (
     <main className="container-site flex-1 py-6">
@@ -96,7 +96,7 @@ export default async function CheckoutPage() {
                       : "font-semibold text-[#dcebf7]"
                   }
                 >
-                  {account?.balance ?? "不可用"}
+                  {balance ?? "不可用"}
                 </span>
               </p>
               <p className="text-lg text-[#93b2ce]">
@@ -110,7 +110,7 @@ export default async function CheckoutPage() {
               {!insufficient || blocked ? null : (
                 <p className="text-sm text-red-400">余额不足,请先充值或调整购物车。</p>
               )}
-              <CheckoutButton total={total} disabled={blocked || insufficient || account === null} />
+              <CheckoutButton total={total} disabled={blocked || insufficient || balance === null} />
             </footer>
           </>
         )}

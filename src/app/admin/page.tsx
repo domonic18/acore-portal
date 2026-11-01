@@ -1,22 +1,15 @@
 import Link from "next/link";
-import { countLowStockProducts } from "@/server/services/catalog/admin";
-import { prisma } from "@/lib/db";
-import { ORDER_STATUS } from "@/constants/shop";
+import { getAdminDashboardCounts } from "@/server/services/stats/admin";
 
 /** 后台总览:计数卡(低库存/发货异常/用户/复核待办),导航由后台外壳侧栏提供 */
 export default async function AdminHomePage() {
-  const [lowStock, deliveryFailed, userCount, reviewPending] = await Promise.all([
-    countLowStockProducts(),
-    prisma.order.count({ where: { status: ORDER_STATUS.DELIVERY_FAILED } }),
-    prisma.user.count(),
-    prisma.migrationReviewItem.count({ where: { resolvedAt: null } }),
-  ]);
+  const counts = await getAdminDashboardCounts();
 
   const cards = [
-    { label: "低库存商品", value: lowStock, href: "/admin/products?lowStock=1" },
-    { label: "发货异常订单", value: deliveryFailed, href: "/admin/orders?status=delivery_failed" },
-    { label: "站点用户", value: userCount, href: "/admin/users" },
-    { label: "迁移复核待办", value: reviewPending, href: "/admin/review-items" },
+    { label: "低库存商品", value: counts.lowStock, href: "/admin/products?lowStock=1" },
+    { label: "发货异常订单", value: counts.deliveryFailed, href: "/admin/orders?status=delivery_failed" },
+    { label: "站点用户", value: counts.userCount, href: "/admin/users" },
+    { label: "迁移复核待办", value: counts.reviewPending, href: "/admin/review-items" },
   ];
 
   return (

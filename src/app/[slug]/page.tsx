@@ -5,6 +5,7 @@ import { CORE_PAGE_SLUGS, TUTORIAL_ANCHOR_ALIASES } from "@/constants/content";
 import { getPublishedPage } from "@/server/services/content/pages";
 import { resolveProgressionPosition } from "@/server/services/progression/progression";
 import { renderMarkdown } from "@/lib/markdown";
+import { formatDate } from "@/lib/format";
 import { getCdnHosts } from "@/lib/config";
 import { SiteSidebar } from "@/app/_components/sidebar/sidebar";
 import { ContentPanel } from "@/components/site/content-panel";
@@ -88,7 +89,7 @@ export default async function ContentStaticPage({
                 {page.title}
               </h1>
               <p className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-[#6482a3] lg:text-[13px]">
-                <span>更新：{page.updatedAt.toISOString().slice(0, 10)}</span>
+                <span>更新：{formatDate(page.updatedAt)}</span>
                 {position?.current && (
                   <span>
                     当前阶段：

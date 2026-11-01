@@ -349,3 +349,12 @@ export async function setInvitationCodeStatus(
     ip,
   });
 }
+
+/** 后台外壳显示名(admin layout 顶栏) */
+export async function getAdminDisplayName(userId: bigint): Promise<string> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { username: true },
+  });
+  return user?.username ?? "管理员";
+}

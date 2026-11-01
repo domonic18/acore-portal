@@ -3,6 +3,8 @@ import {
   ADMIN_PRODUCT_PAGE_SIZE,
   listAdminProducts,
 } from "@/server/services/catalog/admin";
+import { AdminPager } from "@/components/ui/pagination";
+import { buildPageHref } from "@/lib/pagination";
 import { ProductStatusActions } from "@/components/admin/product-status-actions";
 import {
   ProductBatchToolbar,
@@ -25,7 +27,7 @@ export default async function AdminProductsPage({
   const { items, totalPages, total } = await listAdminProducts({ lowStock, page });
 
   const pageHref = (p: number) =>
-    `/admin/products?page=${p}${lowStock ? "&lowStock=1" : ""}`;
+    buildPageHref("/admin/products", { lowStock: lowStock ? "1" : undefined }, p);
 
   return (
     <div className="flex flex-col gap-4">
@@ -156,31 +158,14 @@ export default async function AdminProductsPage({
         )}
       </ProductSelectionProvider>
 
-      <div className="flex items-center justify-between text-sm text-gray-500">
-        <span>共 {total} 件</span>
-        {totalPages > 1 && (
-          <nav className="flex items-center gap-4">
-            {page > 1 ? (
-              <Link href={pageHref(page - 1)} className="text-blue-400 hover:underline">
-                上一页
-              </Link>
-            ) : (
-              <span className="text-gray-600">上一页</span>
-            )}
-            <span>
-              第 {page} / {totalPages} 页
-            </span>
-            {page < totalPages ? (
-              <Link href={pageHref(page + 1)} className="text-blue-400 hover:underline">
-                下一页
-              </Link>
-            ) : (
-              <span className="text-gray-600">下一页</span>
-            )}
-          </nav>
-        )}
-        <span className="text-xs text-gray-600">每页 {ADMIN_PRODUCT_PAGE_SIZE} 条</span>
-      </div>
+      <AdminPager
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        unit="件"
+        href={pageHref}
+        hint={`每页 ${ADMIN_PRODUCT_PAGE_SIZE} 条`}
+      />
     </div>
   );
 }

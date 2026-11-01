@@ -8,6 +8,7 @@ import {
 } from "@/server/services/content/articles";
 import { getServerStatus } from "@/server/services/status/status";
 import { renderMarkdown } from "@/lib/markdown";
+import { formatDate } from "@/lib/format";
 import { getCdnHosts } from "@/lib/config";
 import { MARKDOWN_BODY_CLS } from "@/constants/content";
 import { SiteSidebar } from "@/app/_components/sidebar/sidebar";
@@ -44,7 +45,7 @@ export default async function PostPage({
     listLatestNews(5),
     getServerStatus(),
   ]);
-  const published = article.publishedAt?.toISOString().slice(0, 10);
+  const published = article.publishedAt ? formatDate(article.publishedAt) : null;
 
   return (
     <main className="container-site flex-1 py-6">

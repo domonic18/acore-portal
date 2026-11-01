@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ContentPanel } from "@/components/site/content-panel";
+import { PaginationNav } from "@/components/ui/pagination";
 import { listProducts } from "@/server/services/catalog/products";
 import { listCategories } from "@/server/services/catalog/categories";
 import { PRODUCT_SORT } from "@/constants/shop";
@@ -40,130 +42,103 @@ export default async function ShopPage({
   const activeCategory = searchParams.category ?? "";
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 p-8">
-      <header className="flex items-center justify-between border-b border-gray-800 pb-3">
-        <h1 className="text-2xl font-bold">商城</h1>
-        <Link href="/cart" className="text-sm text-gray-300 hover:text-white">
-          购物车
-        </Link>
-      </header>
+    <main className="container-site flex-1 py-5 lg:py-6">
+      <ContentPanel className="mx-auto flex max-w-6xl flex-col gap-6 p-5 lg:p-6">
+        <header className="flex items-center justify-between border-b border-gray-800 pb-3">
+          <h1 className="text-2xl font-bold">商城</h1>
+          <Link href="/cart" className="text-sm text-gray-300 hover:text-white">
+            购物车
+          </Link>
+        </header>
 
-      <nav aria-label="商品分类" className="flex flex-wrap gap-2">
-        <Link
-          href={shopHref({ sort })}
-          className={`rounded-full border px-3 py-1 text-sm ${
-            activeCategory === ""
-              ? "border-blue-500 bg-blue-950 text-white"
-              : "border-gray-700 text-gray-300 hover:border-gray-500"
-          }`}
-        >
-          全部
-        </Link>
-        {categories.map((c) => (
+        <nav aria-label="商品分类" className="flex flex-wrap gap-2">
           <Link
-            key={c.slug}
-            href={shopHref({ category: c.slug, sort })}
+            href={shopHref({ sort })}
             className={`rounded-full border px-3 py-1 text-sm ${
-              activeCategory === c.slug
+              activeCategory === ""
                 ? "border-blue-500 bg-blue-950 text-white"
                 : "border-gray-700 text-gray-300 hover:border-gray-500"
             }`}
           >
-            {c.name}
+            全部
           </Link>
-        ))}
-      </nav>
-
-      <nav aria-label="排序" className="flex gap-3 text-sm">
-        {SORTS.map((s) => (
-          <Link
-            key={s.value}
-            href={shopHref({ category: activeCategory || undefined, sort: s.value })}
-            className={`${
-              sort === s.value ? "font-semibold text-white" : "text-gray-400 hover:text-gray-200"
-            }`}
-          >
-            {s.label}
-          </Link>
-        ))}
-      </nav>
-
-      {result.items.length === 0 ? (
-        <p className="py-16 text-center text-gray-400">该分类暂无商品。</p>
-      ) : (
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {result.items.map((p) => (
-            <li key={p.id}>
-              <Link
-                href={`/shop/${p.slug}`}
-                className="flex flex-col gap-2 rounded border border-gray-800 p-3 transition-colors hover:border-gray-600"
-              >
-                {p.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={p.image}
-                    alt={p.name}
-                    loading="lazy"
-                    draggable={false}
-                    className="flex h-32 w-full items-center justify-center rounded bg-gradient-to-br from-indigo-950 to-gray-900 object-contain p-1"
-                  />
-                ) : (
-                  <div
-                    aria-hidden
-                    className="flex h-32 items-center justify-center rounded bg-gradient-to-br from-indigo-950 to-gray-900 text-4xl"
-                  >
-                    {p.type === "game_item" ? "⚔" : "🛠"}
-                  </div>
-                )}
-                <span className="font-semibold">{p.name}</span>
-                <span className="text-xs text-gray-400">{p.categoryName}</span>
-                <span className="flex items-baseline gap-2">
-                  <span className="text-lg font-bold text-amber-400">{p.effectivePrice}</span>
-                  {p.onSale && (
-                    <span className="text-sm text-gray-500 line-through">{p.price}</span>
-                  )}
-                </span>
-              </Link>
-            </li>
+          {categories.map((c) => (
+            <Link
+              key={c.slug}
+              href={shopHref({ category: c.slug, sort })}
+              className={`rounded-full border px-3 py-1 text-sm ${
+                activeCategory === c.slug
+                  ? "border-blue-500 bg-blue-950 text-white"
+                  : "border-gray-700 text-gray-300 hover:border-gray-500"
+              }`}
+            >
+              {c.name}
+            </Link>
           ))}
-        </ul>
-      )}
-
-      {result.totalPages > 1 && (
-        <nav aria-label="分页" className="flex items-center justify-center gap-4">
-          {result.page > 1 ? (
-            <Link
-              href={shopHref({
-                category: activeCategory || undefined,
-                sort,
-                page: result.page - 1,
-              })}
-              className="text-sm text-gray-300 hover:text-white"
-            >
-              上一页
-            </Link>
-          ) : (
-            <span className="text-sm text-gray-600">上一页</span>
-          )}
-          <span className="text-sm text-gray-400">
-            第 {result.page} / {result.totalPages} 页
-          </span>
-          {result.page < result.totalPages ? (
-            <Link
-              href={shopHref({
-                category: activeCategory || undefined,
-                sort,
-                page: result.page + 1,
-              })}
-              className="text-sm text-gray-300 hover:text-white"
-            >
-              下一页
-            </Link>
-          ) : (
-            <span className="text-sm text-gray-600">下一页</span>
-          )}
         </nav>
-      )}
+
+        <nav aria-label="排序" className="flex gap-3 text-sm">
+          {SORTS.map((s) => (
+            <Link
+              key={s.value}
+              href={shopHref({ category: activeCategory || undefined, sort: s.value })}
+              className={`${
+                sort === s.value ? "font-semibold text-white" : "text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              {s.label}
+            </Link>
+          ))}
+        </nav>
+
+        {result.items.length === 0 ? (
+          <p className="py-16 text-center text-gray-400">该分类暂无商品。</p>
+        ) : (
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {result.items.map((p) => (
+              <li key={p.id}>
+                <Link
+                  href={`/shop/${p.slug}`}
+                  className="flex flex-col gap-2 rounded border border-gray-800 p-3 transition-colors hover:border-gray-600"
+                >
+                  {p.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={p.image}
+                      alt={p.name}
+                      loading="lazy"
+                      draggable={false}
+                      className="flex h-32 w-full items-center justify-center rounded bg-gradient-to-br from-indigo-950 to-gray-900 object-contain p-1"
+                    />
+                  ) : (
+                    <div
+                      aria-hidden
+                      className="flex h-32 items-center justify-center rounded bg-gradient-to-br from-indigo-950 to-gray-900 text-4xl"
+                    >
+                      {p.type === "game_item" ? "⚔" : "🛠"}
+                    </div>
+                  )}
+                  <span className="font-semibold">{p.name}</span>
+                  <span className="text-xs text-gray-400">{p.categoryName}</span>
+                  <span className="flex items-baseline gap-2">
+                    <span className="text-lg font-bold text-amber-400">{p.effectivePrice}</span>
+                    {p.onSale && (
+                      <span className="text-sm text-gray-500 line-through">{p.price}</span>
+                    )}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <PaginationNav
+          page={result.page}
+          totalPages={result.totalPages}
+          href={(p) => shopHref({ category: activeCategory || undefined, sort, page: p })}
+          tone="shop"
+        />
+      </ContentPanel>
     </main>
   );
 }

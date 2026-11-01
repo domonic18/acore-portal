@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ContentPanel } from "@/components/site/content-panel";
 import { getSessionFromToken } from "@/lib/auth/session";
 import { SESSION } from "@/constants/session";
 import { getCdnHosts } from "@/lib/config";
@@ -58,93 +59,98 @@ export default async function ProductDetailPage({
     : null;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 p-8">
-      <nav aria-label="面包屑" className="text-sm text-gray-400">
-        <Link href="/shop" className="hover:text-white">
-          商城
-        </Link>
-        <span className="mx-2">/</span>
-        <Link href={`/shop?category=${detail.categorySlug}`} className="hover:text-white">
-          {detail.categoryName}
-        </Link>
-        <span className="mx-2">/</span>
-        <span className="text-gray-200">{detail.name}</span>
-      </nav>
+    <main className="container-site flex-1 py-5 lg:py-6">
+      <ContentPanel className="mx-auto flex max-w-4xl flex-col gap-6 p-5 lg:p-6">
+        <nav aria-label="面包屑" className="text-sm text-gray-400">
+          <Link href="/shop" className="hover:text-white">
+            商城
+          </Link>
+          <span className="mx-2">/</span>
+          <Link
+            href={`/shop?category=${encodeURIComponent(detail.categorySlug)}`}
+            className="hover:text-white"
+          >
+            {detail.categoryName}
+          </Link>
+          <span className="mx-2">/</span>
+          <span className="text-gray-200">{detail.name}</span>
+        </nav>
 
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-        <ProductGallery
-          images={detail.images}
-          alt={detail.name}
-          fallbackIcon={detail.type === "game_item" ? "⚔" : "🛠"}
-        />
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+          <ProductGallery
+            images={detail.images}
+            alt={detail.name}
+            fallbackIcon={detail.type === "game_item" ? "⚔" : "🛠"}
+          />
 
-        <div className="flex flex-col gap-4">
-          <h1 className="text-2xl font-bold">{detail.name}</h1>
-          {!detail.listed && (
-            <p className="w-fit rounded bg-amber-950/60 px-2 py-1 text-xs text-amber-400">
-              未在商城列表展示,当前为直链访问
-            </p>
-          )}
-          <p className="flex items-baseline gap-3">
-            <span className="text-3xl font-bold text-amber-400">{detail.effectivePrice}</span>
-            {detail.onSale && (
-              <>
-                <span className="text-lg text-gray-500 line-through">{detail.price}</span>
-                <span className="rounded bg-red-950 px-2 py-0.5 text-xs text-red-400">促销</span>
-              </>
+          <div className="flex flex-col gap-4">
+            <h1 className="text-2xl font-bold">{detail.name}</h1>
+            {!detail.listed && (
+              <p className="w-fit rounded bg-amber-950/60 px-2 py-1 text-xs text-amber-400">
+                未在商城列表展示,当前为直链访问
+              </p>
             )}
-          </p>
-
-          {detail.stockEnabled && (
-            <p className="text-sm text-gray-400">
-              {(detail.stock ?? 0) <= 0 ? (
-                <span className="text-red-400">已售罄</span>
-              ) : (
-                <>库存 {detail.stock}</>
+            <p className="flex items-baseline gap-3">
+              <span className="text-3xl font-bold text-amber-400">{detail.effectivePrice}</span>
+              {detail.onSale && (
+                <>
+                  <span className="text-lg text-gray-500 line-through">{detail.price}</span>
+                  <span className="rounded bg-red-950 px-2 py-0.5 text-xs text-red-400">促销</span>
+                </>
               )}
             </p>
-          )}
 
-          {detail.type === "game_item" && detail.gameItemId !== null && (
-            <WowheadItemLink itemId={detail.gameItemId} />
-          )}
+            {detail.stockEnabled && (
+              <p className="text-sm text-gray-400">
+                {(detail.stock ?? 0) <= 0 ? (
+                  <span className="text-red-400">已售罄</span>
+                ) : (
+                  <>库存 {detail.stock}</>
+                )}
+              </p>
+            )}
 
-          {gameDbDegraded && (
-            <p role="alert" className="rounded border border-amber-800 bg-amber-950/40 px-3 py-2 text-sm text-amber-400">
-              游戏数据暂时不可用,角色列表加载失败,请稍后刷新重试。
-            </p>
-          )}
+            {detail.type === "game_item" && detail.gameItemId !== null && (
+              <WowheadItemLink itemId={detail.gameItemId} />
+            )}
 
-          {fields !== null ? (
-            <AddToCartForm
-              productId={detail.id}
-              fields={fields as CartParamField[]}
-              characters={characters}
-              loginHref={loginHref}
-              soldOut={detail.stockEnabled && (detail.stock ?? 0) <= 0}
+            {gameDbDegraded && (
+              <p role="alert" className="rounded border border-amber-800 bg-amber-950/40 px-3 py-2 text-sm text-amber-400">
+                游戏数据暂时不可用,角色列表加载失败,请稍后刷新重试。
+              </p>
+            )}
+
+            {fields !== null ? (
+              <AddToCartForm
+                productId={detail.id}
+                fields={fields as CartParamField[]}
+                characters={characters}
+                loginHref={loginHref}
+                soldOut={detail.stockEnabled && (detail.stock ?? 0) <= 0}
+              />
+            ) : (
+              <p className="rounded border border-gray-700 p-4 text-sm text-gray-400">
+                该商品暂不支持在线购买。
+              </p>
+            )}
+          </div>
+        </div>
+
+        <section className="flex flex-col gap-2 border-t border-gray-800 pt-4">
+          <h2 className="text-lg font-semibold">商品说明</h2>
+          {detailHtml ? (
+            <div
+              data-testid="product-detail-md"
+              className={MARKDOWN_BODY_CLS}
+              dangerouslySetInnerHTML={{ __html: detailHtml }}
             />
           ) : (
-            <p className="rounded border border-gray-700 p-4 text-sm text-gray-400">
-              该商品暂不支持在线购买。
+            <p className="whitespace-pre-wrap text-sm leading-6 text-gray-300">
+              {detail.description}
             </p>
           )}
-        </div>
-      </div>
-
-      <section className="flex flex-col gap-2 border-t border-gray-800 pt-4">
-        <h2 className="text-lg font-semibold">商品说明</h2>
-        {detailHtml ? (
-          <div
-            data-testid="product-detail-md"
-            className={MARKDOWN_BODY_CLS}
-            dangerouslySetInnerHTML={{ __html: detailHtml }}
-          />
-        ) : (
-          <p className="whitespace-pre-wrap text-sm leading-6 text-gray-300">
-            {detail.description}
-          </p>
-        )}
-      </section>
+        </section>
+      </ContentPanel>
     </main>
   );
 }

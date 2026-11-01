@@ -3,16 +3,13 @@ import { notFound } from "next/navigation";
 import { ForumPagination } from "@/app/_components/forum/forum-pagination";
 import { PinnedBadge, ThreadStatusBadge } from "@/app/_components/forum/thread-badge";
 import { FORUM_PAGE_SIZE } from "@/constants/forum";
+import { formatShortDate } from "@/lib/format";
 import {
   getForumBoardBySlug,
   listBoardThreads,
 } from "@/server/services/forum/browse";
 
 export const metadata = { title: "版块 · 老克塔论坛" };
-
-function fmtShortDate(d: Date) {
-  return d.toISOString().slice(5, 10);
-}
 
 type ThreadRow = Awaited<ReturnType<typeof listBoardThreads>>["items"][number];
 
@@ -29,7 +26,7 @@ function ThreadRowBody({ thread }: { thread: ThreadRow }) {
         </span>
         <span className="mt-0.5 block text-[12px] text-[#6482a3] lg:hidden">
           {thread.replyCount} 回复 · {thread.viewCount} 查看 · {thread.authorName} ·{" "}
-          {fmtShortDate(thread.lastPostAt)}
+          {formatShortDate(thread.lastPostAt)}
         </span>
       </span>
       <span className="hidden w-[60px] shrink-0 text-right text-[13.5px] text-[#a8d9f5] lg:block">
@@ -39,7 +36,7 @@ function ThreadRowBody({ thread }: { thread: ThreadRow }) {
         {thread.viewCount}
       </span>
       <span className="hidden w-[150px] shrink-0 truncate text-right text-[13.5px] text-[#6482a3] lg:block">
-        {thread.authorName} · {fmtShortDate(thread.lastPostAt)}
+        {thread.authorName} · {formatShortDate(thread.lastPostAt)}
       </span>
     </>
   );
@@ -113,7 +110,7 @@ export default async function ForumBoardPage({
                       </span>
                       <span className="mt-0.5 block text-[12px] text-[#6482a3] lg:hidden">
                         {t.replyCount} 回复 · {t.viewCount} 查看 · {t.authorName} ·{" "}
-                        {fmtShortDate(t.lastPostAt)}
+                        {formatShortDate(t.lastPostAt)}
                       </span>
                     </span>
                     <span className="hidden w-[60px] shrink-0 text-right text-[13.5px] text-[#a8d9f5] lg:block">
@@ -123,7 +120,7 @@ export default async function ForumBoardPage({
                       {t.viewCount}
                     </span>
                     <span className="hidden w-[150px] shrink-0 truncate text-right text-[13.5px] text-[#6482a3] lg:block">
-                      {t.authorName} · {fmtShortDate(t.lastPostAt)}
+                      {t.authorName} · {formatShortDate(t.lastPostAt)}
                     </span>
                   </Link>
                 </li>

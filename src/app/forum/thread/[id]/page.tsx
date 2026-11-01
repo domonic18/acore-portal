@@ -4,6 +4,7 @@ import { ForumPagination } from "@/app/_components/forum/forum-pagination";
 import { PinnedBadge, ThreadStatusBadge } from "@/app/_components/forum/thread-badge";
 import { ModeratorActions } from "@/app/_components/forum/moderator-actions";
 import { renderLegacyHtml } from "@/lib/markdown";
+import { formatDateTimeShort } from "@/lib/format";
 import { getCdnHosts } from "@/lib/config";
 import { getServerSession } from "@/server/session-guard";
 import { FORUM_POST_PAGE_SIZE, incrementThreadViews } from "@/server/services/forum/browse";
@@ -13,10 +14,6 @@ import {
 } from "@/server/services/forum/browse";
 
 export const metadata = { title: "主题 · 老克塔论坛" };
-
-function fmtDateTime(d: Date) {
-  return d.toISOString().slice(0, 16).replace("T", " ");
-}
 
 const ROLE_LABEL = {
   user: "成员",
@@ -88,7 +85,7 @@ export default async function ForumThreadPage({
           </h1>
         </div>
         <p className="mt-2 text-[12px] text-[#6482a3] lg:text-[13px]">
-          {thread.authorName} · {fmtDateTime(thread.createdAt)} · {thread.replyCount} 回复 ·{" "}
+          {thread.authorName} · {formatDateTimeShort(thread.createdAt)} · {thread.replyCount} 回复 ·{" "}
           {thread.viewCount} 查看 · {thread.board.name}
           {thread.closedAt && " · 已关闭"}
         </p>
@@ -145,7 +142,7 @@ export default async function ForumThreadPage({
                         {p.floor === 1 ? "楼主" : `${p.floor} 楼`}
                       </span>
                       {" · "}
-                      {fmtDateTime(p.createdAt)}
+                      {formatDateTimeShort(p.createdAt)}
                     </div>
                   </div>
                   {/* 迁移层仅图片重写;XSS 白名单在 renderLegacyHtml 收口(research R4) */}

@@ -214,6 +214,8 @@ test.describe("内容区底色(页面背景图为装饰层,文字不直压背景
     "/register",
     "/cart",
     "/checkout",
+    "/shop",
+    "/forum",
     "/wp-admin/profile.php?page=acore-item-restore",
     "/this-page-never-exists-9527",
   ]) {

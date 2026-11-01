@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { pageWindow } from "@/lib/pagination";
 
 /** 论坛数字分页(p07 设计稿):左侧总计,右侧页码窗口 + 下一页 */
 export function ForumPagination({
@@ -62,18 +63,4 @@ export function ForumPagination({
       </div>
     </nav>
   );
-}
-
-/** 数字页码窗口:≤7 全列,否则 首/…/当前±1/…/末(null=省略号) */
-function pageWindow(page: number, total: number): (number | null)[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages = new Set([1, total, page - 1, page, page + 1]);
-  const sorted = [...pages].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
-  const out: (number | null)[] = [];
-  for (const p of sorted) {
-    const prev = out.at(-1);
-    if (typeof prev === "number" && p - prev > 1) out.push(null);
-    out.push(p);
-  }
-  return out;
 }

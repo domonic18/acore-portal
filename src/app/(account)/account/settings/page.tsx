@@ -1,14 +1,11 @@
-import { prisma } from "@/lib/db";
 import { requireSession } from "@/server/session-guard";
+import { getAccountProfile } from "@/server/services/account/profile";
 import { SettingsForms } from "./settings-forms";
 
 /** 服务端壳:RSC 深校验(布局层)+ user 数据注入;交互面见 settings-forms.tsx */
 export default async function AccountSettingsPage() {
   const session = await requireSession();
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: BigInt(session.userId) },
-    select: { username: true, email: true, nickname: true },
-  });
+  const user = await getAccountProfile(BigInt(session.userId));
 
   return (
     <main className="flex flex-col gap-4">

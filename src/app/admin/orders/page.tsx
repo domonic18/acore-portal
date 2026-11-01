@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { listAdminOrders } from "@/server/services/orders/admin";
 import { ORDER_STATUS, ORDER_STATUS_LABEL } from "@/constants/shop";
+import { AdminPager } from "@/components/ui/pagination";
 import { displayUserName } from "@/lib/format";
+import { buildPageHref } from "@/lib/pagination";
 
 /**
  * 订单列表(FR-129):状态筛选+分页;delivery_failed 由布局导航标记(FR-128)。
@@ -34,7 +36,7 @@ export default async function AdminOrdersPage({
   });
 
   const pageHref = (p: number) =>
-    `/admin/orders?page=${p}${status ? `&status=${status}` : ""}`;
+    buildPageHref("/admin/orders", { status: status || undefined }, p);
 
   return (
     <div className="flex flex-col gap-4">
@@ -99,30 +101,13 @@ export default async function AdminOrdersPage({
         </table>
       )}
 
-      <div className="flex items-center justify-between text-sm text-gray-500">
-        <span>共 {total} 单</span>
-        {totalPages > 1 && (
-          <nav className="flex items-center gap-4">
-            {page > 1 ? (
-              <Link href={pageHref(page - 1)} className="text-blue-400 hover:underline">
-                上一页
-              </Link>
-            ) : (
-              <span className="text-gray-600">上一页</span>
-            )}
-            <span>
-              第 {page} / {totalPages} 页
-            </span>
-            {page < totalPages ? (
-              <Link href={pageHref(page + 1)} className="text-blue-400 hover:underline">
-                下一页
-              </Link>
-            ) : (
-              <span className="text-gray-600">下一页</span>
-            )}
-          </nav>
-        )}
-      </div>
+      <AdminPager
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        unit="单"
+        href={pageHref}
+      />
     </div>
   );
 }

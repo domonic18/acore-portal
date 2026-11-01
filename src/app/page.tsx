@@ -4,6 +4,7 @@ import { listActiveBanners } from "@/server/services/home/banners";
 import { getServerStatus } from "@/server/services/status/status";
 import { listHighlightedForumThreads } from "@/server/services/forum/browse";
 import { getConfig } from "@/lib/config";
+import { formatDate } from "@/lib/format";
 import { TUTORIAL_ANCHORS } from "@/constants/content";
 import { StatusCard } from "@/components/site/status-card";
 import { HomeCarousel } from "@/components/site/home-carousel";
@@ -177,7 +178,7 @@ export default async function HomePage() {
                       {a.title}
                     </Link>
                     <span className="shrink-0 text-xs text-[#6482a3]">
-                      {a.publishedAt?.toISOString().slice(0, 10)}
+                      {a.publishedAt && formatDate(a.publishedAt)}
                     </span>
                   </li>
                 ))}
@@ -204,7 +205,7 @@ export default async function HomePage() {
             </p>
             {progression.current?.phaseDate && (
               <p className="mt-1 text-xs text-[#6482a3]">
-                开放于 {progression.current.phaseDate.toISOString().slice(0, 10)}
+                开放于 {formatDate(progression.current.phaseDate)}
               </p>
             )}
             {progression.next && (
