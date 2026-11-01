@@ -8,6 +8,7 @@ import { PrismaClient } from "../../src/generated/business";
 import { hashPhpass } from "../../src/lib/auth/phpass";
 import { hashWpBcrypt } from "../../src/lib/auth/wp-bcrypt";
 import { PASSWORD_ALGO } from "../../src/constants/password";
+import { DEFAULT_SIDEBAR_CARDS } from "../../src/constants/sidebar";
 
 const prisma = new PrismaClient();
 
@@ -184,7 +185,13 @@ async function seedContent() {
   }
   const pages = [
     { slug: "about", title: "项目简介", bodyMd: "# 项目简介\n\n老克塔是 60 年代怀旧服社区。" },
-    { slug: "tutorial", title: "使用教程", bodyMd: "# 使用教程\n\n见下方下载锚点。" },
+    {
+      slug: "tutorial",
+      title: "使用教程",
+      // 下载区标题驱动稳定锚点(#client_download/#patch_download/#login_download)
+      bodyMd:
+        "# 使用教程\n\n见下方下载指引。\n\n## 第三步： 下载客户端\n\n客户端下载说明。\n\n## 第四步：下载补丁文件\n\n补丁下载说明。\n\n## 第五步：下载登录器\n\n登录器下载说明。",
+    },
     { slug: "agreement", title: "用户协议", bodyMd: "# 用户协议\n\n怀旧公益服务条款。" },
     { slug: "convention", title: "论坛公约", bodyMd: "# 论坛公约\n\n友善交流,遵守公约。" },
     { slug: "sitemap", title: "网站地图", bodyMd: "# 网站地图\n\n全站导航清单。" },
@@ -192,7 +199,7 @@ async function seedContent() {
   for (const p of pages) {
     await prisma.contentPage.upsert({
       where: { slug: p.slug },
-      update: {},
+      update: { title: p.title, bodyMd: p.bodyMd },
       create: { ...p, status: "published" },
     });
   }
@@ -335,11 +342,53 @@ async function seedForum() {
   }
 }
 
+/** 侧栏快捷卡默认种子:按 key 幂等,已存在=保留后台编辑不覆盖;旧 download.* 值优先沿用 */
+async function seedSidebarCards() {
+  const legacyRows = await prisma.systemConfig.findMany({
+    where: { key: { startsWith: "download." } },
+    select: { key: true, value: true },
+  });
+  const legacy = new Map(legacyRows.map((r) => [r.key, r.value]));
+  const legacyKeys: Record<string, { url?: string; note?: string; body?: string }> = {
+    client: { url: "download.client.url", note: "download.client.note" },
+    patch: { url: "download.patch.url", note: "download.patch.note" },
+    launcher: { url: "download.launcher.url", note: "download.launcher.note" },
+    addon: { url: "download.addon.url", note: "download.addon.note" },
+    yy: { body: "download.yy.note" },
+  };
+
+  for (const [index, card] of DEFAULT_SIDEBAR_CARDS.entries()) {
+    const existing = await prisma.sidebarCard.findUnique({
+      where: { key: card.key },
+      select: { id: true },
+    });
+    if (existing) continue;
+    const map = legacyKeys[card.key];
+    const links = card.links.map((link, i) => ({
+      label: link.label,
+      href: (map?.url && legacy.get(map.url)) || link.href,
+      note: (map?.note && legacy.get(map.note)) || link.note || null,
+      sort: i + 1,
+    }));
+    await prisma.sidebarCard.create({
+      data: {
+        key: card.key,
+        title: card.title,
+        pages: card.pages,
+        body: (map?.body && legacy.get(map.body)) || card.body || null,
+        sort: index + 1,
+        links: { create: links },
+      },
+    });
+  }
+}
+
 main()
   .then(seedPointRules)
   .then(seedDefaultCategory)
   .then(seedContent)
   .then(seedForum)
+  .then(seedSidebarCards)
   .then(() => console.log("seed 完成"))
   .catch((err) => {
     console.error(err);

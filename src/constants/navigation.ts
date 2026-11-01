@@ -1,10 +1,13 @@
 /**
  * 全站主导航(2026-10-29 对齐生产原站菜单结构,ardot p01-s3 为视觉基线):
  * 游客=首页▾/公告▾/数据库▾/资讯/论坛;登录态追加 积分商店▾(购物车/结账)+我的账户▾(用户中心各页)。
- * 首页▾ 复刻原站二级菜单(项目简介/使用教程/客户端下载/登录器下载/补丁下载,均落站内真实路由)。
+ * 首页▾ 复刻原站二级菜单(项目简介/使用教程/客户端下载/登录器下载/补丁下载;
+ * 后三项沿用旧站锚点直达教程页对应下载区,见 TUTORIAL_ANCHORS)。
  * 工具页 M4 US1 接线(封号记录/英雄榜/在线玩家/在线地图/DKP查询,契约 tools-and-seo);
  * 在线查询不进导航(旧站口径直达+301 可达)。
  */
+import { TUTORIAL_ANCHORS } from "./content";
+
 export type SiteNavItem = {
   label: string;
   href?: string;
@@ -32,9 +35,9 @@ export const SITE_NAV: readonly SiteNavItem[] = [
     children: [
       { label: "项目简介", href: "/about" },
       { label: "使用教程", href: "/tutorial" },
-      { label: "客户端下载", href: "/tutorial" },
-      { label: "登录器下载", href: "/tutorial" },
-      { label: "补丁下载", href: "/tutorial" },
+      { label: "客户端下载", href: `/tutorial#${TUTORIAL_ANCHORS.client}` },
+      { label: "登录器下载", href: `/tutorial#${TUTORIAL_ANCHORS.launcher}` },
+      { label: "补丁下载", href: `/tutorial#${TUTORIAL_ANCHORS.patch}` },
     ],
   },
   {
@@ -112,6 +115,7 @@ export const ADMIN_NAV_GROUPS = [
     items: [
       { href: "/admin/users", label: "用户" },
       { href: "/admin/server-status", label: "状态配置" },
+      { href: "/admin/sidebar", label: "侧栏入口" },
       { href: "/admin/settings", label: "设置" },
     ],
   },

@@ -93,16 +93,6 @@ const configSchema = z.object({
     icp: z.string().default("京ICP备2022035466号"),
     qqGroup: z.string().default("184670219"),
   }),
-  // 侧栏下载入口(CRUD 对齐审计):url 空=对应卡片隐藏;默认指向教程页下载区
-  download: z.object({
-    clientUrl: z.string().default("/tutorial"),
-    clientNote: z.string().default("1.12 完整客户端"),
-    launcherUrl: z.string().default("/tutorial"),
-    launcherNote: z.string().default("一键登录"),
-    addonUrl: z.string().default("/tutorial"),
-    addonNote: z.string().default("整合包"),
-    yyNote: z.string().default("频道号见公告"),
-  }),
   // 站点外观(2026-10 用户反馈):favicon / 页头 logo / 页头背景 / 页面背景均可后台配置;
   // logo 与 favicon 空=回落内置资源,背景空=不渲染背景图(纯色底)
   appearance: z.object({
@@ -197,15 +187,6 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
     site: {
       icp: flat["site.icp"] ?? "京ICP备2022035466号",
       qqGroup: flat["site.qqGroup"] ?? "184670219",
-    },
-    download: {
-      clientUrl: flat["download.client.url"] ?? "/tutorial",
-      clientNote: flat["download.client.note"] ?? "1.12 完整客户端",
-      launcherUrl: flat["download.launcher.url"] ?? "/tutorial",
-      launcherNote: flat["download.launcher.note"] ?? "一键登录",
-      addonUrl: flat["download.addon.url"] ?? "/tutorial",
-      addonNote: flat["download.addon.note"] ?? "整合包",
-      yyNote: flat["download.yy.note"] ?? "频道号见公告",
     },
     appearance: {
       logoUrl: flat["appearance.logoUrl"] ?? "/logo.png",

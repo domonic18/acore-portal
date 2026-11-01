@@ -742,3 +742,34 @@ model HomeBanner {
   @@index([enabled, sort])
   @@map("home_banner")
 }
+
+/// 侧栏快捷卡(通用化:后台 /admin/sidebar CRUD,按 pages 页面类型渲染;
+/// pages 为 SitePageType[] JSON,body 供无链接纯文本卡,links 有序)
+model SidebarCard {
+  id        Int           @id @default(autoincrement())
+  key       String        @unique @db.VarChar(64)
+  title     String        @db.VarChar(64)
+  pages     Json
+  body      String?       @db.VarChar(255)
+  sort      Int           @default(0)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  links     SidebarLink[]
+
+  @@index([sort])
+  @@map("sidebar_card")
+}
+
+/// 侧栏快捷卡链接(label · note 文本 + 站内/http(s) 地址)
+model SidebarLink {
+  id     Int         @id @default(autoincrement())
+  cardId Int         @map("card_id")
+  label  String      @db.VarChar(64)
+  href   String      @db.VarChar(500)
+  note   String?     @db.VarChar(128)
+  sort   Int         @default(0)
+  card   SidebarCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([cardId, sort])
+  @@map("sidebar_link")
+}

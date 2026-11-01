@@ -41,15 +41,6 @@ export async function getSettingsView(): Promise<SettingsView> {
       headerBackgroundUrl: config.appearance.headerBackgroundUrl,
       pageBackgroundUrl: config.appearance.pageBackgroundUrl,
     },
-    download: {
-      clientUrl: config.download.clientUrl,
-      clientNote: config.download.clientNote,
-      launcherUrl: config.download.launcherUrl,
-      launcherNote: config.download.launcherNote,
-      addonUrl: config.download.addonUrl,
-      addonNote: config.download.addonNote,
-      yyNote: config.download.yyNote,
-    },
     umami: config.umami
       ? {
           configured: true,
