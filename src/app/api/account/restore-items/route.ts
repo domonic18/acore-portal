@@ -2,15 +2,8 @@ import "server-only";
 import type { NextRequest } from "next/server";
 import { apiError, apiOk } from "@/server/http";
 import { getApiSession } from "@/server/session-guard";
-import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { writeAudit } from "@/server/services/audit/audit";
-import { prisma } from "@/lib/db";
-import {
-  GameDbError,
-  characterOwnedBy,
-  listRestorableItems,
-  resolveGameAccountId,
-} from "@/server/services/shared/game-identity";
+import { GameDbError } from "@/server/services/shared/game-identity";
+import { getRestorableItems } from "@/server/services/account/restore-items";
 
 /**
  * 契约:200 {items}/401 未登录/403 CHARACTER_NOT_OWNED+审计/503 GAME_DB_UNAVAILABLE。
@@ -26,28 +19,18 @@ export async function GET(req: NextRequest) {
     return apiError(422, "VALIDATION_ERROR", "参数错误:guid");
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: BigInt(session.userId) },
-    select: { username: true },
-  });
-  if (!user) return apiError(401, "UNAUTHORIZED", "请先登录。");
-
   try {
-    const accountId = await resolveGameAccountId(user.username);
-    if (accountId === null) return apiOk({ items: [] });
-
-    const owned = await characterOwnedBy(accountId, guid);
-    if (!owned) {
-      await writeAudit({
-        category: AUDIT_CATEGORY.SECURITY,
-        action: AUDIT_ACTION.OWNERSHIP_VIOLATION,
-        actorUserId: BigInt(session.userId),
-        payload: { scope: "restore_items", guid },
-        ip: req.headers.get("x-forwarded-for"),
-      });
-      return apiError(403, "CHARACTER_NOT_OWNED", "只能查看自己名下角色的物品。");
+    const result = await getRestorableItems({
+      userId: BigInt(session.userId),
+      guid,
+      ip: req.headers.get("x-forwarded-for"),
+    });
+    if (!result.ok) {
+      return result.reason === "USER_NOT_FOUND"
+        ? apiError(401, "UNAUTHORIZED", "请先登录。")
+        : apiError(403, "CHARACTER_NOT_OWNED", "只能查看自己名下角色的物品。");
     }
-    return apiOk({ items: await listRestorableItems(guid) });
+    return apiOk({ items: result.items });
   } catch (err) {
     if (err instanceof GameDbError) {
       return apiError(503, "GAME_DB_UNAVAILABLE", "游戏数据暂时不可用,请稍后重试。");

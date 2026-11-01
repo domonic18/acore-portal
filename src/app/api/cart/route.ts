@@ -3,7 +3,6 @@ import { z } from "zod";
 import type { NextRequest } from "next/server";
 import { apiError, apiOk, parseBody } from "@/server/http";
 import { getApiSession } from "@/server/session-guard";
-import { prisma } from "@/lib/db";
 import { GameDbError } from "@/server/services/shared/game-identity";
 import { addToCart } from "@/server/services/shop/cart";
 
