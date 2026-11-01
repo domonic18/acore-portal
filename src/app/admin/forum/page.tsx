@@ -2,7 +2,7 @@ import Link from "next/link";
 import { adminListThreads, listAdminBoards } from "@/server/services/forum/admin";
 import { ForumThreadActions } from "@/components/admin/forum-thread-actions";
 import { ForumBoardManager } from "@/components/admin/forum-board-manager";
-import { PinnedBadge, ThreadStatusBadge } from "@/app/_components/forum/thread-badge";
+import { PinnedBadge, ThreadStatusBadge } from "@/components/forum/thread-badge";
 import { AdminPager } from "@/components/ui/pagination";
 import { buildPageHref } from "@/lib/pagination";
 

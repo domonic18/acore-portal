@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ContentPanel } from "@/components/site/content-panel";
-import { PinnedBadge, ThreadStatusBadge } from "@/app/_components/forum/thread-badge";
+import { PinnedBadge, ThreadStatusBadge } from "@/components/forum/thread-badge";
 import { formatShortDate } from "@/lib/format";
 import { listForumBoards, listLatestForumThreads } from "@/server/services/forum/browse";
 

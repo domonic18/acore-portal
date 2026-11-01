@@ -2,10 +2,15 @@ import type { ComponentType } from "react";
 import type { SidebarComponentKey } from "@/constants/content";
 import { PointsBalance } from "./points-balance";
 
+/** 固定槽位入参:页面层取数后统一下发,组件保持无 IO */
+export type SidebarSlotProps = {
+  balance: number | null;
+};
+
 /** 侧栏固定组件注册表:键→组件;清单由 SIDE_BY_PAGE_TYPE 按页面类型编排 */
 export const SIDEBAR_COMPONENTS: Record<
   SidebarComponentKey,
-  ComponentType
+  ComponentType<SidebarSlotProps>
 > = {
   "points-balance": PointsBalance,
 };

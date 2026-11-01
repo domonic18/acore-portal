@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ForumPagination } from "@/app/_components/forum/forum-pagination";
-import { PinnedBadge, ThreadStatusBadge } from "@/app/_components/forum/thread-badge";
-import { ModeratorActions } from "@/app/_components/forum/moderator-actions";
+import { ForumPagination } from "@/components/forum/forum-pagination";
+import { PinnedBadge, ThreadStatusBadge } from "@/components/forum/thread-badge";
+import { ModeratorActions } from "./moderator-actions";
 import { renderLegacyHtml } from "@/lib/markdown";
 import { formatDateTimeShort } from "@/lib/format";
 import { getCdnHosts } from "@/lib/config";

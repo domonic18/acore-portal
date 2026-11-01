@@ -1,40 +1,46 @@
 import Link from "next/link";
-import {
-  listArchiveArticles,
-  listHotNews,
-} from "@/server/services/content/articles";
 import { ArchiveAside } from "@/components/content/archive-aside";
 import { ArchiveSearch } from "@/components/content/archive-search";
-import { ARCHIVE_PAGE_SIZE } from "@/constants/pagination";
 import { formatDate } from "@/lib/format";
 import { pageWindow, paginate } from "@/lib/pagination";
+
+type ArchiveListItem = {
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  publishedAt: Date | null;
+  views: number;
+};
 
 /**
  * 归档页共用壳(T023,FR-209;2026-10 ardot p04 对齐):
  * 面包屑 + 大标题/总数 + 行卡列表(资讯两列卡) + 数字分页 + 右栏。
- * 三分类路由(announcements/news/guides)共用本组件(devlog 为单页 Markdown,不走归档)。
+ * 三分类路由(announcements/news/guides)共用本组件(devlog 为单页 Markdown,不走归档);
+ * 数据由页面层经 getArchiveView 取得后下发。
  */
-export async function ArchivePage({
+export function ArchivePage({
   categorySlug,
   title,
-  searchParams,
   layout = "rows",
-  pageSize = ARCHIVE_PAGE_SIZE,
   parent = { label: "首页", href: "/" },
+  page,
+  q,
+  items,
+  total,
+  pageSize: size,
+  hot,
 }: {
   categorySlug: string;
   title: string;
-  searchParams: { page?: string; q?: string };
+  page: number;
+  q?: string;
+  items: ArchiveListItem[];
+  total: number;
+  pageSize: number;
+  hot: { slug: string; title: string; views: number }[];
   layout?: "rows" | "cards" | "log";
-  pageSize?: number;
   parent?: { label: string; href: string };
 }) {
-  const page = Math.max(1, Number.parseInt(searchParams.page ?? "1", 10) || 1);
-  const q = searchParams.q?.trim() || undefined;
-  const [{ items, total, pageSize: size }, hot] = await Promise.all([
-    listArchiveArticles({ categorySlug, page, q, pageSize }),
-    listHotNews(5),
-  ]);
   const { totalPages } = paginate(total, page, size);
   const href = (p: number) => {
     const sp = new URLSearchParams();

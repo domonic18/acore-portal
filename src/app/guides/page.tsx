@@ -1,11 +1,13 @@
-import { ArchivePage } from "@/app/_components/content/archive-page";
+import { ArchivePage } from "@/components/content/archive-page";
+import { getArchiveView } from "@/server/services/content/archive-view";
 
 export const metadata = { title: "资料梳理 · 老克塔" };
 
-export default function GuidesPage({
+export default async function GuidesPage({
   searchParams,
 }: {
   searchParams: { page?: string; q?: string };
 }) {
-  return <ArchivePage categorySlug="guides" title="资料梳理" searchParams={searchParams} />;
+  const view = await getArchiveView({ categorySlug: "guides", searchParams });
+  return <ArchivePage categorySlug="guides" title="资料梳理" {...view} />;
 }

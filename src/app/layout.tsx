@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { SiteFooter } from "@/components/site/footer";
 import { HideOnAdmin } from "@/components/site/chrome-gate";
-import { SiteHeader } from "@/app/_components/site-header";
+import { SiteHeaderClient } from "@/components/site/header-client";
+import { getSiteHeaderView } from "@/server/services/site/chrome";
 import { getConfig } from "@/lib/config";
 import "@/styles/globals.css";
 
@@ -35,7 +36,10 @@ export default async function RootLayout({
 }) {
   // FR-312:umami 组存在才注入 tracking script;build 期(假 DATABASE_URL
   // 预渲染 /_not-found 等)取不到配置时静默跳过,不阻塞渲染
-  const config = await getConfig().catch(() => null);
+  const [config, header] = await Promise.all([
+    getConfig().catch(() => null),
+    getSiteHeaderView(),
+  ]);
   const umami = config?.umami;
   const appearance = config?.appearance ?? DEFAULT_APPEARANCE;
   // 页面背景图:暗色叠层压在场景图之上,保证正文可读;留空=纯色底
@@ -53,7 +57,7 @@ export default async function RootLayout({
     <html lang="zh-CN">
       <body className="flex min-h-screen flex-col antialiased" style={pageBackground}>
         <HideOnAdmin>
-          <SiteHeader />
+          <SiteHeaderClient {...header} />
         </HideOnAdmin>
         <div className="flex-1">{children}</div>
         <HideOnAdmin>
