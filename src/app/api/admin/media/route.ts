@@ -4,17 +4,14 @@ import { requireApiAdmin } from "@/server/session-guard";
 import {
   MediaError,
   listMediaAssets,
+  mediaErrorStatus,
   uploadMediaAssets,
 } from "@/server/services/media/library";
 
-/** 媒体错误映射:422=类型/大小,404=不存在,503=COS 不可达(拒绝保存不放行) */
+/** 媒体错误映射:422=类型/大小,404=不存在,503=存储不可用(拒绝保存不放行) */
 function mapMediaError(err: unknown) {
   if (err instanceof MediaError) {
-    return apiError(
-      err.code === "NOT_FOUND" ? 404 : err.code === "COS_UNAVAILABLE" ? 503 : 422,
-      err.code,
-      err.message,
-    );
+    return apiError(mediaErrorStatus(err.code), err.code, err.message);
   }
   throw err;
 }

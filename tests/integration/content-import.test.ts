@@ -3,8 +3,11 @@ import { config } from "dotenv";
 import { createPool, type Pool, type RowDataPacket } from "mysql2/promise";
 import {
   importArticles,
+  importDevlogPage,
   importPages,
   importProgression,
+  normalizeDevlogHtml,
+  parseDevlogEntries,
   scanContentDeadlinks,
 } from "../../scripts/migrate/content-import.mjs";
 
@@ -21,6 +24,8 @@ const POST_B = 9_910_002; // publish+无分类(回退 announcements)+无 views
 const POST_C = 9_910_003; // draft+空 slug(legacy-{id})
 const PAGE_X = 9_911_001;
 const PROG_PAGE = 9_912_001;
+const DEVLOG_PAGE = 9_913_001;
+const DEVLOG_SLUG = "fixture-devlog-t12";
 const IMG_OLD = "/wp-content/uploads/2099/01/t12-img.png";
 const IMG_NEW = "/2099/01/t12-img.png";
 const PAGE_SLUG = "fixture-page-t12";
@@ -109,6 +114,22 @@ async function seedFixture() {
      VALUES (?, 1, '2023-07-02 00:00:00', '2023-07-02 00:00:00', '2023-07-02 00:00:00', '2023-07-02 00:00:00', 'T12 渐进源', ?, '', 'publish', 't12-prog', '', '', '', 'page')`,
     [PROG_PAGE, t12ProgressionHtml()],
   );
+  await pool.query(
+    `INSERT INTO wp_legacy.wp_posts
+       (ID, post_author, post_date, post_date_gmt, post_modified, post_modified_gmt, post_title, post_content, post_excerpt, post_status, post_name, to_ping, pinged, post_content_filtered, post_type)
+     VALUES (?, 1, '2023-07-03 00:00:00', '2023-07-03 00:00:00', '2023-07-03 00:00:00', '2023-07-03 00:00:00', 'T12 开发日志', ?, '', 'publish', 't12-devlog', '', '', '', 'page')`,
+    [DEVLOG_PAGE, t12DevlogHtml()],
+  );
+}
+
+function t12DevlogHtml() {
+  return [
+    "<p>2099-01-05开发日志</p>",
+    "<blockquote>\n1、条目甲 [item=19019]\n\n2、条目乙补充\n</blockquote>",
+    "<p>2099-1-2开发日志：</p>",
+    "<blockquote><p>2、条目乙</p><ul><li>明细</li></ul></blockquote>",
+    "<p>无关段落不参与拆条</p>",
+  ].join("\n");
 }
 
 async function cleanup() {
@@ -116,20 +137,22 @@ async function cleanup() {
     `DELETE FROM acore_portal.article WHERE legacy_wp_post_id IN (?, ?, ?)`,
     [POST_A, POST_B, POST_C],
   );
-  await pool.query(`DELETE FROM acore_portal.content_page WHERE legacy_wp_page_id = ?`, [
-    PAGE_X,
-  ]);
+  await pool.query(
+    `DELETE FROM acore_portal.content_page WHERE legacy_wp_page_id IN (?, ?) OR slug = ?`,
+    [PAGE_X, DEVLOG_PAGE, DEVLOG_SLUG],
+  );
   await pool.query(
     `DELETE FROM acore_portal.progression_node WHERE legacy_wp_key IN (?, ?)`,
     PROG_KEYS,
   );
   await pool.query(`DELETE FROM acore_portal.image_asset_map WHERE old_url = ?`, [IMG_OLD]);
-  await pool.query(`DELETE FROM wp_legacy.wp_posts WHERE ID IN (?, ?, ?, ?, ?)`, [
+  await pool.query(`DELETE FROM wp_legacy.wp_posts WHERE ID IN (?, ?, ?, ?, ?, ?)`, [
     POST_A,
     POST_B,
     POST_C,
     PAGE_X,
     PROG_PAGE,
+    DEVLOG_PAGE,
   ]);
   await pool.query(
     `DELETE FROM wp_legacy.wp_term_relationships WHERE object_id IN (?, ?, ?)`,
@@ -237,6 +260,55 @@ describe("content-import(T012 US2)", () => {
     expect(rows[0]!.body_md).toContain(`![页图](${IMG_NEW})`);
     const second = await importPages(pool, { pages });
     expect(second).toMatchObject({ total: 1, inserted: 0, updated: 1 });
+  });
+
+  it("开发日志单页:日期行转二级标题/Markdown 落 content_page/重跑原位更新", async () => {
+    await seedFixture();
+
+    const parsed = parseDevlogEntries(t12DevlogHtml());
+    expect(parsed.map((e) => e.date)).toEqual(["2099-01-05", "2099-01-02"]);
+
+    const normalized = normalizeDevlogHtml(t12DevlogHtml());
+    expect(normalized).toContain("<h2>2099-01-05 开发日志</h2>");
+    expect(normalized).toContain("<h2>2099-01-02 开发日志</h2>");
+    // blockquote 内空行分条 → <br />,不再被 turndown 折叠成空格
+    expect(normalized).toContain(
+      "<blockquote>1、条目甲 [item=19019]<br />2、条目乙补充</blockquote>",
+    );
+    // 无关段落原样保留
+    expect(normalized).toContain("<p>无关段落不参与拆条</p>");
+
+    const first = await importDevlogPage(pool, { pageId: DEVLOG_PAGE, slug: DEVLOG_SLUG });
+    expect(first).toMatchObject({ parsed: 2, inserted: 1, updated: 0 });
+
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT slug, title, body_md, status, legacy_wp_page_id
+         FROM acore_portal.content_page WHERE slug = ?`,
+      [DEVLOG_SLUG],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      slug: DEVLOG_SLUG,
+      title: "T12 开发日志",
+      status: "published",
+    });
+    expect(Number(rows[0]!.legacy_wp_page_id)).toBe(DEVLOG_PAGE);
+    expect(rows[0]!.body_md).toContain("## 2099-01-05 开发日志");
+    expect(rows[0]!.body_md).toContain("## 2099-01-02 开发日志");
+    expect(rows[0]!.body_md).toContain("条目甲");
+    expect(rows[0]!.body_md).toContain("[item=19019](https://www.wowhead.com/item=19019)");
+    // 空行分条保留为硬换行(单换行由 remark-breaks 渲染为 <br>)
+    expect(rows[0]!.body_md).toContain("> 1、条目甲");
+    expect(rows[0]!.body_md).toMatch(/\n> 2、条目乙补充/);
+    expect(rows[0]!.body_md).not.toMatch(/^#{1}\s/m);
+
+    const again = await importDevlogPage(pool, { pageId: DEVLOG_PAGE, slug: DEVLOG_SLUG });
+    expect(again).toMatchObject({ parsed: 2, inserted: 0, updated: 1 });
+    const [after] = await pool.query<RowDataPacket[]>(
+      `SELECT COUNT(*) n FROM acore_portal.content_page WHERE slug = ?`,
+      [DEVLOG_SLUG],
+    );
+    expect(Number(after[0]!.n)).toBe(1);
   });
 
   it("渐进导入:开放/未定档/装饰行剔除/图片重写,重跑零新增", async () => {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHydrated } from "@/lib/use-hydrated";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 商品行内上下架/目录隐藏/删除(FR-127):POST /api/admin/products/[id]/status
@@ -29,19 +30,14 @@ export function ProductStatusActions({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/products/${productId}/status`, {
+      await requestJson(`/api/admin/products/${productId}/status`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ status, ...(listed === undefined ? {} : { listed }) }),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        setError(body?.error?.message ?? "操作失败,请稍后重试。");
-        return;
-      }
       router.refresh();
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -51,17 +47,10 @@ export function ProductStatusActions({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/products/${productId}/duplicate`, {
-        method: "POST",
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        setError(body?.error?.message ?? "复制失败,请稍后重试。");
-        return;
-      }
+      await requestJson(`/api/admin/products/${productId}/duplicate`, { method: "POST" });
       router.refresh();
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -72,15 +61,10 @@ export function ProductStatusActions({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/products/${productId}`, { method: "DELETE" });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        setError(body?.error?.message ?? "删除失败,请稍后重试。");
-        return;
-      }
+      await requestJson(`/api/admin/products/${productId}`, { method: "DELETE" });
       router.refresh();
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }

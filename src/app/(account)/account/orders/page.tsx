@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireSession } from "@/server/session-guard";
 import { listOrders } from "@/server/services/orders/queries";
 import { ORDER_STATUS_LABEL } from "@/constants/shop";
+import { PaginationNav } from "@/components/ui/pagination";
+import { buildPageHref } from "@/lib/pagination";
 
 /**
  * T035 订单列表(FR-117):分页(服务端 RSC 链接翻页)+状态徽标;最新在前。
@@ -58,27 +60,12 @@ export default async function OrdersPage({
               </li>
             ))}
           </ul>
-          {totalPages > 1 && (
-            <nav className="flex items-center justify-between text-sm">
-              {page > 1 ? (
-                <Link href={`/account/orders?page=${page - 1}`} className="text-blue-400 hover:underline">
-                  上一页
-                </Link>
-              ) : (
-                <span className="text-gray-600">上一页</span>
-              )}
-              <span className="text-gray-500">
-                第 {page} / {totalPages} 页
-              </span>
-              {page < totalPages ? (
-                <Link href={`/account/orders?page=${page + 1}`} className="text-blue-400 hover:underline">
-                  下一页
-                </Link>
-              ) : (
-                <span className="text-gray-600">下一页</span>
-              )}
-            </nav>
-          )}
+          <PaginationNav
+            page={page}
+            totalPages={totalPages}
+            href={(p) => buildPageHref("/account/orders", {}, p)}
+            tone="account"
+          />
         </>
       )}
     </main>

@@ -3,6 +3,8 @@ import { adminListThreads, listAdminBoards } from "@/server/services/forum/admin
 import { ForumThreadActions } from "@/components/admin/forum-thread-actions";
 import { ForumBoardManager } from "@/components/admin/forum-board-manager";
 import { PinnedBadge, ThreadStatusBadge } from "@/app/_components/forum/thread-badge";
+import { AdminPager } from "@/components/ui/pagination";
+import { buildPageHref } from "@/lib/pagination";
 
 type SearchParams = {
   board?: string;
@@ -40,17 +42,19 @@ export default async function AdminForumPage({
     page,
   });
 
-  const pageHref = (p: number) => {
-    const params = new URLSearchParams();
-    if (boardSlug) params.set("board", boardSlug);
-    if (q) params.set("q", q);
-    if (pinned) params.set("pinned", "1");
-    if (closed) params.set("closed", "1");
-    if (label) params.set("label", label);
-    if (deleted) params.set("deleted", "1");
-    params.set("page", String(p));
-    return `/admin/forum?${params.toString()}`;
-  };
+  const pageHref = (p: number) =>
+    buildPageHref(
+      "/admin/forum",
+      {
+        board: boardSlug || undefined,
+        q: q || undefined,
+        pinned: pinned ? "1" : undefined,
+        closed: closed ? "1" : undefined,
+        label: label || undefined,
+        deleted: deleted ? "1" : undefined,
+      },
+      p,
+    );
 
   const selectCls = "rounded border border-gray-700 bg-gray-900 px-3 py-2 text-white";
 
@@ -168,30 +172,13 @@ export default async function AdminForumPage({
         </table>
       )}
 
-      <div className="flex items-center justify-between text-sm text-gray-500">
-        <span>共 {total} 条主题</span>
-        {totalPages > 1 && (
-          <nav className="flex items-center gap-4">
-            {page > 1 ? (
-              <Link href={pageHref(page - 1)} className="text-blue-400 hover:underline">
-                上一页
-              </Link>
-            ) : (
-              <span className="text-gray-600">上一页</span>
-            )}
-            <span>
-              第 {page} / {totalPages} 页
-            </span>
-            {page < totalPages ? (
-              <Link href={pageHref(page + 1)} className="text-blue-400 hover:underline">
-                下一页
-              </Link>
-            ) : (
-              <span className="text-gray-600">下一页</span>
-            )}
-          </nav>
-        )}
-      </div>
+      <AdminPager
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        unit="条主题"
+        href={pageHref}
+      />
 
       <hr className="border-gray-800" />
       <ForumBoardManager boards={boards} />

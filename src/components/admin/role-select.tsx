@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHydrated } from "@/lib/use-hydrated";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /** 行内角色分配(改后即吊销目标全部会话,提示文案同步告知) */
 export function RoleSelect({ userId, role }: { userId: string; role: string }) {
@@ -17,21 +18,15 @@ export function RoleSelect({ userId, role }: { userId: string; role: string }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/users/${userId}/role`, {
+      await requestJson(`/api/admin/users/${userId}/role`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ role: next }),
       });
-      const body = await res.json();
-      if (!res.ok) {
-        setError(body?.error?.message ?? "角色修改失败,请稍后重试。");
-        setValue(role);
-        return;
-      }
       setChanged(true);
       router.refresh();
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
       setValue(role);
     } finally {
       setBusy(false);

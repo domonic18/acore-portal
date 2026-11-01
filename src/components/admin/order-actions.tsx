@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 订单详情操作(FR-129):补发(仅 delivery_failed)/退款(可退状态);
@@ -24,15 +25,10 @@ export function OrderActions({
     setBusy(kind);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/orders/${orderId}/${kind}`, { method: "POST" });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        setError(body?.error?.message ?? `${label}失败,请稍后重试。`);
-        return;
-      }
+      await requestJson(`/api/admin/orders/${orderId}/${kind}`, { method: "POST" });
       router.refresh();
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(null);
     }

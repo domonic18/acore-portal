@@ -4,25 +4,42 @@ import { prisma } from "@/lib/db";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { MEDIA_DEFAULT_CATEGORY } from "@/constants/media";
 import { writeAudit } from "@/server/services/audit/audit";
-import { getCosClient } from "@/lib/cos/client";
+import { CosNotConfiguredError, getCosClient } from "@/lib/cos/client";
+import {
+  deleteLocalMedia,
+  isLocalMediaUrl,
+  localMediaUrl,
+  writeLocalMedia,
+} from "@/lib/media/local-store";
 
 /**
  * 媒体库最小集(R13/FR-217,api-admin-m3 媒体节):
  * 白名单 image/*+pdf,单文件 ≤10MB;cosKey=media/{yyyyMMdd}/{sha256}{ext} 按 hash
- * 幂等(同内容复用资产行,零重复上传);url=cdnBase+cosKey 入库免拼装;
- * 删除=删 COS 对象+删行(不追踪引用,死链风险由路由层 warning 二次确认口径)。
+ * 幂等(同内容复用资产行,零重复上传);COS 已配置→cdnBase+cosKey,未配置→本地
+ * workspace/uploads 回退(开发/测试无对象存储仍可上传);删除按 url 分流。
  */
 
 export const MEDIA_MAX_BYTES = 10 * 1024 * 1024;
 
 export class MediaError extends Error {
   constructor(
-    public code: "TYPE_REJECTED" | "TOO_LARGE" | "NOT_FOUND" | "COS_UNAVAILABLE",
+    public code:
+      | "TYPE_REJECTED"
+      | "TOO_LARGE"
+      | "NOT_FOUND"
+      | "COS_UNAVAILABLE"
+      | "STORAGE_UNAVAILABLE",
     message?: string,
   ) {
     super(message ?? `media_error: ${code}`);
     this.name = "MediaError";
   }
+}
+
+export function mediaErrorStatus(code: MediaError["code"]): number {
+  if (code === "NOT_FOUND") return 404;
+  if (code === "COS_UNAVAILABLE" || code === "STORAGE_UNAVAILABLE") return 503;
+  return 422;
 }
 
 export type MediaUploadInput = {
@@ -76,7 +93,7 @@ export async function uploadMediaAssets(
       throw new MediaError("TOO_LARGE", `单文件不得超过 10MB:${f.name}`);
     }
   }
-  const { client, config } = await getCosClient();
+  const storage = await resolveStorage();
   const out: MediaAssetDto[] = [];
   for (const f of files) {
     const sha256 = createHash("sha256").update(f.bytes).digest("hex");
@@ -86,18 +103,31 @@ export async function uploadMediaAssets(
       out.push(toDto(existing));
       continue;
     }
-    try {
-      await client.putObject({
-        Bucket: config.bucket,
-        Region: config.region,
-        Key: cosKey,
-        Body: Buffer.from(f.bytes),
-        ContentType: f.mimeType,
-      });
-    } catch {
-      throw new MediaError("COS_UNAVAILABLE", "对象存储暂不可用,请稍后重试。");
+    let url: string;
+    if (storage) {
+      try {
+        await storage.client.putObject({
+          Bucket: storage.config.bucket,
+          Region: storage.config.region,
+          Key: cosKey,
+          Body: Buffer.from(f.bytes),
+          ContentType: f.mimeType,
+        });
+      } catch {
+        throw new MediaError("COS_UNAVAILABLE", "对象存储暂不可用,请稍后重试。");
+      }
+      url = `${storage.config.cdnBase.replace(/\/?$/, "")}/${cosKey}`;
+    } else {
+      try {
+        await writeLocalMedia(cosKey, f.bytes);
+      } catch {
+        throw new MediaError(
+          "STORAGE_UNAVAILABLE",
+          "本地存储不可用,请检查 workspace 目录写入权限。",
+        );
+      }
+      url = localMediaUrl(cosKey);
     }
-    const url = `${config.cdnBase.replace(/\/?$/, "")}/${cosKey}`;
     const row = await prisma.mediaAsset.create({
       data: {
         cosKey,
@@ -173,15 +203,40 @@ export async function listMediaAssets(opts: {
   };
 }
 
-/** 删除:先删 COS 对象(失败则保留行可重试),再删行+审计(只记 key 不记内容) */
+/** COS 未配置返回 null(走本地回退);其他初始化错误仍上抛 */
+async function resolveStorage(): Promise<Awaited<ReturnType<typeof getCosClient>> | null> {
+  try {
+    return await getCosClient();
+  } catch (err) {
+    if (err instanceof CosNotConfiguredError) return null;
+    throw err;
+  }
+}
+
+/** 删除:先删存储对象(失败则保留行可重试),再删行+审计(只记 key 不记内容) */
 export async function deleteMediaAsset(id: bigint, actorUserId: bigint): Promise<void> {
   const row = await prisma.mediaAsset.findUnique({ where: { id } });
   if (!row) throw new MediaError("NOT_FOUND", "媒体资产不存在。");
-  const { client, config } = await getCosClient();
-  try {
-    await client.deleteObject({ Bucket: config.bucket, Region: config.region, Key: row.cosKey });
-  } catch {
-    throw new MediaError("COS_UNAVAILABLE", "对象存储暂不可用,请稍后重试。");
+  if (isLocalMediaUrl(row.url)) {
+    try {
+      await deleteLocalMedia(row.cosKey);
+    } catch {
+      throw new MediaError("STORAGE_UNAVAILABLE", "本地存储不可用,请稍后重试。");
+    }
+  } else {
+    const storage = await resolveStorage();
+    if (!storage) {
+      throw new MediaError("COS_UNAVAILABLE", "对象存储未配置,无法删除该资产。");
+    }
+    try {
+      await storage.client.deleteObject({
+        Bucket: storage.config.bucket,
+        Region: storage.config.region,
+        Key: row.cosKey,
+      });
+    } catch {
+      throw new MediaError("COS_UNAVAILABLE", "对象存储暂不可用,请稍后重试。");
+    }
   }
   await prisma.mediaAsset.delete({ where: { id } });
   await writeAudit({

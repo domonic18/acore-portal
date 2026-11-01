@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { listAdminArticles } from "@/server/services/content/admin";
 import { ArticleDeleteButton } from "@/components/admin/article-actions";
+import { AdminPager } from "@/components/ui/pagination";
+import { buildPageHref } from "@/lib/pagination";
 
 /**
  * 文章列表(T032,FR-215):q 标题搜索+状态筛选+分页 20/页(含 draft);
@@ -18,14 +20,7 @@ export default async function AdminArticlesPage({
     : undefined;
   const { items, totalPages, total } = await listAdminArticles({ page, q, status });
 
-  const pageHref = (p: number) => {
-    const params = new URLSearchParams();
-    if (p > 1) params.set("page", String(p));
-    if (q) params.set("q", q);
-    if (status) params.set("status", status);
-    const qs = params.toString();
-    return `/admin/articles${qs ? `?${qs}` : ""}`;
-  };
+  const pageHref = (p: number) => buildPageHref("/admin/articles", { q, status }, p);
 
   return (
     <div className="flex flex-col gap-4">
@@ -108,30 +103,13 @@ export default async function AdminArticlesPage({
         </table>
       )}
 
-      <div className="flex items-center justify-between text-sm text-gray-500">
-        <span>共 {total} 篇</span>
-        {totalPages > 1 && (
-          <nav className="flex items-center gap-4">
-            {page > 1 ? (
-              <Link href={pageHref(page - 1)} className="text-blue-400 hover:underline">
-                上一页
-              </Link>
-            ) : (
-              <span className="text-gray-600">上一页</span>
-            )}
-            <span>
-              第 {page} / {totalPages} 页
-            </span>
-            {page < totalPages ? (
-              <Link href={pageHref(page + 1)} className="text-blue-400 hover:underline">
-                下一页
-              </Link>
-            ) : (
-              <span className="text-gray-600">下一页</span>
-            )}
-          </nav>
-        )}
-      </div>
+      <AdminPager
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        unit="篇"
+        href={pageHref}
+      />
     </div>
   );
 }

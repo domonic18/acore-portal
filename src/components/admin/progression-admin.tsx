@@ -1,15 +1,23 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  formatPhaseDate,
+  ProgressionTimeline,
+  type ProgressionNodeState,
+} from "@/components/site/progression-timeline";
+import {
+  ProgressionCardEditor,
+  type ProgressionDraftItem,
+} from "./progression-card-editor";
 import { uploadMediaFiles } from "./media-library";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
- * 渐进计划节点管理(T048 契约补全 api-admin-m3):
- * 列表(日期 NULLS LAST+isCurrent 指针标记)+新建/编辑表单+行内删除(指针节点二次确认提示)。
- * 配图走媒体库上传(multipart /api/admin/media,FR-217)回填 URL,可清除;
- * 图标为自由 emoji(前台时间轴中线展示,空=默认圆点)。
- * 类型就地声明(boundaries:components 禁 import server;与 services 返回结构同构)。
+ * 渐进计划后台(M4 深化):在渐进页同款时间轴上就地编辑(WP 区块编辑器语义)。
+ * 本地整树编辑(数组顺序=时间轴顺序,↑↓ 排序)→ 一次 PUT /api/admin/progression。
+ * 卡片查看态与前台渲染一致,「编辑」原位展开表单;顶部同步当前阶段指针与未保存状态。
  */
 export type AdminProgressionNode = {
   id: string;
@@ -22,315 +30,340 @@ export type AdminProgressionNode = {
   sort: number;
   isCurrent: boolean;
 };
+
+type PayloadItem = {
+  id: string | null;
+  title: string;
+  phaseDate: string | null;
+  imageUrl: string | null;
+  bodyMd: string | null;
+  status: "locked" | "open";
+  icon: string | null;
+};
+
+function toDraft(node: AdminProgressionNode): ProgressionDraftItem {
+  return {
+    uid: node.id,
+    id: node.id,
+    title: node.title,
+    phaseDate: node.phaseDate ?? "",
+    imageUrl: node.imageUrl ?? "",
+    bodyMd: node.bodyMd ?? "",
+    status: node.status === "open" ? "open" : "locked",
+    icon: node.icon ?? "",
+  };
+}
+
+function toPayload(
+  items: ProgressionDraftItem[],
+  deletedIds: string[],
+  currentId: string | null,
+) {
+  return {
+    items: items.map<PayloadItem>((item) => ({
+      id: item.id,
+      title: item.title.trim(),
+      phaseDate: item.phaseDate || null,
+      imageUrl: item.imageUrl.trim() || null,
+      bodyMd: item.bodyMd.trim() ? item.bodyMd : null,
+      status: item.status,
+      icon: item.icon.trim() || null,
+    })),
+    deletedIds,
+    currentId,
+  };
+}
+
 export function ProgressionAdmin({ nodes }: { nodes: AdminProgressionNode[] }) {
   const router = useRouter();
-  const [editingId, setEditingId] = useState<string | null>(null); // null=新建态关闭
-  const [form, setForm] = useState(emptyForm());
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [items, setItems] = useState<ProgressionDraftItem[]>(() => nodes.map(toDraft));
+  const [currentId, setCurrentId] = useState<string | null>(
+    () => nodes.find((node) => node.isCurrent)?.id ?? null,
+  );
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const [savedJson, setSavedJson] = useState(() =>
+    JSON.stringify(
+      toPayload(nodes.map(toDraft), [], nodes.find((node) => node.isCurrent)?.id ?? null),
+    ),
+  );
+  const [editingUid, setEditingUid] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [uploadingUid, setUploadingUid] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<{ uid: string; message: string } | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function emptyForm() {
-    return { title: "", phaseDate: "", imageUrl: "", bodyMd: "", status: "locked" as "locked" | "open", icon: "", sort: 0 };
-  }
+  const payload = useMemo(
+    () => toPayload(items, removedIds, currentId),
+    [items, removedIds, currentId],
+  );
+  const dirty = JSON.stringify(payload) !== savedJson;
 
-  function startCreate() {
-    setEditingId(null);
-    setForm(emptyForm());
-    setError(null);
+  // 当前阶段口径与前台一致:指针优先,缺省回退末位开放
+  const effectiveCurrentIndex = currentId
+    ? items.findIndex((item) => item.id === currentId)
+    : items.reduce((acc, item, index) => (item.status === "open" ? index : acc), -1);
+  const effectiveCurrent = effectiveCurrentIndex >= 0 ? items[effectiveCurrentIndex] : undefined;
+  const nextItem = effectiveCurrentIndex >= 0 ? items[effectiveCurrentIndex + 1] : undefined;
+
+  function patchItem(uid: string, patch: Partial<ProgressionDraftItem>) {
     setSaved(false);
+    setItems((prev) => prev.map((item) => (item.uid === uid ? { ...item, ...patch } : item)));
   }
 
-  function startEdit(node: AdminProgressionNode) {
-    setEditingId(node.id);
-    setForm({
-      title: node.title,
-      phaseDate: node.phaseDate ?? "",
-      imageUrl: node.imageUrl ?? "",
-      bodyMd: node.bodyMd ?? "",
-      status: node.status === "open" ? "open" : "locked",
-      icon: node.icon ?? "",
-      sort: node.sort,
+  function moveItem(uid: string, dir: -1 | 1) {
+    setSaved(false);
+    setItems((prev) => {
+      const index = prev.findIndex((item) => item.uid === uid);
+      const target = index + dir;
+      if (index < 0 || target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target]!, next[index]!];
+      return next;
     });
+  }
+
+  function removeItem(uid: string) {
+    const item = items.find((entry) => entry.uid === uid);
+    if (!item) return;
+    const tip =
+      item.id && currentId === item.id
+        ? `「${item.title || "未命名阶段"}」是当前阶段,删除后向前台回退末位开放阶段。确认删除?`
+        : `确认删除阶段「${item.title || "未命名阶段"}」?保存后生效。`;
+    if (!window.confirm(tip)) return;
+    setSaved(false);
+    setItems((prev) => prev.filter((entry) => entry.uid !== uid));
+    if (item.id) setRemovedIds((prev) => [...prev, item.id!]);
+    if (currentId && currentId === item.id) setCurrentId(null);
+    if (editingUid === uid) setEditingUid(null);
+  }
+
+  function addItem() {
+    if (items.length >= 200) return;
+    setSaved(false);
+    setError(null);
+    const uid = crypto.randomUUID();
+    setItems((prev) => [
+      ...prev,
+      {
+        uid,
+        id: null,
+        title: "",
+        phaseDate: "",
+        imageUrl: "",
+        bodyMd: "",
+        status: "locked",
+        icon: "",
+      },
+    ]);
+    setEditingUid(uid);
+  }
+
+  function reset() {
+    const next = nodes.map(toDraft);
+    const nextCurrent = nodes.find((node) => node.isCurrent)?.id ?? null;
+    setItems(next);
+    setCurrentId(nextCurrent);
+    setRemovedIds([]);
+    setSavedJson(JSON.stringify(toPayload(next, [], nextCurrent)));
+    setEditingUid(null);
     setError(null);
     setSaved(false);
   }
 
-  async function uploadImage(files: FileList | null) {
+  async function uploadImage(uid: string, files: FileList | null) {
     if (!files || files.length === 0) return;
     setBusy(true);
+    setUploadingUid(uid);
+    setUploadError(null);
     setError(null);
     try {
       const [asset] = await uploadMediaFiles([...files]);
-      if (asset) setForm((f) => ({ ...f, imageUrl: asset.url }));
+      if (asset) patchItem(uid, { imageUrl: asset.url });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "上传失败,请稍后重试。");
+      const message = e instanceof Error ? e.message : "上传失败,请稍后重试。";
+      setUploadError({ uid, message });
+      setError(message);
     } finally {
       setBusy(false);
+      setUploadingUid(null);
       if (fileRef.current) fileRef.current.value = "";
     }
   }
 
   async function submit() {
-    if (!form.title.trim()) {
-      setError("标题必填。");
+    const blank = items.find((item) => !item.title.trim());
+    if (blank) {
+      setEditingUid(blank.uid);
+      setError("每个阶段都需要填写标题。");
       return;
     }
     setBusy(true);
     setError(null);
-    setSaved(false);
     try {
-      const res = await fetch(
-        editingId ? `/api/admin/progression/${editingId}` : "/api/admin/progression",
-        {
-          method: editingId ? "PUT" : "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            title: form.title.trim(),
-            phaseDate: form.phaseDate || null,
-            imageUrl: form.imageUrl || null,
-            bodyMd: form.bodyMd || null,
-            status: form.status,
-            icon: form.icon.trim() || null,
-            sort: form.sort,
-          }),
-        },
-      );
-      const body = (await res.json()) as { error?: { message?: string } };
-      if (!res.ok) {
-        setError(body.error?.message ?? "保存失败。");
-        return;
-      }
+      const body = await requestJson<{ items?: { id: string }[] }>("/api/admin/progression", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const savedIds = body.items ?? [];
+      const next = items.map((item, index) => ({
+        ...item,
+        id: savedIds[index]?.id ?? item.id,
+      }));
+      setItems(next);
+      setRemovedIds([]);
+      setSavedJson(JSON.stringify(toPayload(next, [], currentId)));
       setSaved(true);
-      setEditingId(null);
-      setForm(emptyForm());
       router.refresh();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function remove(node: AdminProgressionNode) {
-    const tip = node.isCurrent
-      ? `「${node.title}」是当前阶段指针节点,删除将同时清除指针(前台回退末位开放阶段)。确认删除?`
-      : `确认删除渐进节点「${node.title}」?`;
-    if (!window.confirm(tip)) return;
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/admin/progression/${node.id}`, { method: "DELETE" });
-      if (res.ok) router.refresh();
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <section className="rounded border border-gray-800 p-4 text-sm">
-        <h2 className="mb-3 font-semibold text-gray-200">
-          {editingId ? "编辑节点" : "新建节点"}
-        </h2>
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="flex flex-col gap-1">
-            标题
-            <input
-              data-testid="progression-title"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="rounded border border-gray-700 bg-gray-900 px-2 py-1"
-              maxLength={128}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            阶段日期(留空=未定档)
-            <input
-              data-testid="progression-date"
-              type="date"
-              value={form.phaseDate}
-              onChange={(e) => setForm({ ...form, phaseDate: e.target.value })}
-              className="rounded border border-gray-700 bg-gray-900 px-2 py-1"
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            状态
-            <select
-              data-testid="progression-status"
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value === "open" ? "open" : "locked" })}
-              className="rounded border border-gray-700 bg-gray-900 px-2 py-1"
-            >
-              <option value="locked">未开放</option>
-              <option value="open">开放</option>
-            </select>
-          </label>
-          <label className="flex flex-col gap-1">
-            排序(同日期稳定序)
-            <input
-              data-testid="progression-sort"
-              type="number"
-              min={0}
-              max={9999}
-              value={form.sort}
-              onChange={(e) => setForm({ ...form, sort: Number(e.target.value) })}
-              className="rounded border border-gray-700 bg-gray-900 px-2 py-1"
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            节点图标(可选,emoji)
-            <input
-              data-testid="progression-icon"
-              value={form.icon}
-              onChange={(e) => setForm({ ...form, icon: e.target.value })}
-              className="rounded border border-gray-700 bg-gray-900 px-2 py-1"
-              placeholder="如 ⚔️ 🛡️ 🐉,留空=默认圆点"
-              maxLength={64}
-            />
-          </label>
-          <div className="flex flex-col gap-1">
-            <span>配图(可选)</span>
-            <div className="flex items-center gap-2">
-              <input
-                data-testid="progression-image"
-                value={form.imageUrl}
-                onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                className="min-w-0 flex-1 rounded border border-gray-700 bg-gray-900 px-2 py-1"
-                placeholder="上传或粘贴图片 URL"
-                maxLength={500}
-              />
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => uploadImage(e.target.files)}
-              />
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                disabled={busy}
-                className="shrink-0 rounded border border-gray-600 px-3 py-1 text-gray-200 hover:border-gray-400 disabled:opacity-50"
+    <div className="flex flex-col gap-4" data-testid="progression-editor">
+      <section className="rounded-xl border border-[#22385a] bg-[#0d1a2e] px-4 py-3 lg:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-[#93b2ce]">
+            <label className="flex items-center gap-2">
+              当前阶段
+              <select
+                data-testid="progression-current"
+                value={currentId ?? ""}
+                onChange={(e) => {
+                  setSaved(false);
+                  setCurrentId(e.target.value || null);
+                }}
+                className="rounded border border-[#35577f] bg-[#13233a] px-2 py-1 text-[13px] text-[#dcebf7] focus:border-[#6fb7e0] focus:outline-none"
               >
-                上传
-              </button>
-              {form.imageUrl && (
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, imageUrl: "" })}
-                  disabled={busy}
-                  className="shrink-0 text-red-400 hover:text-red-300 disabled:opacity-50"
-                >
-                  清除
-                </button>
-              )}
-            </div>
-            {form.imageUrl && (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={form.imageUrl}
-                alt="配图预览"
-                className="mt-1 h-24 w-40 rounded border border-gray-700 object-cover"
-              />
+                <option value="">自动(回退末位开放)</option>
+                {items
+                  .filter((item) => item.id)
+                  .map((item) => (
+                    <option key={item.uid} value={item.id!}>
+                      {item.title || "未命名阶段"}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <span>
+              下一阶段:
+              <strong className="ml-1 font-semibold text-[#e8c877]">
+                {nextItem?.title || "暂无"}
+              </strong>
+            </span>
+            {effectiveCurrent && !currentId && (
+              <span className="text-[12px] text-[#6482a3]">
+                当前按末位开放阶段推算
+              </span>
             )}
           </div>
-          <label className="flex flex-col gap-1 md:col-span-2">
-            说明 Markdown(可选)
-            <textarea
-              data-testid="progression-body"
-              value={form.bodyMd}
-              onChange={(e) => setForm({ ...form, bodyMd: e.target.value })}
-              rows={4}
-              className="rounded border border-gray-700 bg-gray-900 px-2 py-1"
-            />
-          </label>
-        </div>
-        {error && <p data-testid="progression-error" className="mt-2 text-sm text-red-400">{error}</p>}
-        {saved && <p className="mt-2 text-sm text-green-400">已保存,即时生效。</p>}
-        <div className="mt-3 flex gap-3">
-          <button
-            type="button"
-            data-testid="progression-save"
-            onClick={submit}
-            disabled={busy}
-            className="rounded bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-          >
-            {editingId ? "保存修改" : "新建节点"}
-          </button>
-          {editingId && (
+
+          <div className="flex items-center gap-3">
+            {dirty && (
+              <span data-testid="progression-dirty" className="text-[12px] text-[#e8c877]">
+                ● 有未保存的修改
+              </span>
+            )}
+            {!dirty && saved && (
+              <span data-testid="progression-saved" className="text-[12px] text-[#7bd88f]">
+                已更新,前台即时生效
+              </span>
+            )}
             <button
               type="button"
-              onClick={startCreate}
-              className="text-sm text-gray-400 hover:text-gray-200"
+              data-testid="progression-reset"
+              onClick={reset}
+              disabled={busy || !dirty}
+              className="rounded border border-[#35577f] px-3 py-1.5 text-[12.5px] text-[#93b2ce] hover:border-[#6fb7e0] hover:text-[#dcebf7] disabled:opacity-40"
             >
-              取消编辑
+              撤销修改
             </button>
-          )}
+            <button
+              type="button"
+              data-testid="progression-save"
+              onClick={submit}
+              disabled={busy}
+              className="rounded bg-[#e8c877] px-5 py-1.5 text-[12.5px] font-semibold text-[#0a1220] hover:bg-[#f3d78f] disabled:opacity-50"
+            >
+              {busy ? "保存中…" : "更新"}
+            </button>
+          </div>
         </div>
+        <p className="mt-2 text-[12px] text-[#6482a3]">
+          直接在下方时间轴上编辑:点击卡片右上「编辑」修改内容,↑ ↓ 调整顺序,「设为当前」钉住当前阶段;改动一次性「更新」。
+        </p>
+        {error && (
+          <p data-testid="progression-error" className="mt-2 text-[12.5px] text-[#f08787]">
+            {error}
+          </p>
+        )}
       </section>
 
-      {nodes.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-700 px-6 py-10 text-center text-gray-400">
-          暂无渐进节点。
+      {items.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-[#35577f] py-16 text-center text-sm text-[#6482a3]">
+          暂无渐进阶段,点击下方「添加阶段」开始。
         </p>
       ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-800 text-left text-gray-400">
-              <th className="py-2 pr-3 font-normal">标题</th>
-              <th className="py-2 pr-3 font-normal">日期</th>
-              <th className="py-2 pr-3 font-normal">状态</th>
-              <th className="py-2 pr-3 font-normal">排序</th>
-              <th className="py-2 pr-3 font-normal">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {nodes.map((n) => (
-              <tr key={n.id} className="border-b border-gray-900">
-                <td className="py-2 pr-3">
-                  {n.icon && <span className="mr-1">{n.icon}</span>}
-                  {n.title}
-                  {n.imageUrl && <span className="ml-2 text-xs text-gray-500">图</span>}
-                  {n.isCurrent && (
-                    <span className="ml-2 rounded bg-green-950 px-2 py-0.5 text-xs text-green-400">
-                      当前阶段
-                    </span>
-                  )}
-                </td>
-                <td className="py-2 pr-3 text-gray-400">{n.phaseDate ?? "未定档"}</td>
-                <td className="py-2 pr-3">
-                  <span
-                    className={`rounded px-2 py-0.5 text-xs ${
-                      n.status === "open"
-                        ? "bg-green-950 text-green-400"
-                        : "bg-gray-800 text-gray-400"
-                    }`}
-                  >
-                    {n.status === "open" ? "开放" : "未开放"}
-                  </span>
-                </td>
-                <td className="py-2 pr-3 text-gray-400">{n.sort}</td>
-                <td className="flex gap-3 py-2 pr-3">
-                  <button
-                    type="button"
-                    onClick={() => startEdit(n)}
-                    className="text-blue-400 hover:underline"
-                  >
-                    编辑
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => remove(n)}
-                    disabled={busy}
-                    className="text-red-400 hover:text-red-300 disabled:opacity-50"
-                  >
-                    删除
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <ProgressionTimeline
+          items={items.map((item, index) => {
+            const isCurrent = effectiveCurrent?.uid === item.uid;
+            const state: ProgressionNodeState = isCurrent
+              ? "current"
+              : item.status === "locked"
+                ? "locked"
+                : "open";
+            return {
+              key: item.uid,
+              state,
+              dateLabel: formatPhaseDate(item.phaseDate || null),
+              card: (
+                <ProgressionCardEditor
+                  item={item}
+                  index={index}
+                  total={items.length}
+                  editing={editingUid === item.uid}
+                  busy={busy}
+                  uploading={uploadingUid === item.uid}
+                  uploadError={uploadError?.uid === item.uid ? uploadError.message : null}
+                  isCurrent={isCurrent}
+                  canSetCurrent={Boolean(item.id) && currentId !== item.id}
+                  fileInputRef={fileRef}
+                  onEdit={() => {
+                    setEditingUid(item.uid);
+                    setError(null);
+                  }}
+                  onDone={() => setEditingUid(null)}
+                  onChange={(patch) => patchItem(item.uid, patch)}
+                  onMove={(dir) => moveItem(item.uid, dir)}
+                  onRemove={() => removeItem(item.uid)}
+                  onSetCurrent={() => {
+                    setSaved(false);
+                    setCurrentId(item.id);
+                  }}
+                  onUpload={(files) => uploadImage(item.uid, files)}
+                />
+              ),
+            };
+          })}
+        />
       )}
+
+      <div className="flex justify-center">
+        <button
+          type="button"
+          data-testid="progression-add"
+          onClick={addItem}
+          disabled={busy || items.length >= 200}
+          className="rounded-md border border-[#35577f] bg-[#13233a] px-5 py-2 text-[13px] text-[#a8d9f5] hover:border-[#6fb7e0] hover:text-white disabled:opacity-40"
+        >
+          + 添加阶段
+        </button>
+      </div>
     </div>
   );
 }

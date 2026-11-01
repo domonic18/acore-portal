@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHydrated } from "@/lib/use-hydrated";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 后台主题行内操作(置顶/关闭/标签/删除/恢复):POST /api/admin/forum/threads/{id}
@@ -31,19 +32,14 @@ export function ForumThreadActions({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/forum/threads/${threadId}`, {
+      await requestJson(`/api/admin/forum/threads/${threadId}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) {
-        const resp = await res.json().catch(() => null);
-        setError(resp?.error?.message ?? "操作失败,请稍后重试。");
-        return;
-      }
       router.refresh();
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }

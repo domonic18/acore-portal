@@ -1,11 +1,10 @@
 /** 内容域常量(M3):归档分类配置/静态页保留字/侧栏页面类型映射 */
 
-/** 文章归档路由与分类 slug 一一对应(FR-209;devlog 为第 4 分类同模式扩展) */
+/** 文章归档路由与分类 slug 一一对应(FR-209) */
 export const ARCHIVE_CATEGORIES = [
   { slug: "announcements", name: "公告" },
   { slug: "news", name: "资讯" },
   { slug: "guides", name: "资料梳理" },
-  { slug: "devlog", name: "开发日志" },
 ] as const;
 
 export type ArchiveCategorySlug = (typeof ARCHIVE_CATEGORIES)[number]["slug"];
@@ -17,8 +16,8 @@ export const ARCHIVE_SLUGS: readonly string[] = ARCHIVE_CATEGORIES.map((c) => c.
 
 /**
  * 静态页保留字清单(R15):content_page slug 禁止抢占代码持有的顶级路由段。
- * 首页/认证/账户/后台/商城/论坛/内容路由全部在内;5 个核心内容页
- * (about/tutorial/agreement/convention/sitemap)不在清单——它们本身就是内容页。
+ * 首页/认证/账户/后台/商城/论坛/内容路由全部在内;核心内容页
+ * (about/tutorial/agreement/convention/sitemap/devlog)不在清单——它们本身就是内容页。
  */
 export const RESERVED_SLUGS: readonly string[] = [
   "shop",
@@ -36,7 +35,6 @@ export const RESERVED_SLUGS: readonly string[] = [
   "news",
   "announcements",
   "guides",
-  "devlog",
   "progression",
   "legacy-redirect",
 ];
@@ -48,30 +46,46 @@ export const CORE_PAGE_SLUGS = [
   "agreement",
   "convention",
   "sitemap",
+  "devlog",
 ] as const;
 
 /**
- * 侧栏组件注册键与页面类型清单映射(research R9):
- * 五组件=下载四卡+积分余额(站内搜索/公告动态/友情链接/日历归档/最近浏览已下线)。
- * 清单调整=改本常量,不做后台可视化配置(Q4 最小集);空清单=页面无侧栏。
+ * 教程页下载章节锚点(规格 §菜单结构:客户端/登录器/补丁下载走锚点):
+ * 沿用旧站 #client_download/#login_download/#patch_download,外链与站内菜单共用;
+ * 渲染时按标题文案覆写 rehype-slug 生成的中文 id,正文标点/空格调整不影响跳转。
  */
-export const SIDEBAR_COMPONENT_KEYS = [
-  "client-download",
-  "launcher-download",
-  "yy-channel",
-  "addon-download",
-  "points-balance",
+export const TUTORIAL_ANCHORS = {
+  client: "client_download",
+  launcher: "login_download",
+  patch: "patch_download",
+} as const;
+
+export const TUTORIAL_ANCHOR_ALIASES = [
+  { id: TUTORIAL_ANCHORS.client, match: /下载客户端/ },
+  { id: TUTORIAL_ANCHORS.launcher, match: /下载登录器/ },
+  { id: TUTORIAL_ANCHORS.patch, match: /下载补丁/ },
 ] as const;
 
+/** 侧栏页面类型(快捷卡 pages 取值范围;后台勾选与前台过滤共用) */
+export const SITE_PAGE_TYPES = [
+  "home",
+  "archive",
+  "article",
+  "page",
+  "progression",
+  "forum",
+  "shop",
+] as const;
+
+export type SitePageType = (typeof SITE_PAGE_TYPES)[number];
+
+/**
+ * 侧栏固定组件注册键(research R9):快捷卡已改为 sidebar_card 表后台 CRUD,
+ * 此处仅保留代码内置组件(积分余额);空清单=该页面无固定组件。
+ */
+export const SIDEBAR_COMPONENT_KEYS = ["points-balance"] as const;
+
 export type SidebarComponentKey = (typeof SIDEBAR_COMPONENT_KEYS)[number];
-export type SitePageType =
-  | "home"
-  | "archive"
-  | "article"
-  | "page"
-  | "progression"
-  | "forum"
-  | "shop";
 
 export const SIDE_BY_PAGE_TYPE: Record<SitePageType, readonly SidebarComponentKey[]> = {
   home: ["points-balance"],
@@ -79,19 +93,11 @@ export const SIDE_BY_PAGE_TYPE: Record<SitePageType, readonly SidebarComponentKe
   // article 栏目卡改由 ArticleAside 直出(在线人数/最新资讯/公告推送,p04);
   // 注册表仅保留登录态积分余额
   article: ["points-balance"],
-  page: [
-    "client-download",
-    "launcher-download",
-    "yy-channel",
-    "addon-download",
-    "points-balance",
-  ],
+  page: ["points-balance"],
   progression: [],
   forum: [],
   shop: [],
 };
-
-/** 下载与频道入口(侧栏下载卡)已迁移 settings download 组后台可配(链接空=隐藏卡片) */
 
 /** 内容页右栏快捷入口(ardot p04 侧栏;链接落站内真实路由) */
 export const ARCHIVE_ASIDE_LINKS = [

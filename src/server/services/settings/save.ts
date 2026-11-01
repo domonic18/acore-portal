@@ -57,16 +57,6 @@ const groupSchemas = {
     icp: z.string().trim().max(64),
     qqGroup: z.string().trim().regex(/^$|^\d{5,20}$/, "QQ 群号须为 5-20 位数字"),
   }),
-  // 下载链接留空=隐藏对应侧栏卡;链接为站内路径或 http(s)
-  download: z.object({
-    clientUrl: dlUrlSchema,
-    clientNote: z.string().trim().max(32),
-    launcherUrl: dlUrlSchema,
-    launcherNote: z.string().trim().max(32),
-    addonUrl: dlUrlSchema,
-    addonNote: z.string().trim().max(32),
-    yyNote: z.string().trim().max(48),
-  }),
   // 站点外观:logo/favicon 留空=回落内置资源,背景留空=隐藏背景图
   appearance: z.object({
     logoUrl: dlUrlSchema,
@@ -127,15 +117,6 @@ const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>> = {
   site: {
     icp: "site.icp",
     qqGroup: "site.qqGroup",
-  },
-  download: {
-    clientUrl: "download.client.url",
-    clientNote: "download.client.note",
-    launcherUrl: "download.launcher.url",
-    launcherNote: "download.launcher.note",
-    addonUrl: "download.addon.url",
-    addonNote: "download.addon.note",
-    yyNote: "download.yy.note",
   },
   appearance: {
     logoUrl: "appearance.logoUrl",
@@ -242,7 +223,7 @@ export async function saveSettingsGroup(
   }
 
   // 只写有变化的键;无行时提交空串也要落行——空串是显式"清空/隐藏"配置,
-  // 不落行会回落 flatten 的非空默认值(如 site.icp/download.*.url)
+  // 不落行会回落 flatten 的非空默认值(如 site.icp)
   const changedKeys = Object.keys(next).filter((key) => {
     const value = next[key];
     if (value === undefined) return false;

@@ -227,7 +227,7 @@ describe("渐进时间轴与指针(T021 R8)", () => {
   let nOpen2: bigint;
   let nNull: bigint;
 
-  it("排序 phaseDate 升序 NULLS LAST,同日期按 sort", async () => {
+  it("排序 sort 优先,同序 phaseDate 升序 NULLS LAST", async () => {
     const mk = (
       key: string,
       title: string,

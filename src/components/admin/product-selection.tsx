@@ -3,6 +3,7 @@
 import { createContext, useContext, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHydrated } from "@/lib/use-hydrated";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 商品列表批量选择(二期商城增强):Provider 持选中态,
@@ -107,22 +108,16 @@ export function ProductBatchToolbar() {
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch("/api/admin/products/batch", {
+      const body = await requestJson<{ updated?: number }>("/api/admin/products/batch", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ ids: [...selected], action }),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        setError(body?.error?.message ?? "批量操作失败,请稍后重试。");
-        return;
-      }
-      const body = await res.json().catch(() => null);
-      setMessage(`已处理 ${body?.updated ?? selected.size} 件`);
+      setMessage(`已处理 ${body.updated ?? selected.size} 件`);
       clear();
       router.refresh();
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }

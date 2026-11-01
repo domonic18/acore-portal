@@ -68,6 +68,29 @@ test.describe("US7 旧路由兼容", () => {
     }
   });
 
+  test("wp-admin 个人资料子页渲染提示页并给出新入口(规格 §14)", async ({ page }) => {
+    for (const [pageKey, label, href] of [
+      ["acore-item-restore", "物品恢复", "/account/item-restore"],
+      ["acore-raf", "RAF 招募", "/account/raf"],
+    ] as const) {
+      const res = await page.goto(`/wp-admin/profile.php?page=${pageKey}`);
+      expect(res?.status(), pageKey).toBe(200);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(`${label}已迁移`);
+      await expect(page.getByRole("link", { name: `前往${label}` })).toHaveAttribute(
+        "href",
+        href,
+      );
+    }
+
+    const res = await page.goto("/wp-admin/profile.php");
+    expect(res?.status()).toBe(200);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("该页面已迁移");
+    await expect(page.getByRole("link", { name: "前往我的账户" })).toHaveAttribute(
+      "href",
+      "/account/overview",
+    );
+  });
+
   test("my-account 301 到账户中心,子路径同构透传(FR-109;M2 T064)", async ({ request }) => {
     const { res, target } = await redirectTarget(request, "/my-account");
     expect(res.status()).toBe(301);

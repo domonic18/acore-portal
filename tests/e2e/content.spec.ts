@@ -133,30 +133,100 @@ test.describe("p02 设计稿壳(简介/教程/渐进/日志)", () => {
     await expect(crumb.getByText("使用教程")).toBeVisible();
   });
 
-  test("渐进页:三状态卡+倒计时+全部阶段锚点", async ({ page }) => {
+  test("渐进页:源站同款左右交替时间轴", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/progression");
-    await expect(page.getByRole("heading", { name: "渐进计划" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "渐进计划", level: 1 })).toBeVisible();
     const overview = page.getByRole("region", { name: "阶段概览" });
-    for (const label of ["当前阶段", "下一阶段", "远期 · 下个大版本"]) {
-      await expect(overview.getByText(label, { exact: true })).toBeVisible();
-    }
-    await expect(page.getByRole("heading", { name: "全部阶段" })).toBeVisible();
+    await expect(overview.getByText("当前阶段")).toBeVisible();
+    await expect(overview.getByText("下一阶段")).toBeVisible();
+    await expect(
+      overview.getByRole("link", { name: "第二阶段·熔火之心" }),
+    ).toHaveAttribute("href", /^#node-/);
+    await expect(
+      overview.getByRole("link", { name: "第三阶段·黑翼之巢" }),
+    ).toHaveAttribute("href", /^#node-/);
     await expect(page.getByTestId("progression-countdown")).toBeVisible();
-    // 状态卡锚点直达时间轴当前阶段行
-    const current = page.locator('a[href^="#node-"]').first();
-    await expect(current).toHaveText("第二阶段·熔火之心");
+
+    // 时间轴逐档渲染:日期 + 标题 + 节点锚点
+    const timeline = page.locator("ol li[id^='node-']");
+    await expect(timeline).toHaveCount(3);
+    await expect(
+      timeline.getByRole("heading", { name: "第一阶段·开放测试" }),
+    ).toBeVisible();
+    await expect(
+      timeline.getByRole("heading", { name: "第三阶段·黑翼之巢" }),
+    ).toBeVisible();
+    await expect(
+      timeline.getByText(/^\d{4}年\d{1,2}月\d{1,2}日$/).first(),
+    ).toBeVisible();
+
+    // 桌面左右交替:奇数档卡片在右列,偶数档在左列(卡片位由外层栅格容器决定)
+    const firstCard = timeline.first().locator("article");
+    const secondCard = timeline.nth(1).locator("article");
+    expect(
+      await firstCard.evaluate((el) => getComputedStyle(el.parentElement!).gridColumnStart),
+    ).toBe("3");
+    expect(
+      await secondCard.evaluate((el) => getComputedStyle(el.parentElement!).gridColumnStart),
+    ).toBe("1");
   });
 
-  test("开发日志页:面包屑 公告 › 开发日志 + 持续更新", async ({ page }) => {
+  test("侧栏快捷菜单:补丁下载卡直达锚点,长栏吸顶", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/tutorial");
+    const patchCard = page.getByTestId("sidebar-card-patch");
+    await expect(
+      patchCard.getByRole("link", { name: "补丁下载 · patch-zhCN-5.MPQ" }),
+    ).toHaveAttribute("href", "/tutorial#patch_download");
+    // 静态页右栏随滚动吸顶(与 ArticleAside 同款 lg:sticky lg:top-20)
+    const aside = page.getByTestId("site-sidebar");
+    const { position, top } = await aside.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { position: s.position, top: s.top };
+    });
+    expect(position).toBe("sticky");
+    expect(top).toBe("80px");
+  });
+
+  test("开发日志页:Markdown 静态页,面包屑 首页 › 开发日志,全量不分页", async ({ page }) => {
     await page.goto("/devlog");
     const crumb = page.getByRole("navigation", { name: "面包屑" });
-    await expect(crumb.getByRole("link", { name: "公告" })).toHaveAttribute(
-      "href",
-      "/announcements",
-    );
+    await expect(crumb.getByRole("link", { name: "首页" })).toHaveAttribute("href", "/");
     await expect(crumb.getByText("开发日志")).toBeVisible();
-    await expect(page.getByText(/共 \d+ 篇 · 持续更新/)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "开发日志", level: 1 })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /\d{4}-\d{2}-\d{2} 开发日志/ }).first(),
+    ).toBeVisible();
+    // 单页全量展示,无归档分页控件
+    await expect(page.getByRole("link", { name: "下一页 →" })).toHaveCount(0);
   });
+});
+
+test.describe("内容区底色(页面背景图为装饰层,文字不直压背景)", () => {
+  // 用户反馈 2026-10-31:/about 等页正文直接铺在全站背景图上,缺区域底色。
+  // ContentPanel 统一提供面板底(=account-shell 同款),此组守住回归。
+  for (const path of [
+    "/about",
+    "/tutorial",
+    "/post/seed-announcement-second",
+    "/login",
+    "/register",
+    "/cart",
+    "/checkout",
+    "/shop",
+    "/forum",
+    "/wp-admin/profile.php?page=acore-item-restore",
+    "/this-page-never-exists-9527",
+  ]) {
+    test(`${path} 内容区有自身底色面板`, async ({ page }) => {
+      await page.goto(path);
+      const panel = page.getByTestId("content-panel").first();
+      await expect(panel).toBeVisible();
+      const bg = await panel.evaluate((el) => getComputedStyle(el).backgroundColor);
+      expect(bg).not.toBe("rgba(0, 0, 0, 0)");
+    });
+  }
 });
 
 test.describe("首页四区块(T027)", () => {
@@ -231,6 +301,41 @@ test.describe("首页四区块(T027)", () => {
     const next = card.locator('a[href^="/shop/"]').first();
     await expect(next).not.toHaveText(first);
     await expect(card.getByRole("button", { name: "第 1 件商品" })).toBeVisible();
+  });
+
+  test("右侧快捷入口:下载项指向教程锚点与迁移文章", async ({ page }) => {
+    await page.goto("/");
+    const quick = page
+      .locator("main section")
+      .filter({ hasText: "补丁生效方法" })
+      .first();
+    await expect(quick.getByRole("link", { name: "普清端" })).toHaveAttribute(
+      "href",
+      "/tutorial#client_download",
+    );
+    await expect(quick.getByRole("link", { name: "高清端" })).toHaveAttribute(
+      "href",
+      "/post/【教程】魔兽世界3-35高清端试用指南",
+    );
+    await expect(quick.getByRole("link", { name: "解压方法" })).toHaveAttribute(
+      "href",
+      "/post/客户端下载解压方法",
+    );
+    await expect(quick.getByRole("link", { name: "常见登录问题" })).toHaveAttribute(
+      "href",
+      "/post/关于登录不了游戏的排查方法",
+    );
+    await expect(quick.getByRole("link", { name: "补丁生效方法" })).toHaveAttribute(
+      "href",
+      "/post/经验加成合剂显示问号解决方法",
+    );
+    const downloadHrefs = await quick
+      .getByRole("link", { name: "下载", exact: true })
+      .evaluateAll((els) => els.map((el) => el.getAttribute("href")));
+    expect(downloadHrefs).toEqual([
+      "/tutorial#login_download",
+      "/tutorial#patch_download",
+    ]);
   });
 
   test("首行等高:轮播与快捷入口 486px,右栏含论坛精华", async ({ page }) => {

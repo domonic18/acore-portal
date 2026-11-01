@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHydrated } from "@/lib/use-hydrated";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 轮播设置(form api-admin 契约):PUT /api/admin/settings group=home 只带
@@ -22,7 +23,7 @@ export function CarouselSettingsForm({ initial }: { initial: { carouselIntervalS
     setOk(false);
     setError(null);
     try {
-      const res = await fetch("/api/admin/settings", {
+      await requestJson("/api/admin/settings", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -30,15 +31,10 @@ export function CarouselSettingsForm({ initial }: { initial: { carouselIntervalS
           values: { carouselIntervalSec: sec.trim() },
         }),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        setError(body?.error?.message ?? "保存失败,请稍后重试。");
-        return;
-      }
       setOk(true);
       router.refresh();
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }

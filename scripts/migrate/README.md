@@ -34,4 +34,4 @@
 | `product-images.mjs` | `image_asset_map` → `product.images` | 存量商品主图+正文图回填,description `\n` 归一 |
 | `media-library-backfill.mjs` | `image_asset_map` → `media_asset` | 媒体库回填,原文件名可搜索,uploadedBy=m1admin |
 | `verify.mjs` | 三方对账 | map ↔ media_asset ↔ product.images,只读 |
-| `content-import.mjs` / `forum-import.mjs` / `import-points.mjs` 等 | WP → 业务库 | 文章/论坛/积分等存量导入 |
+| `content-import.mjs` / `forum-import.mjs` / `import-points.mjs` 等 | WP → 业务库 | 文章/开发日志单页转 Markdown/静态页/渐进/论坛/积分等存量导入 |

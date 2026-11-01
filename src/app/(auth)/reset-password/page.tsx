@@ -2,6 +2,8 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { ContentPanel } from "@/components/site/content-panel";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 function ResetForm() {
   const [password, setPassword] = useState("");
@@ -21,21 +23,14 @@ function ResetForm() {
     }
     setSubmitting(true);
     try {
-      const res = await fetch("/api/auth/reset-password", {
+      await requestJson("/api/auth/reset-password", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ token, password }),
       });
-      if (res.ok) {
-        setDone(true);
-        return;
-      }
-      const body = (await res.json().catch(() => null)) as
-        | { error?: { message?: string } }
-        | null;
-      setError(body?.error?.message ?? "重置失败,请稍后再试。");
-    } catch {
-      setError("网络异常,请稍后再试。");
+      setDone(true);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -43,9 +38,9 @@ function ResetForm() {
 
   if (!token) {
     return (
-      <p className="text-sm text-gray-400" role="alert">
+      <p className="text-sm text-[#93b2ce]" role="alert">
         链接缺少凭证,请从邮件中重新打开,或{" "}
-        <a href="/forgot-password" className="text-blue-400 hover:underline">
+        <a href="/forgot-password" className="text-[#6fb7e0] hover:underline">
           重新申请找回
         </a>
         。
@@ -59,7 +54,7 @@ function ResetForm() {
         <p role="status">密码已重置,请使用新密码登录。所有旧登录已失效。</p>
         <a
           href="/login"
-          className="rounded bg-blue-600 px-4 py-2 text-center font-medium text-white hover:bg-blue-500"
+          className="rounded-md bg-[#5ea3cc] px-4 py-2 text-center font-medium text-[#0a1220] hover:bg-[#6fb7e0]"
         >
           去登录
         </a>
@@ -78,7 +73,7 @@ function ResetForm() {
           required
           minLength={8}
           autoComplete="new-password"
-          className="rounded border border-gray-600 bg-transparent px-3 py-2"
+          className="rounded-md border border-[#22385a] bg-[#0d1828] px-3 py-2 text-[#dcebf7] focus:border-[#5ea3cc] focus:outline-none"
         />
       </label>
       <label className="flex flex-col gap-1 text-sm">
@@ -90,7 +85,7 @@ function ResetForm() {
           required
           minLength={8}
           autoComplete="new-password"
-          className="rounded border border-gray-600 bg-transparent px-3 py-2"
+          className="rounded-md border border-[#22385a] bg-[#0d1828] px-3 py-2 text-[#dcebf7] focus:border-[#5ea3cc] focus:outline-none"
         />
       </label>
       {error && (
@@ -101,7 +96,7 @@ function ResetForm() {
       <button
         type="submit"
         disabled={submitting}
-        className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+        className="rounded-md bg-[#5ea3cc] px-4 py-2 font-medium text-[#0a1220] hover:bg-[#6fb7e0] disabled:opacity-50"
       >
         {submitting ? "提交中…" : "设置新密码"}
       </button>
@@ -111,13 +106,15 @@ function ResetForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center p-8">
-      <div className="flex w-full max-w-sm flex-col gap-4">
-        <h1 className="text-2xl font-bold">设置新密码</h1>
-        <Suspense fallback={null}>
-          <ResetForm />
-        </Suspense>
-      </div>
+    <main className="flex min-h-screen items-center justify-center p-6 lg:p-8">
+      <ContentPanel className="w-full max-w-md p-7 lg:p-8">
+        <div className="flex w-full flex-col gap-4">
+          <h1 className="text-2xl font-bold text-[#dcebf7]">设置新密码</h1>
+          <Suspense fallback={null}>
+            <ResetForm />
+          </Suspense>
+        </div>
+      </ContentPanel>
     </main>
   );
 }

@@ -27,15 +27,6 @@ const TURNSTILE_KEYS = ["turnstile.enabled", "turnstile.siteKey", "turnstile.sec
 const SECURITY_KEYS = ["security.loginMaxFails", "security.loginWindowSec", "security.loginLockSec"];
 const NOTIFY_KEYS = ["notify.pointEmailThreshold"];
 const SITE_KEYS = ["site.icp", "site.qqGroup"];
-const DOWNLOAD_KEYS = [
-  "download.client.url",
-  "download.client.note",
-  "download.launcher.url",
-  "download.launcher.note",
-  "download.addon.url",
-  "download.addon.note",
-  "download.yy.note",
-];
 const UMAMI_KEYS = [
   "umami.scriptUrl",
   "umami.websiteId",
@@ -55,7 +46,6 @@ const ALL_KEYS = [
   ...SECURITY_KEYS,
   ...NOTIFY_KEYS,
   ...SITE_KEYS,
-  ...DOWNLOAD_KEYS,
   ...UMAMI_KEYS,
   ...HOME_KEYS,
 ];
@@ -267,20 +257,13 @@ describe("saveSettingsGroup(T029)", () => {
   });
 });
 
-describe("site/download 组(CRUD 对齐审计)", () => {
-  it("键缺失 → 默认值兜底(旧站事实):ICP/QQ 群与四卡默认指向教程页", async () => {
-    await delKeys([...SITE_KEYS, ...DOWNLOAD_KEYS]);
+describe("site 组(CRUD 对齐审计)", () => {
+  it("键缺失 → 默认值兜底(旧站备案号/QQ 群)", async () => {
+    await delKeys(SITE_KEYS);
     const config = await getConfig();
     expect(config.site).toEqual({ icp: "京ICP备2022035466号", qqGroup: "184670219" });
-    expect(config.download).toMatchObject({
-      clientUrl: "/tutorial",
-      launcherUrl: "/tutorial",
-      addonUrl: "/tutorial",
-      yyNote: "频道号见公告",
-    });
     const view = await getSettingsView();
     expect(view.site).toEqual(config.site);
-    expect(view.download).toEqual(config.download);
   });
 
   it("site 组保存 → 落库+热生效;审计只落键名不落值", async () => {
@@ -299,28 +282,10 @@ describe("site/download 组(CRUD 对齐审计)", () => {
     expect(JSON.stringify(audit!.payloadJson)).not.toContain("京ICP备E2E000001号");
   });
 
-  it("download 组:非法链接 422 零写入;合法保存热生效;留空=卡片隐藏语义", async () => {
-    const bad = await saveGroup(
-      "download",
-      { clientUrl: "ftp://x", clientNote: "", launcherUrl: "", launcherNote: "", addonUrl: "", addonNote: "", yyNote: "" },
-      { id: ADMIN_ID },
-    );
-    expect(bad).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
-    expect(await prisma.systemConfig.count({ where: { key: { in: DOWNLOAD_KEYS } } })).toBe(0);
-
+  it("site 组:非法 QQ 群号 422 零写入", async () => {
     const badQq = await saveGroup("site", { icp: "", qqGroup: "abc12" }, { id: ADMIN_ID });
     expect(badQq).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
-
-    await saveGroup(
-      "download",
-      { clientUrl: "/tutorial#e2e", clientNote: "E2E 客户端", launcherUrl: "", launcherNote: "", addonUrl: "https://cdn.example.com/a.zip", addonNote: "", yyNote: "" },
-      { id: ADMIN_ID },
-    );
-    expect((await getConfig()).download).toMatchObject({
-      clientUrl: "/tutorial#e2e",
-      launcherUrl: "",
-      addonUrl: "https://cdn.example.com/a.zip",
-    });
+    expect((await getConfig()).site.qqGroup).toBe("12345678");
   });
 });
 

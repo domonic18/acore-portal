@@ -134,8 +134,9 @@ test.describe("US2 商城与购物车(T026)", () => {
     const card = page.getByRole("listitem").filter({ hasText: `E2E 测试坐骑 ${RUN}` });
     await expect(card.getByRole("img", { name: `E2E 测试坐骑 ${RUN}` })).toBeVisible();
 
-    // 详情:图库主图+缩略条切换+说明区 Markdown 渲染
+    // 详情:内容区底色面板 + 图库主图+缩略条切换+说明区 Markdown 渲染
     await page.goto(`/shop/${ITEM_SLUG}`);
+    await expect(page.getByTestId("content-panel")).toBeVisible();
     const gallery = page.getByTestId("product-gallery");
     await expect(gallery.getByRole("img", { name: `E2E 测试坐骑 ${RUN}` })).toBeVisible();
     await gallery.getByRole("button", { name: "查看第 2 张图片" }).click();

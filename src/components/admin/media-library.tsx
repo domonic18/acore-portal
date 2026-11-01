@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { MEDIA_CATEGORIES, MEDIA_DEFAULT_CATEGORY } from "@/constants/media";
+import { prepareUploadFile } from "@/lib/media/prepare-upload";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 媒体选择弹层(FR-217,编辑器插入 + /admin/media 管理共用列表逻辑):
@@ -17,17 +19,45 @@ export type MediaAssetItem = {
   sizeBytes: number;
 };
 
+type UploadResponse = {
+  items?: MediaAssetItem[];
+  error?: { message?: string };
+};
+
+type MediaListResponse = {
+  items: MediaAssetItem[];
+  total: number;
+  totalPages: number;
+  counts: Record<string, number>;
+};
+
 export async function uploadMediaFiles(
   files: File[],
   category?: string,
 ): Promise<MediaAssetItem[]> {
+  // 大图先压缩:公网测试栈 nginx 1m 限制会直接返回 HTML 413
+  const prepared = await Promise.all(files.map(prepareUploadFile));
   const fd = new FormData();
-  for (const f of files) fd.append("files", f);
+  for (const f of prepared) fd.append("files", f);
   if (category) fd.append("category", category);
   const res = await fetch("/api/admin/media", { method: "POST", body: fd });
-  const body = await res.json();
-  if (!res.ok) throw new Error(body?.error?.message ?? "上传失败,请稍后重试。");
-  return body.items as MediaAssetItem[];
+  // 代理层错误页是 HTML,不能直接 res.json()
+  let body: UploadResponse | null = null;
+  try {
+    const raw = await res.text();
+    body = raw ? (JSON.parse(raw) as UploadResponse) : null;
+  } catch {
+    body = null;
+  }
+  if (!res.ok) {
+    const fallback =
+      res.status === 413
+        ? "图片过大,被服务器拒绝(HTTP 413)。请压缩后重试。"
+        : `上传失败(HTTP ${res.status}),请稍后重试。`;
+    throw new Error(body?.error?.message ?? fallback);
+  }
+  if (!body?.items) throw new Error("上传响应异常,请稍后重试。");
+  return body.items;
 }
 
 export function MediaAssetList({
@@ -58,8 +88,7 @@ export function MediaAssetList({
     const params = new URLSearchParams({ page: String(page) });
     if (q) params.set("q", q);
     if (category) params.set("category", category);
-    fetch(`/api/admin/media?${params.toString()}`)
-      .then((res) => res.json())
+    requestJson<MediaListResponse>(`/api/admin/media?${params.toString()}`)
       .then((body) => {
         if (!cancelled) setData(body);
       })
@@ -83,10 +112,10 @@ export function MediaAssetList({
       return;
     }
     setError(null);
-    const res = await fetch(`/api/admin/media/${asset.id}`, { method: "DELETE" });
-    if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      setError(body?.error?.message ?? "删除失败");
+    try {
+      await requestJson(`/api/admin/media/${asset.id}`, { method: "DELETE" });
+    } catch (err) {
+      setError(errorMessage(err));
       return;
     }
     setData((prev) =>

@@ -2,7 +2,9 @@ import Link from "next/link";
 import { listMigrationReviews } from "@/server/services/orders/admin";
 import { ORDER_STATUS_LABEL, type OrderStatusValue } from "@/constants/shop";
 import { ReviewActions } from "@/components/admin/review-actions";
+import { PaginationNav } from "@/components/ui/pagination";
 import { displayUserName } from "@/lib/format";
+import { buildPageHref } from "@/lib/pagination";
 
 /**
  * D3 复核清单(T062;api-admin 契约):扣分与金额不符的存量单,
@@ -25,7 +27,7 @@ export default async function AdminReviewItemsPage({
   const page = Math.max(1, Number.parseInt(searchParams.page ?? "1", 10) || 1);
   const { items, totalPages, total } = await listMigrationReviews({ resolved, page });
 
-  const pageHref = (p: number) => `/admin/review-items?resolved=${resolved}&page=${p}`;
+  const pageHref = (p: number) => buildPageHref("/admin/review-items", { resolved }, p);
 
   return (
     <div className="flex flex-col gap-4">
@@ -117,23 +119,7 @@ export default async function AdminReviewItemsPage({
         </table>
       )}
 
-      {totalPages > 1 && (
-        <nav className="flex items-center gap-3 text-sm text-gray-400">
-          {page > 1 && (
-            <Link href={pageHref(page - 1)} className="hover:text-white">
-              上一页
-            </Link>
-          )}
-          <span>
-            {page} / {totalPages}
-          </span>
-          {page < totalPages && (
-            <Link href={pageHref(page + 1)} className="hover:text-white">
-              下一页
-            </Link>
-          )}
-        </nav>
-      )}
+      <PaginationNav page={page} totalPages={totalPages} href={pageHref} tone="compact" />
     </div>
   );
 }

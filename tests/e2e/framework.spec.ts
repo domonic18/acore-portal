@@ -65,6 +65,33 @@ test.describe("游客菜单(FR-201)", () => {
     await expect(
       nav.getByRole("link", { name: "项目简介", exact: true }),
     ).toHaveAttribute("href", "/about");
+    // 下载三项沿用旧站锚点直达教程页对应下载区
+    await expect(nav.getByRole("link", { name: "客户端下载", exact: true })).toHaveAttribute(
+      "href",
+      "/tutorial#client_download",
+    );
+    await expect(nav.getByRole("link", { name: "登录器下载", exact: true })).toHaveAttribute(
+      "href",
+      "/tutorial#login_download",
+    );
+    await expect(nav.getByRole("link", { name: "补丁下载", exact: true })).toHaveAttribute(
+      "href",
+      "/tutorial#patch_download",
+    );
+  });
+
+  test("客户端下载菜单跳转教程页锚点(FR-202)", async ({ page }) => {
+    await page.goto("/");
+    const nav = page.getByRole("navigation", { name: "主导航" });
+    await nav.getByText("首页", { exact: true }).hover();
+    await nav.getByRole("link", { name: "客户端下载", exact: true }).click();
+    await expect(page).toHaveURL(/\/tutorial#client_download$/);
+    await expect(
+      page.getByRole("heading", { name: "第三步： 下载客户端" }),
+    ).toBeVisible();
+    expect(await page.getByRole("heading", { name: "第三步： 下载客户端" }).evaluate((el) => el.id)).toBe(
+      "client_download",
+    );
   });
 
   test("页脚协议/公约链接(FR-204)", async ({ page }) => {

@@ -5,11 +5,13 @@ import {
 } from "@/server/services/content/articles";
 import { ArchiveAside } from "@/components/content/archive-aside";
 import { ArchiveSearch } from "@/components/content/archive-search";
+import { formatDate } from "@/lib/format";
+import { pageWindow } from "@/lib/pagination";
 
 /**
  * 归档页共用壳(T023,FR-209;2026-10 ardot p04 对齐):
  * 面包屑 + 大标题/总数 + 行卡列表(资讯两列卡) + 数字分页 + 右栏。
- * 四分类路由(announcements/news/guides/devlog)共用本组件。
+ * 三分类路由(announcements/news/guides)共用本组件(devlog 为单页 Markdown,不走归档)。
  */
 export async function ArchivePage({
   categorySlug,
@@ -94,7 +96,7 @@ export async function ArchivePage({
                         {title}
                       </span>
                       <span className="text-[#6482a3]">
-                        {a.publishedAt?.toISOString().slice(0, 10)}
+                        {a.publishedAt && formatDate(a.publishedAt)}
                       </span>
                     </div>
                     <h3 className="line-clamp-2 text-[15.5px] font-semibold leading-6 text-[#dcebf7] group-hover:text-[#6fb7e0]">
@@ -115,7 +117,7 @@ export async function ArchivePage({
           ) : layout === "log" ? (
             <ul className="overflow-hidden rounded-xl border border-[#22385a] bg-[#13233a]">
               {items.map((a, i) => {
-                const iso = a.publishedAt?.toISOString().slice(0, 10) ?? "";
+                const iso = a.publishedAt ? formatDate(a.publishedAt) : "";
                 return (
                   <li
                     key={a.slug}
@@ -150,7 +152,7 @@ export async function ArchivePage({
           ) : (
             <ul className="space-y-3">
               {items.map((a) => {
-                const iso = a.publishedAt?.toISOString().slice(0, 10) ?? "";
+                const iso = a.publishedAt ? formatDate(a.publishedAt) : "";
                 return (
                   <li key={a.slug}>
                     <Link
@@ -256,18 +258,4 @@ export async function ArchivePage({
       </div>
     </main>
   );
-}
-
-/** 数字页码窗口:≤7 全列,否则 首/…/当前±1/…/末(null=省略号) */
-function pageWindow(page: number, total: number): (number | null)[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages = new Set([1, total, page - 1, page, page + 1]);
-  const sorted = [...pages].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
-  const out: (number | null)[] = [];
-  for (const p of sorted) {
-    const prev = out.at(-1);
-    if (typeof prev === "number" && p - prev > 1) out.push(null);
-    out.push(p);
-  }
-  return out;
 }

@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SettingsView } from "@/lib/settings-types";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
- * 八组设置表单+测试发信卡片(T032;api-admin-m4 契约)。
+ * 七组设置表单+测试发信卡片(T032;api-admin-m4 契约)。
  * 敏感字段(smtp.password/turnstile.secretKey/umami.apiPassword)只写不读:
  * 已配置显「已配置,留空保持」占位,空提交=保持原值,非空=覆写。
  */
@@ -17,7 +18,6 @@ type GroupName =
   | "notify"
   | "site"
   | "appearance"
-  | "download"
   | "umami";
 
 function SecretInput({
@@ -141,23 +141,16 @@ function useGroupSave() {
     setSaved(false);
     setError(null);
     try {
-      const res = await fetch("/api/admin/settings", {
+      await requestJson("/api/admin/settings", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ group, values }),
       });
-      const body = (await res.json().catch(() => null)) as
-        | { ok?: boolean; error?: { message?: string } }
-        | null;
-      if (!res.ok) {
-        setError(body?.error?.message ?? "保存失败,请稍后重试。");
-        return false;
-      }
       setSaved(true);
       router.refresh();
       return true;
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
       return false;
     } finally {
       setBusy(false);
@@ -413,50 +406,6 @@ function AppearanceGroup({ view }: { view: SettingsView["appearance"] }) {
   );
 }
 
-function DownloadGroup({ view }: { view: SettingsView["download"] }) {
-  const [clientUrl, setClientUrl] = useState(view.clientUrl);
-  const [clientNote, setClientNote] = useState(view.clientNote);
-  const [launcherUrl, setLauncherUrl] = useState(view.launcherUrl);
-  const [launcherNote, setLauncherNote] = useState(view.launcherNote);
-  const [addonUrl, setAddonUrl] = useState(view.addonUrl);
-  const [addonNote, setAddonNote] = useState(view.addonNote);
-  const [yyNote, setYyNote] = useState(view.yyNote);
-  const { busy, saved, error, save } = useGroupSave();
-
-  return (
-    <GroupSection
-      name="download"
-      title="下载入口"
-      description="侧栏客户端/登录器/插件下载卡与 YY 频道卡;链接留空=隐藏对应卡片,可直链文件或指向教程页"
-    >
-      <TextRow label="客户端下载链接" testid="settings-field-download-clientUrl" value={clientUrl} onChange={setClientUrl} placeholder="/tutorial 或 https://…" />
-      <TextRow label="客户端文案" testid="settings-field-download-clientNote" value={clientNote} onChange={setClientNote} />
-      <TextRow label="登录器下载链接" testid="settings-field-download-launcherUrl" value={launcherUrl} onChange={setLauncherUrl} placeholder="/tutorial 或 https://…" />
-      <TextRow label="登录器文案" testid="settings-field-download-launcherNote" value={launcherNote} onChange={setLauncherNote} />
-      <TextRow label="插件下载链接" testid="settings-field-download-addonUrl" value={addonUrl} onChange={setAddonUrl} placeholder="/tutorial 或 https://…" />
-      <TextRow label="插件文案" testid="settings-field-download-addonNote" value={addonNote} onChange={setAddonNote} />
-      <TextRow label="YY 频道文案" testid="settings-field-download-yyNote" value={yyNote} onChange={setYyNote} placeholder="留空隐藏 YY 卡" />
-      <SaveBar
-        group="download"
-        busy={busy}
-        saved={saved}
-        error={error}
-        onSave={() =>
-          save("download", {
-            clientUrl,
-            clientNote,
-            launcherUrl,
-            launcherNote,
-            addonUrl,
-            addonNote,
-            yyNote,
-          })
-        }
-      />
-    </GroupSection>
-  );
-}
-
 function UmamiGroup({ view }: { view: SettingsView["umami"] }) {
   const [scriptUrl, setScriptUrl] = useState(view.scriptUrl ?? "");
   const [websiteId, setWebsiteId] = useState(view.websiteId ?? "");
@@ -576,7 +525,6 @@ export function SettingsForms({ view }: { view: SettingsView }) {
       <NotifyGroup view={view.notify} />
       <SiteGroup view={view.site} />
       <AppearanceGroup view={view.appearance} />
-      <DownloadGroup view={view.download} />
       <UmamiGroup view={view.umami} />
       <TestMailCard />
     </div>

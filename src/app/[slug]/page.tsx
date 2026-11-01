@@ -1,18 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { CORE_PAGE_SLUGS } from "@/constants/content";
+import { CORE_PAGE_SLUGS, TUTORIAL_ANCHOR_ALIASES } from "@/constants/content";
 import { getPublishedPage } from "@/server/services/content/pages";
 import { resolveProgressionPosition } from "@/server/services/progression/progression";
 import { renderMarkdown } from "@/lib/markdown";
+import { formatDate } from "@/lib/format";
 import { getCdnHosts } from "@/lib/config";
 import { SiteSidebar } from "@/app/_components/sidebar/sidebar";
+import { ContentPanel } from "@/components/site/content-panel";
 
 /**
  * 静态页根级兜底(T025,FR-210/R15):/{slug} 未被具名路由命中时落到这里;
  * 命中 published 静态页渲染,否则 notFound。RESERVED_SLUGS 保证保存侧不与
- * 功能路由冲突;generateStaticParams 列核心 5 页(layout 含 cookies,实际动态)。
+ * 功能路由冲突;generateStaticParams 列核心 6 页(layout 含 cookies,实际动态)。
  * 2026-10 ardot p02 对齐:面包屑 + 大标题/更新日期 + 正文分节排版。
+ * 正文区套 ContentPanel:页面背景图为全站装饰层,文字不可直接压在背景图上。
  */
 export async function generateStaticParams() {
   return CORE_PAGE_SLUGS.map((slug) => ({ slug }));
@@ -31,7 +34,7 @@ export async function generateMetadata({
 const PAGE_BODY_CLS = [
   "mt-6 max-w-none text-[14.5px] leading-[1.95] text-[#93b2ce]",
   "[&_h1]:hidden",
-  "[&_h2]:mt-9 [&_h2]:border-l-[3px] [&_h2]:border-[#e8c877] [&_h2]:pl-3 [&_h2]:text-[18px] [&_h2]:font-bold [&_h2]:leading-7 [&_h2]:text-[#dcebf7]",
+  "[&_h2]:mt-9 [&_h2]:scroll-mt-24 [&_h2]:border-l-[3px] [&_h2]:border-[#e8c877] [&_h2]:pl-3 [&_h2]:text-[18px] [&_h2]:font-bold [&_h2]:leading-7 [&_h2]:text-[#dcebf7]",
   "[&_h3]:mt-6 [&_h3]:text-[16px] [&_h3]:font-semibold [&_h3]:text-[#dcebf7]",
   "[&_p]:my-3",
   "[&_a]:text-[#6fb7e0] [&_a:hover]:text-[#e8c877]",
@@ -54,52 +57,59 @@ export default async function ContentStaticPage({
   if (!page) notFound();
   const cdnHosts = await getCdnHosts();
   const [{ html }, position] = await Promise.all([
-    renderMarkdown(page.bodyMd, { cdnHosts, sections: true }),
+    renderMarkdown(page.bodyMd, {
+      cdnHosts,
+      sections: true,
+      sectionAnchors:
+        params.slug === "tutorial" ? TUTORIAL_ANCHOR_ALIASES : undefined,
+    }),
     params.slug === "about" ? resolveProgressionPosition() : Promise.resolve(null),
   ]);
 
   return (
     <main className="container-site flex-1 py-5 lg:py-6">
-      <nav
-        aria-label="面包屑"
-        className="mb-3 flex flex-wrap items-center gap-2 text-[11px] lg:text-[13.5px]"
-      >
-        <Link href="/" className="text-[#6482a3] hover:text-[#6fb7e0]">
-          首页
-        </Link>
-        <span aria-hidden="true" className="text-[#6482a3]">
-          ›
-        </span>
-        <span className="text-[#93b2ce]">{page.title}</span>
-      </nav>
-
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_256px]">
-        <article className="min-w-0">
-          <header className="border-b border-[#22385a] pb-4">
-            <h1 className="text-[26px] font-bold leading-tight text-[#dcebf7] lg:text-[32px]">
-              {page.title}
-            </h1>
-            <p className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-[#6482a3] lg:text-[13px]">
-              <span>更新：{page.updatedAt.toISOString().slice(0, 10)}</span>
-              {position?.current && (
-                <span>
-                  当前阶段：
-                  <Link
-                    href={`/progression#node-${position.current.id}`}
-                    className="text-[#a8d9f5] hover:text-[#e8c877]"
-                  >
-                    {position.current.title}
-                  </Link>
-                </span>
-              )}
-            </p>
-          </header>
-          <div
-            className={PAGE_BODY_CLS}
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
-        </article>
-        <SiteSidebar pageType="page" />
+        <ContentPanel className="p-5 lg:p-6">
+          <nav
+            aria-label="面包屑"
+            className="mb-3 flex flex-wrap items-center gap-2 text-[11px] lg:text-[13.5px]"
+          >
+            <Link href="/" className="text-[#6482a3] hover:text-[#6fb7e0]">
+              首页
+            </Link>
+            <span aria-hidden="true" className="text-[#6482a3]">
+              ›
+            </span>
+            <span className="text-[#93b2ce]">{page.title}</span>
+          </nav>
+
+          <article className="min-w-0">
+            <header className="border-b border-[#22385a] pb-4">
+              <h1 className="text-[26px] font-bold leading-tight text-[#dcebf7] lg:text-[32px]">
+                {page.title}
+              </h1>
+              <p className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-[#6482a3] lg:text-[13px]">
+                <span>更新：{formatDate(page.updatedAt)}</span>
+                {position?.current && (
+                  <span>
+                    当前阶段：
+                    <Link
+                      href={`/progression#node-${position.current.id}`}
+                      className="text-[#a8d9f5] hover:text-[#e8c877]"
+                    >
+                      {position.current.title}
+                    </Link>
+                  </span>
+                )}
+              </p>
+            </header>
+            <div
+              className={PAGE_BODY_CLS}
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          </article>
+        </ContentPanel>
+        <SiteSidebar pageType="page" sticky />
       </div>
     </main>
   );

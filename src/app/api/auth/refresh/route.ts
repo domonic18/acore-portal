@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth/session";
 import { setSessionCookies } from "@/lib/auth/cookies";
 import { SESSION } from "@/constants/session";
+import { safeNextPath } from "@/lib/safe-redirect";
 
 /**
  * remember 登录续期(research R4):access 过期后 middleware 重定向至此;
@@ -61,7 +62,7 @@ async function handle(req: NextRequest) {
   const { accessToken } = await createSession(user.id, user.role);
   const res =
     req.method === "GET"
-      ? redirectTo(req.nextUrl.searchParams.get("next") ?? "/account/overview")
+      ? redirectTo(safeNextPath(req.nextUrl.searchParams.get("next")))
       : NextResponse.json({ ok: true });
   setSessionCookies(res, { accessToken, refreshToken: rotated.token });
   return res;

@@ -28,15 +28,6 @@ export type SettingsView = {
     headerBackgroundUrl: string;
     pageBackgroundUrl: string;
   };
-  download: {
-    clientUrl: string;
-    clientNote: string;
-    launcherUrl: string;
-    launcherNote: string;
-    addonUrl: string;
-    addonNote: string;
-    yyNote: string;
-  };
   umami: {
     configured: boolean;
     scriptUrl: string | null;

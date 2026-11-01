@@ -1,7 +1,6 @@
 import { requireAdmin } from "@/server/session-guard";
-import { countLowStockProducts } from "@/server/services/catalog/admin";
-import { prisma } from "@/lib/db";
-import { ORDER_STATUS } from "@/constants/shop";
+import { getAdminBadgeCounts } from "@/server/services/stats/admin";
+import { getAdminDisplayName } from "@/server/services/users-admin/admin";
 import { AdminShell } from "@/components/admin/admin-shell";
 
 /**
@@ -11,20 +10,16 @@ import { AdminShell } from "@/components/admin/admin-shell";
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await requireAdmin();
-  const [lowStock, deliveryFailed, admin] = await Promise.all([
-    countLowStockProducts(),
-    prisma.order.count({ where: { status: ORDER_STATUS.DELIVERY_FAILED } }),
-    prisma.user.findUnique({
-      where: { id: BigInt(session.userId) },
-      select: { username: true },
-    }),
+  const [counts, adminName] = await Promise.all([
+    getAdminBadgeCounts(),
+    getAdminDisplayName(BigInt(session.userId)),
   ]);
 
   return (
     <AdminShell
-      adminName={admin?.username ?? "管理员"}
-      lowStock={lowStock}
-      deliveryFailed={deliveryFailed}
+      adminName={adminName}
+      lowStock={counts.lowStock}
+      deliveryFailed={counts.deliveryFailed}
     >
       {children}
     </AdminShell>

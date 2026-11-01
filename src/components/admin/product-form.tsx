@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { errorMessage, requestJson } from "@/lib/api-client";
 import { MarkdownEditor } from "@/components/admin/markdown-editor";
 import { ProductImagesEditor } from "@/components/admin/product-images-editor";
 
@@ -70,20 +71,15 @@ export function ProductForm({
     setError(null);
     setBusy(true);
     try {
-      const res = await fetch("/api/admin/products", {
+      await requestJson("/api/admin/products", {
         method: initial?.id ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(values),
       });
-      const body = await res.json();
-      if (!res.ok) {
-        setError(body?.error?.message ?? "保存失败,请稍后重试。");
-        return;
-      }
       router.push("/admin/products");
       router.refresh();
-    } catch {
-      setError("网络异常,请稍后重试。");
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }

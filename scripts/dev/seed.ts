@@ -8,6 +8,7 @@ import { PrismaClient } from "../../src/generated/business";
 import { hashPhpass } from "../../src/lib/auth/phpass";
 import { hashWpBcrypt } from "../../src/lib/auth/wp-bcrypt";
 import { PASSWORD_ALGO } from "../../src/constants/password";
+import { DEFAULT_SIDEBAR_CARDS } from "../../src/constants/sidebar";
 
 const prisma = new PrismaClient();
 
@@ -124,13 +125,12 @@ async function seedDefaultCategory() {
   });
 }
 
-/** M3 内容域 fixtures(T002):4 分类/文章草稿+发布/静态页/渐进节点 */
+/** M3 内容域 fixtures(T002):3 归档分类/文章草稿+发布/静态页(含开发日志)/渐进节点 */
 async function seedContent() {
   const categories = [
     { slug: "announcements", name: "公告", sort: 1 },
     { slug: "news", name: "资讯", sort: 2 },
     { slug: "guides", name: "资料梳理", sort: 3 },
-    { slug: "devlog", name: "开发日志", sort: 4 },
   ];
   for (const c of categories) {
     await prisma.articleCategory.upsert({
@@ -184,7 +184,13 @@ async function seedContent() {
   }
   const pages = [
     { slug: "about", title: "项目简介", bodyMd: "# 项目简介\n\n老克塔是 60 年代怀旧服社区。" },
-    { slug: "tutorial", title: "使用教程", bodyMd: "# 使用教程\n\n见下方下载锚点。" },
+    {
+      slug: "tutorial",
+      title: "使用教程",
+      // 下载区标题驱动稳定锚点(#client_download/#patch_download/#login_download)
+      bodyMd:
+        "# 使用教程\n\n见下方下载指引。\n\n## 第三步： 下载客户端\n\n客户端下载说明。\n\n## 第四步：下载补丁文件\n\n补丁下载说明。\n\n## 第五步：下载登录器\n\n登录器下载说明。",
+    },
     { slug: "agreement", title: "用户协议", bodyMd: "# 用户协议\n\n怀旧公益服务条款。" },
     { slug: "convention", title: "论坛公约", bodyMd: "# 论坛公约\n\n友善交流,遵守公约。" },
     { slug: "sitemap", title: "网站地图", bodyMd: "# 网站地图\n\n全站导航清单。" },
@@ -192,10 +198,22 @@ async function seedContent() {
   for (const p of pages) {
     await prisma.contentPage.upsert({
       where: { slug: p.slug },
-      update: {},
+      update: { title: p.title, bodyMd: p.bodyMd },
       create: { ...p, status: "published" },
     });
   }
+  // 开发日志是单页 Markdown(旧站 page 378 导入);create-only,重跑 seed 不覆盖存量日志
+  await prisma.contentPage.upsert({
+    where: { slug: "devlog" },
+    update: {},
+    create: {
+      slug: "devlog",
+      title: "开发日志",
+      bodyMd:
+        "# 开发日志\n\n## 2099-01-05 开发日志\n\n> 1、核心玩法框架完成\n> \n> 2、副本进度同步上线\n\n## 2099-01-02 开发日志\n\n> 1、账号迁移完成\n> \n> 2、积分系统对账通过",
+      status: "published",
+    },
+  });
   // 归档分页 fixture:11 篇种子公告(10/页 → 第 1 页 10 篇,第 2 页 3 篇)
   for (let i = 1; i <= 11; i++) {
     const slug = `seed-arch-${String(i).padStart(2, "0")}`;
@@ -335,11 +353,53 @@ async function seedForum() {
   }
 }
 
+/** 侧栏快捷卡默认种子:按 key 幂等,已存在=保留后台编辑不覆盖;旧 download.* 值优先沿用 */
+async function seedSidebarCards() {
+  const legacyRows = await prisma.systemConfig.findMany({
+    where: { key: { startsWith: "download." } },
+    select: { key: true, value: true },
+  });
+  const legacy = new Map(legacyRows.map((r) => [r.key, r.value]));
+  const legacyKeys: Record<string, { url?: string; note?: string; body?: string }> = {
+    client: { url: "download.client.url", note: "download.client.note" },
+    patch: { url: "download.patch.url", note: "download.patch.note" },
+    launcher: { url: "download.launcher.url", note: "download.launcher.note" },
+    addon: { url: "download.addon.url", note: "download.addon.note" },
+    yy: { body: "download.yy.note" },
+  };
+
+  for (const [index, card] of DEFAULT_SIDEBAR_CARDS.entries()) {
+    const existing = await prisma.sidebarCard.findUnique({
+      where: { key: card.key },
+      select: { id: true },
+    });
+    if (existing) continue;
+    const map = legacyKeys[card.key];
+    const links = card.links.map((link, i) => ({
+      label: link.label,
+      href: (map?.url && legacy.get(map.url)) || link.href,
+      note: (map?.note && legacy.get(map.note)) || link.note || null,
+      sort: i + 1,
+    }));
+    await prisma.sidebarCard.create({
+      data: {
+        key: card.key,
+        title: card.title,
+        pages: card.pages,
+        body: (map?.body && legacy.get(map.body)) || card.body || null,
+        sort: index + 1,
+        links: { create: links },
+      },
+    });
+  }
+}
+
 main()
   .then(seedPointRules)
   .then(seedDefaultCategory)
   .then(seedContent)
   .then(seedForum)
+  .then(seedSidebarCards)
   .then(() => console.log("seed 完成"))
   .catch((err) => {
     console.error(err);

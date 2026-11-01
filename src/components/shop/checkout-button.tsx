@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 结算提交(契约 POST /api/checkout):成功跳订单详情;错误映射用户话术(402/409/422/503)。
@@ -15,17 +16,14 @@ export function CheckoutButton({ total, disabled }: { total: number; disabled: b
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch("/api/checkout", { method: "POST" });
-      const body = (await res.json().catch(() => null)) as
-        | { orderId?: string; error?: { message?: string } }
-        | null;
-      if (res.ok && body?.orderId) {
-        router.push(`/account/orders/${body.orderId}`);
+      const body = await requestJson<{ orderId?: string }>("/api/checkout", { method: "POST" });
+      if (!body.orderId) {
+        setError("结算失败,请稍后重试。");
         return;
       }
-      setError(body?.error?.message ?? "结算失败,请稍后重试。");
-    } catch {
-      setError("网络异常,请稍后重试。");
+      router.push(`/account/orders/${body.orderId}`);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setSubmitting(false);
     }

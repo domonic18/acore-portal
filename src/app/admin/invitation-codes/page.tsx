@@ -4,6 +4,8 @@ import {
   InvitationGenerateForm,
   InvitationStatusToggle,
 } from "@/components/admin/invitation-admin";
+import { AdminPager } from "@/components/ui/pagination";
+import { buildPageHref } from "@/lib/pagination";
 
 /**
  * 邀请码后台(M1 遗留能力落地):批量生成+列表(状态/已用/使用者)+启停;
@@ -81,30 +83,13 @@ export default async function AdminInvitationCodesPage({
         </table>
       )}
 
-      <div className="flex items-center justify-between text-sm text-gray-500">
-        <span>共 {total} 枚</span>
-        {totalPages > 1 && (
-          <nav className="flex items-center gap-4">
-            {page > 1 ? (
-              <Link href={`/admin/invitation-codes?page=${page - 1}`} className="text-blue-400 hover:underline">
-                上一页
-              </Link>
-            ) : (
-              <span className="text-gray-600">上一页</span>
-            )}
-            <span>
-              第 {page} / {totalPages} 页
-            </span>
-            {page < totalPages ? (
-              <Link href={`/admin/invitation-codes?page=${page + 1}`} className="text-blue-400 hover:underline">
-                下一页
-              </Link>
-            ) : (
-              <span className="text-gray-600">下一页</span>
-            )}
-          </nav>
-        )}
-      </div>
+      <AdminPager
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        unit="枚"
+        href={(p) => buildPageHref("/admin/invitation-codes", {}, p)}
+      />
     </div>
   );
 }

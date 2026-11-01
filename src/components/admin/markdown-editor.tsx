@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MediaPickerModal, uploadMediaFiles } from "@/components/admin/media-library";
 import { MARKDOWN_BODY_CLS } from "@/constants/content";
+import { ApiRequestError, requestJson } from "@/lib/api-client";
 import type { TocItem } from "@/lib/markdown";
 
 /**
@@ -60,20 +61,17 @@ export function MarkdownEditor({
         return;
       }
       try {
-        const res = await fetch("/api/admin/markdown-preview", {
+        const body = await requestJson<PreviewData>("/api/admin/markdown-preview", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ bodyMd: value }),
         });
-        const body = await res.json();
         if (seq !== seqRef.current) return;
-        if (!res.ok) {
-          setError(body?.error?.message ?? "预览失败");
-          return;
-        }
         setPreview(body);
-      } catch {
+      } catch (err) {
+        if (seq !== seqRef.current) return;
         // 网络瞬断:保留上次预览,不打断输入
+        if (err instanceof ApiRequestError) setError(err.message);
       }
     }, 400);
     return () => {

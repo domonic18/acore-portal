@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { formatDateTime } from "@/lib/format";
+import { requestJson } from "@/lib/api-client";
 import type { InboxItem } from "@/server/services/notification/inbox";
 
 /**
@@ -26,14 +27,10 @@ export function InboxList({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(
-        `/api/account/notifications?cursor=${cursor}&limit=10`,
-      );
-      if (!res.ok) throw new Error("failed");
-      const body = (await res.json()) as {
+      const body = await requestJson<{
         items: InboxItem[];
         nextCursor: string | null;
-      };
+      }>(`/api/account/notifications?cursor=${cursor}&limit=10`);
       setItems((prev) => [...prev, ...body.items]);
       setCursor(body.nextCursor);
     } catch {
@@ -44,32 +41,36 @@ export function InboxList({
   }
 
   async function markOne(id: string) {
-    const res = await fetch("/api/account/notifications/read", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ids: [id] }),
-    });
-    if (res.ok) {
-      setItems((prev) =>
-        prev.map((i) =>
-          i.id === id ? { ...i, readAt: new Date().toISOString() } : i,
-        ),
-      );
-      window.dispatchEvent(new CustomEvent("ap:unread-changed"));
+    try {
+      await requestJson("/api/account/notifications/read", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ids: [id] }),
+      });
+    } catch {
+      return;
     }
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === id ? { ...i, readAt: new Date().toISOString() } : i,
+      ),
+    );
+    window.dispatchEvent(new CustomEvent("ap:unread-changed"));
   }
 
   async function markAll() {
-    const res = await fetch("/api/account/notifications/read", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ all: true }),
-    });
-    if (res.ok) {
-      const now = new Date().toISOString();
-      setItems((prev) => prev.map((i) => ({ ...i, readAt: i.readAt ?? now })));
-      window.dispatchEvent(new CustomEvent("ap:unread-changed"));
+    try {
+      await requestJson("/api/account/notifications/read", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ all: true }),
+      });
+    } catch {
+      return;
     }
+    const now = new Date().toISOString();
+    setItems((prev) => prev.map((i) => ({ ...i, readAt: i.readAt ?? now })));
+    window.dispatchEvent(new CustomEvent("ap:unread-changed"));
   }
 
   const unread = items.filter((i) => i.readAt === null).length;
