@@ -1,6 +1,7 @@
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import remarkCjkFriendly from "remark-cjk-friendly";
 import remarkRehype from "remark-rehype";
 import rehypeHighlight from "rehype-highlight";
@@ -156,6 +157,9 @@ export async function renderMarkdown(
   let pipeline = unified()
     .use(remarkParse)
     .use(remarkGfm)
+    // 单换行即换行(GFM 软换行→<br>):后台编辑器按回车即生效,存量 WP 正文
+    // 的逐行条目(空行在迁移期被折叠)也按行展示;中文内容无英文软折行习惯
+    .use(remarkBreaks)
     // CJK 加粗闭合修复:CommonMark 对「**中文：**中文」形态不识别强调(冒号后紧跟
     // 汉字时闭合符不成 right-flanking),WP 迁移存量正文大量该形态,站点级兜底
     .use(remarkCjkFriendly)

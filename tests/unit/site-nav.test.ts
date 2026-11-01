@@ -94,15 +94,10 @@ describe("SITE_NAV 多级菜单结构(SC-205)", () => {
     expect(byLabel["论坛"]?.href).toBe("/forum");
     expect(byLabel["积分商店"]?.href).toBe("/shop");
     expect(byLabel["我的账户"]?.href).toBe("/account/overview");
-    // RESERVED_SLUGS 是代码持有段,不得覆盖核心内容页 about/tutorial/...
-    for (const core of ["about", "tutorial", "agreement", "convention", "sitemap"]) {
+    // RESERVED_SLUGS 是代码持有段,不得覆盖核心内容页;devlog 已是 Markdown 静态页
+    for (const core of ["about", "tutorial", "agreement", "convention", "sitemap", "devlog"]) {
       expect(RESERVED_SLUGS).not.toContain(core);
     }
-    expect(ARCHIVE_SLUGS).toEqual([
-      "announcements",
-      "news",
-      "guides",
-      "devlog",
-    ]);
+    expect(ARCHIVE_SLUGS).toEqual(["announcements", "news", "guides"]);
   });
 });

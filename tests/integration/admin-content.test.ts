@@ -269,6 +269,22 @@ describe("静态页管理(T029 FR-216/R15)", () => {
     }
   });
 
+  it("devlog 是可编辑静态页(已从保留字移入核心内容页)", async () => {
+    const existing = await prisma.contentPage.findUnique({ where: { slug: "devlog" } });
+    const { id } = await savePage({
+      id: existing?.id,
+      slug: "devlog",
+      title: existing?.title ?? "开发日志",
+      bodyMd: existing?.bodyMd ?? "## 2099-01-01 开发日志\n\n> fixture",
+      status: existing?.status ?? "draft",
+      sortOrder: existing?.sortOrder,
+      actorUserId: guardUids[0]!,
+    });
+    const row = await prisma.contentPage.findUniqueOrThrow({ where: { id } });
+    expect(row.slug).toBe("devlog");
+    if (!existing) await deletePage(id, guardUids[0]!);
+  });
+
   it("slug 冲突 → SLUG_CONFLICT;发布/更新/删除闭环", async () => {
     const slug = `${PAGE_PREFIX}main`;
     const { id } = await savePage({ slug, title: "T29 页", bodyMd: "<p>v1</p>", status: "draft", actorUserId: guardUids[0]! });

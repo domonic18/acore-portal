@@ -1,5 +1,6 @@
 // 内容域存量导入(US2 T013;research R16):wp_legacy → acore_portal
 //   wp_posts(post)   → article      (bodyMd 转换+图片重写+views 初始化,111 篇)
+//   开发日志 page 378 → content_page(单页转 Markdown,日期行提为 ## 标题,后台可编辑)
 //   wp_posts(page)   → content_page (仅 4 静态内容页;功能面页面走 route_map 重定向)
 //   wp_terms(tag)    → tag + article_tag
 //   渐进计划页 2796  → progression_node(cp-timeline 区块解析,28 档,"To be continued" 剔除)
@@ -26,6 +27,11 @@ export const PAGE_MAP = [
   { wpId: 4182, slug: "sitemap" },
 ];
 export const PROGRESSION_PAGE_ID = 2796;
+// 开发日志:旧站 /?page_id=378 是单页内容(「日期开发日志」+ blockquote 逐条),
+// 无对应 WP 文章分类;转为 content_page(slug=devlog),日期行转 Markdown 二级标题,
+// 后台「静态页」编辑器可直接改,前台单页全量展示不分页。
+export const DEVLOG_PAGE_ID = 378;
+export const DEVLOG_SLUG = "devlog";
 
 /** image_asset_map 装载为同步 Map(turndown 规则不能异步回库) */
 export async function loadImageMap(pool) {
@@ -168,6 +174,88 @@ export async function importArticles(pool, { postIds } = {}) {
     if (inserted) imported += 1;
   }
   return { scanned: posts.length, imported, noCategory, imageMapped, imageUnmapped };
+}
+
+/** 开发日志单页拆条:按 `<p>YYYY-M-D开发日志[：]</p><blockquote>…</blockquote>` 逐条切分 */
+export function parseDevlogEntries(html) {
+  const re =
+    /<p>\s*([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})\s*开发日志\s*[：:]?\s*<\/p>\s*<blockquote>([\s\S]*?)<\/blockquote>/g;
+  const entries = [];
+  for (const m of html.matchAll(re)) {
+    const month = Number(m[2]);
+    const day = Number(m[3]);
+    if (month < 1 || month > 12 || day < 1 || day > 31) continue;
+    entries.push({
+      date: `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`,
+      bodyHtml: m[4].trim(),
+    });
+  }
+  return entries;
+}
+
+/**
+ * 日期行 `<p>YYYY-M-D开发日志：</p>` → `<h2>YYYY-MM-DD 开发日志</h2>`,
+ * 让 Markdown 转换产出二级标题(后台编辑器与前台同源展示);非法日期原样保留。
+ * blockquote 内的空行分条在 turndown 里会被折叠成空格,先转 `<br />` 保留逐行展示。
+ */
+export function normalizeDevlogHtml(html) {
+  const withHeadings = html.replace(
+    /<p>\s*([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})\s*开发日志\s*[：:]?\s*<\/p>/g,
+    (raw, y, mo, d) => {
+      const month = Number(mo);
+      const day = Number(d);
+      if (month < 1 || month > 12 || day < 1 || day > 31) return raw;
+      const date = `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+      return `<h2>${date} 开发日志</h2>`;
+    },
+  );
+  return withHeadings.replace(
+    /<blockquote>([\s\S]*?)<\/blockquote>/gi,
+    (raw, inner) => {
+      const lines = inner
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+      return lines.length > 1
+        ? `<blockquote>${lines.join("<br />")}</blockquote>`
+        : raw;
+    },
+  );
+}
+
+/** 开发日志导入:page 378 → content_page(slug=devlog,单页 Markdown,命中即原位更新) */
+export async function importDevlogPage(
+  pool,
+  { pageId = DEVLOG_PAGE_ID, slug = DEVLOG_SLUG, sortOrder = 6 } = {},
+) {
+  const imageMap = await loadImageMap(pool);
+  const toMd = createConverter(makeResolver(imageMap));
+  const [rows] = await pool.query(
+    `SELECT post_title, post_content, post_status FROM wp_legacy.wp_posts
+      WHERE ID = ? AND post_type = 'page'`,
+    [pageId],
+  );
+  if (rows.length === 0) throw new Error(`devlog 源页 ${pageId} 不存在`);
+  const page = rows[0];
+  const entries = parseDevlogEntries(page.post_content ?? "");
+  const bodyMd = normalizeWowheadShortcodes(
+    toMd(normalizeDevlogHtml(page.post_content ?? "")),
+  );
+  const status = page.post_status === "publish" ? "published" : "draft";
+  const [upd] = await pool.query(
+    `UPDATE acore_portal.content_page
+        SET title = ?, body_md = ?, status = ?, legacy_wp_page_id = ?, sort_order = ?
+      WHERE slug = ?`,
+    [page.post_title, bodyMd, status, pageId, sortOrder, slug],
+  );
+  if (upd.affectedRows > 0) return { parsed: entries.length, inserted: 0, updated: 1 };
+  await pool.query(
+    `INSERT INTO acore_portal.content_page
+       (slug, title, body_md, status, sort_order, legacy_wp_page_id, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, NOW(3))`,
+    [slug, page.post_title, bodyMd, status, sortOrder, pageId],
+  );
+  return { parsed: entries.length, inserted: 1, updated: 0 };
 }
 
 /** 静态页导入(默认 PAGE_MAP;测试可传定制 pages)。命中既有 slug 即原位更新(覆盖 seed 内容) */
@@ -331,6 +419,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   });
   const categories = await importCategories(pool);
   const articles = await importArticles(pool);
+  const devlog = await importDevlogPage(pool);
   const pages = await importPages(pool);
   const progression = await importProgression(pool);
   const audit = await reconcile(pool);
@@ -342,6 +431,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
           Object.entries(categories).map(([k, v]) => [k, String(v)]),
         ),
         articles,
+        devlog,
         pages,
         progression,
         reconcile: { ...audit, viewsDiffRows: audit.viewsDiffRows.length },

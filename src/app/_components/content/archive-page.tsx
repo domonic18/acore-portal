@@ -9,7 +9,7 @@ import { ArchiveSearch } from "@/components/content/archive-search";
 /**
  * 归档页共用壳(T023,FR-209;2026-10 ardot p04 对齐):
  * 面包屑 + 大标题/总数 + 行卡列表(资讯两列卡) + 数字分页 + 右栏。
- * 四分类路由(announcements/news/guides/devlog)共用本组件。
+ * 三分类路由(announcements/news/guides)共用本组件(devlog 为单页 Markdown,不走归档)。
  */
 export async function ArchivePage({
   categorySlug,

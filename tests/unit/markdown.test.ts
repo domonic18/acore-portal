@@ -36,6 +36,13 @@ describe("markdown 渲染管线(T008)", () => {
     expect(html).not.toContain("javascript:");
   });
 
+  it("单换行渲染为 <br>(后台编辑器按回车即换行)", async () => {
+    const { html } = await render("第一行\n第二行\n\n> 条目一\n> 条目二");
+    expect(html).toContain("第一行<br>\n第二行");
+    expect(html).toContain("<blockquote>");
+    expect(html).toContain("条目一<br>\n条目二");
+  });
+
   it("GFM 表格与任务清单通过", async () => {
     const { html } = await render(
       "| A | B |\n| - | - |\n| 1 | 2 |\n\n- [x] 完成\n- [ ] 待办",

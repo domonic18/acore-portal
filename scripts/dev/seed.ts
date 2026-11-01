@@ -125,13 +125,12 @@ async function seedDefaultCategory() {
   });
 }
 
-/** M3 内容域 fixtures(T002):4 分类/文章草稿+发布/静态页/渐进节点 */
+/** M3 内容域 fixtures(T002):3 归档分类/文章草稿+发布/静态页(含开发日志)/渐进节点 */
 async function seedContent() {
   const categories = [
     { slug: "announcements", name: "公告", sort: 1 },
     { slug: "news", name: "资讯", sort: 2 },
     { slug: "guides", name: "资料梳理", sort: 3 },
-    { slug: "devlog", name: "开发日志", sort: 4 },
   ];
   for (const c of categories) {
     await prisma.articleCategory.upsert({
@@ -203,6 +202,18 @@ async function seedContent() {
       create: { ...p, status: "published" },
     });
   }
+  // 开发日志是单页 Markdown(旧站 page 378 导入);create-only,重跑 seed 不覆盖存量日志
+  await prisma.contentPage.upsert({
+    where: { slug: "devlog" },
+    update: {},
+    create: {
+      slug: "devlog",
+      title: "开发日志",
+      bodyMd:
+        "# 开发日志\n\n## 2099-01-05 开发日志\n\n> 1、核心玩法框架完成\n> \n> 2、副本进度同步上线\n\n## 2099-01-02 开发日志\n\n> 1、账号迁移完成\n> \n> 2、积分系统对账通过",
+      status: "published",
+    },
+  });
   // 归档分页 fixture:11 篇种子公告(10/页 → 第 1 页 10 篇,第 2 页 3 篇)
   for (let i = 1; i <= 11; i++) {
     const slug = `seed-arch-${String(i).padStart(2, "0")}`;

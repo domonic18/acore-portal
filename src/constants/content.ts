@@ -1,11 +1,10 @@
 /** 内容域常量(M3):归档分类配置/静态页保留字/侧栏页面类型映射 */
 
-/** 文章归档路由与分类 slug 一一对应(FR-209;devlog 为第 4 分类同模式扩展) */
+/** 文章归档路由与分类 slug 一一对应(FR-209) */
 export const ARCHIVE_CATEGORIES = [
   { slug: "announcements", name: "公告" },
   { slug: "news", name: "资讯" },
   { slug: "guides", name: "资料梳理" },
-  { slug: "devlog", name: "开发日志" },
 ] as const;
 
 export type ArchiveCategorySlug = (typeof ARCHIVE_CATEGORIES)[number]["slug"];
@@ -17,8 +16,8 @@ export const ARCHIVE_SLUGS: readonly string[] = ARCHIVE_CATEGORIES.map((c) => c.
 
 /**
  * 静态页保留字清单(R15):content_page slug 禁止抢占代码持有的顶级路由段。
- * 首页/认证/账户/后台/商城/论坛/内容路由全部在内;5 个核心内容页
- * (about/tutorial/agreement/convention/sitemap)不在清单——它们本身就是内容页。
+ * 首页/认证/账户/后台/商城/论坛/内容路由全部在内;核心内容页
+ * (about/tutorial/agreement/convention/sitemap/devlog)不在清单——它们本身就是内容页。
  */
 export const RESERVED_SLUGS: readonly string[] = [
   "shop",
@@ -36,7 +35,6 @@ export const RESERVED_SLUGS: readonly string[] = [
   "news",
   "announcements",
   "guides",
-  "devlog",
   "progression",
   "legacy-redirect",
 ];
@@ -48,6 +46,7 @@ export const CORE_PAGE_SLUGS = [
   "agreement",
   "convention",
   "sitemap",
+  "devlog",
 ] as const;
 
 /**

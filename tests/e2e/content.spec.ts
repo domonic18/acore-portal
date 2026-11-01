@@ -189,15 +189,17 @@ test.describe("p02 设计稿壳(简介/教程/渐进/日志)", () => {
     expect(top).toBe("80px");
   });
 
-  test("开发日志页:面包屑 公告 › 开发日志 + 持续更新", async ({ page }) => {
+  test("开发日志页:Markdown 静态页,面包屑 首页 › 开发日志,全量不分页", async ({ page }) => {
     await page.goto("/devlog");
     const crumb = page.getByRole("navigation", { name: "面包屑" });
-    await expect(crumb.getByRole("link", { name: "公告" })).toHaveAttribute(
-      "href",
-      "/announcements",
-    );
+    await expect(crumb.getByRole("link", { name: "首页" })).toHaveAttribute("href", "/");
     await expect(crumb.getByText("开发日志")).toBeVisible();
-    await expect(page.getByText(/共 \d+ 篇 · 持续更新/)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "开发日志", level: 1 })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /\d{4}-\d{2}-\d{2} 开发日志/ }).first(),
+    ).toBeVisible();
+    // 单页全量展示,无归档分页控件
+    await expect(page.getByRole("link", { name: "下一页 →" })).toHaveCount(0);
   });
 });
 

@@ -3,6 +3,8 @@ import type { Pool } from "mysql2/promise";
 export declare const CATEGORY_MAP: Record<number, string>;
 export declare const PAGE_MAP: Array<{ wpId: number; slug: string }>;
 export declare const PROGRESSION_PAGE_ID: number;
+export declare const DEVLOG_PAGE_ID: number;
+export declare const DEVLOG_SLUG: string;
 
 export declare function loadImageMap(pool: Pool): Promise<Map<string, string>>;
 
@@ -23,6 +25,17 @@ export declare function importPages(
   pool: Pool,
   opts?: { pages?: Array<{ wpId: number; slug: string }> },
 ): Promise<{ total: number; inserted: number; updated: number }>;
+
+export declare function parseDevlogEntries(
+  html: string,
+): Array<{ date: string; bodyHtml: string }>;
+
+export declare function normalizeDevlogHtml(html: string): string;
+
+export declare function importDevlogPage(
+  pool: Pool,
+  opts?: { pageId?: number; slug?: string; sortOrder?: number },
+): Promise<{ parsed: number; inserted: number; updated: number }>;
 
 export declare function importProgression(
   pool: Pool,

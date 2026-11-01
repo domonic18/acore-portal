@@ -12,7 +12,7 @@ import { ContentPanel } from "@/components/site/content-panel";
 /**
  * 静态页根级兜底(T025,FR-210/R15):/{slug} 未被具名路由命中时落到这里;
  * 命中 published 静态页渲染,否则 notFound。RESERVED_SLUGS 保证保存侧不与
- * 功能路由冲突;generateStaticParams 列核心 5 页(layout 含 cookies,实际动态)。
+ * 功能路由冲突;generateStaticParams 列核心 6 页(layout 含 cookies,实际动态)。
  * 2026-10 ardot p02 对齐:面包屑 + 大标题/更新日期 + 正文分节排版。
  * 正文区套 ContentPanel:页面背景图为全站装饰层,文字不可直接压在背景图上。
  */
