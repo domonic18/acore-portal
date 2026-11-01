@@ -49,6 +49,23 @@ test.describe("US1 登录 MVP", () => {
     await expect(page).toHaveURL(/\/login\?next=%2Faccount%2Foverview$/);
   });
 
+  test("头像菜单可退出登录(issue #33)", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByLabel("用户名").fill("legacyuser");
+    await page.getByLabel("密码", { exact: true }).fill("oldpass123");
+    await page.getByRole("button", { name: "登录" }).click();
+    await expect(page).toHaveURL(/\/account\/overview$/);
+
+    await page.getByTestId("user-menu-button").click();
+    await expect(page.getByTestId("user-menu")).toBeVisible();
+    await page.getByTestId("logout-button").click();
+
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByTestId("user-menu-button")).toHaveCount(0);
+    await page.goto("/account/overview");
+    await expect(page).toHaveURL(/\/login\?next=/);
+  });
+
   test("记住登录勾选 → 下发 refresh cookie", async ({ page }) => {
     await page.goto("/login");
     await page.getByLabel("用户名").fill("bcryptuser");

@@ -125,6 +125,17 @@ export async function consumeRefreshToken(
   return { token: (await issueRefreshToken(userId)).token };
 }
 
+/** 主动退出:仅吊销当前设备的 refresh token(单次有效,使用即轮换) */
+export async function revokeRefreshToken(
+  userId: string,
+  presented: string | undefined,
+): Promise<void> {
+  if (!presented) return;
+  const dot = presented.indexOf(".");
+  if (dot <= 0) return;
+  await redis.del(`${SESSION.REFRESH_REDIS_PREFIX}:${userId}:${presented.slice(0, dot)}`);
+}
+
 export async function revokeAllRefreshTokens(userId: string): Promise<void> {
   const pattern = `${SESSION.REFRESH_REDIS_PREFIX}:${userId}:*`;
   let cursor = "0";

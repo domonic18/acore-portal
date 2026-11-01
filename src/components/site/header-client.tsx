@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState, type CSSProperties } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { SiteNavItem } from "@/constants/navigation";
 import { UnreadBadge } from "@/components/site/unread-badge";
 
@@ -27,7 +27,11 @@ export function SiteHeaderClient({
   headerBackgroundUrl: string;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const router = useRouter();
   // 页头背景图(后台可配):暗色叠层保证导航可读;留空回落纯色底
   const headerStyle: CSSProperties | undefined = headerBackgroundUrl
     ? {
@@ -43,6 +47,37 @@ export function SiteHeaderClient({
     return pathname === item.href || pathname.startsWith(`${item.href}/`);
   };
 
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!userMenuRef.current?.contains(e.target as Node)) setUserMenuOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setUserMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [userMenuOpen]);
+
+  const logout = async () => {
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      setUserMenuOpen(false);
+      router.push("/");
+      router.refresh();
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
+  const userMenuItemClass =
+    "block w-full px-4 py-2 text-left text-[15px] text-[#93b2ce] hover:bg-[#13233a] hover:text-[#6fb7e0]";
+
   const caret = (
     <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" className="mt-0.5">
       <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
@@ -50,8 +85,10 @@ export function SiteHeaderClient({
   );
 
   const navLinkClass = (active: boolean) =>
-    `flex items-center gap-1 px-1 py-2 text-base transition-colors ${
-      active ? "text-[#6fb7e0]" : "text-[#93b2ce] hover:text-[#6fb7e0]"
+    `flex items-center gap-1 rounded-md px-2.5 py-2 text-base transition-colors ${
+      active
+        ? "bg-[#6fb7e0]/10 text-[#6fb7e0]"
+        : "text-[#93b2ce] hover:bg-[#6fb7e0]/10 hover:text-[#a8d9f5]"
     }`;
 
   return (
@@ -68,7 +105,7 @@ export function SiteHeaderClient({
 
         {/* 桌面导航 */}
         <nav aria-label="主导航" className="hidden flex-1 lg:block">
-          <ul className="flex items-center gap-7">
+          <ul className="flex items-center gap-4">
             {items.map((item) => (
               <li key={item.label} className="group relative">
                 {item.href ? (
@@ -113,20 +150,76 @@ export function SiteHeaderClient({
               >
                 {points} 积分
               </Link>
-              <Link
-                href="/account/overview"
-                className="flex items-center overflow-hidden rounded-lg border border-[#35577f] hover:border-[#e8c877]/60"
-                title="我的账户"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={portraitUrl}
-                  alt="随机角色头像"
-                  width={36}
-                  height={36}
-                  className="h-9 w-9 object-cover"
-                />
-              </Link>
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  type="button"
+                  data-testid="user-menu-button"
+                  aria-label="账户菜单"
+                  aria-haspopup="menu"
+                  aria-expanded={userMenuOpen}
+                  onClick={() => setUserMenuOpen((v) => !v)}
+                  className="flex items-center overflow-hidden rounded-lg border border-[#35577f] hover:border-[#e8c877]/60"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={portraitUrl}
+                    alt="随机角色头像"
+                    width={36}
+                    height={36}
+                    className="h-9 w-9 object-cover"
+                  />
+                </button>
+                {userMenuOpen && (
+                  <div
+                    role="menu"
+                    data-testid="user-menu"
+                    className="absolute right-0 top-full z-50 mt-2 w-44 rounded-lg border border-[#35577f] bg-[#0d1a2e] py-1.5 shadow-xl shadow-black/40"
+                  >
+                    <Link
+                      role="menuitem"
+                      href="/account/overview"
+                      className={userMenuItemClass}
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      用户中心
+                    </Link>
+                    <Link
+                      role="menuitem"
+                      href="/account/points"
+                      className={userMenuItemClass}
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      积分明细
+                    </Link>
+                    <Link
+                      role="menuitem"
+                      href="/account/orders"
+                      className={userMenuItemClass}
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      我的订单
+                    </Link>
+                    <Link
+                      role="menuitem"
+                      href="/account/settings"
+                      className={userMenuItemClass}
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      账户设置
+                    </Link>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      data-testid="logout-button"
+                      disabled={loggingOut}
+                      onClick={logout}
+                      className={`${userMenuItemClass} border-t border-[#22385a] text-[#e8c877] hover:text-[#f5dc9a] disabled:opacity-60`}
+                    >
+                      {loggingOut ? "正在退出…" : "退出登录"}
+                    </button>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <div className="flex items-center gap-3 text-[15px]">
