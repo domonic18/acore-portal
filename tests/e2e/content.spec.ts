@@ -329,6 +329,11 @@ test.describe("首页四区块(T027)", () => {
       "href",
       "/post/经验加成合剂显示问号解决方法",
     );
+    // 硬核模式指向迁移后的模式说明文章,不再落到教程页(issue #21)
+    await expect(quick.getByRole("link", { name: "硬核模式" })).toHaveAttribute(
+      "href",
+      "/post/硬核挑战模式一命模式",
+    );
     const downloadHrefs = await quick
       .getByRole("link", { name: "下载", exact: true })
       .evaluateAll((els) => els.map((el) => el.getAttribute("href")));

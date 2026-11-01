@@ -7,6 +7,7 @@ import { getConfig } from "@/lib/config";
 import { formatDate } from "@/lib/format";
 import { TUTORIAL_ANCHORS } from "@/constants/content";
 import { StatusCard } from "@/components/site/status-card";
+import { AchievementEmbed } from "@/components/site/achievement-embed";
 import { HomeCarousel } from "@/components/site/home-carousel";
 import { HomeProductCarousel } from "@/components/site/home-product-carousel";
 import { SectionHeader } from "@/components/site/section-header";
@@ -30,7 +31,7 @@ const QUICK_LINKS: { title: string; links: { label: string; href: string }[] }[]
     links: [
       { label: "注册方法", href: "/register" },
       { label: "渐进计划", href: "/progression" },
-      { label: "硬核模式", href: "/tutorial" },
+      { label: "硬核模式", href: "/post/硬核挑战模式一命模式" },
       { label: "规范要求", href: "/agreement" },
     ],
   },
@@ -101,49 +102,14 @@ export default async function HomePage() {
     <main className="container-site flex-1 py-6">
       {/* 版心固定 1140px 后栏宽不随视口放大,右栏对齐 lokta.cn 的 ~340px */}
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-        {/* 左栏:轮播 + 最近成就;轮播与右栏快捷入口等高(对齐 lokta.cn 497/798 比例);
-         * gap-5 与右栏 space-y-5 同步,使两栏第二块(成就/状态卡)标题行水平对齐 */}
-        <div className="flex min-w-0 flex-col gap-5">
-          <div className="lg:h-[486px]">
-            <HomeCarousel banners={banners} intervalMs={config.home.carouselIntervalSec * 1000} />
-          </div>
-
-          {/* 最近成就嵌入(US 首页配置):url 空=整块隐藏;高度/滚动条后台可配。
-           * 与右栏卡片同壳(p-5 + mb-4 标题行),保证两栏标题基线对齐 */}
-          {config.home.achievementUrl && (
-            <section className="rounded-2xl border border-[#22385a] bg-[#13233a] p-5">
-              <SectionHeader
-                title="最近成就事件"
-                className="mb-4"
-                meta={
-                  <a
-                    href={config.home.achievementUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-[#6fb7e0]"
-                  >
-                    新窗口打开 ↗
-                  </a>
-                }
-              />
-              <div className="overflow-hidden rounded-xl bg-[#080d16]">
-                <iframe
-                  src={config.home.achievementUrl}
-                  title="最近成就"
-                  loading="lazy"
-                  scrolling={config.home.achievementScrolling ? "auto" : "no"}
-                  className="w-full border-0 bg-[#080d16]"
-                  style={{ height: config.home.achievementHeight }}
-                />
-              </div>
-            </section>
-          )}
+        {/* 轮播 / 快捷入口为两栏首屏同行(lg:h-[486px]);移动端 DOM 顺序
+         * = 轮播 → 快捷入口 → 最近成就 → 其余卡片,快捷入口不再被成就块挤走 */}
+        <div className="min-w-0 lg:col-start-1 lg:row-start-1 lg:h-[486px]">
+          <HomeCarousel banners={banners} intervalMs={config.home.carouselIntervalSec * 1000} />
         </div>
 
-        {/* 右栏:快捷入口 / 服务器状态 / 公告 / 商品 / 阶段 */}
-        <div className="w-full space-y-5 lg:w-auto">
-          {/* 快捷入口:对齐 lokta.cn 双行排版(金色组名独占一行,链接行在下) */}
-          <section className="rounded-2xl border border-[#22385a] bg-[#13233a] px-5 py-5 lg:h-[486px]">
+        {/* 右栏首屏:快捷入口(对齐 lokta.cn 双行排版:金色组名独占一行,链接行在下) */}
+        <section className="w-full rounded-2xl border border-[#22385a] bg-[#13233a] px-5 py-5 lg:col-start-2 lg:row-start-1 lg:h-[486px]">
             <div className="flex h-full flex-col justify-between gap-2.5">
               {QUICK_LINKS.map((row) => (
                 <div key={row.title}>
@@ -161,8 +127,36 @@ export default async function HomePage() {
                 </div>
               ))}
             </div>
-          </section>
+        </section>
 
+        {/* 最近成就嵌入(US 首页配置):url 空=整块隐藏;高度/滚动条后台可配。
+         * 高度在组件内再受 68vh 约束,存量 185vh 配置不再撑爆首屏 */}
+        {config.home.achievementUrl && (
+          <section className="min-w-0 rounded-2xl border border-[#22385a] bg-[#13233a] p-5 lg:col-start-1 lg:row-start-2">
+            <SectionHeader
+              title="最近成就事件"
+              className="mb-4"
+              meta={
+                <a
+                  href={config.home.achievementUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-[#6fb7e0]"
+                >
+                  新窗口打开 ↗
+                </a>
+              }
+            />
+            <AchievementEmbed
+              url={config.home.achievementUrl}
+              height={config.home.achievementHeight}
+              scrolling={config.home.achievementScrolling}
+            />
+          </section>
+        )}
+
+        {/* 右栏其余卡片 */}
+        <div className="w-full space-y-5 lg:col-start-2 lg:row-start-2 lg:w-auto">
           {/* enabled=false 时整卡隐藏(StatusCard 内部短路) */}
           <StatusCard initial={serverStatus} />
 

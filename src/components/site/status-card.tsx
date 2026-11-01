@@ -10,7 +10,7 @@ import { SectionHeader } from "@/components/site/section-header";
  * SSR 初值 + 30s 轮询 /api/status;大数字 + 阵营比条 + 双列 chip。
  * enabled=false 整卡隐藏;degraded 挂「数据延迟」徽标并保留缓存值;
  * 冷启动失败数字字段 null 按 "--"/N/A 两态渲染(SC-208)。
- * testid 契约:online-count 纯数字、faction "N : M"、queue "N"/"N/A"。
+ * testid 契约:online-count 纯数字、faction "N : M"。
  */
 const POLL_INTERVAL_MS = 30_000;
 
@@ -47,12 +47,10 @@ export function StatusCard({ initial }: { initial: ServerStatusResult }) {
   const online = status.online;
 
   const chips: { label: string; testid: string; value: string; gold?: boolean }[] = [
-    { label: "登录队列", testid: "status-queue", value: status.queueCount === null ? "N/A" : String(status.queueCount) },
     { label: "今日峰值", testid: "status-peak", value: fmt(status.todayPeak) },
     { label: "稳定运行", testid: "status-uptime", value: status.uptimeText ?? "--" },
     { label: "当前阶段", testid: "status-stage", value: status.currentStage ?? "待定", gold: true },
     { label: "角色总数", testid: "status-char-total", value: fmt(status.charTotal) },
-    { label: "今日新注册", testid: "status-new-chars", value: fmt(status.todayNewChars) },
   ];
 
   return (
@@ -141,7 +139,7 @@ export function StatusCard({ initial }: { initial: ServerStatusResult }) {
             <dt className="shrink-0 text-[13px] text-[#6482a3]">{c.label}</dt>
             <dd
               data-testid={c.testid}
-              className={`truncate text-sm font-medium ${
+              className={`break-words text-right text-sm font-medium leading-snug ${
                 c.gold ? "text-[#e8c877]" : "text-[#dcebf7]"
               }`}
               title={c.value}
