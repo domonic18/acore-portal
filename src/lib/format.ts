@@ -1,7 +1,46 @@
-/** 统一东八区展示,避免 SSR/CSR 时区漂移导致的 hydration 不一致 */
+/**
+ * 日期展示统一走东八区:避免 SSR/CSR 时区漂移,以及 toISOString() 取 UTC
+ * 后在北京时间 00:00-08:00 差一天。
+ */
+const TZ = "Asia/Shanghai";
+
+const dateFmt = new Intl.DateTimeFormat("en-CA", {
+  timeZone: TZ,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+const timeFmt = new Intl.DateTimeFormat("en-GB", {
+  timeZone: TZ,
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+function toDate(value: string | Date): Date {
+  return typeof value === "string" ? new Date(value) : value;
+}
+
+/** 日期(东八区):2026-11-01 */
+export function formatDate(value: string | Date): string {
+  return dateFmt.format(toDate(value));
+}
+
+/** 短日期(东八区):11-01 */
+export function formatShortDate(value: string | Date): string {
+  return formatDate(value).slice(5);
+}
+
+/** 日期时间(东八区):2026-11-01 14:30 */
+export function formatDateTimeShort(value: string | Date): string {
+  return `${formatDate(value)} ${timeFmt.format(toDate(value))}`;
+}
+
+/** 中文日期时间(东八区):2026/11/01 14:30 */
 export function formatDateTime(iso: string): string {
   return new Intl.DateTimeFormat("zh-CN", {
-    timeZone: "Asia/Shanghai",
+    timeZone: TZ,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
