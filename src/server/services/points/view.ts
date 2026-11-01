@@ -51,10 +51,25 @@ export async function getPointsPage(
         amount: true,
         balanceAfter: true,
         remark: true,
+        refId: true,
         createdAt: true,
       },
     }),
   ]);
+
+  // 商店消费记录补充商品名 × 数量(issue #31):备注形如「订单 M…」,回查订单明细
+  const orderNos = rows
+    .map((t) => ORDER_REMARK_RE.exec(t.remark ?? "")?.[1])
+    .filter((v): v is string => !!v);
+  const orders = orderNos.length
+    ? await prisma.order.findMany({
+        where: { orderNo: { in: orderNos } },
+        select: { orderNo: true, items: { select: { name: true, qty: true } } },
+      })
+    : [];
+  const itemsByOrderNo = new Map(
+    orders.map((o) => [o.orderNo, o.items.map((i) => `${i.name}×${i.qty}`)]),
+  );
 
   return {
     balance,
@@ -65,8 +80,27 @@ export async function getPointsPage(
       type: t.type,
       amount: t.amount,
       balanceAfter: t.balanceAfter,
-      remark: t.remark,
+      remark: formatRemark(t.remark, t.refId, itemsByOrderNo),
       createdAt: t.createdAt.toISOString(),
     })),
   };
+}
+
+const ORDER_REMARK_RE = /^订单\s+(\S+)/;
+
+/** 历史 mycred 流水备注带未替换的 %order_id% 占位符(issue #32):用 ref_id 回填 */
+function formatRemark(
+  remark: string | null,
+  refId: bigint | null,
+  itemsByOrderNo: Map<string, string[]>,
+): string | null {
+  if (!remark) return null;
+  if (remark.includes("%order_id%")) {
+    if (refId !== null) return remark.replace(/%order_id%/g, refId.toString());
+    return remark.replace(/\s*[:：#]*\s*%order_id%/g, "").trim() || null;
+  }
+  const orderNo = ORDER_REMARK_RE.exec(remark)?.[1];
+  const items = orderNo ? itemsByOrderNo.get(orderNo) : undefined;
+  if (items?.length) return `${remark} · ${items.join("、")}`;
+  return remark;
 }
