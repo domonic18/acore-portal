@@ -21,7 +21,6 @@ export type MediaAssetItem = {
 
 type UploadResponse = {
   items?: MediaAssetItem[];
-  error?: { message?: string };
 };
 
 type MediaListResponse = {
@@ -40,23 +39,11 @@ export async function uploadMediaFiles(
   const fd = new FormData();
   for (const f of prepared) fd.append("files", f);
   if (category) fd.append("category", category);
-  const res = await fetch("/api/admin/media", { method: "POST", body: fd });
-  // 代理层错误页是 HTML,不能直接 res.json()
-  let body: UploadResponse | null = null;
-  try {
-    const raw = await res.text();
-    body = raw ? (JSON.parse(raw) as UploadResponse) : null;
-  } catch {
-    body = null;
-  }
-  if (!res.ok) {
-    const fallback =
-      res.status === 413
-        ? "图片过大,被服务器拒绝(HTTP 413)。请压缩后重试。"
-        : `上传失败(HTTP ${res.status}),请稍后重试。`;
-    throw new Error(body?.error?.message ?? fallback);
-  }
-  if (!body?.items) throw new Error("上传响应异常,请稍后重试。");
+  const body = await requestJson<UploadResponse>("/api/admin/media", {
+    method: "POST",
+    body: fd,
+  });
+  if (!body.items) throw new Error("上传响应异常,请稍后重试。");
   return body.items;
 }
 

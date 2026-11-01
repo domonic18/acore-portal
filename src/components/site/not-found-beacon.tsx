@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { requestJson } from "@/lib/api-client";
 
 /**
  * 404 采集 beacon(US4 T025,FR-312/research R8):
@@ -10,7 +11,7 @@ import { useEffect } from "react";
 export function NotFoundBeacon() {
   useEffect(() => {
     const path = `${window.location.pathname}${window.location.search}`;
-    void fetch("/api/track/not-found", {
+    void requestJson("/api/track/not-found", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ path }),

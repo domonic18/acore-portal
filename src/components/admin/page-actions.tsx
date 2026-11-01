@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { requestJson } from "@/lib/api-client";
 
 /** 静态页行内删除 */
 export function PageDeleteButton({ id, title }: { id: string; title: string }) {
@@ -12,8 +13,10 @@ export function PageDeleteButton({ id, title }: { id: string; title: string }) {
     if (!window.confirm(`确认删除静态页「${title}」?前台 /{"{slug}"} 将立即 404。`)) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/admin/pages/${id}`, { method: "DELETE" });
-      if (res.ok) router.refresh();
+      await requestJson(`/api/admin/pages/${id}`, { method: "DELETE" });
+      router.refresh();
+    } catch {
+      // 删除失败静默(与既有行为一致),刷新后由列表状态自证
     } finally {
       setBusy(false);
     }

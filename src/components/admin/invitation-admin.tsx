@@ -134,12 +134,14 @@ export function InvitationStatusToggle({
   async function toggle() {
     setBusy(true);
     try {
-      await fetch(`/api/admin/invitation-codes/${codeId}`, {
+      await requestJson(`/api/admin/invitation-codes/${codeId}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ status: status === "disabled" ? "available" : "disabled" }),
       });
       router.refresh();
+    } catch {
+      // 失败静默:按钮状态不切换,刷新后以服务端状态为准
     } finally {
       setBusy(false);
     }
