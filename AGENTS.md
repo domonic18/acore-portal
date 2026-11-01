@@ -99,8 +99,8 @@ docs/            # 文档中心
 
 **目录规范（2026-10-23 CodeReview 沉淀，借鉴 acore-manager/ai-invest）**:
 1. **目录即架构**：新增一级/域目录须先修订本节（借鉴 acore-manager《代码目录结构规范》守门做法）
-2. **services 分域**：`services/` 根目录禁新增平文件，新域一律 `services/<域>/`（现有 auth/points/shop/orders/catalog/users-admin/images/account/content/progression/forum/status/media/home/notification/stats/settings/seo/sidebar/tools/site 均此模式）；跨域基础服务（审计/outbox/token/账本/积分通知/路由映射/游戏身份）入 `services/shared/`（借鉴 ai-invest 按子域分包、根目录禁平文件）。**域间横向 import 由 eslint-plugin-boundaries 机械拦截**：域服务只能引用 `services/shared/*` 与 `eslint.config.mjs` 中 `ORCHESTRATION_EDGES` 登记的编排边，未登记直接 lint 失败（issue #6）
-3. **RSC 页面禁直连 prisma**：app/ 下页面只做 校验/会话/编排，数据组装收敛 service 层（页面私有取数函数放 `services/<域>/`）
+2. **services 分域**：`services/` 根目录禁新增平文件，新域一律 `services/<域>/`（现有 auth/points/shop/orders/catalog/users-admin/images/account/content/progression/forum/status/media/home/notification/stats/settings/seo/sidebar/tools/site 均此模式）。跨域基础服务**只**入 `services/shared/`、不再单独占业务域目录，当前为审计 `audit`、发信队列 `mail-outbox`、用户 token `user-token`、积分账本 `ledger`、积分通知 `points-notify`、路由映射 `route-map`、游戏身份 `game-identity`、站点身份 `site-identity`、头像 `portrait`（借鉴 ai-invest 按子域分包、根目录禁平文件）。**域间横向 import 由 eslint-plugin-boundaries 机械拦截**：域服务只能引用 `services/shared/*` 与 `eslint.config.mjs` 中 `ORCHESTRATION_EDGES` 登记的编排边，未登记直接 lint 失败（issue #6）
+3. **app 层禁直连 prisma**：app/ 下 RSC 页面与 Route Handler（`src/app/api/**`）只做校验/会话/编排，数据组装一律收敛 service 层（页面私有取数函数放 `services/<域>/`）；`grep -rn 'from "@/lib/db"' src/app` 应为空
 4. **components 准入**：`components/ui/` 只收 ≥2 个消费者的通用组件；页面私有组件与 page 同目录（colocation）；域组件入 `components/<域>/`；禁止另起 `app/_components/` 等第四类目录。展示组件保持无 IO——需要会话/库数据的异步壳放页面层（取数经 `services/<域>/` 的 view 函数，如 `getSidebarView`/`getArchiveView`/`getSiteHeaderView`），组件只接收 props
 5. **业务域服务禁互引**：`services/auth` 与 `services/shop` 等域间不直接 import，经 `services/shared/` 或上层编排（防循环依赖，借鉴 ai-invest）
 6. **配置分域收口**（宪法 v1.0.2）：env 仅存引导级凭据（业务库/Redis 连接串 + SESSION_SECRET），统一经 `lib/env.ts` 校验；游戏四库连接串与业务通道配置（SMTP/SOAP/app.url/Turnstile/COS 等）存业务库 `system_config` 表，统一经 `lib/config.ts` 读取（启动预热 + 进程内缓存；游戏库 client 惰性建连，改连接需重启；管理端改通道配置后调 `reloadSystemConfig`），禁止散点直读 `process.env`、禁止在新代码引入 env 版业务配置
@@ -113,8 +113,8 @@ docs/            # 文档中心
 
 | 对象 | 约定 | 示例 |
 | --- | --- | --- |
-| 文件/目录 | kebab-case | `item-restore.ts` `soap-client/` |
-| React 组件 | PascalCase | `ProductCard.tsx` |
+| 文件/目录（含组件文件） | kebab-case | `item-restore.ts` `product-card.tsx` `soap-client/` |
+| React 组件标识符（导出名） | PascalCase | `export function ProductCard`（文件仍为 `product-card.tsx`） |
 | 函数/变量 | camelCase | `restoreItem()` |
 | 常量/枚举 | UPPER_SNAKE_CASE + `as const` | `ORDER_STATUS.completed` |
 | DB 表/字段 | snake_case（Prisma model PascalCase + `@@map`） | `point_transaction` |

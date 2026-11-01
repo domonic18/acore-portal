@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import TurnstileWidget from "@/components/auth/TurnstileWidget";
+import TurnstileWidget from "@/components/auth/turnstile-widget";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 /** 注册页无密码输入(FR-005):激活链接设密 */

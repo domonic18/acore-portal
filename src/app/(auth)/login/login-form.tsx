@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import TurnstileWidget from "@/components/auth/TurnstileWidget";
+import TurnstileWidget from "@/components/auth/turnstile-widget";
 import { errorMessage, requestJson } from "@/lib/api-client";
 import { safeNextPath } from "@/lib/safe-redirect";
 
