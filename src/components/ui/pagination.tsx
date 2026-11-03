@@ -8,8 +8,8 @@ const TONE_CLASS: Record<
 > = {
   admin: {
     nav: "flex items-center gap-4",
-    link: "text-blue-400 hover:underline",
-    disabled: "text-gray-600",
+    link: "rounded text-[#6fb7e0] hover:text-[#a8d9f5] hover:underline",
+    disabled: "text-[#6482a3]",
     current: "",
   },
   compact: {
@@ -88,12 +88,12 @@ export function AdminPager({
   hint?: string;
 }) {
   return (
-    <div className="flex items-center justify-between text-sm text-gray-500">
+    <div className="flex items-center justify-between text-sm text-[#6482a3]">
       <span>
         共 {total} {unit}
       </span>
       <PaginationNav page={page} totalPages={totalPages} href={href} />
-      {hint && <span className="text-xs text-gray-600">{hint}</span>}
+      {hint && <span className="text-xs text-[#6482a3]/70">{hint}</span>}
     </div>
   );
 }

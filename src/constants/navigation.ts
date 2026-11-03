@@ -79,44 +79,46 @@ export const SITE_NAV: readonly SiteNavItem[] = [
 
 /**
  * 运营后台导航分组(ardot p12 后台外壳:运营/社区/数据/系统)。
+ * icon 为 lucide 图标 key,组件映射在 components/admin/admin-shell.tsx 的
+ * NAV_ICONS(constants 层不引组件);未知 key 回退不渲染。
  * 设计稿另有「来源与搜索/内容与异常/智能客服」,对应功能未落地,不渲染死链。
  */
 export const ADMIN_NAV_GROUPS = [
   {
     label: "运营",
     items: [
-      { href: "/admin", label: "仪表盘" },
-      { href: "/admin/products", label: "商品" },
-      { href: "/admin/categories", label: "分类" },
-      { href: "/admin/orders", label: "订单" },
-      { href: "/admin/invitation-codes", label: "邀请码" },
+      { href: "/admin", label: "仪表盘", icon: "gauge" },
+      { href: "/admin/products", label: "商品", icon: "package" },
+      { href: "/admin/categories", label: "分类", icon: "folder" },
+      { href: "/admin/orders", label: "订单", icon: "receipt" },
+      { href: "/admin/invitation-codes", label: "邀请码", icon: "ticket" },
     ],
   },
   {
     label: "社区",
     items: [
-      { href: "/admin/articles", label: "文章" },
-      { href: "/admin/pages", label: "静态页" },
-      { href: "/admin/media", label: "媒体库" },
-      { href: "/admin/progression", label: "渐进计划" },
-      { href: "/admin/home", label: "首页配置" },
-      { href: "/admin/forum", label: "论坛管理" },
+      { href: "/admin/articles", label: "文章", icon: "newspaper" },
+      { href: "/admin/pages", label: "静态页", icon: "file-text" },
+      { href: "/admin/media", label: "媒体库", icon: "image" },
+      { href: "/admin/progression", label: "渐进计划", icon: "trending-up" },
+      { href: "/admin/home", label: "首页配置", icon: "home" },
+      { href: "/admin/forum", label: "论坛管理", icon: "messages-square" },
     ],
   },
   {
     label: "数据",
     items: [
-      { href: "/admin/stats", label: "看板" },
-      { href: "/admin/review-items", label: "迁移复核" },
+      { href: "/admin/stats", label: "看板", icon: "bar-chart" },
+      { href: "/admin/review-items", label: "迁移复核", icon: "clipboard-check" },
     ],
   },
   {
     label: "系统",
     items: [
-      { href: "/admin/users", label: "用户" },
-      { href: "/admin/server-status", label: "状态配置" },
-      { href: "/admin/sidebar", label: "侧栏入口" },
-      { href: "/admin/settings", label: "设置" },
+      { href: "/admin/users", label: "用户", icon: "users" },
+      { href: "/admin/server-status", label: "状态配置", icon: "server" },
+      { href: "/admin/sidebar", label: "侧栏入口", icon: "panel-left" },
+      { href: "/admin/settings", label: "设置", icon: "settings" },
     ],
   },
 ] as const;
