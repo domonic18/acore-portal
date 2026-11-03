@@ -305,6 +305,31 @@ export default async function AdminStatsPage({
           )}
         </Block>
 
+        <Block title="转化漏斗(24h)" testid="stats-funnel">
+          <div className="flex flex-col gap-2 text-gray-400">
+            <p>
+              商品浏览{" "}
+              <span className="text-lg font-bold text-gray-100">
+                {data.funnel.productView}
+              </span>
+            </p>
+            <p>
+              加入购物车{" "}
+              <span className="text-lg font-bold text-gray-100">{data.funnel.addCart}</span>
+              <span className="ml-2 text-xs text-gray-500">
+                浏览转化 {data.funnel.viewToCart}%
+              </span>
+            </p>
+            <p>
+              下单{" "}
+              <span className="text-lg font-bold text-gray-100">{data.funnel.order}</span>
+              <span className="ml-2 text-xs text-gray-500">
+                加购转化 {data.funnel.cartToOrder}%
+              </span>
+            </p>
+          </div>
+        </Block>
+
         <Block title="Umami 流量(24h)" testid="stats-umami">
           {!data.umami.configured ? (
             <p className="text-gray-500">未接入 Umami(配置 umami 组后生效)。</p>

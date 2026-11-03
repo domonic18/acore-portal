@@ -4,6 +4,7 @@ import { redis } from "@/lib/redis";
 import { POINT_TX_TYPE } from "@/constants/points";
 import { getServerStatus } from "@/server/services/status/status";
 import { getUmamiSummary } from "@/lib/umami";
+import { getConversionFunnel, EMPTY_FUNNEL, type ConversionFunnel } from "./funnel";
 
 /**
  * 统计看板聚合(US4 T026,FR-313/R12):五区块只读查询,
@@ -15,6 +16,7 @@ export type DashboardData = {
   notFoundTop: { path: string; count: number }[];
   orders7d: { count: number; pointsSpent: number };
   users7d: { newRegistered: number };
+  funnel: ConversionFunnel;
   umami: Awaited<ReturnType<typeof getUmamiSummary>>;
 };
 
@@ -52,7 +54,7 @@ async function notFoundTop(): Promise<{ path: string; count: number }[]> {
 export async function getDashboard(): Promise<DashboardData> {
   const since = new Date(Date.now() - 7 * 24 * 3600 * 1000);
 
-  const [status, articleTop, notFound, orderCount, spentAgg, newRegistered, umami] =
+  const [status, articleTop, notFound, orderCount, spentAgg, newRegistered, funnel, umami] =
     await Promise.all([
       getServerStatus().catch(() => null),
       prisma.article
@@ -76,6 +78,7 @@ export async function getDashboard(): Promise<DashboardData> {
         })
         .catch(() => ({ _sum: { amount: null } })),
       prisma.user.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+      getConversionFunnel().catch(() => EMPTY_FUNNEL),
       getUmamiSummary(),
     ]);
 
@@ -91,6 +94,7 @@ export async function getDashboard(): Promise<DashboardData> {
     notFoundTop: notFound,
     orders7d: { count: orderCount, pointsSpent: Math.abs(spentAgg._sum.amount ?? 0) },
     users7d: { newRegistered },
+    funnel,
     umami,
   };
 }
