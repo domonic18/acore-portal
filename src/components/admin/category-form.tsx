@@ -39,11 +39,11 @@ export function CategoryForm() {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex w-full flex-col gap-1 text-sm sm:w-auto sm:min-w-[200px]">
           <span className="text-[#93b2ce]">名称</span>
           <Input value={name} onChange={(e) => setName(e.target.value)} />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex w-full flex-col gap-1 text-sm sm:w-auto sm:min-w-[200px]">
           <span className="text-[#93b2ce]">slug</span>
           <Input value={slug} onChange={(e) => setSlug(e.target.value)} />
         </label>

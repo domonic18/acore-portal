@@ -15,7 +15,7 @@ export default async function AdminCategoriesPage() {
           暂无分类,先在上方新增一个。
         </p>
       ) : (
-        <Table>
+        <Table minWidth="min-w-0">
           <THead>
             <tr>
               <Th>名称</Th>

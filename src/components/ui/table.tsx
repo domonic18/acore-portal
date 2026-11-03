@@ -4,13 +4,16 @@ import { FOCUS_RING } from "./admin-tokens";
 export function Table({
   className = "",
   children,
+  minWidth = "min-w-[680px]",
 }: {
   className?: string;
   children: React.ReactNode;
+  /** 窄屏横滚的最小表宽;少列表格可传 min-w-0 免滚动 */
+  minWidth?: string;
 }) {
   return (
     <div className={`overflow-x-auto rounded-xl border border-[#22385a] ${className}`}>
-      <table className="w-full min-w-[680px] border-collapse text-[13px] text-[#dcebf7]">
+      <table className={`w-full ${minWidth} border-collapse text-[13px] text-[#dcebf7]`}>
         {children}
       </table>
     </div>
