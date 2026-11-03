@@ -159,7 +159,7 @@ export function ProductQuickEditRow({ product }: { product: QuickEditProduct }) 
             </span>
           )}
         </td>
-        <td className="px-3 py-2.5">
+        <td className="whitespace-nowrap px-3 py-2.5">
           <Link
             href={`/admin/products/${product.id}`}
             className="rounded text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60"
@@ -172,10 +172,10 @@ export function ProductQuickEditRow({ product }: { product: QuickEditProduct }) 
             </Badge>
           )}
         </td>
-        <td className="px-3 py-2.5 font-mono text-xs text-[#6482a3]">{product.sku}</td>
-        <td className="px-3 py-2.5 text-[#93b2ce]">{product.categoryName}</td>
-        <td className="px-3 py-2.5 text-[#e8c877]">{product.price}</td>
-        <td className="px-3 py-2.5">
+        <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs text-[#6482a3]">{product.sku}</td>
+        <td className="whitespace-nowrap px-3 py-2.5 text-[#93b2ce]">{product.categoryName}</td>
+        <td className="whitespace-nowrap px-3 py-2.5 text-[#e8c877]">{product.price}</td>
+        <td className="whitespace-nowrap px-3 py-2.5">
           {product.stockEnabled ? (
             <span className={product.lowStock ? "font-semibold text-[#e8c877]" : "text-[#c4d9ec]"}>
               {product.stock}
@@ -185,7 +185,7 @@ export function ProductQuickEditRow({ product }: { product: QuickEditProduct }) 
             <span className="text-[#6482a3]">不限</span>
           )}
         </td>
-        <td className="px-3 py-2.5">
+        <td className="whitespace-nowrap px-3 py-2.5">
           <Badge tone={product.status === "published" ? "ok" : "muted"}>
             {product.status === "published" ? "已发布" : "草稿"}
           </Badge>
@@ -195,7 +195,7 @@ export function ProductQuickEditRow({ product }: { product: QuickEditProduct }) 
             </Badge>
           )}
         </td>
-        <td className="px-3 py-2.5">
+        <td className="whitespace-nowrap px-3 py-2.5">
           <div className="flex flex-wrap items-center gap-1.5">
             <Button variant="ghost" size="sm" onClick={startEdit} aria-expanded={open}>
               快速编辑
