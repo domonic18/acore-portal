@@ -2,7 +2,9 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { PRODUCT_STATUS } from "@/constants/shop";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
+import { CONVERSION_EVENT } from "@/constants/conversion";
 import { writeAudit } from "@/server/services/shared/audit";
+import { recordConversion } from "@/server/services/shared/conversion";
 import {
   GameDbError,
   characterOwnedBy,
@@ -102,6 +104,12 @@ export async function addToCart(input: {
   const twin = rows.find((r) => normalizeCartParams(r.params as CartParams) === paramsKey);
   if (twin) {
     await prisma.cartItem.update({ where: { id: twin.id }, data: { qty: { increment: qty } } });
+    await recordConversion({
+      type: CONVERSION_EVENT.ADD_CART,
+      productId: input.productId,
+      userId: input.userId,
+      qty,
+    });
     return { ok: true, cartCount: rows.length };
   }
   await prisma.cartItem.create({
@@ -111,6 +119,12 @@ export async function addToCart(input: {
       qty,
       params: validated.params,
     },
+  });
+  await recordConversion({
+    type: CONVERSION_EVENT.ADD_CART,
+    productId: input.productId,
+    userId: input.userId,
+    qty,
   });
   return { ok: true, cartCount: rows.length + 1 };
 }

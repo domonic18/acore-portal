@@ -3,10 +3,12 @@ import type { Prisma } from "@/generated/business";
 import { prisma } from "@/lib/db";
 import { ORDER_STATUS, PRODUCT_STATUS } from "@/constants/shop";
 import { POINT_TX_TYPE } from "@/constants/points";
+import { CONVERSION_EVENT } from "@/constants/conversion";
 import { effectivePrice } from "@/server/services/catalog/products";
 import { getUserPurchasedQty } from "@/server/services/catalog/purchase-limit";
 import { debitLedger, LedgerError } from "@/server/services/shared/ledger";
 import { resolveGameAccountId } from "@/server/services/shared/game-identity";
+import { recordConversion } from "@/server/services/shared/conversion";
 import { validateCartParams } from "./param-schemas";
 import type { ValidatedCartParams } from "./param-schemas";
 import { resolveHandler } from "./handlers/registry";
@@ -222,6 +224,20 @@ async function checkoutOnce(userId: bigint): Promise<CheckoutResult> {
         data: { stock: { decrement: r.qty } },
       });
       if (updated.count === 0) throw new CheckoutError("OUT_OF_STOCK");
+    }
+
+    // 转化埋点(order 事件,每行商品一条):同事务但吞错,观测数据不回滚订单
+    for (const r of rows) {
+      await recordConversion(
+        {
+          type: CONVERSION_EVENT.ORDER,
+          productId: r.productId,
+          userId,
+          qty: r.qty,
+          orderId: order.id,
+        },
+        tx,
+      );
     }
 
     await tx.cartItem.deleteMany({ where: { userId } });

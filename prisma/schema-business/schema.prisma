@@ -773,3 +773,27 @@ model SidebarLink {
   @@index([cardId, sort])
   @@map("sidebar_link")
 }
+
+/// 转化漏斗事件类型(业务转化自建埋点;流量层归 Umami,不在此表)
+enum ConversionEventType {
+  product_view // 商品详情页浏览(匿名可报,客户端 beacon)
+  add_cart // 加入购物车成功(合并/新建两分支各记一次)
+  order // 下单成功(每订单商品一行,orderId 回溯)
+
+  @@map("conversion_event_type")
+}
+
+/// 转化事件(product_view→add_cart→order;productId 不建 FK,商品可删历史保留)
+model ConversionEvent {
+  id        BigInt              @id @default(autoincrement())
+  type      ConversionEventType
+  productId BigInt              @map("product_id")
+  userId    BigInt?             @map("user_id")
+  qty       Int?
+  orderId   BigInt?             @map("order_id")
+  createdAt DateTime            @default(now()) @map("created_at") @db.DateTime(3)
+
+  @@index([type, createdAt])
+  @@index([productId, createdAt])
+  @@map("conversion_event")
+}
