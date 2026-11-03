@@ -37,7 +37,7 @@ export default async function AdminPagesPage() {
           <tbody>
             {items.map((p) => (
               <Tr key={p.id}>
-                <Td>
+                <Td className="whitespace-nowrap">
                   <Link href={`/admin/pages/${p.id}`} className={linkCls}>
                     {p.title}
                   </Link>

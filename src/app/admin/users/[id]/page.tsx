@@ -119,19 +119,19 @@ export default async function AdminUserDetailPage({
             <tbody>
               {user.recentTransactions.map((t) => (
                 <Tr key={t.id}>
-                  <Td className="text-[#dcebf7]">
+                  <Td className="whitespace-nowrap text-[#dcebf7]">
                     {POINT_TX_TYPE_LABEL[t.type] ?? t.type}
                   </Td>
                   <Td
-                    className={`font-mono ${
+                    className={`whitespace-nowrap font-mono ${
                       t.amount >= 0 ? "text-[#6ee7b7]" : "text-[#eda9a9]"
                     }`}
                   >
                     {t.amount >= 0 ? `+${t.amount}` : t.amount}
                   </Td>
-                  <Td className="text-[#dcebf7]">{t.balanceAfter}</Td>
-                  <Td className="text-[#6482a3]">{t.remark ?? "—"}</Td>
-                  <Td className="text-xs text-[#6482a3]">
+                  <Td className="whitespace-nowrap text-[#dcebf7]">{t.balanceAfter}</Td>
+                  <Td className="min-w-0 text-[#6482a3]">{t.remark ?? "—"}</Td>
+                  <Td className="whitespace-nowrap text-xs text-[#6482a3]">
                     {new Date(t.createdAt).toLocaleString("zh-CN")}
                   </Td>
                 </Tr>

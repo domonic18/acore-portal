@@ -52,7 +52,7 @@ export default async function AdminProductsPage({
           </p>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-[#22385a]">
-            <table className="w-full border-collapse text-[13px] text-[#dcebf7]">
+            <table className="w-full min-w-[680px] border-collapse text-[13px] text-[#dcebf7]">
               <thead className="bg-[#13233a]/80 text-left">
                 <tr>
                   <th className="border-b border-[#22385a] px-3 py-2.5 text-xs font-normal text-[#6482a3]">

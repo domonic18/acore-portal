@@ -164,7 +164,7 @@ async function ThreadsSection({
           没有匹配的主题。
         </p>
       ) : (
-        <Table>
+        <Table minWidth="min-w-[860px]">
           <THead>
             <tr>
               <Th>标题</Th>
@@ -188,16 +188,16 @@ async function ThreadsSection({
                     {t.pinned && <PinnedBadge />} {t.title}
                   </Link>
                 </Td>
-                <Td className="text-[#93b2ce]">{t.boardName}</Td>
-                <Td className="text-[#93b2ce]">{t.authorName}</Td>
+                <Td className="whitespace-nowrap text-[#93b2ce]">{t.boardName}</Td>
+                <Td className="whitespace-nowrap text-[#93b2ce]">{t.authorName}</Td>
                 <Td>
                   <ThreadStatusBadge
                     statusLabel={t.statusLabel as "none" | "standard" | "resolved" | "closed"}
                     closedAt={t.closedAt ? new Date(t.closedAt) : null}
                   />
                 </Td>
-                <Td className="text-[#93b2ce]">{t.replyCount}</Td>
-                <Td className="text-xs text-[#6482a3]">
+                <Td className="whitespace-nowrap text-[#93b2ce]">{t.replyCount}</Td>
+                <Td className="whitespace-nowrap text-xs text-[#6482a3]">
                   {new Date(t.lastPostAt).toLocaleString("zh-CN")}
                 </Td>
                 <Td>
