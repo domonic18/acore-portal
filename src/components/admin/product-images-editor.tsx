@@ -5,6 +5,8 @@ import {
   MediaAssetList,
   uploadMediaFiles,
 } from "@/components/admin/media-library";
+import { Button } from "@/components/ui/button";
+import { FOCUS_RING } from "@/components/ui/admin-tokens";
 
 /** 商品图分类(对齐旧站 FileBird 一级文件夹;媒体库列表/上传均默认落此分类) */
 const PRODUCT_CATEGORY = "商店配图";
@@ -58,14 +60,14 @@ export function ProductImagesEditor({
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-gray-300">商品图片(首图=主图,最多 20 张)</span>
+      <span className="text-[#93b2ce]">商品图片(首图=主图,最多 20 张)</span>
       {images.length > 0 && (
         <ul className="flex flex-wrap gap-2">
           {images.map((url, i) => (
             <li
               key={`${url}-${i}`}
               data-testid={`product-image-item-${i}`}
-              className="flex w-28 flex-col gap-1 rounded border border-gray-700 p-1"
+              className="flex w-28 flex-col gap-1 rounded-lg border border-[#22385a] bg-[#13233a] p-1"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -79,7 +81,7 @@ export function ProductImagesEditor({
                   type="button"
                   onClick={() => move(i, i - 1)}
                   disabled={i === 0}
-                  className="text-gray-300 disabled:opacity-30"
+                  className={`rounded text-[#93b2ce] hover:text-[#dcebf7] disabled:opacity-30 ${FOCUS_RING}`}
                   aria-label="上移"
                 >
                   ↑
@@ -88,7 +90,7 @@ export function ProductImagesEditor({
                   type="button"
                   onClick={() => move(i, i + 1)}
                   disabled={i === images.length - 1}
-                  className="text-gray-300 disabled:opacity-30"
+                  className={`rounded text-[#93b2ce] hover:text-[#dcebf7] disabled:opacity-30 ${FOCUS_RING}`}
                   aria-label="下移"
                 >
                   ↓
@@ -96,7 +98,7 @@ export function ProductImagesEditor({
                 <button
                   type="button"
                   onClick={() => onChange(images.filter((_, j) => j !== i))}
-                  className="text-red-400"
+                  className={`rounded text-[#eda9a9] hover:text-[#f3c5c5] ${FOCUS_RING}`}
                   aria-label="移除"
                 >
                   移除
@@ -114,25 +116,26 @@ export function ProductImagesEditor({
           multiple
           disabled={busy}
           onChange={(e) => handleUpload(e.target.files)}
-          className="text-xs text-gray-300"
+          className="text-xs text-[#93b2ce]"
           aria-label="上传商品图片"
         />
-        <button
+        <Button
           type="button"
+          variant="secondary"
+          size="sm"
           onClick={() => setPickerOpen((v) => !v)}
-          className="rounded border border-gray-600 px-2 py-1 text-xs text-gray-200 hover:border-gray-400"
         >
           {pickerOpen ? "收起媒体库" : "从媒体库选择"}
-        </button>
-        {busy && <span className="text-xs text-gray-400">上传中…</span>}
+        </Button>
+        {busy && <span className="text-xs text-[#93b2ce]">上传中…</span>}
       </div>
       {error && (
-        <p role="alert" className="text-xs text-red-400">
+        <p role="alert" className="text-xs text-[#eda9a9]">
           {error}
         </p>
       )}
       {pickerOpen && (
-        <div className="max-h-72 overflow-y-auto rounded border border-gray-700 p-2">
+        <div className="max-h-72 overflow-y-auto rounded-lg border border-[#22385a] bg-[#0b1526] p-2">
           <MediaAssetList
             refreshKey={refreshKey}
             defaultCategory={PRODUCT_CATEGORY}

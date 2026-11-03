@@ -91,6 +91,34 @@ export async function getAdminOrderDetail(id: bigint) {
   });
 }
 
+/** 仪表盘最新订单(只读,limit 1-20) */
+export async function getRecentOrders(limit = 8) {
+  const take = Math.min(Math.max(limit, 1), 20);
+  const rows = await prisma.order.findMany({
+    orderBy: { id: "desc" },
+    take,
+    select: {
+      id: true,
+      orderNo: true,
+      status: true,
+      pointCost: true,
+      createdAt: true,
+      user: { select: { username: true, nickname: true } },
+      _count: { select: { items: true } },
+    },
+  });
+  return rows.map((o) => ({
+    id: o.id.toString(),
+    orderNo: o.orderNo,
+    username: o.user.username,
+    nickname: o.user.nickname,
+    status: o.status as OrderStatusValue,
+    pointCost: o.pointCost,
+    itemCount: o._count.items,
+    createdAt: o.createdAt.toISOString(),
+  }));
+}
+
 /** D3 复核清单(api-admin 契约;T062):resolved=0 待复核(默认)/1 已落定/all 全部 */
 export async function listMigrationReviews(opts: {
   resolved?: "0" | "1" | "all";

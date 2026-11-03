@@ -4,6 +4,7 @@ import { createContext, useContext, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHydrated } from "@/lib/use-hydrated";
 import { errorMessage, requestJson } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
 
 /**
  * 商品列表批量选择(二期商城增强):Provider 持选中态,
@@ -69,7 +70,7 @@ export function ProductSelectAllCheckbox() {
       aria-label="全选商品"
       checked={allSelected}
       onChange={toggleAll}
-      className="align-middle"
+      className="align-middle accent-[#6fb7e0]"
     />
   );
 }
@@ -82,7 +83,7 @@ export function ProductRowCheckbox({ id }: { id: string }) {
       aria-label={`选择商品 ${id}`}
       checked={selected.has(id)}
       onChange={() => toggle(id)}
-      className="align-middle"
+      className="align-middle accent-[#6fb7e0]"
     />
   );
 }
@@ -128,20 +129,21 @@ export function ProductBatchToolbar() {
       data-testid="product-batch-toolbar"
       className="flex flex-wrap items-center gap-2 text-sm"
     >
-      <span className="text-gray-400">已选 {selected.size} 件</span>
+      <span className="text-[#93b2ce]">已选 {selected.size} 件</span>
       {ACTIONS.map((a) => (
-        <button
+        <Button
           key={a.action}
           type="button"
+          variant="secondary"
+          size="sm"
           disabled={busy || !hydrated || selected.size === 0}
           onClick={() => void run(a.action)}
-          className="rounded border border-gray-600 px-3 py-1 text-gray-300 hover:bg-gray-800 disabled:opacity-40"
         >
           {a.label}
-        </button>
+        </Button>
       ))}
-      {message && <span className="text-xs text-green-400">{message}</span>}
-      {error && <span className="text-xs text-red-400">{error}</span>}
+      {message && <span className="text-xs text-[#6ee7b7]">{message}</span>}
+      {error && <span className="text-xs text-[#eda9a9]">{error}</span>}
     </div>
   );
 }

@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { errorMessage, requestJson } from "@/lib/api-client";
 import { MarkdownEditor } from "@/components/admin/markdown-editor";
 import { ProductImagesEditor } from "@/components/admin/product-images-editor";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Input, Select, Textarea } from "@/components/ui/input";
 
 /**
  * 商品新建/编辑表单(api-admin POST·PATCH /api/admin/products):
@@ -33,8 +36,6 @@ export type ProductFormValues = {
   status: string;
   listed: boolean;
 };
-
-const inputCls = "rounded border border-gray-700 bg-gray-900 px-3 py-2 text-white";
 
 export function ProductForm({
   initial,
@@ -90,124 +91,120 @@ export function ProductForm({
   return (
     <div className="flex max-w-3xl flex-col gap-3 text-sm">
       <label className="flex flex-col gap-1">
-        <span className="text-gray-300">类型</span>
-        <select value={values.type} onChange={(e) => set("type", e.target.value)} className={inputCls}>
+        <span className="text-[#93b2ce]">类型</span>
+        <Select value={values.type} onChange={(e) => set("type", e.target.value)} className="w-auto">
           <option value="game_item">物品类</option>
           <option value="service">服务类</option>
-        </select>
+        </Select>
       </label>
       <label className="flex flex-col gap-1">
-        <span className="text-gray-300">SKU({isGame ? "itemsend_{物品ID}" : "处理器键,如 char-change-race"})</span>
-        <input value={values.sku} onChange={(e) => set("sku", e.target.value)} className={inputCls} />
+        <span className="text-[#93b2ce]">SKU({isGame ? "itemsend_{物品ID}" : "处理器键,如 char-change-race"})</span>
+        <Input value={values.sku} onChange={(e) => set("sku", e.target.value)} />
       </label>
       {isGame && (
         <label className="flex flex-col gap-1">
-          <span className="text-gray-300">游戏物品 ID(world.item_template entry)</span>
-          <input
+          <span className="text-[#93b2ce]">游戏物品 ID(world.item_template entry)</span>
+          <Input
             type="number"
             value={values.gameItemId ?? ""}
             onChange={(e) => set("gameItemId", e.target.value === "" ? null : Number(e.target.value))}
-            className={inputCls}
           />
         </label>
       )}
       <label className="flex flex-col gap-1">
-        <span className="text-gray-300">名称</span>
-        <input value={values.name} onChange={(e) => set("name", e.target.value)} className={inputCls} />
+        <span className="text-[#93b2ce]">名称</span>
+        <Input value={values.name} onChange={(e) => set("name", e.target.value)} />
       </label>
       <label className="flex flex-col gap-1">
-        <span className="text-gray-300">别名 slug(小写字母/数字/连字符)</span>
-        <input value={values.slug} onChange={(e) => set("slug", e.target.value)} className={inputCls} />
+        <span className="text-[#93b2ce]">别名 slug(小写字母/数字/连字符)</span>
+        <Input value={values.slug} onChange={(e) => set("slug", e.target.value)} />
       </label>
       <label className="flex flex-col gap-1">
-        <span className="text-gray-300">分类</span>
-        <select
+        <span className="text-[#93b2ce]">分类</span>
+        <Select
           value={values.categoryId}
           onChange={(e) => set("categoryId", e.target.value)}
-          className={inputCls}
+          className="w-auto"
         >
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       <label className="flex flex-col gap-1">
-        <span className="text-gray-300">描述</span>
-        <textarea
+        <span className="text-[#93b2ce]">描述</span>
+        <Textarea
           value={values.description}
           onChange={(e) => set("description", e.target.value)}
           rows={3}
-          className={inputCls}
         />
       </label>
       <ProductImagesEditor images={values.images} onChange={(v) => set("images", v)} />
       <div className="flex flex-col gap-1">
-        <span className="text-gray-300">详情(Markdown,支持粘贴/选择图片;留空=详情页显示描述)</span>
+        <span className="text-[#93b2ce]">详情(Markdown,支持粘贴/选择图片;留空=详情页显示描述)</span>
         <MarkdownEditor value={values.detailMd} onChange={(v) => set("detailMd", v)} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1">
-          <span className="text-gray-300">原价(积分)</span>
-          <input
+          <span className="text-[#93b2ce]">原价(积分)</span>
+          <Input
             type="number"
             min={0}
             value={values.price}
             onChange={(e) => set("price", Number(e.target.value) || 0)}
-            className={inputCls}
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-gray-300">促销价(留空=无促销)</span>
-          <input
+          <span className="text-[#93b2ce]">促销价(留空=无促销)</span>
+          <Input
             type="number"
             min={0}
             value={values.salePrice ?? ""}
             onChange={(e) =>
               set("salePrice", e.target.value === "" ? null : Number(e.target.value) || 0)
             }
-            className={inputCls}
           />
         </label>
       </div>
       <div className="flex items-center gap-6">
         <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
+          <Switch
             checked={values.stockEnabled}
-            onChange={(e) => set("stockEnabled", e.target.checked)}
+            onChange={(v) => set("stockEnabled", v)}
+            ariaLabel="启用库存管理"
           />
-          <span className="text-gray-300">启用库存管理</span>
+          <span className="text-[#93b2ce]">启用库存管理</span>
         </label>
         {values.stockEnabled && (
           <>
             <label className="flex items-center gap-2">
-              <span className="text-gray-300">库存</span>
-              <input
+              <span className="text-[#93b2ce]">库存</span>
+              <Input
                 type="number"
                 min={0}
                 value={values.stock ?? 0}
                 onChange={(e) => set("stock", Number(e.target.value) || 0)}
-                className={`${inputCls} w-24`}
+                className="w-24"
               />
             </label>
             <label className="flex items-center gap-2">
-              <span className="text-gray-300">低库存阈值</span>
-              <input
+              <span className="text-[#93b2ce]">低库存阈值</span>
+              <Input
                 type="number"
                 min={0}
                 value={values.lowStockThreshold ?? 1}
                 onChange={(e) => set("lowStockThreshold", Number(e.target.value) || 0)}
-                className={`${inputCls} w-20`}
+                className="w-20"
               />
             </label>
           </>
         )}
       </div>
       <label className="flex items-center gap-2">
-        <span className="text-gray-300">每人限购(留空=不限购)</span>
-        <input
+        <span className="text-[#93b2ce]">每人限购(留空=不限购)</span>
+        <Input
           type="number"
           min={1}
           value={values.maxPerUser ?? ""}
@@ -219,43 +216,38 @@ export function ProductForm({
                 : Math.max(1, Math.floor(Number(e.target.value) || 1)),
             )
           }
-          className={`${inputCls} w-24`}
+          className="w-24"
         />
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-[#6482a3]">
           按用户累计已购件数(不含已取消/退款单)
         </span>
       </label>
       <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1">
-          <span className="text-gray-300">状态</span>
-          <select
+          <span className="text-[#93b2ce]">状态</span>
+          <Select
             value={values.status}
             onChange={(e) => set("status", e.target.value)}
-            className={inputCls}
+            className="w-auto"
           >
             <option value="draft">草稿</option>
             <option value="published">已发布</option>
-          </select>
+          </Select>
         </label>
         <label className="flex items-center gap-2 self-end">
-          <input
-            type="checkbox"
+          <Switch
             checked={values.listed}
-            onChange={(e) => set("listed", e.target.checked)}
+            onChange={(v) => set("listed", v)}
+            ariaLabel="目录可见"
           />
-          <span className="text-gray-300">目录可见(listed)</span>
+          <span className="text-[#93b2ce]">目录可见(listed)</span>
         </label>
       </div>
-      <button
-        type="button"
-        onClick={submit}
-        disabled={busy}
-        className="w-fit rounded bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-      >
+      <Button type="button" variant="primary" onClick={submit} disabled={busy} className="w-fit px-6 py-2 text-sm">
         {busy ? "保存中…" : "保存"}
-      </button>
+      </Button>
       {error && (
-        <p role="alert" className="text-sm text-red-400">
+        <p role="alert" className="text-sm text-[#eda9a9]">
           {error}
         </p>
       )}
