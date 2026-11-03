@@ -1,26 +1,18 @@
 import { requireAdmin } from "@/server/session-guard";
-import { getAdminBadgeCounts } from "@/server/services/stats/admin";
 import { getAdminDisplayName } from "@/server/services/users-admin/admin";
 import { AdminShell } from "@/components/admin/admin-shell";
 
 /**
  * 后台布局守卫(FR-125):requireAdmin 一次覆盖全部子页,moderator/user/未登录
- * 重定向首页并记审计;外壳按 p12 设计稿(分组侧栏/顶栏告警/内容区),
- * 低库存与发货异常计数注入顶栏(FR-128)。
+ * 重定向首页并记审计。低库存/发货异常告警收敛到仪表盘计数卡+横幅
+ * (2026-11-03 用户反馈:状态不应显示在导航区域),顶栏只留面包屑+管理员。
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await requireAdmin();
-  const [counts, adminName] = await Promise.all([
-    getAdminBadgeCounts(),
-    getAdminDisplayName(BigInt(session.userId)),
-  ]);
+  const adminName = await getAdminDisplayName(BigInt(session.userId));
 
   return (
-    <AdminShell
-      adminName={adminName}
-      lowStock={counts.lowStock}
-      deliveryFailed={counts.deliveryFailed}
-    >
+    <AdminShell adminName={adminName}>
       {children}
     </AdminShell>
   );
