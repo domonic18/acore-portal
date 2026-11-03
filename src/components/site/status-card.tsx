@@ -46,11 +46,9 @@ export function StatusCard({ initial }: { initial: ServerStatusResult }) {
   const allyPct = factionTotal > 0 ? ((status.allianceCount ?? 0) / factionTotal) * 100 : 50;
   const online = status.online;
 
+  // 2026-11-04 #42:移除 今日峰值/稳定运行/角色总数,仅保留当前阶段
   const chips: { label: string; testid: string; value: string; gold?: boolean }[] = [
-    { label: "今日峰值", testid: "status-peak", value: fmt(status.todayPeak) },
-    { label: "稳定运行", testid: "status-uptime", value: status.uptimeText ?? "--" },
     { label: "当前阶段", testid: "status-stage", value: status.currentStage ?? "待定", gold: true },
-    { label: "角色总数", testid: "status-char-total", value: fmt(status.charTotal) },
   ];
 
   return (

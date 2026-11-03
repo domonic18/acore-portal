@@ -10,7 +10,6 @@ import Redis from "ioredis";
  */
 // dev compose 的 soap-mock 宿主端口 17878(7878 让位真机 worldserver)
 const MOCK_BASE = process.env.SOAP_MOCK_URL ?? "http://localhost:17878";
-const UPTIME_SAMPLE = "3 days, 4 hours, 12 minutes";
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6381/0");
 
 async function setMockMode(mode: "normal" | "failure") {
@@ -35,7 +34,6 @@ test("状态卡正常渲染:mock 样例字段+种子阶段+无降级徽标", asy
   await expect(card).toBeVisible();
   await expect(page.getByTestId("status-online-count")).toHaveText(/^\d+$/);
   await expect(page.getByTestId("status-faction")).toHaveText(/^\d+ : \d+$/);
-  await expect(page.getByTestId("status-uptime")).toHaveText(UPTIME_SAMPLE);
   await expect(page.getByTestId("status-stage")).toHaveText("第二阶段·熔火之心");
   await expect(page.getByTestId("status-degraded")).toHaveCount(0);
 });
@@ -55,14 +53,12 @@ test("降级徽标:探针失败回退上次成功值(数据延迟+缓存保留)"
   await setMockMode("normal");
   await resetProbeCache();
   await page.goto("/"); // 冷探针成功:写入缓存与 lastok
-  await expect(page.getByTestId("status-uptime")).toHaveText(UPTIME_SAMPLE);
   await expect(page.getByTestId("status-degraded")).toHaveCount(0);
 
   await setMockMode("failure");
   await redis.del("status:probe"); // 保 lastok → 回退渲染路径
   await page.reload();
   await expect(page.getByTestId("status-degraded")).toBeVisible();
-  await expect(page.getByTestId("status-uptime")).toHaveText(UPTIME_SAMPLE);
 });
 
 test("冷启动失败两态渲染:数字 -- / 离线", async ({ page }) => {

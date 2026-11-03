@@ -32,7 +32,7 @@ const QUICK_LINKS: { title: string; links: { label: string; href: string }[] }[]
       { label: "注册方法", href: "/register" },
       { label: "渐进计划", href: "/progression" },
       { label: "硬核模式", href: "/hardcore-mode" },
-      { label: "规范要求", href: "/agreement" },
+      { label: "规范要求", href: "/post/网站规范" },
     ],
   },
   {

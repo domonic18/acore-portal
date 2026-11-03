@@ -31,10 +31,10 @@ function MiniCard({
       <span className="shrink-0 text-[#6fb7e0] [&>svg]:h-4.5 [&>svg]:w-4.5">{icon}</span>
       <span className="min-w-0">
         <span className="block text-lg font-bold leading-6 text-[#dcebf7]">{value}</span>
-        <span className="block text-[11.5px] text-[#6482a3]">
-          {label}
-          {hint && <span className="ml-1 text-[#6482a3]/70">{hint}</span>}
-        </span>
+        <span className="block whitespace-nowrap text-[11.5px] text-[#6482a3]">{label}</span>
+        {hint && (
+          <span className="mt-0.5 block whitespace-nowrap text-[11px] text-[#6482a3]/80">{hint}</span>
+        )}
       </span>
     </div>
   );
@@ -58,7 +58,7 @@ export function DashboardSummaryRow({
     { label: "下单", value: funnel.order, rate: `${funnel.cartToOrder}%` },
   ];
   return (
-    <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
       <MiniCard
         icon={<ShoppingCart />}
         value={orders7d.count}
@@ -74,7 +74,7 @@ export function DashboardSummaryRow({
       />
       <div
         data-testid="admin-funnel-strip"
-        className="flex items-center gap-1 rounded-xl border border-[#22385a] bg-[#13233a] px-2.5 py-3 text-[11.5px]"
+        className="flex flex-wrap items-center gap-x-1 gap-y-0.5 rounded-xl border border-[#22385a] bg-[#13233a] px-2.5 py-3 text-[11.5px]"
       >
         <ClipboardList aria-hidden="true" className="mr-0.5 h-4 w-4 shrink-0 text-[#6fb7e0]" />
         {steps.map((s, i) => (

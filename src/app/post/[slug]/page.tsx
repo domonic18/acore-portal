@@ -96,7 +96,7 @@ export default async function PostPage({
             {toc.length > 0 && (
               <nav
                 aria-label="目录"
-                className="mt-6 rounded-xl border border-[#22385a] bg-[#0d1828] p-5"
+                className="mt-6 hidden rounded-xl border border-[#22385a] bg-[#0d1828] p-5 sm:block"
               >
                 <p className="mb-3 flex items-center gap-2.5 text-[14px] font-semibold text-[#a8d9f5]">
                   <span
@@ -107,7 +107,7 @@ export default async function PostPage({
                 </p>
                 <ul className="grid gap-1.5 sm:grid-cols-2">
                   {toc.map((item) => (
-                    <li key={item.id} style={{ paddingLeft: (item.depth - 2) * 16 }}>
+                    <li key={item.id}>
                       <a
                         href={`#${item.id}`}
                         className="text-[13.5px] text-[#93b2ce] hover:text-[#6fb7e0]"
