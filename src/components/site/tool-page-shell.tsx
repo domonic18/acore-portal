@@ -59,7 +59,7 @@ export function ToolPageShell({
       {page.tabs && (
         <nav
           aria-label="数据库工具切换"
-          className="mt-3 flex items-center gap-1.5 lg:mt-4 lg:gap-2.5"
+          className="mt-3 flex items-center gap-1.5 rounded-xl border border-[#22385a] bg-[#13233a] px-3 py-2 lg:mt-4 lg:gap-2.5 lg:px-4"
         >
           {TOOL_DATABASE_TABS.map((tab) => {
             const active = tab.path === activePath;
