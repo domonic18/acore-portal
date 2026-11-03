@@ -8,7 +8,7 @@ import { PrismaClient } from "../../src/generated/business";
  * ① 权限口径:游客与 user 访问 /admin/stats → edge 角色校验拦截回登录页;
  * ② 404 采集闭环:浏览器访问不存在路径 → 全局 404 页 beacon 上报 →
  *    admin 看板「404 路径 Top 10」出现该路径(FR-312 端到端);
- * ③ 看板整页:ADMIN_NAV「看板」入口+区块齐备(含二期流量趋势/来源设备平台/百度蜘蛛)
+ * ③ 看板整页:ADMIN_NAV「看板」入口+区块齐备(含转化漏斗/二期流量趋势/来源设备平台/百度蜘蛛)
  *    +手动刷新+umami 未配置降级文案。
  * umami 配置行用前暂存/用后还原(不吞 T028 联调配置);redis 404 键跑前全清、自家键用后 hdel。
  */
@@ -103,7 +103,7 @@ test.describe("US4 统计看板(T027)", () => {
     await expect(block).toContainText(MISSING_PATH);
   });
 
-  test("看板整页:ADMIN_NAV 入口+五区块+手动刷新+umami 未配置降级(SC-306)", async ({
+  test("看板整页:ADMIN_NAV 入口+六区块+手动刷新+umami 未配置降级(SC-306)", async ({
     page,
   }) => {
     await login(page, "m1admin", "adminpass123");
@@ -119,6 +119,7 @@ test.describe("US4 统计看板(T027)", () => {
       "stats-product-sales",
       "stats-notfound-top",
       "stats-trade",
+      "stats-funnel",
       "stats-traffic-trend",
       "stats-traffic-source",
       "stats-spider",
