@@ -23,7 +23,7 @@ import { getSidebarView } from "@/server/services/sidebar/view";
 
 /**
  * 快捷入口(设计稿 qlinks 六行,对齐生产原站链接):下载项走教程页锚点,
- * 高清端/解压/登录问题/补丁生效/插件教程落迁移后的文章详情页。
+ * 高清端/解压/登录问题/补丁生效已升格为静态页(硬核模式同),插件教程仍落文章详情页。
  */
 const QUICK_LINKS: { title: string; links: { label: string; href: string }[] }[] = [
   {
@@ -31,7 +31,7 @@ const QUICK_LINKS: { title: string; links: { label: string; href: string }[] }[]
     links: [
       { label: "注册方法", href: "/register" },
       { label: "渐进计划", href: "/progression" },
-      { label: "硬核模式", href: "/post/硬核挑战模式一命模式" },
+      { label: "硬核模式", href: "/hardcore-mode" },
       { label: "规范要求", href: "/agreement" },
     ],
   },
@@ -39,22 +39,22 @@ const QUICK_LINKS: { title: string; links: { label: string; href: string }[] }[]
     title: "客户端",
     links: [
       { label: "普清端", href: `/tutorial#${TUTORIAL_ANCHORS.client}` },
-      { label: "高清端", href: "/post/【教程】魔兽世界3-35高清端试用指南" },
-      { label: "解压方法", href: "/post/客户端下载解压方法" },
+      { label: "高清端", href: "/hd-client" },
+      { label: "解压方法", href: "/client-extract" },
     ],
   },
   {
     title: "登录器",
     links: [
       { label: "下载", href: `/tutorial#${TUTORIAL_ANCHORS.launcher}` },
-      { label: "常见登录问题", href: "/post/关于登录不了游戏的排查方法" },
+      { label: "常见登录问题", href: "/login-troubleshoot" },
     ],
   },
   {
     title: "补丁",
     links: [
       { label: "下载", href: `/tutorial#${TUTORIAL_ANCHORS.patch}` },
-      { label: "补丁生效方法", href: "/post/经验加成合剂显示问号解决方法" },
+      { label: "补丁生效方法", href: "/patch-guide" },
     ],
   },
   {

@@ -194,6 +194,33 @@ async function seedContent() {
     { slug: "agreement", title: "用户协议", bodyMd: "# 用户协议\n\n怀旧公益服务条款。" },
     { slug: "convention", title: "论坛公约", bodyMd: "# 论坛公约\n\n友善交流,遵守公约。" },
     { slug: "sitemap", title: "网站地图", bodyMd: "# 网站地图\n\n全站导航清单。" },
+    // 快捷操作指南页(2026-11-03 升格;dev/test 库正文由 promote-guide-pages.mjs 灌真文)
+    { slug: "hardcore-mode", title: "硬核模式介绍", bodyMd: "# 硬核模式介绍\n\n一命挑战规则说明。" },
+    {
+      slug: "mount-guide",
+      title: "坐骑掉落与获取指南",
+      bodyMd: "# 坐骑掉落与获取指南\n\n坐骑获取方式一览。",
+    },
+    {
+      slug: "hd-client",
+      title: "高清端下载与试用指南",
+      bodyMd: "# 高清端下载与试用指南\n\n高清端安装说明。",
+    },
+    {
+      slug: "client-extract",
+      title: "客户端下载解压方法",
+      bodyMd: "# 客户端下载解压方法\n\n下载与解压步骤。",
+    },
+    {
+      slug: "login-troubleshoot",
+      title: "常见登录问题排查",
+      bodyMd: "# 常见登录问题排查\n\n无法登录排查步骤。",
+    },
+    {
+      slug: "patch-guide",
+      title: "补丁说明与生效方法",
+      bodyMd: "# 补丁说明与生效方法\n\n补丁安装与生效说明。",
+    },
   ] as const;
   for (const p of pages) {
     await prisma.contentPage.upsert({

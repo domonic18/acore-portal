@@ -10,7 +10,8 @@ import { getServerStatus } from "@/server/services/status/status";
 import { renderMarkdown } from "@/lib/markdown";
 import { formatDate } from "@/lib/format";
 import { getCdnHosts } from "@/lib/config";
-import { MARKDOWN_BODY_CLS } from "@/constants/content";
+import { MARKDOWN_BODY_CLS, PROMOTED_GUIDE_MAP } from "@/constants/content";
+import { permanentRedirect } from "next/navigation";
 import { SiteSidebar } from "@/components/site/sidebar/site-sidebar";
 import { getSidebarView } from "@/server/services/sidebar/view";
 import { ContentPanel } from "@/components/site/content-panel";
@@ -38,7 +39,11 @@ export default async function PostPage({
 }: {
   params: { slug: string };
 }) {
-  const article = await getArticleBySlug(decodeURIComponent(params.slug));
+  const slug = decodeURIComponent(params.slug);
+  // 教程类内容已升格为静态页:旧 /post/ 链接(站内快捷入口/存量外链)永续 308 跳转
+  const promoted = PROMOTED_GUIDE_MAP[slug];
+  if (promoted) permanentRedirect(promoted);
+  const article = await getArticleBySlug(slug);
   if (!article) notFound();
   const [{ html, toc }, adjacent, latest, status, sidebar] = await Promise.all([
     renderMarkdown(article.bodyMd, { cdnHosts: await getCdnHosts() }),
