@@ -25,7 +25,7 @@ export function TurnstileGroup({ view }: { view: SettingsView["turnstile"] }) {
       />
       <TextRow label="Site Key" testid="settings-field-turnstile-siteKey" value={siteKey} onChange={setSiteKey} />
       <label className="flex flex-col gap-1 text-sm md:flex-row md:items-center md:gap-3">
-        <span className="w-56 shrink-0 text-gray-300">Secret Key</span>
+        <span className="w-56 shrink-0 text-[#93b2ce]">Secret Key</span>
         <SecretInput
           testid="settings-field-turnstile-secretKey"
           configured={view.secretKeyConfigured}

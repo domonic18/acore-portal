@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 export type GroupName =
@@ -25,14 +28,14 @@ export function SecretInput({
   onChange: (v: string) => void;
 }) {
   return (
-    <input
+    <Input
       data-testid={testid}
       type="password"
       autoComplete="new-password"
       value={value}
       placeholder={configured ? "已配置,留空保持" : "未配置"}
       onChange={(e) => onChange(e.target.value)}
-      className="w-64 rounded border border-gray-700 bg-gray-900 px-2 py-1 text-sm"
+      className="w-64 py-1"
     />
   );
 }
@@ -54,14 +57,14 @@ export function TextRow({
 }) {
   return (
     <label className="flex flex-col gap-1 text-sm md:flex-row md:items-center md:gap-3">
-      <span className="w-56 shrink-0 text-gray-300">{label}</span>
-      <input
+      <span className="w-56 shrink-0 text-[#93b2ce]">{label}</span>
+      <Input
         data-testid={testid}
         type={type}
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="w-64 rounded border border-gray-700 bg-gray-900 px-2 py-1 text-sm"
+        className="w-64 py-1"
       />
     </label>
   );
@@ -82,16 +85,10 @@ export function CheckRow({
 }) {
   return (
     <label className="flex items-center gap-3 text-sm">
-      <input
-        data-testid={testid}
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4"
-      />
-      <span className="text-gray-300">
+      <Switch data-testid={testid} checked={checked} onChange={onChange} ariaLabel={label} />
+      <span className="text-[#93b2ce]">
         {label}
-        {hint ? <span className="ml-2 text-xs text-gray-500">{hint}</span> : null}
+        {hint ? <span className="ml-2 text-xs text-[#6482a3]">{hint}</span> : null}
       </span>
     </label>
   );
@@ -111,11 +108,11 @@ export function GroupSection({
   return (
     <section
       data-testid={`settings-group-${name}`}
-      className="flex flex-col gap-3 rounded border border-gray-800 p-4"
+      className="flex flex-col gap-3 rounded-xl border border-[#22385a] bg-[#13233a] p-4"
     >
       <div>
-        <h2 className="font-semibold text-gray-100">{title}</h2>
-        <p className="text-xs text-gray-500">{description}</p>
+        <h2 className="font-semibold text-[#dcebf7]">{title}</h2>
+        <p className="text-xs text-[#6482a3]">{description}</p>
       </div>
       {children}
     </section>
@@ -167,22 +164,22 @@ export function SaveBar({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <button
+      <Button
         data-testid={`settings-save-${group}`}
         type="button"
+        variant="primary"
         disabled={busy}
         onClick={onSave}
-        className="rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
       >
         {busy ? "保存中…" : "保存"}
-      </button>
+      </Button>
       {saved ? (
-        <span data-testid={`settings-result-${group}`} className="text-sm text-green-400">
+        <span data-testid={`settings-result-${group}`} className="text-sm text-[#6ee7b7]">
           已保存,即时生效
         </span>
       ) : null}
       {error ? (
-        <span data-testid={`settings-result-${group}`} className="text-sm text-red-400">
+        <span data-testid={`settings-result-${group}`} className="text-sm text-[#eda9a9]">
           {error}
         </span>
       ) : null}

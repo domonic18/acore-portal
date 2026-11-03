@@ -4,6 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHydrated } from "@/lib/use-hydrated";
 import { errorMessage, requestJson } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 
 /**
  * 最近成就嵌入配置(form api-admin 契约):PUT /api/admin/settings group=home,
@@ -52,12 +55,10 @@ export function AchievementEmbedForm({
     }
   }
 
-  const inputCls = "rounded border border-gray-700 bg-gray-900 px-2 py-1 text-sm text-white";
-
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold">最近成就嵌入</h2>
-      <p className="text-xs text-gray-400">
+      <h2 className="text-lg font-semibold text-[#dcebf7]">最近成就嵌入</h2>
+      <p className="text-xs text-[#6482a3]">
         首页以 iframe 嵌入外部成就页(如 rank 站);页面地址留空则首页隐藏该区块。
       </p>
       <form
@@ -67,44 +68,40 @@ export function AchievementEmbedForm({
           void save();
         }}
       >
-        <label className="flex flex-col gap-1 text-xs text-gray-300">
+        <label className="flex flex-col gap-1 text-xs text-[#93b2ce]">
           页面地址
-          <input
+          <Input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder={`${rankBase.replace(/\/+$/, "")}/achievement`}
-            className={`${inputCls} w-96`}
+            className="w-96 py-1"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-gray-300">
+        <label className="flex flex-col gap-1 text-xs text-[#93b2ce]">
           显示高度
-          <input
+          <Input
             value={height}
             onChange={(e) => setHeight(e.target.value)}
             placeholder="185vh"
-            className={`${inputCls} w-24`}
+            className="w-24 py-1"
           />
         </label>
-        <label className="flex items-center gap-1 pb-1 text-xs text-gray-300">
-          <input
-            type="checkbox"
+        <label className="flex items-center gap-2 pb-1 text-xs text-[#93b2ce]">
+          显示滚动条
+          <Switch
             checked={scrolling}
             disabled={!hydrated}
-            onChange={(e) => setScrolling(e.target.checked)}
+            onChange={setScrolling}
+            ariaLabel="显示滚动条"
           />
-          显示滚动条
         </label>
-        <button
-          type="submit"
-          disabled={busy || !hydrated}
-          className="rounded bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-        >
+        <Button type="submit" variant="primary" disabled={busy || !hydrated}>
           保存
-        </button>
+        </Button>
       </form>
-      {ok && <p className="text-xs text-green-400">已保存,首页即时生效。</p>}
+      {ok && <p className="text-xs text-[#6ee7b7]">已保存,首页即时生效。</p>}
       {error && (
-        <p role="alert" className="text-sm text-red-400">
+        <p role="alert" className="text-sm text-[#eda9a9]">
           {error}
         </p>
       )}

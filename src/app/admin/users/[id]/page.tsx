@@ -5,8 +5,16 @@ import {
   listBadges,
 } from "@/server/services/users-admin/admin";
 import { POINT_TX_TYPE_LABEL } from "@/constants/points";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableEmpty, Td, Th, THead, Tr } from "@/components/ui/table";
 import { UserActions } from "@/components/admin/user-actions";
 import { displayUserName } from "@/lib/format";
+
+const ROLE_TONE: Record<string, "accent" | "warn" | "muted"> = {
+  admin: "accent",
+  moderator: "warn",
+  user: "muted",
+};
 
 /** 用户详情(FR-130):余额/徽章/近 10 条流水+手调与授予操作。 */
 export default async function AdminUserDetailPage({
@@ -25,40 +33,45 @@ export default async function AdminUserDetailPage({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold">{displayUserName(user)}</h1>
-        <span className="rounded bg-gray-800 px-2 py-0.5 text-sm text-gray-300">{user.role}</span>
-        <span className="text-sm text-amber-400">
+        <h1 className="text-2xl font-bold text-[#dcebf7]">{displayUserName(user)}</h1>
+        <Badge tone={ROLE_TONE[user.role] ?? "muted"} className="text-[13px]">
+          {user.role}
+        </Badge>
+        <span className="text-sm font-medium text-[#e8c877]">
           余额 {user.pointAccount?.balance ?? 0} 积分
         </span>
-        <Link href="/admin/users" className="text-sm text-blue-400 hover:underline">
+        <Link
+          href="/admin/users"
+          className="rounded text-sm text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60"
+        >
           ← 返回列表
         </Link>
       </div>
 
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 rounded border border-gray-800 p-4 text-sm md:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-xl border border-[#22385a] bg-[#13233a] p-4 text-sm md:grid-cols-4">
         <div>
-          <dt className="text-gray-500">昵称</dt>
-          <dd className="text-gray-300">{user.nickname ?? "—"}</dd>
+          <dt className="text-[#6482a3]">昵称</dt>
+          <dd className="text-[#dcebf7]">{user.nickname ?? "—"}</dd>
         </div>
         <div>
-          <dt className="text-gray-500">用户名</dt>
-          <dd className="font-mono text-gray-300">{user.username}</dd>
+          <dt className="text-[#6482a3]">用户名</dt>
+          <dd className="font-mono text-[#dcebf7]">{user.username}</dd>
         </div>
         <div>
-          <dt className="text-gray-500">邮箱</dt>
-          <dd className="text-gray-300">{user.email}</dd>
+          <dt className="text-[#6482a3]">邮箱</dt>
+          <dd className="text-[#dcebf7]">{user.email}</dd>
         </div>
         <div>
-          <dt className="text-gray-500">状态</dt>
-          <dd className="text-gray-300">{user.status}</dd>
+          <dt className="text-[#6482a3]">状态</dt>
+          <dd className="text-[#dcebf7]">{user.status}</dd>
         </div>
         <div>
-          <dt className="text-gray-500">WP 用户 ID</dt>
-          <dd className="font-mono text-gray-300">{user.wpUserId ?? "—"}</dd>
+          <dt className="text-[#6482a3]">WP 用户 ID</dt>
+          <dd className="font-mono text-[#dcebf7]">{user.wpUserId ?? "—"}</dd>
         </div>
         <div>
-          <dt className="text-gray-500">注册时间</dt>
-          <dd className="text-gray-300">{new Date(user.createdAt).toLocaleString("zh-CN")}</dd>
+          <dt className="text-[#6482a3]">注册时间</dt>
+          <dd className="text-[#dcebf7]">{new Date(user.createdAt).toLocaleString("zh-CN")}</dd>
         </div>
       </dl>
 
@@ -68,18 +81,18 @@ export default async function AdminUserDetailPage({
       />
 
       <section className="flex flex-col gap-2">
-        <h2 className="font-semibold">已获徽章</h2>
+        <h2 className="text-[14px] font-semibold text-[#dcebf7]">已获徽章</h2>
         {user.badgeGrantsReceived.length === 0 ? (
-          <p className="text-sm text-gray-500">暂无徽章。</p>
+          <p className="text-sm text-[#6482a3]">暂无徽章。</p>
         ) : (
           <ul className="flex flex-wrap gap-2">
             {user.badgeGrantsReceived.map((g) => (
               <li
                 key={g.id}
-                className="rounded border border-amber-800 bg-amber-950/50 px-3 py-1 text-sm text-amber-300"
+                className="rounded-full border border-[#e8c877]/30 bg-[#e8c877]/10 px-3 py-1 text-sm text-[#e8c877]"
               >
                 {g.badge.name}(Lv.{g.badge.level})
-                <span className="ml-2 text-xs text-gray-500">
+                <span className="ml-2 text-xs text-[#6482a3]">
                   {new Date(g.createdAt).toLocaleDateString("zh-CN")}
                 </span>
               </li>
@@ -89,42 +102,42 @@ export default async function AdminUserDetailPage({
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="font-semibold">最近流水(10 条)</h2>
+        <h2 className="text-[14px] font-semibold text-[#dcebf7]">最近流水(10 条)</h2>
         {user.recentTransactions.length === 0 ? (
-          <p className="text-sm text-gray-500">暂无流水。</p>
+          <p className="text-sm text-[#6482a3]">暂无流水。</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-800 text-left text-gray-400">
-                <th className="py-2 pr-3 font-normal">类型</th>
-                <th className="py-2 pr-3 font-normal">变动</th>
-                <th className="py-2 pr-3 font-normal">变动后</th>
-                <th className="py-2 pr-3 font-normal">备注</th>
-                <th className="py-2 pr-3 font-normal">时间</th>
+          <Table>
+            <THead>
+              <tr>
+                <Th>类型</Th>
+                <Th>变动</Th>
+                <Th>变动后</Th>
+                <Th>备注</Th>
+                <Th>时间</Th>
               </tr>
-            </thead>
+            </THead>
             <tbody>
               {user.recentTransactions.map((t) => (
-                <tr key={t.id} className="border-b border-gray-900">
-                  <td className="py-2 pr-3 text-gray-300">
+                <Tr key={t.id}>
+                  <Td className="text-[#dcebf7]">
                     {POINT_TX_TYPE_LABEL[t.type] ?? t.type}
-                  </td>
-                  <td
-                    className={`py-2 pr-3 font-mono ${
-                      t.amount >= 0 ? "text-green-400" : "text-red-400"
+                  </Td>
+                  <Td
+                    className={`font-mono ${
+                      t.amount >= 0 ? "text-[#6ee7b7]" : "text-[#eda9a9]"
                     }`}
                   >
                     {t.amount >= 0 ? `+${t.amount}` : t.amount}
-                  </td>
-                  <td className="py-2 pr-3 text-gray-300">{t.balanceAfter}</td>
-                  <td className="py-2 pr-3 text-gray-500">{t.remark ?? "—"}</td>
-                  <td className="py-2 pr-3 text-xs text-gray-500">
+                  </Td>
+                  <Td className="text-[#dcebf7]">{t.balanceAfter}</Td>
+                  <Td className="text-[#6482a3]">{t.remark ?? "—"}</Td>
+                  <Td className="text-xs text-[#6482a3]">
                     {new Date(t.createdAt).toLocaleString("zh-CN")}
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
+          </Table>
         )}
       </section>
     </div>

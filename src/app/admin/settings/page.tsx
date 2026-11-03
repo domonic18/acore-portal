@@ -10,7 +10,7 @@ export default async function AdminSettingsPage() {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-bold">系统设置</h1>
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-[#6482a3]">
         配置存 system_config 表,保存后立即热生效(无需重启);密钥仅写入不回显。
       </p>
       <SettingsForms view={view} />

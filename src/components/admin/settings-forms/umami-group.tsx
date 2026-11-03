@@ -23,7 +23,7 @@ export function UmamiGroup({ view }: { view: SettingsView["umami"] }) {
       <TextRow label="API 地址" testid="settings-field-umami-apiUrl" value={apiUrl} onChange={setApiUrl} />
       <TextRow label="API 用户名" testid="settings-field-umami-apiUsername" value={apiUsername} onChange={setApiUsername} />
       <label className="flex flex-col gap-1 text-sm md:flex-row md:items-center md:gap-3">
-        <span className="w-56 shrink-0 text-gray-300">API 密码</span>
+        <span className="w-56 shrink-0 text-[#93b2ce]">API 密码</span>
         <SecretInput
           testid="settings-field-umami-apiPassword"
           configured={view.apiPasswordConfigured}

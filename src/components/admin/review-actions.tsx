@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
@@ -42,30 +44,32 @@ export function ReviewActions({ reviewId }: { reviewId: string }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <input
+      <Input
         value={note}
         onChange={(e) => setNote(e.target.value)}
         placeholder="备注(可选,入审计)"
-        className="w-48 rounded border border-gray-700 bg-gray-900 px-2 py-1 text-xs text-gray-200 placeholder-gray-500"
+        className="w-48 px-2 py-1 text-xs"
       />
-      <button
+      <Button
         type="button"
+        variant="primary"
+        size="sm"
         disabled={busy !== null}
         onClick={() => act(true)}
-        className="rounded bg-green-700 px-3 py-1 text-xs font-semibold text-white hover:bg-green-600 disabled:opacity-50"
       >
         {busy === "approve" ? "通过中…" : "通过"}
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
+        variant="secondary"
+        size="sm"
         disabled={busy !== null}
         onClick={() => act(false)}
-        className="rounded bg-gray-700 px-3 py-1 text-xs font-semibold text-gray-200 hover:bg-gray-600 disabled:opacity-50"
       >
         {busy === "reject" ? "驳回中…" : "驳回"}
-      </button>
+      </Button>
       {error && (
-        <span role="alert" className="text-xs text-red-400">
+        <span role="alert" className="text-xs text-[#eda9a9]">
           {error}
         </span>
       )}

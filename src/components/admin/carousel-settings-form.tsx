@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHydrated } from "@/lib/use-hydrated";
 import { errorMessage, requestJson } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 /**
  * 轮播设置(form api-admin 契约):PUT /api/admin/settings group=home 只带
@@ -42,8 +44,8 @@ export function CarouselSettingsForm({ initial }: { initial: { carouselIntervalS
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold">轮播设置</h2>
-      <p className="text-xs text-gray-400">
+      <h2 className="text-lg font-semibold text-[#dcebf7]">轮播设置</h2>
+      <p className="text-xs text-[#6482a3]">
         首页轮播自动切换间隔(1-60 秒);物料仅一张时不轮播。
       </p>
       <form
@@ -53,26 +55,22 @@ export function CarouselSettingsForm({ initial }: { initial: { carouselIntervalS
           void save();
         }}
       >
-        <label className="flex flex-col gap-1 text-xs text-gray-300">
+        <label className="flex flex-col gap-1 text-xs text-[#93b2ce]">
           轮播间隔(秒)
-          <input
+          <Input
             type="number"
             value={sec}
             onChange={(e) => setSec(e.target.value)}
-            className="w-24 rounded border border-gray-700 bg-gray-900 px-2 py-1 text-sm text-white"
+            className="w-24 py-1"
           />
         </label>
-        <button
-          type="submit"
-          disabled={busy || !hydrated}
-          className="rounded bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-        >
+        <Button type="submit" variant="primary" disabled={busy || !hydrated}>
           保存
-        </button>
+        </Button>
       </form>
-      {ok && <p className="text-xs text-green-400">已保存,首页即时生效。</p>}
+      {ok && <p className="text-xs text-[#6ee7b7]">已保存,首页即时生效。</p>}
       {error && (
-        <p role="alert" className="text-sm text-red-400">
+        <p role="alert" className="text-sm text-[#eda9a9]">
           {error}
         </p>
       )}

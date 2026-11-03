@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
@@ -43,78 +45,75 @@ export function InvitationGenerateForm() {
     }
   }
 
-  const inputCls = "rounded border border-gray-700 bg-gray-900 px-3 py-2 text-white";
-
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-300">前缀(大写字母/数字)</span>
-          <input
+          <span className="text-[#93b2ce]">前缀(大写字母/数字)</span>
+          <Input
             value={prefix}
             onChange={(e) => setPrefix(e.target.value.toUpperCase())}
-            className={`${inputCls} w-24`}
+            className="w-24"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-300">总长度</span>
-          <input
+          <span className="text-[#93b2ce]">总长度</span>
+          <Input
             type="number"
             min={6}
             max={32}
             value={length}
             onChange={(e) => setLength(e.target.value)}
-            className={`${inputCls} w-20`}
+            className="w-20"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-300">数量(1-200)</span>
-          <input
+          <span className="text-[#93b2ce]">数量(1-200)</span>
+          <Input
             type="number"
             min={1}
             max={200}
             value={count}
             onChange={(e) => setCount(e.target.value)}
-            className={`${inputCls} w-24`}
+            className="w-24"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-300">每码可用次数</span>
-          <input
+          <span className="text-[#93b2ce]">每码可用次数</span>
+          <Input
             type="number"
             min={1}
             value={maxUses}
             onChange={(e) => setMaxUses(e.target.value)}
-            className={`${inputCls} w-24`}
+            className="w-24"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-300">过期时间(留空=永久)</span>
-          <input
+          <span className="text-[#93b2ce]">过期时间(留空=永久)</span>
+          <Input
             type="datetime-local"
             value={expiresAt}
             onChange={(e) => setExpiresAt(e.target.value)}
-            className={inputCls}
           />
         </label>
-        <button
+        <Button
           type="button"
+          variant="primary"
           onClick={submit}
           disabled={busy || !prefix}
-          className="rounded bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
         >
           {busy ? "生成中…" : "批量生成"}
-        </button>
+        </Button>
       </div>
       {error && (
-        <p role="alert" className="text-sm text-red-400">
+        <p role="alert" className="text-sm text-[#eda9a9]">
           {error}
         </p>
       )}
       {codes && (
-        <div className="rounded border border-gray-700 bg-gray-900 p-3">
-          <p className="mb-1 text-xs text-gray-500">本次生成 {codes.length} 枚:</p>
-          <p className="break-all font-mono text-xs text-green-400">{codes.join("  ")}</p>
+        <div className="rounded-lg border border-[#22385a] bg-[#0b1526] p-3">
+          <p className="mb-1 text-xs text-[#6482a3]">本次生成 {codes.length} 枚:</p>
+          <p className="break-all font-mono text-xs text-[#6ee7b7]">{codes.join("  ")}</p>
         </div>
       )}
     </div>
@@ -148,13 +147,8 @@ export function InvitationStatusToggle({
   }
 
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      disabled={busy}
-      className="rounded border border-gray-600 px-2 py-1 text-xs text-gray-300 hover:bg-gray-800 disabled:opacity-50"
-    >
+    <Button type="button" variant="secondary" size="sm" onClick={toggle} disabled={busy}>
       {status === "disabled" ? "启用" : "停用"}
-    </button>
+    </Button>
   );
 }
