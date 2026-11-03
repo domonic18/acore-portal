@@ -261,9 +261,9 @@ test.describe("US5 运营后台(T055)", () => {
 
     await login(page, "m1admin", "adminpass123");
     await page.goto(`/admin/users/${legacy.id}`);
-    await page.getByLabel(/数量/).fill("50");
+    await page.getByLabel(/调整分值/).fill("50");
     await page.getByLabel(/原因/).fill("E2E 后台手调");
-    await page.getByRole("button", { name: "增加" }).click();
+    await page.getByRole("button", { name: "提交调整" }).click();
 
     await expect(page.getByText(`已调整,当前余额 ${before + 50}`)).toBeVisible();
     await expect(page.getByText(`余额 ${before + 50} 积分`)).toBeVisible();

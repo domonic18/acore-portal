@@ -195,7 +195,7 @@ export function ForumBoardManager({ boards }: { boards: Board[] }) {
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => handleDrop(b.id)}
               onDragEnd={() => setDragId(null)}
-              className={`flex items-center gap-3.5 rounded-xl border bg-[#13233a] px-4 py-3 transition ${
+              className={`flex flex-col gap-2.5 rounded-xl border bg-[#13233a] px-4 py-3 transition sm:flex-row sm:items-center sm:gap-3.5 ${
                 dragId === b.id ? "border-[#6fb7e0] opacity-60" : "border-[#22385a] hover:border-[#35577f]"
               }`}
             >
@@ -215,19 +215,19 @@ export function ForumBoardManager({ boards }: { boards: Board[] }) {
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[15.5px] font-semibold text-[#dcebf7]">{b.name}</span>
+                  <span className="whitespace-nowrap text-[15.5px] font-semibold text-[#dcebf7]">{b.name}</span>
                   <span className="rounded bg-[#0d1828] px-1.5 py-0.5 font-mono text-[11px] text-[#6482a3]">
                     {b.slug}
                   </span>
                 </div>
-                <p className="mt-0.5 line-clamp-1 text-[12.5px] text-[#6482a3]">
+                <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-5 text-[#6482a3]">
                   {b.description ? b.description.split("\n")[0] : "暂无说明"}
                 </p>
               </div>
-              <span className="hidden shrink-0 text-[13px] text-[#93b2ce] sm:block">
+              <span className="shrink-0 text-[13px] text-[#93b2ce]">
                 {b.threadCount} 主题
               </span>
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1 sm:ml-auto">
                 <Button
                   variant="ghost"
                   size="sm"

@@ -87,7 +87,9 @@ export default async function AdminOrderDetailPage({
             <Tr key={item.id}>
               <Td>
                 {item.name}
-                <span className="ml-2 text-xs text-[#6482a3]">/shop/{item.product.slug}</span>
+                <span className="mt-0.5 block whitespace-nowrap text-xs text-[#6482a3]">
+                  /shop/{item.product.slug}
+                </span>
               </Td>
               <Td className="font-mono text-xs text-[#93b2ce]">{item.sku}</Td>
               <Td className="text-[#dcebf7]">{item.unitPrice}</Td>

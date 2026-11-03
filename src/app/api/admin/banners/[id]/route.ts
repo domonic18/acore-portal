@@ -13,7 +13,10 @@ const updateSchema = z.object({
     .max(512)
     .refine((v) => v.startsWith("/") || /^https:\/\//.test(v), "图片地址须为站内路径或 https 链接"),
   linkUrl: z
-    .union([z.literal(""), z.string().trim().max(512).refine((v) => /^https?:\/\//.test(v), "跳转链接须为 http(s) 地址")])
+    .union([
+      z.literal(""),
+      z.string().trim().max(512).refine((v) => v.startsWith("/") || /^https?:\/\//.test(v), "跳转链接须为站内路径或 http(s) 地址"),
+    ])
     .optional()
     .default(""),
   sort: z.number().int().min(0).max(9999).optional().default(0),

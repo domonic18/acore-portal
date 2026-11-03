@@ -10,7 +10,7 @@ export function Table({
 }) {
   return (
     <div className={`overflow-x-auto rounded-xl border border-[#22385a] ${className}`}>
-      <table className="w-full border-collapse text-[13px] text-[#dcebf7]">
+      <table className="w-full min-w-[680px] border-collapse text-[13px] text-[#dcebf7]">
         {children}
       </table>
     </div>

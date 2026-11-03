@@ -131,7 +131,7 @@ export function MediaAssetList({
           placeholder="搜索文件名…"
           className="w-56"
         />
-        <span className="text-[#6482a3]">共 {data?.total ?? "…"} 个</span>
+        <span className="shrink-0 whitespace-nowrap text-[#6482a3]">共 {data?.total ?? "…"} 个</span>
       </div>
       {tabs.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5" aria-label="媒体分类">
@@ -283,7 +283,7 @@ export function MediaCategorySelect({
   onChange: (v: string) => void;
 }) {
   return (
-    <label className="flex items-center gap-1 text-xs text-[#93b2ce]">
+    <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-[#93b2ce]">
       上传分类
       <Select
         value={value}

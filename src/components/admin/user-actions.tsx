@@ -28,7 +28,7 @@ export function UserActions({
   const [badgeError, setBadgeError] = useState<string | null>(null);
   const [badgeBusy, setBadgeBusy] = useState(false);
 
-  async function adjust(sign: 1 | -1) {
+  async function adjust() {
     setAdjustBusy(true);
     setAdjustError(null);
     setAdjustMsg(null);
@@ -39,7 +39,7 @@ export function UserActions({
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            amount: sign * (Number(amount) || 0),
+            amount: Number(amount) || 0,
             reason,
           }),
         },
@@ -78,38 +78,38 @@ export function UserActions({
         <h2 className="text-[14px] font-semibold text-[#dcebf7]">积分手调</h2>
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-[#93b2ce]">数量(正整数)</span>
+            <span className="text-[#93b2ce]">调整分值(正数=增加,负数=扣减,不可为 0)</span>
             <Input
               type="number"
-              min={1}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-32"
+              placeholder="如 50 或 -30"
+              className="w-40"
             />
           </label>
           <label className="flex flex-1 flex-col gap-1 text-sm">
-            <span className="text-[#93b2ce]">原因(2-255 字,必填)</span>
+            <span className="text-[#93b2ce]">原因(2-255 字,必填,可从常用项选择)</span>
             <Input
+              list="adjust-reason-presets"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               className="min-w-64"
             />
+            <datalist id="adjust-reason-presets">
+              <option value="管理员手动调整" />
+              <option value="活动补偿" />
+              <option value="赞助奖励" />
+              <option value="违规扣减" />
+              <option value="数据纠错" />
+            </datalist>
           </label>
           <Button
             type="button"
             variant="primary"
-            disabled={adjustBusy || !amount || reason.trim().length < 2}
-            onClick={() => adjust(1)}
+            disabled={adjustBusy || !amount || Number(amount) === 0 || reason.trim().length < 2}
+            onClick={() => void adjust()}
           >
-            增加
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={adjustBusy || !amount || reason.trim().length < 2}
-            onClick={() => adjust(-1)}
-          >
-            扣减
+            提交调整
           </Button>
         </div>
         {adjustError && (
