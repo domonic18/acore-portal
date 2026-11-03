@@ -108,6 +108,7 @@ export async function listAdminBoards() {
     slug: b.slug,
     name: b.name,
     description: b.description,
+    icon: b.icon,
     sort: b.sort,
     threadCount: b._count.threads,
   }));
@@ -123,6 +124,7 @@ export async function createBoard(input: {
   slug: string;
   name: string;
   description?: string | null;
+  icon?: string | null;
   sort?: number;
   actorId: bigint;
 }): Promise<{ id: bigint }> {
@@ -133,6 +135,7 @@ export async function createBoard(input: {
         slug: input.slug,
         name: input.name,
         description: input.description ?? null,
+        icon: input.icon || null,
         sort: input.sort ?? 0,
       },
       select: { id: true },
@@ -157,6 +160,7 @@ export async function updateBoard(input: {
   slug?: string;
   name?: string;
   description?: string | null;
+  icon?: string | null;
   sort?: number;
   actorId: bigint;
 }): Promise<void> {
@@ -171,6 +175,7 @@ export async function updateBoard(input: {
         slug,
         name: input.name ?? board.name,
         description: input.description ?? board.description,
+        icon: input.icon === undefined ? board.icon : input.icon || null,
         sort: input.sort ?? board.sort,
       },
     });

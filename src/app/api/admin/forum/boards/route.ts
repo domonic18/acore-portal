@@ -7,7 +7,8 @@ import { ForumAdminError, createBoard } from "@/server/services/forum/admin";
 const schema = z.object({
   slug: z.string().trim().min(1).max(64),
   name: z.string().trim().min(1).max(64),
-  description: z.string().trim().max(255).optional().nullable(),
+  description: z.string().trim().max(20_000).optional().nullable(),
+  icon: z.string().trim().regex(/^[a-z][a-z-]*$/, "图标 key 非法").max(64).optional().nullable(),
   sort: z.number().int().min(0).max(9999).optional(),
 });
 

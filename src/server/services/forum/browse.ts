@@ -13,7 +13,13 @@ export async function listForumBoards() {
   const [boards, replyTotals] = await Promise.all([
     prisma.forumBoard.findMany({
       orderBy: [{ sort: "asc" }, { id: "asc" }],
-      include: {
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        description: true,
+        icon: true,
+        _count: { select: { threads: { where: { deletedAt: null } } } },
         threads: {
           where: { deletedAt: null },
           orderBy: [{ lastPostAt: "desc" }],
@@ -29,7 +35,6 @@ export async function listForumBoards() {
             statusLabel: true,
           },
         },
-        _count: { select: { threads: { where: { deletedAt: null } } } },
       },
     }),
     prisma.forumThread.groupBy({
@@ -46,6 +51,7 @@ export async function listForumBoards() {
     slug: b.slug,
     name: b.name,
     description: b.description,
+    icon: b.icon,
     threadCount: b._count.threads,
     replyCount: replyByBoard.get(b.id.toString()) ?? 0,
     latestThread: b.threads[0]

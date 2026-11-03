@@ -668,12 +668,13 @@ model MediaAsset {
 
 /// 版块(存量 5)
 model ForumBoard {
-  id               BigInt @id @default(autoincrement())
-  slug             String @unique @db.VarChar(64) // /forum/{board}
-  name             String @db.VarChar(64)
-  description      String? @db.VarChar(255)
-  sort             Int    @default(0)
-  legacyWpForumId  Int?   @unique @map("legacy_wp_forum_id") // 幂等导入键
+  id               BigInt  @id @default(autoincrement())
+  slug             String  @unique @db.VarChar(64) // /forum/{board}
+  name             String  @db.VarChar(64)
+  description      String? @db.Text // 版块说明(Markdown;列表行内纯文本截断)
+  icon             String? @db.VarChar(64) // 版块图标(lucide key,NavIcon 渲染)
+  sort             Int     @default(0)
+  legacyWpForumId  Int?    @unique @map("legacy_wp_forum_id") // 幂等导入键
 
   threads ForumThread[]
 
