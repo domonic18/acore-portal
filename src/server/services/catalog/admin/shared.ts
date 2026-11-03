@@ -17,6 +17,7 @@ export class ProductAdminError extends Error {
       | "CATEGORY_NOT_FOUND"
       | "PRODUCT_HAS_ORDERS"
       | "DUPLICATE_UNSUPPORTED"
+      | "STOCK_NOT_APPLICABLE"
       | "NOT_FOUND",
     message?: string,
   ) {

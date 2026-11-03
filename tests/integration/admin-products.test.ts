@@ -11,6 +11,7 @@ import {
   listAdminProducts,
   saveProduct,
   setProductStatus,
+  updateProductQuickEdit,
 } from "@/server/services/catalog/admin";
 import { AUDIT_ACTION } from "@/constants/audit";
 import { GameDbError } from "@/server/services/shared/game-identity";
@@ -450,5 +451,99 @@ describe("商品图片与详情 Markdown(2026-10-26 WP 对齐)", () => {
     const { normalizeProductImages } = await import("@/server/services/catalog/products");
     expect(normalizeProductImages("not-array")).toEqual([]);
     expect(normalizeProductImages([1, "  /a.png  ", "", null])).toEqual(["/a.png"]);
+  });
+});
+
+describe("商品列表快速编辑 updateProductQuickEdit(2026-11-03)", () => {
+  it("部分字段更新:改价+精选生效,sku/slug/name 不被触碰;审计只记字段名", async () => {
+    const saved = await saveProduct(
+      baseInput({ sku: `itemsend_q${RUN}`, slug: `${SLUG_PREFIX}qe`, featured: false }),
+    );
+    await updateProductQuickEdit(saved.id, { price: 66, featured: true }, DEL_ACTOR);
+
+    const row = await prisma.product.findUniqueOrThrow({
+      where: { id: saved.id },
+      select: { price: true, featured: true, sku: true, slug: true, name: true },
+    });
+    expect(row.price).toBe(66);
+    expect(row.featured).toBe(true);
+    expect(row.sku).toBe(`itemsend_q${RUN}`);
+    expect(row.slug).toBe(`${SLUG_PREFIX}qe`);
+
+    const audit = await prisma.auditLog.findFirstOrThrow({
+      where: { action: AUDIT_ACTION.PRODUCT_QUICK_EDITED, actorUserId: DEL_ACTOR },
+      orderBy: { id: "desc" },
+    });
+    expect((audit.payloadJson as { fields: string[] }).fields.sort()).toEqual([
+      "featured",
+      "price",
+    ]);
+  });
+
+  it("促销价校验按合并现值:单改 salePrice≥现价拒绝;同时改价则按新价判定放行", async () => {
+    const saved = await saveProduct(
+      baseInput({ sku: `itemsend_q2${RUN}`, slug: `${SLUG_PREFIX}qe2` }),
+    );
+    expect(
+      await errCode(updateProductQuickEdit(saved.id, { salePrice: 100 }, DEL_ACTOR)),
+    ).toBe("SALE_PRICE_INVALID");
+    await updateProductQuickEdit(
+      saved.id,
+      { price: 200, salePrice: 150 },
+      DEL_ACTOR,
+    );
+    const row = await prisma.product.findUniqueOrThrow({
+      where: { id: saved.id },
+      select: { price: true, salePrice: true },
+    });
+    expect(row.price).toBe(200);
+    expect(row.salePrice).toBe(150);
+  });
+
+  it("服务类禁库存字段 STOCK_NOT_APPLICABLE;物品类 stockEnabled=false 置 stock=null", async () => {
+    const svc = await saveProduct(
+      baseInput({
+        type: PRODUCT_TYPE.SERVICE,
+        sku: `itemsend_q3${RUN}`,
+        slug: `${SLUG_PREFIX}qe3`,
+        gameItemId: null,
+      }),
+    );
+    expect(
+      await errCode(updateProductQuickEdit(svc.id, { stock: 5 }, DEL_ACTOR)),
+    ).toBe("STOCK_NOT_APPLICABLE");
+
+    const item = await saveProduct(
+      baseInput({ sku: `itemsend_q4${RUN}`, slug: `${SLUG_PREFIX}qe4`, stockEnabled: true, stock: 3 }),
+    );
+    await updateProductQuickEdit(item.id, { stockEnabled: false }, DEL_ACTOR);
+    const row = await prisma.product.findUniqueOrThrow({
+      where: { id: item.id },
+      select: { stockEnabled: true, stock: true },
+    });
+    expect(row.stockEnabled).toBe(false);
+    expect(row.stock).toBeNull();
+  });
+
+  it("状态/显隐/清促销一次提交;不存在 id → NOT_FOUND", async () => {
+    const saved = await saveProduct(
+      baseInput({ sku: `itemsend_q5${RUN}`, slug: `${SLUG_PREFIX}qe5`, salePrice: 50 }),
+    );
+    await updateProductQuickEdit(
+      saved.id,
+      { status: "draft", listed: false, salePrice: null },
+      DEL_ACTOR,
+    );
+    const row = await prisma.product.findUniqueOrThrow({
+      where: { id: saved.id },
+      select: { status: true, listed: true, salePrice: true },
+    });
+    expect(row.status).toBe("draft");
+    expect(row.listed).toBe(false);
+    expect(row.salePrice).toBeNull();
+
+    expect(
+      await errCode(updateProductQuickEdit(987654321n, { price: 1 }, DEL_ACTOR)),
+    ).toBe("NOT_FOUND");
   });
 });

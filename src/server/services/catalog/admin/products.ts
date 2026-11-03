@@ -28,6 +28,7 @@ export type ProductSaveInput = {
   gameItemId?: number | null;
   status: ProductStatusValue;
   listed: boolean;
+  featured?: boolean;
 };
 
 export async function saveProduct(input: ProductSaveInput): Promise<{ id: bigint }> {
@@ -87,6 +88,7 @@ export async function saveProduct(input: ProductSaveInput): Promise<{ id: bigint
     stockEnabled: input.stockEnabled,
     stock: input.stockEnabled ? (input.stock ?? 0) : null,
     lowStockThreshold: input.lowStockThreshold ?? null,
+    featured: input.featured ?? false,
     maxPerUser: input.maxPerUser ?? null,
     gameItemId: input.type === "game_item" ? (input.gameItemId ?? null) : null,
   };
@@ -109,6 +111,73 @@ export async function setProductStatus(
     data: { status, ...(listed === undefined ? {} : { listed }) },
   });
   if (hit.count === 0) throw new ProductAdminError("NOT_FOUND", "商品不存在。");
+}
+
+export type ProductQuickEditInput = {
+  price?: number;
+  salePrice?: number | null;
+  stockEnabled?: boolean;
+  stock?: number | null;
+  status?: ProductStatusValue;
+  listed?: boolean;
+  featured?: boolean;
+};
+
+/**
+ * 商品列表快速编辑(用户反馈 2026-11-03,对标 WP 快速编辑):
+ * 仅部分高频字段(价格/库存/状态/显隐/精选),不碰 sku/slug/categoryId;
+ * 校验合并现值(促销价<原价按合并后判定);服务类禁库存字段;
+ * 审计只记字段名与 sku,不记字段值(与后台审计脱敏口径一致)。
+ */
+export async function updateProductQuickEdit(
+  id: bigint,
+  input: ProductQuickEditInput,
+  actorId: bigint,
+): Promise<void> {
+  const product = await prisma.product.findUnique({
+    where: { id },
+    select: {
+      sku: true,
+      type: true,
+      price: true,
+      salePrice: true,
+      stockEnabled: true,
+      stock: true,
+    },
+  });
+  if (!product) throw new ProductAdminError("NOT_FOUND", "商品不存在。");
+
+  if (product.type !== "game_item" && (input.stockEnabled !== undefined || input.stock !== undefined)) {
+    throw new ProductAdminError("STOCK_NOT_APPLICABLE", "服务类商品不使用库存字段。");
+  }
+
+  const price = input.price ?? product.price;
+  const salePrice = input.salePrice !== undefined ? input.salePrice : product.salePrice;
+  if (salePrice != null && salePrice >= price) {
+    throw new ProductAdminError("SALE_PRICE_INVALID", "促销价必须低于原价。");
+  }
+
+  const stockEnabled = input.stockEnabled ?? product.stockEnabled;
+  const data = {
+    ...(input.price !== undefined ? { price: input.price } : {}),
+    ...(input.salePrice !== undefined ? { salePrice: input.salePrice } : {}),
+    ...(input.stockEnabled !== undefined || input.stock !== undefined
+      ? { stockEnabled, stock: stockEnabled ? (input.stock ?? product.stock ?? 0) : null }
+      : {}),
+    ...(input.status !== undefined ? { status: input.status } : {}),
+    ...(input.listed !== undefined ? { listed: input.listed } : {}),
+    ...(input.featured !== undefined ? { featured: input.featured } : {}),
+  };
+
+  const hit = await prisma.product.updateMany({ where: { id }, data });
+  if (hit.count === 0) throw new ProductAdminError("NOT_FOUND", "商品不存在。");
+
+  await writeAudit({
+    category: AUDIT_CATEGORY.SHOP,
+    action: AUDIT_ACTION.PRODUCT_QUICK_EDITED,
+    actorUserId: actorId,
+    payload: { productId: id.toString(), sku: product.sku, fields: Object.keys(data) },
+  });
 }
 
 /**

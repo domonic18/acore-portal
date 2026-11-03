@@ -19,6 +19,7 @@ export type AdminProductListItem = {
   stock: number | null;
   lowStockThreshold: number | null;
   lowStock: boolean;
+  featured: boolean;
   categoryName: string;
 };
 
@@ -65,6 +66,7 @@ export async function listAdminProducts(opts: {
         lowStockThreshold: r.lowStockThreshold,
         lowStock:
           r.stockEnabled && r.stock !== null && r.stock <= (r.lowStockThreshold ?? 1),
+        featured: r.featured,
         categoryName: r.category.name,
       }),
     ),

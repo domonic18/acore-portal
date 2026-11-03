@@ -75,6 +75,8 @@ export const AUDIT_ACTION = {
   PRODUCT_BATCH_UPDATED: "product_batch_updated",
   /** 商品复制(category=shop;仅服务类,payload 含 sourceId/targetId/sku) */
   PRODUCT_DUPLICATED: "product_duplicated",
+  /** 商品列表快速编辑(category=shop;payload 含 productId/sku/fields,只记字段名不记值) */
+  PRODUCT_QUICK_EDITED: "product_quick_edited",
   /** 首页轮播物料管理(category=content;payload 含 id/title/enabled) */
   HOME_BANNER_SAVED: "home_banner_saved",
   HOME_BANNER_DELETED: "home_banner_deleted",
