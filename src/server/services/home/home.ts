@@ -1,24 +1,21 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { listLatestAnnouncements } from "@/server/services/content/articles";
-import { resolveProgressionPosition } from "@/server/services/progression/progression";
 import {
   effectivePrice,
   normalizeProductImages,
 } from "@/server/services/catalog/products";
 
 /**
- * 首页四区块聚合(M3 US3 T022/T027;spec §US3):
- * 最新公告 5 / 服务器状态卡(US6 接线,M3 占位) / 当前渐进阶段 / 精选商品
- * (featured 优先,不足回退最新上架;生效价服务端判定 FR-115)。
+ * 首页区块聚合(M3 US3 T022/T027;#64 当前阶段独立区块下线,阶段展示归状态卡):
+ * 最新公告 5 / 精选商品(featured 优先,不足回退最新上架;生效价服务端判定 FR-115)。
  */
 
 const FEATURED_TAKE = 4;
 
 export async function getHomeBlocks() {
-  const [announcements, progression, featuredRaw, latestRaw] = await Promise.all([
+  const [announcements, featuredRaw, latestRaw] = await Promise.all([
     listLatestAnnouncements(5),
-    resolveProgressionPosition(),
     prisma.product.findMany({
       where: { status: "published", listed: true, featured: true },
       orderBy: [{ id: "asc" }],
@@ -65,8 +62,6 @@ export async function getHomeBlocks() {
 
   return {
     announcements,
-    progression,
     featuredProducts,
-    serverStatus: null as null, // US6 状态组件接线位(T042-T046)
   };
 }

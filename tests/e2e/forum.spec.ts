@@ -343,6 +343,30 @@ test.describe("US5 论坛(T041)", () => {
     await expect(page.getByText("后可回帖;游客仅可浏览。")).toBeVisible();
   });
 
+  // 用户反馈:版规与说明置于最新主题上方,最近回复置于最新主题下方
+  test("右栏顺序:版规与说明 ▲ 最新主题 ▲ 最近回复(垂直堆叠)", async ({ page }) => {
+    await page.goto("/forum");
+    await expect(page.getByRole("heading", { name: "版规与说明" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "最新主题" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "最近回复" })).toBeVisible();
+
+    const yOf = (name: string) =>
+      page
+        .getByRole("heading", { name })
+        .evaluate((el) => el.getBoundingClientRect().top);
+    const yRules = await yOf("版规与说明");
+    const yLatest = await yOf("最新主题");
+    const yReplies = await yOf("最近回复");
+    // 垂直顺序:版规(上) → 最新主题(中) → 最近回复(下)
+    expect(yRules).toBeLessThan(yLatest);
+    expect(yLatest).toBeLessThan(yReplies);
+
+    // 最近回复带主题链接(种子库含存量回帖)
+    await expect(
+      page.getByTestId("forum-recent-replies").locator('a[href^="/forum/thread/"]').first(),
+    ).toBeVisible();
+  });
+
   // 用户反馈 2026-11-01:版块页/主题页顶部(面包屑+标题+元信息)直压站点背景图,缺区域底色
   test("版块页与主题页顶部有内容区底色面板", async ({ page }) => {
     const seed = await prisma.forumThread.findUniqueOrThrow({

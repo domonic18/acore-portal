@@ -16,8 +16,8 @@ import { getSidebarView } from "@/server/services/sidebar/view";
 
 /**
  * 首页(2026-10 与 ardot 设计稿 p01 对齐):左栏=轮播+最近成就嵌入;
- * 右栏=快捷入口/服务器状态/最新公告 5/精选商品(featured 优先回退最新上架)/
- * 当前渐进阶段,尾部接侧栏(home 类型仅积分余额,登录态门槛)。
+ * 右栏=快捷入口/服务器状态(含当前阶段)/最新公告 5/精选商品(featured 优先回退最新上架),
+ * 尾部接侧栏(home 类型仅积分余额,登录态门槛)。
  * 轮播空物料整块隐藏,成就 iframe url 空=隐藏;/admin 改动即时生效。
  */
 
@@ -76,14 +76,8 @@ const QUICK_LINKS: { title: string; links: { label: string; href: string }[] }[]
 ];
 
 export default async function HomePage() {
-  const [
-    { announcements, progression, featuredProducts },
-    activeBanners,
-    config,
-    serverStatus,
-    forumHighlights,
-    sidebar,
-  ] = await Promise.all([
+  const [{ announcements, featuredProducts }, activeBanners, config, serverStatus, forumHighlights, sidebar] =
+    await Promise.all([
     getHomeBlocks(),
     listActiveBanners(),
     getConfig(),
@@ -195,36 +189,7 @@ export default async function HomePage() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-[#22385a] bg-[#13233a] p-5">
-            <SectionHeader title="当前阶段" moreHref="/progression" moreLabel="渐进计划 →" />
-            {/* #54:点击直达渐进计划对应阶段锚点 */}
-            {progression.current ? (
-              <Link
-                href={`/progression#node-${progression.current.id}`}
-                className="text-lg font-semibold leading-snug text-[#e8c877] hover:text-[#f5dc9a]"
-              >
-                {progression.current.title}
-              </Link>
-            ) : (
-              <p className="text-lg font-semibold leading-snug text-[#e8c877]">待定</p>
-            )}
-            {progression.current?.phaseDate && (
-              <p className="mt-1 text-xs text-[#6482a3]">
-                开放于 {formatDate(progression.current.phaseDate)}
-              </p>
-            )}
-            {progression.next && (
-              <p className="mt-2 text-sm text-[#93b2ce]">
-                下一阶段:
-                <Link
-                  href={`/progression#node-${progression.next.id}`}
-                  className="hover:text-[#a8d9f5]"
-                >
-                  {progression.next.title}
-                </Link>
-              </p>
-            )}
-          </section>
+          {/* 当前阶段独立区块已下线(#64):服务器状态卡内含当前阶段 chip 且可点直达渐进锚点,双份冗余 */}
 
           {/* 论坛精华:填右侧留白(置顶优先,其次回复/浏览热度) */}
           <section className="rounded-2xl border border-[#22385a] bg-[#13233a] p-5">

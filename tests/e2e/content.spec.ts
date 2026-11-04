@@ -293,15 +293,15 @@ test.describe("首页四区块(T027)", () => {
     await prisma.$disconnect();
   });
 
-  test("公告/服务器状态/当前阶段/精选商品齐备", async ({ page }) => {
+  test("公告/服务器状态(含当前阶段)/精选商品齐备", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "最新公告" })).toBeVisible();
     await expect(
       page.getByTestId("home-server-status").getByRole("heading", { name: "服务器状态" }),
     ).toBeVisible();
-    // 渐进指针缺省回退:最新 open=第二阶段,下一=locked 第三阶段(SC-204)
-    await expect(page.getByText("第二阶段·熔火之心").first()).toBeVisible();
-    await expect(page.getByText(/下一阶段:第三阶段·黑翼之巢/)).toBeVisible();
+    // #64:当前阶段独立区块下线,阶段名由状态卡 chip 展示(渐进指针缺省回退=第二阶段,SC-204)
+    await expect(page.getByTestId("status-stage")).toContainText("第二阶段·熔火之心");
+    await expect(page.getByRole("heading", { name: "当前阶段" })).toHaveCount(0);
     const featured = page.getByRole("heading", { name: "精选商品" });
     await expect(featured).toBeVisible();
     await expect(page.locator("main").getByRole("link", { name: /积分/ }).first()).toBeVisible();
