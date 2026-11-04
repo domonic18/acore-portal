@@ -27,7 +27,10 @@ export default async function AccountOverviewPage() {
         <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-sm">
           <span className="text-base font-semibold">{user.nickname ?? user.username}</span>
           <span className="text-gray-400">用户名:{user.username}</span>
-          <span className="break-words text-gray-400">邮箱:{user.email}</span>
+          {/* #43:长邮箱优先自然边界断行,不在单词中间硬拆(break-words 仍会把长 token 从中间截断) */}
+          <span className="text-gray-400 [overflow-wrap:anywhere] [word-break:keep-all]">
+            邮箱:{user.email}
+          </span>
         </div>
         <div className="ml-auto flex gap-6 whitespace-nowrap text-sm">
           <div className="flex flex-col items-center">
