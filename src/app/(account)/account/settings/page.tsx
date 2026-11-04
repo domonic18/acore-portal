@@ -13,7 +13,8 @@ export default async function AccountSettingsPage() {
       <SettingsForms
         username={user.username}
         email={user.email}
-        nickname={user.nickname ?? user.username}
+        // 昵称未设置时留空:预填用户名会误导"昵称已设置",保存还会把用户名固化进昵称
+        nickname={user.nickname ?? ""}
       />
     </main>
   );
