@@ -2,14 +2,24 @@ import Link from "next/link";
 import { ContentPanel } from "@/components/site/content-panel";
 import { NavIcon } from "@/components/admin/nav-icons";
 import { PinnedBadge, ThreadStatusBadge } from "@/components/forum/thread-badge";
-import { formatShortDate } from "@/lib/format";
+import { MARKDOWN_BODY_CLS } from "@/constants/content";
+import { getCdnHosts } from "@/lib/config";
+import { renderMarkdown } from "@/lib/markdown";
 import { listForumBoards, listLatestForumThreads } from "@/server/services/forum/browse";
 
 export const metadata = { title: "玩家论坛 · 老克塔" };
 
 /** 版块列表(FR-219;2026-11-04 开放登录用户发帖,入口在版块页;p07 设计稿两栏) */
 export default async function ForumPage() {
-  const [boards, latest] = await Promise.all([listForumBoards(), listLatestForumThreads(5)]);
+  const [rawBoards, latest] = await Promise.all([listForumBoards(), listLatestForumThreads(5)]);
+  // #59:板块描述走与版块页头一致的 Markdown 白名单管线(#58:不再 line-clamp 截断)
+  const cdnHosts = await getCdnHosts();
+  const boards = await Promise.all(
+    rawBoards.map(async (b) => ({
+      ...b,
+      descHtml: b.description ? (await renderMarkdown(b.description, { cdnHosts })).html : null,
+    })),
+  );
 
   return (
     <main className="container-site flex-1 py-6">
@@ -49,17 +59,17 @@ export default async function ForumPage() {
                 </span>
               </div>
 
-              <div className="hidden grid-cols-[minmax(0,1.3fr)_110px_minmax(0,1fr)_64px] gap-4 px-5 py-2.5 text-[12px] text-[#93b2ce] lg:grid">
+              {/* #57:列只留 版块/主题·回复/操作,最新动态不再混排在板块卡内 */}
+              <div className="hidden grid-cols-[minmax(0,1.6fr)_110px_64px] gap-4 px-5 py-2.5 text-[12px] text-[#93b2ce] lg:grid">
                 <span>版块</span>
                 <span>主题 · 回复</span>
-                <span>最新动态</span>
                 <span className="text-right">操作</span>
               </div>
 
               <ul>
                 {boards.map((b) => (
                   <li key={b.slug} className="border-t border-[#22385a] first:border-t-0">
-                    <div className="grid grid-cols-1 gap-3 px-5 py-4 lg:grid-cols-[minmax(0,1.3fr)_110px_minmax(0,1fr)_64px] lg:items-center lg:gap-4">
+                    <div className="grid grid-cols-1 gap-3 px-5 py-4 lg:grid-cols-[minmax(0,1.6fr)_110px_64px] lg:items-center lg:gap-4">
                       <div className="flex min-w-0 items-start gap-3">
                         <span
                           aria-hidden="true"
@@ -78,10 +88,11 @@ export default async function ForumPage() {
                           >
                             {b.name}
                           </Link>
-                          {b.description && (
-                            <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-[#6482a3]">
-                              {b.description}
-                            </p>
+                          {b.descHtml && (
+                            <div
+                              className={`mt-1 text-[13px] leading-5 text-[#6482a3] ${MARKDOWN_BODY_CLS}`}
+                              dangerouslySetInnerHTML={{ __html: b.descHtml }}
+                            />
                           )}
                           <p className="mt-1 text-[12px] text-[#6482a3] lg:hidden">
                             {b.threadCount} 主题 · {b.replyCount} 回复
@@ -94,25 +105,6 @@ export default async function ForumPage() {
                         <div className="text-[12.5px] text-[#6482a3]">
                           主题 · {b.replyCount} 回复
                         </div>
-                      </div>
-
-                      <div className="min-w-0 border-t border-[#22385a] pt-2.5 lg:border-0 lg:pt-0">
-                        {b.latestThread ? (
-                          <>
-                            <Link
-                              href={`/forum/thread/${b.latestThread.id}`}
-                              className="line-clamp-1 text-[13px] text-[#93b2ce] hover:text-[#a8d9f5]"
-                            >
-                              {b.latestThread.title}
-                            </Link>
-                            <p className="mt-0.5 truncate text-[12.5px] text-[#6482a3]">
-                              回复：{b.latestThread.authorName} ·{" "}
-                              {formatShortDate(b.latestThread.lastPostAt)}
-                            </p>
-                          </>
-                        ) : (
-                          <span className="text-[12.5px] text-[#6482a3]">暂无主题</span>
-                        )}
                       </div>
 
                       <Link

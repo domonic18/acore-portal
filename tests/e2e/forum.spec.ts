@@ -321,6 +321,8 @@ test.describe("US5 论坛(T041)", () => {
     await expect(page.getByRole("heading", { name: /版块（/ })).toBeVisible();
     await expect(page.getByRole("heading", { name: "最新主题" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "版规与说明" })).toBeVisible();
+    // #57:板块列表不再混排「最新动态」列(最新主题只在右栏)
+    await expect(page.getByText("最新动态", { exact: true })).toHaveCount(0);
 
     const seed = await prisma.forumThread.findUniqueOrThrow({
       where: { legacyWpTopicId: 2002 },
