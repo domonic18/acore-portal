@@ -323,6 +323,11 @@ test.describe("US5 论坛(T041)", () => {
     await expect(page.getByRole("heading", { name: "版规与说明" })).toBeVisible();
     // #57:板块列表不再混排「最新动态」列(最新主题只在右栏)
     await expect(page.getByText("最新动态", { exact: true })).toHaveCount(0);
+    // 板块说明换行+链接渲染(#59 数据修复后说明为 markdown 形态)
+    await expect(page.getByTestId("board-desc-guild-hall").locator("br")).toHaveCount(1);
+    await expect(
+      page.getByTestId("board-desc-trade").getByRole("link", { name: "交易安全须知" }),
+    ).toHaveAttribute("href", "/?p=169");
 
     const seed = await prisma.forumThread.findUniqueOrThrow({
       where: { legacyWpTopicId: 2002 },

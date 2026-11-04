@@ -6,10 +6,14 @@ export function rewriteForumImages(
   html: string | null | undefined,
   imageMap: Map<string, string>,
 ): string;
+export function boardDescription(
+  html: string | null | undefined,
+  slugMap?: Map<string, number>,
+): string | null;
 export function importBoards(
   pool: unknown,
-  opts?: { forumIds?: number[] },
-): Promise<{ scanned: number; imported: number }>;
+  opts?: { forumIds?: number[]; forceBoards?: boolean },
+): Promise<{ scanned: number; imported: number; updated: number }>;
 export function importThreads(
   pool: unknown,
   opts?: { topicIds?: number[] },
