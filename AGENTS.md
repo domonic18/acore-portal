@@ -47,8 +47,8 @@ pnpm db:migrate                                # 业务库迁移
 pnpm db:seed                                   # 开发种子数据(scripts/dev/seed.ts)
 pnpm soap:mock                                 # 本地 SOAP worldserver 模拟(开发/联调用)
 pnpm dev                                       # 开发服务器
-make check                                     # 质量门禁: lint + typecheck + vitest(394 用例)
-pnpm test:e2e                                  # Playwright E2E 关态档(143 场景, 含路由兼容 301/商城结账/商品增强(含列表快速编辑)/内容前台(含内容区底色/下载锚点/侧栏吸顶/快捷操作指南静态页+308)/侧栏快捷入口后台/渐进计划后台(含配图本地上传)/论坛管理(tab 双区)/状态卡/工具页/通知/看板/SEO)
+make check                                     # 质量门禁: lint + typecheck + vitest(397 用例)
+pnpm test:e2e                                  # Playwright E2E 关态档(151 场景, 含路由兼容 301/商城结账/商品增强(含列表快速编辑)/内容前台(含内容区底色/下载锚点/侧栏吸顶/快捷操作指南静态页+308)/侧栏快捷入口后台/渐进计划后台(含配图本地上传)/论坛管理(tab 双区+发帖回帖)/状态卡/工具页/通知/看板/SEO)
 pnpm test:e2e:turnstile                        # E2E 开态档(E2E_TURNSTILE=1, Turnstile 测试密钥直通, 与关态同量)
 pnpm verify:soap                               # SOAP 通道连通性自检(连真实 worldserver 或 mock)
 pnpm verify:sc001                              # SC-001 老用户双格式登录验收(读 workspace/verify-credentials.txt)

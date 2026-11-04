@@ -1,3 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
+import { unlink } from "node:fs/promises";
+import Redis from "ioredis";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { PrismaClient } from "../../src/generated/business";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "../../src/constants/audit";
@@ -15,6 +19,31 @@ import { AUDIT_ACTION, AUDIT_CATEGORY } from "../../src/constants/audit";
 const prisma = new PrismaClient();
 const RUN = Date.now().toString(36);
 const BOARD_SLUG = `e2eforum-${RUN}`;
+const POST_BOARD_SLUG = `e2epost-${RUN}`;
+const PNG_1PX = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="), (c) => c.charCodeAt(0));
+// 发帖/回帖/上传频控 key 清理(E2E 连发会撞 429;spec 进程直连 dev redis)
+const redisUrl =
+  fs.readFileSync(".env", "utf8").match(/^REDIS_URL=(.+)$/m)?.[1]?.trim() ??
+  "redis://localhost:6381/0";
+const redis = new Redis(redisUrl);
+
+async function clearForumRateLimits() {
+  const patterns = [
+    "rl:forum-thread-fast:*",
+    "rl:forum-thread-hour:*",
+    "rl:forum-post-fast:*",
+    "rl:forum-post-hour:*",
+    "rl:forum-upload:*",
+  ];
+  for (const pattern of patterns) {
+    let cursor = "0";
+    do {
+      const [next, keys] = await redis.scan(cursor, "MATCH", pattern, "COUNT", 100);
+      cursor = next;
+      if (keys.length > 0) await redis.del(...keys);
+    } while (cursor !== "0");
+  }
+}
 
 async function login(page: Page, username: string, password: string) {
   await page.goto("/login");
@@ -32,8 +61,20 @@ async function redirectTarget(request: APIRequestContext, path: string) {
 
 let boardId = 0n;
 let threadId = 0n;
+let runStart: Date;
 
 test.beforeAll(async () => {
+  runStart = new Date(Date.now() - 60_000);
+  // 幂等:清可能的上轮残留(legacyWpForumId 固定值,崩溃 run 的 afterAll 可能未清)
+  const stale = await prisma.forumBoard.findMany({
+    where: { legacyWpForumId: { in: [9_950_000] } },
+    select: { id: true },
+  });
+  for (const b of stale) {
+    await prisma.forumPost.deleteMany({ where: { thread: { boardId: b.id } } });
+    await prisma.forumThread.deleteMany({ where: { boardId: b.id } });
+    await prisma.forumBoard.delete({ where: { id: b.id } });
+  }
   const board = await prisma.forumBoard.create({
     data: {
       slug: BOARD_SLUG,
@@ -71,6 +112,8 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  await clearForumRateLimits();
+  redis.disconnect();
   // 本 run 相关审计(版主四操作按 actor;越权审计按动作+时间窗;MySQL 无 Json path 过滤)
   const runStart = new Date(Date.now() - 30 * 60_000);
   const moderator = await prisma.user.findUniqueOrThrow({
@@ -82,12 +125,16 @@ test.afterAll(async () => {
       OR: [
         {
           actorUserId: moderator.id,
+          createdAt: { gte: runStart },
           action: {
             in: [
               AUDIT_ACTION.FORUM_THREAD_PIN,
               AUDIT_ACTION.FORUM_THREAD_CLOSE,
               AUDIT_ACTION.FORUM_THREAD_LABEL,
               AUDIT_ACTION.FORUM_THREAD_DELETE,
+              AUDIT_ACTION.FORUM_POST_DELETED,
+              AUDIT_ACTION.FORUM_THREAD_CREATED,
+              AUDIT_ACTION.FORUM_POST_CREATED,
             ],
           },
         },
@@ -95,12 +142,38 @@ test.afterAll(async () => {
           action: AUDIT_ACTION.FORUM_MODERATION_VIOLATION,
           createdAt: { gte: runStart },
         },
+        {
+          action: AUDIT_ACTION.FORUM_MODERATION_VIOLATION,
+          createdAt: { gte: runStart },
+        },
+        {
+          action: {
+            in: [
+              AUDIT_ACTION.FORUM_THREAD_CREATED,
+              AUDIT_ACTION.FORUM_POST_CREATED,
+              AUDIT_ACTION.FORUM_POST_DELETED,
+            ],
+          },
+          createdAt: { gte: runStart },
+        },
       ],
     },
   });
-  await prisma.forumPost.deleteMany({ where: { threadId } });
-  await prisma.forumThread.deleteMany({ where: { boardId } });
-  await prisma.forumBoard.deleteMany({ where: { id: boardId } });
+  // 发帖回帖 fixtures(#34):版块/主题/楼层/上传资产
+  const uploadAssets = await prisma.mediaAsset.findMany({
+    where: { originalName: "e2e-forum-upload.png" },
+    select: { id: true },
+  });
+  await prisma.mediaAsset.deleteMany({ where: { originalName: "e2e-forum-upload.png" } });
+  await prisma.forumPost.deleteMany({
+    where: { thread: { board: { slug: { in: [BOARD_SLUG, POST_BOARD_SLUG] } } } },
+  });
+  await prisma.forumThread.deleteMany({
+    where: { board: { slug: { in: [BOARD_SLUG, POST_BOARD_SLUG] } } },
+  });
+  await prisma.forumBoard.deleteMany({
+    where: { slug: { in: [BOARD_SLUG, POST_BOARD_SLUG] } },
+  });
   await prisma.$disconnect();
 });
 
@@ -210,6 +283,7 @@ test.describe("US5 论坛(T041)", () => {
     const audits = await prisma.auditLog.findMany({
       where: {
         actorUserId: moderator.id,
+        createdAt: { gte: runStart },
         action: {
           in: [
             "forum_thread_pin",
@@ -258,7 +332,8 @@ test.describe("US5 论坛(T041)", () => {
     await expect(page.getByText(/共 \d+ 个主题 · 第 1 \/ \d+ 页/)).toBeVisible();
 
     await page.goto(`/forum/thread/${seed.id}`);
-    await expect(page.getByRole("heading", { name: "只读说明" })).toBeVisible();
+    // 游客态:只读说明已替换为登录引导(#34)
+    await expect(page.getByText("后可回帖;游客仅可浏览。")).toBeVisible();
   });
 
   // 用户反馈 2026-11-01:版块页/主题页顶部(面包屑+标题+元信息)直压站点背景图,缺区域底色
@@ -301,5 +376,219 @@ test.describe("US5 论坛(T041)", () => {
     const forum = await redirectTarget(request, "/?forum=1000");
     expect(forum.res.status()).toBe(301);
     expect(forum.target).toBe("/forum/guild-hall");
+  });
+});
+
+test.describe("发帖回帖(#34 2026-11-04)", () => {
+  const THREAD_TITLE = `E2E 发帖主题 ${RUN}`;
+  const REPLY_BODY = `E2E 回帖内容 ${RUN}`;
+  const CLOSED_TITLE = `E2E 关闭主题 ${RUN}`;
+  let closedThreadId = 0n;
+  let flowThreadId = 0n;
+
+  function login(page: Page, username: string, password: string) {
+    return (async () => {
+      await page.goto("/login");
+      await page.getByLabel("用户名").fill(username);
+      await page.getByLabel("密码", { exact: true }).fill(password);
+      await page.getByRole("button", { name: "登录" }).click();
+      await expect(page).toHaveURL(/\/account\/overview$/);
+    })();
+  }
+
+  test.beforeEach(async () => {
+    await clearForumRateLimits();
+  });
+
+  test.beforeAll(async () => {
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { username: "legacyuser" },
+      select: { id: true },
+    });
+    const board = await prisma.forumBoard.create({
+      data: { slug: POST_BOARD_SLUG, name: `E2E 发帖版块 ${RUN}`, sort: 97 },
+    });
+    // 已关闭主题(测 409 与游客/用户双态提示)
+    const closed = await prisma.forumThread.create({
+      data: {
+        boardId: board.id,
+        title: CLOSED_TITLE,
+        authorUserId: user.id,
+        authorName: "legacyuser",
+        closedAt: new Date(),
+        lastPostAt: new Date(),
+      },
+    });
+    closedThreadId = closed.id;
+    await clearForumRateLimits();
+  });
+
+  test.afterAll(async () => {
+    // 清理 describe 级 fixtures(media/文件/频控);redis 与 prisma 连接由文件级 afterAll 统一断开
+    const assets = await prisma.mediaAsset.findMany({
+      where: { originalName: "e2e-forum-upload.png" },
+      select: { id: true, cosKey: true },
+    });
+    await prisma.mediaAsset.deleteMany({ where: { originalName: "e2e-forum-upload.png" } });
+    for (const row of assets) {
+      await unlink(path.join(process.cwd(), "workspace", "uploads", row.cosKey)).catch(() => {});
+    }
+    await clearForumRateLimits();
+  });
+
+  test("游客:版块页无发帖按钮,发帖/回帖 API 401", async ({ page, request }) => {
+    await page.goto(`/forum/${POST_BOARD_SLUG}`);
+    await expect(page.getByRole("link", { name: "登录后可发帖" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "发帖", exact: true })).toHaveCount(0);
+
+    const t = await request.post("/api/forum/threads", {
+      data: { boardSlug: POST_BOARD_SLUG, title: "x", content: "yy" },
+    });
+    expect(t.status()).toBe(401);
+    const r = await request.post(`/api/forum/threads/1/posts`, { data: { content: "yy" } });
+    expect(r.status()).toBe(401);
+  });
+
+  test("legacyuser 发主题全链路:表单→主题页(楼层1 Markdown 渲染)→版块列表可见", async ({
+    page,
+  }) => {
+    await login(page, "legacyuser", "oldpass123");
+    await page.goto(`/forum/${POST_BOARD_SLUG}`);
+    await expect(page.getByRole("link", { name: "发帖", exact: true })).toBeVisible();
+
+    await page.getByRole("link", { name: "发帖", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/forum/${POST_BOARD_SLUG}/new$`));
+    await page.getByLabel(/标题/).fill(THREAD_TITLE);
+    await page
+      .getByPlaceholder(/支持 Markdown/)
+      .fill(`欢迎来到**发帖测试**主题。\n\n第二段内容。`);
+    await page.getByRole("button", { name: "发布主题" }).click();
+
+    await expect(page).toHaveURL(/\/forum\/thread\/\d+$/, { timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: THREAD_TITLE })).toBeVisible();
+    // 楼层1 Markdown 渲染:<strong> 加粗
+    await expect(page.getByRole("strong")).toContainText("发帖测试");
+    await expect(page.getByText("楼主")).toBeVisible();
+
+    const thread = await prisma.forumThread.findFirstOrThrow({
+      where: { title: THREAD_TITLE },
+      select: { id: true, replyCount: true },
+    });
+    flowThreadId = thread.id;
+    expect(thread.replyCount).toBe(0); // 主贴不计回帖
+    const floor1 = await prisma.forumPost.findFirstOrThrow({
+      where: { threadId: thread.id },
+      select: { floor: true, contentHtml: true, legacyWpPostId: true },
+    });
+    expect(floor1.floor).toBe(1);
+    expect(floor1.legacyWpPostId).toBeNull();
+    expect(floor1.contentHtml).toContain("**发帖测试**");
+
+    // 版块列表可见
+    await page.goto(`/forum/${POST_BOARD_SLUG}`);
+    await expect(page.getByText(THREAD_TITLE).first()).toBeVisible();
+  });
+
+  test("回帖:legacyuser 回复 → 楼层 2 + replyCount=1 + 审计", async ({ page }) => {
+    await login(page, "legacyuser", "oldpass123");
+    await page.goto(`/forum/thread/${flowThreadId}`);
+    await page.getByPlaceholder(/支持 Markdown/).fill(REPLY_BODY);
+    await page.getByRole("button", { name: "回复", exact: true }).click();
+    // 先等 UI 反馈(POST 完成),再查 DB
+    await expect(page.getByText(`回帖成功,已发布到第 2 楼。`)).toBeVisible();
+
+    const reply = await prisma.forumPost.findFirstOrThrow({
+      where: { threadId: flowThreadId, floor: 2 },
+      select: { authorName: true },
+    });
+    expect(reply.authorName).toBe("legacyuser");
+    const thread = await prisma.forumThread.findUniqueOrThrow({
+      where: { id: flowThreadId },
+      select: { replyCount: true },
+    });
+    expect(thread.replyCount).toBe(1);
+    const audits = await prisma.auditLog.findFirstOrThrow({
+      where: { action: AUDIT_ACTION.FORUM_POST_CREATED },
+      orderBy: { id: "desc" },
+    });
+    expect(
+      (audits.payloadJson as { threadId?: string }).threadId,
+    ).toBe(flowThreadId.toString());
+  });
+
+  test("上传图片:上传→插入 Markdown→发布后图片回显(/uploads 本地回退)", async ({ page }) => {
+    await login(page, "legacyuser", "oldpass123");
+    await page.goto(`/forum/${POST_BOARD_SLUG}/new`);
+    await page.getByLabel(/标题/).fill(`E2E 上传图片主题 ${RUN}`);
+    await page
+      .getByRole("button", { name: /上传图片/ })
+      .setInputFiles([
+        { name: "e2e-forum-upload.png", mimeType: "image/png", buffer: Buffer.from(PNG_1PX) },
+      ]);
+    await expect(page.getByPlaceholder(/支持 Markdown/)).toHaveValue(/!\[\]\(\/uploads\//);
+    await page.getByRole("button", { name: "发布主题" }).click();
+    await expect(page).toHaveURL(/\/forum\/thread\/\d+$/, { timeout: 15_000 });
+
+    const img = page.locator("main img[src^='/uploads/']").first();
+    await expect(img).toBeVisible();
+    const src = await img.getAttribute("src");
+    const res = await page.request.get(src!);
+    expect(res.status()).toBe(200);
+  });
+
+  test("频控:60s 内第二篇主题 429(beforeAll 已清频控)", async ({ page }) => {
+    await login(page, "legacyuser", "oldpass123");
+    const payload = {
+      boardSlug: POST_BOARD_SLUG,
+      title: `E2E 频控第一篇 ${RUN}`,
+      content: "频控验证第一篇",
+    };
+    const first = await page.request.post("/api/forum/threads", { data: payload });
+    expect(first.status()).toBe(200);
+    const second = await page.request.post("/api/forum/threads", {
+      data: { ...payload, title: `E2E 频控第二篇 ${RUN}` },
+    });
+    expect(second.status()).toBe(429);
+    expect(((await second.json()) as { error: { code: string } }).error.code).toBe("RATE_LIMITED");
+  });
+
+  test("关闭主题:页面提示不渲染回帖表单,API 409", async ({ page }) => {
+    await login(page, "legacyuser", "oldpass123");
+    await page.goto(`/forum/thread/${closedThreadId}`);
+    await expect(page.getByText("主题已关闭,不再接受回帖")).toBeVisible();
+    await expect(page.getByRole("button", { name: "回复", exact: true })).toHaveCount(0);
+
+    const res = await page.request.post(`/api/forum/threads/${closedThreadId}/posts`, {
+      data: { content: "试试回帖" },
+    });
+    expect(res.status()).toBe(409);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe("THREAD_CLOSED");
+  });
+
+  test("版主删楼层:软删+replyCount 回减+审计(theme 表 single-line 断言顺带)", async ({ page }) => {
+    // 前置:flowThread 里已有 legacyuser 的 2 楼
+    await login(page, "m3moderator", "moderatorpass123");
+    await page.goto(`/forum/thread/${flowThreadId}`);
+    await expect(page.getByText("2 楼").first()).toBeVisible();
+    const floorArticle = page.locator("article", { hasText: "2 楼" });
+    await page.once("dialog", (d) => d.accept());
+    await floorArticle.getByRole("button", { name: "删除楼层" }).click();
+    // 软删成功后 refresh 使楼层消失(先等 UI,再查 DB)
+    await expect(floorArticle).toHaveCount(0);
+
+    const gone = await prisma.forumPost.findFirst({
+      where: { threadId: flowThreadId, floor: 2, deletedAt: null },
+    });
+    expect(gone).toBeNull();
+    const thread = await prisma.forumThread.findUniqueOrThrow({
+      where: { id: flowThreadId },
+      select: { replyCount: true },
+    });
+    expect(thread.replyCount).toBe(0);
+    const audit = await prisma.auditLog.findFirstOrThrow({
+      where: { action: AUDIT_ACTION.FORUM_POST_DELETED },
+      orderBy: { id: "desc" },
+    });
+    expect((audit.payloadJson as { threadId?: string }).threadId).toBe(flowThreadId.toString());
   });
 });

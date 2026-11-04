@@ -36,6 +36,8 @@
 
 ## 二期后置池
 
+- (2026-11-04 已从后置池落地,见变更记录) 开放论坛发帖/回帖 #34
+
 - rank.lokta.cn 整合 / 文章评论 / 百度 SEO 工具集 / WP Statistics 历史数据（见 requirement/01 §2；论坛状态标签已于 2026-10-24 提前入 M3）
 - 用户中心-RAF 招募进度（2026-10-25 M4 范围裁决后置：依赖游戏端 Eluna 脚本未落地）/ SEO 工具页（上线前再评估，规格书 §12）
 - 用户中心-收货地址簿（2026-10-24 M2 范围 P2 裁剪,飞书池备注可查;商品批量操作与复制/商品限购/商品销量统计已于 2026-10-31 提前落地，见变更记录）
@@ -48,6 +50,7 @@
 
 | 日期 | 变更 | 原因 |
 |------|------|------|
+| 2026-11-04 | 开放论坛发帖+回帖(#34,M3 Q1 只读裁决解除,先发后审):登录用户(role=user+)可在版块页「发帖」按钮→发帖页(标题+Markdown 正文+图片上传)发新主题,主题页回帖表单回帖(楼层+replyCount/lastPostAt 同步);游客见登录引导。新增 services/forum/write.ts(createThread/createReply 事务,FLOOR_CONFLICT 409,closed/软删拒绝)、moderate.deletePost(版主删楼层软删+replyCount 回减+lastPostAt 重算)、审计 forum_thread_created/forum_post_created/forum_post_deleted(正文不落);API POST /api/forum/threads、threads/[id]/posts、forum/upload(用户级图片通道,仅 image/*≤5MB,复用 uploadMediaAssets,category=论坛图片,频控发帖 1/60s+3/h、回帖 1/30s+10/h、上传 10/h,均 per-user)、moderate/post/[id]/delete(requireApiModerator);新帖 Markdown 存 contentHtml 列,渲染按 legacyWpPostId 判别(存量 HTML/renderLegacyHtml,新帖 renderMarkdown);前台 markdown-composer(textarea+图片上传+字数)/reply-form/thread-composer-form/post-actions(版主删楼层);只读文案全面替换(版规/副标/只读说明面板→回帖表单);E2E forum.spec 7 新用例(游客 401+引导/发主题全链路 Markdown 渲染/回帖楼层审计/上传图片本地回退回显/频控 429 纯 API/关闭主题 409/版主删楼层),集成 forum-write 3 例;vitest 397 全绿,E2E 151 场景全绿 | 用户需求:普通用户在只读模式下无发帖入口(#34) |
 | 2026-11-04 | 质量助手五项反馈(#47-#51)修复:#47 积分手调对齐 WP 交互——单一带符号分值输入+原因 datalist 预置常用项+单按钮提交;#48 后台表格移动端适配——共享 Table 补 overflow-x-auto+min-w-680(窄屏横滚替代逐字竖排/列裁切),订单明细 slug 独立行,批量工具栏 nowrap;#49 媒体库「上传分类」「共 N 个」nowrap;#50 轮播 ↑↓ 422 根因修复——迁移数据 linkUrl 为站内路径而 PUT zod 只收 http(s),放宽为站内路径或 http(s),E2E 补排序持久化回归;#51 版块卡移动端堆叠+名称 nowrap+说明两行;admin E2E 39/39,全量 141+2(admin-role 全量中偶发登录抖动,单跑 3/3 为已知环境项) | 质量助手 GitHub 实测提单 |
 | 2026-11-04 | 质量助手十项反馈(#37-#46)修复:#37 首页「规范要求」改指原站内容(WP169 和谐游戏环境公约=文章 网站规范);#38 移动端轮播 16:9+标题 15px;#39/40 文章目录卡移动端隐藏+条目统一左对齐;#41 数据库三工具页移除页内页签行;#42 状态卡移除 今日峰值/稳定运行/角色总数;#43 账号总览卡 flex-wrap+nowrap+break-words;#44 后台移动端改侧边抽屉菜单(汉堡+17 项分组);#45 仪表盘漏斗摘要条移动端单列+wrap;#46 MiniCard 说明独立成行;E2E server-status/tools 断言同步,全量 141+2 全绿,双端 overflow 扫描清零 | 质量助手 GitHub 实测提单 |
 | 2026-11-03 | 后台+前台 UI/UX 三轮优化(九项反馈):① 编辑器预览面板与编辑区严格等高(h-480 内滚动);② 版块管理重做——forum_board 增 board_icon 列(lucide key)+description 放宽 Text,卡片化列表+拖拽/↑↓ 排序持久化,编辑/新建原位展开(图标网格点选+说明 MarkdownEditor 紧凑 280px),前台版块图标 NavIcon 渲染、版块页头说明经 renderMarkdown 白名单渲染;③ 归档页(/announcements /news /guides)与论坛首页页头(面包屑+标题)入面板条、分页包面板底,工具页页内 tab 条同处理;④ 论坛首页右列「最新主题」面板 flex 拉伸与左列底对齐(消除割裂);⑤ 后台顶栏移除 低库存/发货异常 徽标(收敛至仪表盘计数卡+横幅,getAdminBadgeCounts 并入 DashboardCounts);⑥/⑦ 文章与静态页发布卡统一——状态 select 去长文案+当前状态 Badge 预览+helper 说明,保存按钮上移发布卡头右侧;⑧ 媒体上传重做——新 ui/dropzone(拖放+点选两用虚线框),媒体管理台/选择弹层换用;裸 checkbox 全量转 Switch/CheckChip(成就嵌入/商品表单库存与目录可见/settings 布尔行/文章标签/侧栏页面类型,Switch 支持 data-testid 透传);⑨ overflow 扫描(1440/390 双档,admin 全页+forum/归档)清零;E2E 143 场景全绿(admin-forum/admin-home/content 适配卡片断言) | 用户实测反馈:编辑器高度不一、版块编辑简陋、归档/论坛页头与翻页压背景图、论坛列错位、后台导航区出现状态、状态交互难理解不统一、上传像 label、文字折行 |
