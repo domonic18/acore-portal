@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 import { readLocalMedia } from "@/lib/media/local-store";
+import { readMediaWithFallback } from "@/server/services/media/library";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * 本地媒体读取(未配置 COS 的上传回退):next start 只服务构建期 public,
- * 运行期新增文件必须经此路由读取。key 由 local-store 严格校验,防目录穿越。
- * hash 寻址内容不可变 → 一年强缓存;nosniff + sandbox 阻断同源脚本执行。
+ * 站内媒体读取(#34 2026-11-04 起论坛图片统一走此路径):本地读取优先,
+ * 缺失且配置 COS 时回源并写穿本地缓存(下次命中本地)。
+ * key 由 local-store 严格校验,防目录穿越;hash 寻址内容不可变 → 一年
+ * 强缓存;nosniff + sandbox 阻断同源脚本执行。
  */
 export async function GET(
   _req: Request,
   { params }: { params: { key: string[] } },
 ) {
   const key = (params.key ?? []).join("/");
-  const file = await readLocalMedia(key);
+  const file = (await readLocalMedia(key)) ?? (await readMediaWithFallback(key));
   if (!file) return new NextResponse("Not Found", { status: 404 });
   return new NextResponse(new Uint8Array(file.bytes), {
     headers: {

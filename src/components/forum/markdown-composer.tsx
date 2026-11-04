@@ -1,15 +1,16 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { ImagePlus } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Eye, EyeOff, ImagePlus } from "lucide-react";
 import { errorMessage, requestJson } from "@/lib/api-client";
 import { FOCUS_RING } from "@/components/ui/admin-tokens";
 
 const MAX_CONTENT = 20_000;
 
 /**
- * 论坛发帖/回帖共用正文编辑器(#34):textarea + 图片上传(拖放/点选,
- * 上传成功在光标处插 Markdown 图片) + 字数统计。前台配色。
+ * 论坛发帖/回帖共用正文编辑器(#34):textarea + 图片上传(上传成功在光标处
+ * 插站内 Markdown 图片)+ 编写/预览切换(预览走 /api/forum/preview,
+ * 与前台同管线白名单,所见即所得——上传的图片直接渲染为图片)。
  */
 export function MarkdownComposer({
   value,
@@ -23,8 +24,39 @@ export function MarkdownComposer({
   rows?: number;
 }) {
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const [showPreview, setShowPreview] = useState(true);
+  const [previewHtml, setPreviewHtml] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const seqRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 预览:输入停顿 400ms 后请求;seq 丢弃过期响应
+  useEffect(() => {
+    if (!showPreview) return;
+    seqRef.current += 1;
+    const seq = seqRef.current;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      if (value.trim() === "") {
+        setPreviewHtml("");
+        return;
+      }
+      try {
+        const body = await requestJson<{ html: string }>("/api/forum/preview", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ content: value }),
+        });
+        if (seq === seqRef.current) setPreviewHtml(body.html);
+      } catch {
+        /* 预览失败静默,保留上次内容 */
+      }
+    }, 400);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [value, showPreview]);
 
   function insertAtCursor(snip: string) {
     const ta = taRef.current;
@@ -62,7 +94,7 @@ export function MarkdownComposer({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2" data-testid="forum-composer">
       <div className="flex flex-wrap items-center gap-2">
         <label
           className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#22385a] bg-[#13233a] px-3 py-1.5 text-xs text-[#93b2ce] transition hover:border-[#6fb7e0]/50 hover:text-[#dcebf7] ${FOCUS_RING} ${
@@ -83,23 +115,60 @@ export function MarkdownComposer({
             }}
           />
         </label>
-        <span className="ml-auto text-[11.5px] text-[#6482a3]">
-          {value.length}/{MAX_CONTENT}
-        </span>
+        <button
+          type="button"
+          onClick={() => setShowPreview((v) => !v)}
+          className={`ml-auto inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition ${FOCUS_RING} ${
+            showPreview
+              ? "border-[#6fb7e0]/50 bg-[#6fb7e0]/10 font-semibold text-[#a8d9f5]"
+              : "border-[#22385a] bg-[#13233a] text-[#93b2ce] hover:border-[#6fb7e0]/50 hover:text-[#dcebf7]"
+          }`}
+        >
+          {showPreview ? (
+            <>
+              <EyeOff aria-hidden="true" className="h-3.5 w-3.5" />
+              收起预览
+            </>
+          ) : (
+            <>
+              <Eye aria-hidden="true" className="h-3.5 w-3.5" />
+              实时预览
+            </>
+          )}
+        </button>
       </div>
       {error && (
         <p role="alert" className="text-xs text-[#eda9a9]">
           {error}
         </p>
       )}
-      <textarea
-        ref={taRef}
-        value={value}
-        onChange={(e) => onChange(e.target.value.slice(0, MAX_CONTENT))}
-        rows={rows}
-        placeholder={placeholder}
-        className={`w-full rounded-lg border border-[#22385a] bg-[#0d1828] p-3 font-mono text-sm leading-6 text-[#dcebf7] placeholder:text-[#6482a3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60 ${FOCUS_RING}`}
-      />
+      <div className={`grid items-stretch gap-3 ${showPreview ? "lg:grid-cols-2" : ""}`}>
+        <textarea
+          ref={taRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value.slice(0, MAX_CONTENT))}
+          rows={rows}
+          placeholder={placeholder}
+          className="w-full rounded-lg border border-[#22385a] bg-[#0d1828] p-3 font-mono text-sm leading-6 text-[#dcebf7] placeholder:text-[#6482a3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60"
+        />
+        {showPreview && (
+          <div
+            className="max-h-[480px] min-h-[10rem] overflow-y-auto rounded-lg border border-[#22385a] bg-[#0d1828] p-4"
+            data-testid="forum-composer-preview"
+          >
+            {previewHtml ? (
+              <div
+                className="forum-post-body text-[14px] leading-[1.9] text-[#93b2ce] [&_a]:text-[#6fb7e0] [&_blockquote]:border-l-2 [&_blockquote]:border-[#35577f] [&_blockquote]:pl-3 [&_code]:rounded [&_code]:bg-[#0d1828] [&_code]:px-1 [&_img]:max-w-full [&_p]:my-2 [&_strong]:text-[#dcebf7]"
+                dangerouslySetInnerHTML={{ __html: previewHtml }}
+              />
+            ) : (
+              <p className="text-xs text-[#6482a3]">
+                {value.trim() === "" ? "左侧输入 Markdown 后此处实时预览" : "预览生成中…"}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

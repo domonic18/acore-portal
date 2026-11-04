@@ -51,5 +51,9 @@ export async function POST(req: NextRequest) {
     })),
   );
   const items = await uploadMediaAssets(prepared, BigInt(session.userId));
-  return apiOk({ items: items.map((i) => ({ url: i.url, originalName: i.originalName })) });
+  // 论坛图片统一站内代理路径(/uploads/{cosKey}),不暴露 COS 直链;
+  // 由 /uploads 路由本地优先/COS 回源供给
+  return apiOk({
+    items: items.map((i) => ({ url: `/uploads/${i.cosKey}`, originalName: i.originalName })),
+  });
 }
