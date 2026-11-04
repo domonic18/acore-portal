@@ -46,3 +46,8 @@ coverage/
 
 # 根目录 UI 验证截图(反馈会话产物,历史截图已移 workspace/screenshots)
 /*.png
+
+# .claude/skills 本地 hub 符号链接不入库(绝对路径链接跨机器死链;
+# speckit-* 为已入库真实文件,保持可提交)
+.claude/skills/*
+!.claude/skills/speckit-*
