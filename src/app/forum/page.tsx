@@ -90,6 +90,7 @@ export default async function ForumPage() {
                           </Link>
                           {b.descHtml && (
                             <div
+                              data-testid={`board-desc-${b.slug}`}
                               className={`mt-1 text-[13px] leading-5 text-[#6482a3] ${MARKDOWN_BODY_CLS}`}
                               dangerouslySetInnerHTML={{ __html: b.descHtml }}
                             />

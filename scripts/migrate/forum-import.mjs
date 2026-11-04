@@ -45,45 +45,78 @@ export function rewriteForumImages(html, imageMap) {
   );
 }
 
-/** WP 版块正文 → 纯文本说明(版块卡只展示短说明,HTML 标签不入库) */
-export function plainDescription(html, limit = 255) {
-  const text = (html ?? "")
-    .replace(/<br\s*\/?>/gi, " ")
+/**
+ * WP 版块正文 → Markdown 说明(#59 前台 Markdown 白名单管线渲染):
+ * <a> 转 md 链接、<br>/</p>/字面 \n 转行、<strong> 保留加粗、其余标签剥壳留内容。
+ * 旧站 topic 链接存在 slug 形态(?topic=rule),路由兼容层仅收纯数字键
+ * (legacy-routes「不做模糊猜测」),导入期经 slugMap 解析为数字 id。
+ */
+export function boardDescription(html, slugMap = new Map()) {
+  const md = (html ?? "")
+    .replace(
+      /<a\b[^>]*\bhref\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi,
+      (_m, _quote, href, text) => {
+        let url = href;
+        const slug = /[?&]topic=([^&#]+)/i.exec(href)?.[1];
+        if (slug) {
+          const id = slugMap.get(slug.toLowerCase()) ?? slugMap.get(decodeURIComponent(slug).toLowerCase());
+          if (id) url = href.replace(/([?&]topic=)[^&#]+/i, `$1${id}`);
+        }
+        const label = text.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+        return label ? `[${label}](${url})` : "";
+      },
+    )
+    .replace(/<\/p\s*>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<(strong|b)\b[^>]*>([\s\S]*?)<\/\1>/gi, (_m, _tag, inner) => `**${inner.replace(/\s+/g, " ").trim()}**`)
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&[a-z]+;/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
+    // 字面 \n 文本(旧编辑器残留)并入换行语义;行内空白折叠、行去首尾、丢空行
+    .split("\n")
+    .map((line) => line.replace(/\\n/g, "").replace(/[ \t]+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n");
+  return md || null;
 }
 
-/** 版块导入(幂等:legacy_wp_forum_id 已存在则仅补空白说明) */
-export async function importBoards(pool, { forumIds } = {}) {
+/** 版块导入(幂等:legacy_wp_forum_id 已存在则仅补空/force 重写说明) */
+export async function importBoards(pool, { forumIds, forceBoards = false } = {}) {
   const defs = BOARD_DEFS.filter((b) => !forumIds || forumIds.includes(b.wpId));
   const ids = defs.map((b) => b.wpId);
-  const [rows] = await pool.query(
-    `SELECT ID, post_title, post_content FROM wp_legacy.wp_posts
+  const [rows, topics] = await Promise.all([
+    pool.query(
+      `SELECT ID, post_title, post_content FROM wp_legacy.wp_posts
       WHERE post_type = 'forum' AND ID IN (${ids.map(() => "?").join(",")})`,
-    ids,
+      ids,
+    ).then(([r]) => r),
+    pool
+      .query(
+        `SELECT ID, post_name FROM wp_legacy.wp_posts
+         WHERE post_type = 'topic' AND post_name <> ''`,
+      )
+      .then(([r]) => r),
+  ]);
+  const slugMap = new Map(
+    topics.map((t) => [String(t.post_name).toLowerCase(), Number(t.ID)]),
   );
   let imported = 0;
   let updated = 0;
   for (const [i, def] of defs.entries()) {
     const row = rows.find((r) => r.ID === def.wpId);
     if (!row) continue;
-    const description = plainDescription(row.post_content) || null;
+    const description = boardDescription(row.post_content, slugMap);
     const [existing] = await pool.query(
       `SELECT id, description FROM acore_portal.forum_board WHERE legacy_wp_forum_id = ?`,
       [def.wpId],
     );
     if (existing.length > 0) {
-      // 早前导入把 description 写成了 NULL(issue #35);只补空值,不覆盖后台已改内容
-      if (existing[0].description == null && description) {
+      // 空值回补(issue #35);forceBoards 重写压平说明(换行/链接数据修复 #59 后),否则不动后台已改内容
+      if (description && (forceBoards || existing[0].description == null)) {
         await pool.query(
           `UPDATE acore_portal.forum_board SET description = ? WHERE id = ?`,
           [description, existing[0].id],
@@ -350,7 +383,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     connectionLimit: 2,
     timezone: "+00:00",
   });
-  const boards = await importBoards(pool);
+  // --force-boards:重写既有版块说明(换行/链接数据修复后的一次性回填,默认不动后台已改内容)
+  const forceBoards = process.argv.includes("--force-boards");
+  const boards = await importBoards(pool, { forceBoards });
   const threads = await importThreads(pool);
   const posts = await importPosts(pool);
   const audit = await reconcile(pool);

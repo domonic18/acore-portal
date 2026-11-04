@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { config } from "dotenv";
 import { createPool, type Pool, type RowDataPacket } from "mysql2/promise";
 import {
+  boardDescription,
   importBoards,
   importPosts,
   importThreads,
@@ -175,5 +176,30 @@ describe("论坛导入(T036/T037)", () => {
     expect(rewriteForumImages(`<img src="/none/missing.png">`, map)).toContain(
       "/none/missing.png",
     );
+  });
+
+  it("boardDescription:换行/链接/加粗保留,topic slug 解析为数字 id(说明数据修复)", () => {
+    const slugMap = new Map([
+      ["rule", 591],
+      ["t36-topic-9941001", 9941001],
+    ]);
+    // <a> → md 链接;旧站 slug 形态 topic 键按 slugMap 换成数字 id(路由兼容仅收纯数字)
+    const link = boardDescription(
+      `<p>请按照《<a href="http://lokta.cn/?topic=rule" title="缺陷反馈格式">缺陷反馈格式</a>》反馈问题。</p>`,
+      slugMap,
+    );
+    expect(link).toBe("请按照《[缺陷反馈格式](http://lokta.cn/?topic=591)》反馈问题。");
+    // <br>/</p>/字面 \n → 换行;<strong> 保留加粗;<font> 剥壳留内容
+    const appeal = boardDescription(
+      `<p>账号申诉流程：\n<br>1、<strong>说明问题</strong>：在<font color="red">论坛发帖</font>。</p>`,
+      new Map(),
+    );
+    expect(appeal).toBe("账号申诉流程：\n1、**说明问题**：在论坛发帖。");
+    // slug 未命中保留原 href;空链接文本丢弃
+    const keep = boardDescription(
+      `<p>方法→<a href="http://lokta.cn/?topic=%e6%9c%aa%e7%9f%a5">上传图片</a><a href="#"></a></p>`,
+      slugMap,
+    );
+    expect(keep).toBe("方法→[上传图片](http://lokta.cn/?topic=%e6%9c%aa%e7%9f%a5)");
   });
 });

@@ -280,9 +280,18 @@ async function seedContent() {
 
 /** M3 论坛 fixtures(T002):2 版块/2 主题/4 楼层(含未映射作者快照) */
 async function seedForum() {
+  // 说明带换行+md 链接形态(E2E 断言板块说明渲染;对齐存量导入的 markdown 说明)
   const boardSeed = [
-    { slug: "guild-hall", name: "公会大厅", description: "公会招募与交流" },
-    { slug: "trade", name: "交易行", description: "物品交易信息" },
+    {
+      slug: "guild-hall",
+      name: "公会大厅",
+      description: "公会招募与交流\n招募帖请注明公会名与活动时间",
+    },
+    {
+      slug: "trade",
+      name: "交易行",
+      description: "物品交易信息\n大额交易请先阅读[交易安全须知](/?p=169)",
+    },
   ];
   for (const [i, b] of boardSeed.entries()) {
     await prisma.forumBoard.upsert({
