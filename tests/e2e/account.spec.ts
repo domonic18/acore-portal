@@ -176,4 +176,47 @@ test.describe("US4 用户中心(quickstart S4)", () => {
     });
     expect(res.status()).toBe(422);
   });
+
+  test("未设置昵称的账号:输入框留空占位,不回填用户名(#62)", async ({ page }) => {
+    // m1admin 种子无昵称;此前页面把用户名当初始值填进昵称框,保存会把用户名固化成昵称
+    await page.goto("/login");
+    await page.getByLabel("用户名").fill("m1admin");
+    await page.getByLabel("密码", { exact: true }).fill("adminpass123");
+    await page.getByRole("button", { name: "登录" }).click();
+    await expect(page).toHaveURL(/\/account\/overview$/);
+    await page.goto("/account/settings");
+    const input = page.getByLabel(/昵称\(2-64/);
+    await expect(input).toHaveValue("");
+    await expect(input).toHaveAttribute("placeholder", "未设置");
+  });
+
+  test("导航 tab 条:当前项下划线高亮;375px 单行横滚不折行(#63)", async ({ page }) => {
+    await login(page);
+    await page.goto("/account/settings");
+    const nav = page.getByTestId("account-nav");
+    const settingsTab = nav.getByRole("link", { name: "账户设置" });
+    await expect(settingsTab).toHaveAttribute("aria-current", "page");
+    // 当前项下划线指示条渲染
+    await expect(settingsTab.locator("span")).toBeVisible();
+
+    // 375px:9 项仍单行(横向滚动而非折成参差多行),且确实溢出可滚
+    await page.setViewportSize({ width: 375, height: 812 });
+    const rows = await nav.locator("a").evaluateAll((els) => [
+      ...new Set(els.map((e) => Math.round(e.getBoundingClientRect().top))),
+    ]);
+    expect(rows).toHaveLength(1);
+    const scrollable = await nav
+      .locator("ul")
+      .evaluate((el) => el.scrollWidth > el.clientWidth);
+    expect(scrollable).toBe(true);
+
+    // 滚出视口的尾项仍可点(Playwright 自动滚入),点击后高亮随路由迁移
+    await nav.getByRole("link", { name: "收货地址" }).click();
+    await expect(page).toHaveURL(/\/account\/address$/);
+    await expect(nav.getByRole("link", { name: "收货地址" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(settingsTab).not.toHaveAttribute("aria-current", "page");
+  });
 });

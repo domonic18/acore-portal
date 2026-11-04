@@ -78,7 +78,7 @@ export function InboxList({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span className="text-sm text-gray-400" data-testid="inbox-unread">
+        <span className="text-sm text-[#93b2ce]" data-testid="inbox-unread">
           未读 {unread} 条
         </span>
         <button
@@ -86,47 +86,47 @@ export function InboxList({
           onClick={markAll}
           disabled={unread === 0}
           data-testid="mark-all-read"
-          className="rounded border border-gray-700 px-3 py-1 text-sm disabled:opacity-40"
+          className="rounded-md border border-[#22385a] px-3 py-1 text-sm disabled:opacity-40"
         >
           全部已读
         </button>
       </div>
       {items.length === 0 ? (
-        <p className="py-4 text-gray-400">暂无通知。</p>
+        <p className="py-4 text-[#93b2ce]">暂无通知。</p>
       ) : (
         <ul className="flex flex-col" data-testid="inbox-list">
           {items.map((i) => (
             <li
               key={i.id}
               data-testid="inbox-item"
-              className={`flex flex-col gap-1 border-b border-gray-900 py-3 ${
-                i.readAt === null ? "bg-gray-900/40" : ""
+              className={`flex flex-col gap-1 border-b border-[#16304f] py-3 ${
+                i.readAt === null ? "bg-[#13233a]/60" : ""
               }`}
             >
               <div className="flex items-center gap-2">
                 {!i.readAt && (
                   <span
                     aria-label="未读"
-                    className="h-2 w-2 shrink-0 rounded-full bg-blue-500"
+                    className="h-2 w-2 shrink-0 rounded-full bg-[#6fb7e0]"
                   />
                 )}
                 <span
                   className={`text-sm font-medium ${
-                    i.readAt === null ? "text-white" : "text-gray-400"
+                    i.readAt === null ? "text-white" : "text-[#93b2ce]"
                   }`}
                 >
                   {i.title}
                 </span>
-                <span className="ml-auto text-xs text-gray-500">
+                <span className="ml-auto text-xs text-[#6482a3]">
                   {formatDateTime(i.createdAt)}
                 </span>
               </div>
-              <p className="pl-4 text-sm text-gray-400">{i.body}</p>
+              <p className="pl-4 text-sm text-[#93b2ce]">{i.body}</p>
               <div className="flex items-center gap-3 pl-4 text-xs">
                 {i.linkUrl && (
                   <Link
                     href={i.linkUrl}
-                    className="text-blue-400 hover:text-blue-300"
+                    className="text-[#6fb7e0] hover:text-[#a8d9f5]"
                   >
                     查看详情
                   </Link>
@@ -135,7 +135,7 @@ export function InboxList({
                   <button
                     type="button"
                     onClick={() => markOne(i.id)}
-                    className="text-gray-400 hover:text-gray-200"
+                    className="text-[#93b2ce] hover:text-[#a8d9f5]"
                   >
                     标为已读
                   </button>
@@ -156,7 +156,7 @@ export function InboxList({
           onClick={loadMore}
           disabled={loading}
           data-testid="load-more"
-          className="rounded border border-gray-700 px-3 py-1.5 text-sm disabled:opacity-40"
+          className="rounded-md border border-[#22385a] px-3 py-1.5 text-sm disabled:opacity-40"
         >
           {loading ? "加载中…" : "加载更多"}
         </button>

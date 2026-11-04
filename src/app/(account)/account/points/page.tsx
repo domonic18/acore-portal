@@ -21,9 +21,9 @@ export default async function PointsPage() {
   return (
     <main className="flex flex-col gap-4">
       <h1 className="text-2xl font-bold">积分</h1>
-      <section className="inline-flex flex-col rounded border border-gray-800 px-6 py-4">
+      <section className="inline-flex flex-col rounded-md border border-[#22385a] px-6 py-4">
         <span className="text-3xl font-bold">{data.balance}</span>
-        <span className="text-sm text-gray-400">当前余额</span>
+        <span className="text-sm text-[#93b2ce]">当前余额</span>
       </section>
       <PointsPager
         initial={data.transactions}
