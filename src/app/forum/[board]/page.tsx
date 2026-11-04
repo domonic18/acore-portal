@@ -7,6 +7,8 @@ import { FORUM_PAGE_SIZE } from "@/constants/pagination";
 import { formatShortDate } from "@/lib/format";
 import { paginate } from "@/lib/pagination";
 import { getForumBoardBySlug, listBoardThreads } from "@/server/services/forum/browse";
+import { getServerSession } from "@/server/session-guard";
+import { ButtonLink } from "@/components/ui/button";
 import { renderMarkdown } from "@/lib/markdown";
 import { getCdnHosts } from "@/lib/config";
 import { MARKDOWN_BODY_CLS } from "@/constants/content";
@@ -52,6 +54,7 @@ export default async function ForumBoardPage({
   params: { board: string };
   searchParams: { page?: string };
 }) {
+  const session = await getServerSession();
   const board = await getForumBoardBySlug(params.board);
   if (!board) notFound();
   const page = Math.max(1, Number.parseInt(searchParams.page ?? "1", 10) || 1);
@@ -100,7 +103,21 @@ export default async function ForumBoardPage({
               ) : (
                 <p className="mt-1.5 text-[13px] text-[#93b2ce]">版块说明暂无</p>
               )}
-              <p className="mt-1 text-[12.5px] text-[#6482a3]">共 {total} 主题</p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[12.5px] text-[#6482a3]">共 {total} 主题</p>
+                {session ? (
+                  <ButtonLink href={`/forum/${board.slug}/new`} size="sm">
+                    发帖
+                  </ButtonLink>
+                ) : (
+                  <Link
+                    href={`/login?next=${encodeURIComponent(`/forum/${board.slug}/new`)}`}
+                    className="text-[12px] text-[#6fb7e0] hover:underline"
+                  >
+                    登录后可发帖
+                  </Link>
+                )}
+              </div>
             </div>
           </div>
         </header>

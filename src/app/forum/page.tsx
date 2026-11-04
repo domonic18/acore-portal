@@ -7,7 +7,7 @@ import { listForumBoards, listLatestForumThreads } from "@/server/services/forum
 
 export const metadata = { title: "玩家论坛 · 老克塔" };
 
-/** 版块列表(FR-219;Q1 完全只读——本页零发帖入口;p07 设计稿两栏) */
+/** 版块列表(FR-219;2026-11-04 开放登录用户发帖,入口在版块页;p07 设计稿两栏) */
 export default async function ForumPage() {
   const [boards, latest] = await Promise.all([listForumBoards(), listLatestForumThreads(5)]);
 
@@ -29,10 +29,10 @@ export default async function ForumPage() {
             玩家论坛
           </h1>
           <span className="hidden text-[13.5px] text-[#6482a3] lg:inline">
-            存量社区归档 · 版块讨论与工单浏览 · 只读模式
+            注册用户可发帖回帖 · 版块讨论与工单浏览
           </span>
         </div>
-        <p className="mt-1 text-[10px] text-[#6482a3] lg:hidden">存量社区归档 · 只读浏览</p>
+        <p className="mt-1 text-[10px] text-[#6482a3] lg:hidden">注册用户可发帖回帖</p>
       </div>
 
       <div>
@@ -45,7 +45,7 @@ export default async function ForumPage() {
                   版块（{boards.length}）
                 </h2>
                 <span className="ml-auto hidden text-[13px] text-[#6482a3] sm:inline">
-                  原站 bbPress 版块 · 只读浏览
+                  原站 bbPress 版块迁移
                 </span>
               </div>
 
@@ -176,7 +176,7 @@ export default async function ForumPage() {
                 <h2 className="text-[15px] font-semibold text-[#a8d9f5]">版规与说明</h2>
               </div>
               <ul className="space-y-1.5 text-[13px] leading-[1.9] text-[#93b2ce]">
-                <li>· 论坛为存量社区归档，仅提供浏览；发帖 / 回帖 / 上传图片已停用</li>
+                <li>· 发帖 / 回帖面向注册用户开放；图片请通过发帖页上传（限论坛相册）</li>
                 <li>· 申诉须附账号与封禁时间，处理结果同步「封号记录」公示</li>
                 <li>· 举报须提交截图 / 录屏证据，恶意举报将被禁言</li>
                 <li>· 问题反馈请注明客户端版本 / 复现步骤 / 订单号（如涉及商城）</li>

@@ -4,11 +4,13 @@ import { ContentPanel } from "@/components/site/content-panel";
 import { ForumPagination } from "@/components/forum/forum-pagination";
 import { PinnedBadge, ThreadStatusBadge } from "@/components/forum/thread-badge";
 import { ModeratorActions } from "./moderator-actions";
-import { renderLegacyHtml } from "@/lib/markdown";
+import { renderLegacyHtml, renderMarkdown } from "@/lib/markdown";
 import { formatDateTimeShort } from "@/lib/format";
 import { getCdnHosts } from "@/lib/config";
 import { getServerSession } from "@/server/session-guard";
 import { FORUM_POST_PAGE_SIZE } from "@/constants/pagination";
+import { PostActions } from "@/components/forum/post-actions";
+import { ReplyForm } from "@/components/forum/reply-form";
 import { incrementThreadViews } from "@/server/services/forum/browse";
 import { paginate } from "@/lib/pagination";
 import { getForumThread, listThreadPosts } from "@/server/services/forum/browse";
@@ -45,8 +47,15 @@ export default async function ForumThreadPage({
   const href = (p: number) =>
     p > 1 ? `/forum/thread/${thread.id}?page=${p}` : `/forum/thread/${thread.id}`;
   const cdnHosts = await getCdnHosts();
+  // 渲染判别:存量帖(legacyWpPostId 非空)走 HTML 白名单;新帖(#34)正文为 Markdown
   const floors = await Promise.all(
-    items.map(async (p) => ({ ...p, html: await renderLegacyHtml(p.contentHtml, { cdnHosts }) })),
+    items.map(async (p) => ({
+      ...p,
+      html:
+        p.legacyWpPostId !== null
+          ? await renderLegacyHtml(p.contentHtml, { cdnHosts })
+          : (await renderMarkdown(p.contentHtml, { cdnHosts })).html,
+    })),
   );
   const session = await getServerSession();
   const canModerate = session?.role === "moderator" || session?.role === "admin";
@@ -133,10 +142,13 @@ export default async function ForumThreadPage({
                         </span>
                         <span className="text-[11.5px] text-[#6482a3]">{ROLE_LABEL[role]}</span>
                       </div>
-                      <div className="text-[12px] text-[#6482a3]">
+                      <div className="flex flex-wrap items-center gap-2 text-[12px] text-[#6482a3]">
                         <span className="text-[#93b2ce]">
                           {p.floor === 1 ? "楼主" : `${p.floor} 楼`}
                         </span>
+                        {canModerate && p.floor !== 1 && (
+                          <PostActions threadId={thread.id.toString()} postId={p.id.toString()} />
+                        )}
                         {" · "}
                         {formatDateTimeShort(p.createdAt)}
                       </div>
@@ -153,22 +165,41 @@ export default async function ForumThreadPage({
           })}
         </section>
 
-        <div className="mt-4 overflow-hidden rounded-xl border border-[#22385a] bg-[#13233a]">
-          <div className="flex items-center gap-2.5 px-5 py-3.5">
-            <span className="h-4 w-1 rounded-sm bg-[#6fb7e0]" aria-hidden="true" />
-            <h2 className="text-[14px] font-semibold text-[#dcebf7]">只读说明</h2>
+        {thread.closedAt ? (
+          <div className="mt-4 overflow-hidden rounded-xl border border-[#22385a] bg-[#13233a]">
+            <p className="px-5 py-4 text-[13px] leading-6 text-[#6482a3]">
+              主题已关闭,不再接受回帖;如需反馈请发新主题或前往客服群。
+            </p>
+            <ForumPagination
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              href={href}
+              unit="楼层"
+            />
           </div>
-          <p className="border-t border-[#22385a] px-5 py-4 text-[12.5px] leading-6 text-[#6482a3]">
-            论坛已转为只读归档，不再接收新回复；如需反馈请前往客服群。
-          </p>
-          <ForumPagination
-            page={page}
-            totalPages={totalPages}
-            total={total}
-            href={href}
-            unit="楼层"
-          />
-        </div>
+        ) : session ? (
+          <ReplyForm threadId={thread.id.toString()} lastPageHref={href(totalPages)} />
+        ) : (
+          <div className="mt-4 overflow-hidden rounded-xl border border-[#22385a] bg-[#13233a]">
+            <p className="border-t border-[#22385a] px-5 py-4 text-[13px] leading-6 text-[#6482a3]">
+              <Link
+                href={`/login?next=${encodeURIComponent(`/forum/thread/${thread.id}`)}`}
+                className="mr-1 text-[#6fb7e0] hover:underline"
+              >
+                登录
+              </Link>
+              后可回帖;游客仅可浏览。
+            </p>
+            <ForumPagination
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              href={href}
+              unit="楼层"
+            />
+          </div>
+        )}
       </ContentPanel>
     </main>
   );
