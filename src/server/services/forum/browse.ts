@@ -61,6 +61,34 @@ export async function listLatestForumThreads(limit = 5) {
   });
 }
 
+/** 论坛首页右栏「最近回复」:floor>1 的回帖按时间倒序,带主题/版块与楼层(FR-219,p07) */
+export async function listRecentForumReplies(limit = 5) {
+  const posts = await prisma.forumPost.findMany({
+    where: { floor: { gt: 1 }, deletedAt: null, thread: { deletedAt: null } },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      floor: true,
+      authorName: true,
+      createdAt: true,
+      thread: {
+        select: { id: true, title: true, board: { select: { name: true, slug: true } } },
+      },
+    },
+  });
+  return posts.map((p) => ({
+    id: p.id.toString(),
+    floor: p.floor,
+    authorName: p.authorName,
+    createdAt: p.createdAt,
+    threadId: p.thread.id.toString(),
+    threadTitle: p.thread.title,
+    boardName: p.thread.board.name,
+    boardSlug: p.thread.board.slug,
+  }));
+}
+
 /** 首页「论坛精华」:置顶优先,其次按回复/浏览热度取前 N 条(无精华字段,以热度近似) */
 export async function listHighlightedForumThreads(limit = 5) {
   return prisma.forumThread.findMany({

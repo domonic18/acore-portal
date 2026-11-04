@@ -5,13 +5,21 @@ import { PinnedBadge, ThreadStatusBadge } from "@/components/forum/thread-badge"
 import { MARKDOWN_BODY_CLS } from "@/constants/content";
 import { getCdnHosts } from "@/lib/config";
 import { renderMarkdown } from "@/lib/markdown";
-import { listForumBoards, listLatestForumThreads } from "@/server/services/forum/browse";
+import {
+  listForumBoards,
+  listLatestForumThreads,
+  listRecentForumReplies,
+} from "@/server/services/forum/browse";
 
 export const metadata = { title: "玩家论坛 · 老克塔" };
 
 /** 版块列表(FR-219;2026-11-04 开放登录用户发帖,入口在版块页;p07 设计稿两栏) */
 export default async function ForumPage() {
-  const [rawBoards, latest] = await Promise.all([listForumBoards(), listLatestForumThreads(5)]);
+  const [rawBoards, latest, replies] = await Promise.all([
+    listForumBoards(),
+    listLatestForumThreads(5),
+    listRecentForumReplies(5),
+  ]);
   // #59:板块描述走与版块页头一致的 Markdown 白名单管线(#58:不再 line-clamp 截断)
   const cdnHosts = await getCdnHosts();
   const boards = await Promise.all(
@@ -47,8 +55,8 @@ export default async function ForumPage() {
 
       <div>
         <ContentPanel className="p-4 lg:p-5">
-          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
-            <section className="order-2 overflow-hidden rounded-xl border border-[#22385a] bg-[#13233a] lg:order-none lg:col-start-1 lg:row-start-1">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+            <section className="order-1 min-w-0 overflow-hidden rounded-xl border border-[#22385a] bg-[#13233a] lg:order-none lg:flex-1">
               <div className="flex h-[50px] items-center gap-3 border-b border-[#22385a] px-5">
                 <span className="h-4 w-1 rounded-sm bg-[#6fb7e0]" aria-hidden="true" />
                 <h2 className="text-[17px] font-semibold text-[#a8d9f5]">
@@ -120,7 +128,8 @@ export default async function ForumPage() {
               </ul>
             </section>
 
-            <aside className="order-1 flex flex-col lg:order-none lg:col-start-2 lg:row-start-1">
+            <div className="flex flex-col gap-5 lg:w-[340px]">
+            <aside className="order-2 flex flex-col">
               <section className="flex flex-1 flex-col overflow-hidden rounded-xl border border-[#22385a] bg-[#13233a]">
                 <div className="flex items-center gap-3 px-5 py-3.5">
                   <span className="h-4 w-1 rounded-sm bg-[#eda9a9]" aria-hidden="true" />
@@ -132,28 +141,26 @@ export default async function ForumPage() {
                       key={t.id.toString()}
                       className="border-t border-[#22385a] first:border-t-0"
                     >
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-3">
-                        <Link
-                          href={`/forum/thread/${t.id}`}
-                          className="min-w-0 flex-1 truncate text-[14px] text-[#dcebf7] hover:text-[#6fb7e0]"
-                        >
-                          {t.title}
-                        </Link>
-                        {t.pinned ? (
-                          <PinnedBadge />
-                        ) : (
-                          <ThreadStatusBadge statusLabel={t.statusLabel} closedAt={t.closedAt} />
-                        )}
-                        <span className="hidden w-[72px] shrink-0 truncate text-[13px] text-[#6482a3] sm:block">
-                          {t.board.name}
-                        </span>
-                        <span className="hidden w-[88px] shrink-0 truncate text-[13px] text-[#6482a3] sm:block">
-                          {t.authorName}
-                        </span>
-                        <span className="shrink-0 text-[13px] text-[#6482a3]">
-                          回复 {t.replyCount}
-                        </span>
-                      </div>
+                      <Link
+                        href={`/forum/thread/${t.id}`}
+                        className="block px-5 py-3 transition-colors hover:bg-[#0d1a2e]"
+                      >
+                        <p className="flex items-start gap-1.5 text-[14px] leading-5 text-[#dcebf7] hover:text-[#6fb7e0]">
+                          {t.pinned ? (
+                            <PinnedBadge />
+                          ) : (
+                            <ThreadStatusBadge statusLabel={t.statusLabel} closedAt={t.closedAt} />
+                          )}
+                          <span className="min-w-0 flex-1 line-clamp-2">{t.title}</span>
+                        </p>
+                        <p className="mt-1 flex items-center gap-1.5 text-[12px] text-[#6482a3]">
+                          <span className="truncate">{t.board.name}</span>
+                          <span aria-hidden="true">·</span>
+                          <span className="truncate">{t.authorName}</span>
+                          <span aria-hidden="true">·</span>
+                          <span className="shrink-0">回复 {t.replyCount}</span>
+                        </p>
+                      </Link>
                     </li>
                   ))}
                   {latest.length === 0 && (
@@ -163,7 +170,7 @@ export default async function ForumPage() {
               </section>
             </aside>
 
-            <section className="order-3 rounded-xl border border-[#22385a] bg-[#13233a] px-5 py-4 lg:order-none lg:col-start-2 lg:row-start-2">
+            <section className="order-1 rounded-xl border border-[#22385a] bg-[#13233a] px-5 py-4">
               <div className="mb-2 flex items-center gap-3">
                 <span className="h-4 w-1 rounded-sm bg-[#6fb7e0]" aria-hidden="true" />
                 <h2 className="text-[15px] font-semibold text-[#a8d9f5]">版规与说明</h2>
@@ -176,6 +183,39 @@ export default async function ForumPage() {
                 <li>· 置顶 / 状态标签由版主与管理员维护</li>
               </ul>
             </section>
+
+            <section
+              data-testid="forum-recent-replies"
+              className="order-3 rounded-xl border border-[#22385a] bg-[#13233a] px-5 py-4"
+            >
+              <div className="mb-2 flex items-center gap-3">
+                <span className="h-4 w-1 rounded-sm bg-[#6fb7e0]" aria-hidden="true" />
+                <h2 className="text-[15px] font-semibold text-[#a8d9f5]">最近回复</h2>
+              </div>
+              <ul className="space-y-2.5 text-[14px]">
+                {replies.map((r) => (
+                  <li key={r.id} className="border-t border-[#22385a] first:border-t-0">
+                    <Link
+                      href={`/forum/thread/${r.threadId}`}
+                      className="mt-2 block line-clamp-2 text-[14px] text-[#dcebf7] hover:text-[#6fb7e0]"
+                    >
+                      {r.threadTitle}
+                    </Link>
+                    <p className="mt-0.5 flex items-center gap-2 text-[12.5px] text-[#6482a3]">
+                      <span className="truncate">{r.boardName}</span>
+                      <span aria-hidden="true">·</span>
+                      <span className="truncate">{r.authorName}</span>
+                      <span aria-hidden="true">·</span>
+                      <span className="shrink-0">{r.floor} 楼</span>
+                    </p>
+                  </li>
+                ))}
+                {replies.length === 0 && (
+                  <li className="py-4 text-center text-[13px] text-[#6482a3]">暂无回复。</li>
+                )}
+              </ul>
+            </section>
+            </div>
           </div>
         </ContentPanel>
       </div>
