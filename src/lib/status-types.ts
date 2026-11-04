@@ -15,6 +15,7 @@ export type ServerStatusPayload = {
   charTotal: number | null;
   todayNewChars: number | null;
   currentStage: string | null;
+  currentStageNodeId: number | null;
   maintenanceMode: boolean;
   updatedAt: string;
 };

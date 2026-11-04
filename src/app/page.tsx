@@ -197,9 +197,17 @@ export default async function HomePage() {
 
           <section className="rounded-2xl border border-[#22385a] bg-[#13233a] p-5">
             <SectionHeader title="当前阶段" moreHref="/progression" moreLabel="渐进计划 →" />
-            <p className="text-lg font-semibold text-[#e8c877]">
-              {progression.current?.title ?? "待定"}
-            </p>
+            {/* #54:点击直达渐进计划对应阶段锚点 */}
+            {progression.current ? (
+              <Link
+                href={`/progression#node-${progression.current.id}`}
+                className="text-lg font-semibold leading-snug text-[#e8c877] hover:text-[#f5dc9a]"
+              >
+                {progression.current.title}
+              </Link>
+            ) : (
+              <p className="text-lg font-semibold leading-snug text-[#e8c877]">待定</p>
+            )}
             {progression.current?.phaseDate && (
               <p className="mt-1 text-xs text-[#6482a3]">
                 开放于 {formatDate(progression.current.phaseDate)}
@@ -207,7 +215,13 @@ export default async function HomePage() {
             )}
             {progression.next && (
               <p className="mt-2 text-sm text-[#93b2ce]">
-                下一阶段:{progression.next.title}
+                下一阶段:
+                <Link
+                  href={`/progression#node-${progression.next.id}`}
+                  className="hover:text-[#a8d9f5]"
+                >
+                  {progression.next.title}
+                </Link>
               </p>
             )}
           </section>

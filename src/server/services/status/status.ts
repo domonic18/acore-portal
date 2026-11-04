@@ -133,7 +133,7 @@ async function runProbe(): Promise<ProbeSnapshot> {
 
 function toPayload(
   snap: ProbeSnapshot,
-  currentStage: string | null,
+  current: { id: bigint; title: string } | null,
   maintenanceMode: boolean,
 ): ServerStatusPayload {
   return {
@@ -148,7 +148,8 @@ function toPayload(
     todayPeak: snap.todayPeak,
     charTotal: snap.charTotal,
     todayNewChars: snap.todayNewChars,
-    currentStage,
+    currentStage: current?.title ?? null,
+    currentStageNodeId: current ? Number(current.id) : null,
     maintenanceMode,
     updatedAt: snap.cachedAt,
   };
@@ -178,7 +179,7 @@ export async function getServerStatus(): Promise<ServerStatusResult> {
   }
 
   const position = await resolveProgressionPosition();
-  return toPayload(snap, position.current?.title ?? null, config.status.maintenanceMode);
+  return toPayload(snap, position.current, config.status.maintenanceMode);
 }
 
 export type StatusConfigInput = {

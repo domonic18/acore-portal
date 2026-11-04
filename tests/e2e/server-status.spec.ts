@@ -35,6 +35,11 @@ test("状态卡正常渲染:mock 样例字段+种子阶段+无降级徽标", asy
   await expect(page.getByTestId("status-online-count")).toHaveText(/^\d+$/);
   await expect(page.getByTestId("status-faction")).toHaveText(/^\d+ : \d+$/);
   await expect(page.getByTestId("status-stage")).toHaveText("第二阶段·熔火之心");
+  // #54:当前阶段可点击,直达渐进计划对应阶段锚点
+  await expect(page.getByTestId("status-stage")).toHaveAttribute(
+    "href",
+    /^\/progression#node-\d+$/,
+  );
   await expect(page.getByTestId("status-degraded")).toHaveCount(0);
 });
 
