@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { errorMessage, requestJson } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
 import { TextRow } from "./common";
 
 export function TestMailCard() {
@@ -36,29 +37,29 @@ export function TestMailCard() {
   return (
     <section
       data-testid="settings-testmail"
-      className="flex flex-col gap-3 rounded border border-gray-800 p-4"
+      className="flex flex-col gap-3 rounded-xl border border-[#22385a] bg-[#13233a] p-4"
     >
       <div>
-        <h2 className="font-semibold text-gray-100">测试发信</h2>
-        <p className="text-xs text-gray-500">
+        <h2 className="font-semibold text-[#dcebf7]">测试发信</h2>
+        <p className="text-xs text-[#6482a3]">
           用当前 SMTP 配置直发一封测试邮件(不入发信队列),保存后即时生效
         </p>
       </div>
       <TextRow label="收件地址" testid="settings-testmail-to" value={to} onChange={setTo} />
       <div className="flex items-center gap-3">
-        <button
+        <Button
           data-testid="settings-testmail-run"
           type="button"
+          variant="primary"
           disabled={busy || to === ""}
           onClick={send}
-          className="rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
         >
           {busy ? "发送中…" : "发送测试邮件"}
-        </button>
+        </Button>
         {result ? (
           <span
             data-testid="settings-testmail-result"
-            className={`text-sm ${result.ok ? "text-green-400" : "text-red-400"}`}
+            className={`text-sm ${result.ok ? "text-[#6ee7b7]" : "text-[#eda9a9]"}`}
           >
             {result.text}
           </span>

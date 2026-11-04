@@ -243,7 +243,7 @@ describe("M4 US4 看板五区块聚合 getDashboard(T026)", () => {
 });
 
 describe("M4 US4 GET /api/admin/stats(T026 契约 api-admin-m4)", () => {
-  it("anon 401 UNAUTHORIZED;user 403 FORBIDDEN+越权审计;admin 200 六键形状", async () => {
+  it("anon 401 UNAUTHORIZED;user 403 FORBIDDEN+越权审计;admin 200 七键形状", async () => {
     const anon = await adminStatsRoute(reqWithCookie(undefined));
     expect(anon.status).toBe(401);
     expect(((await anon.json()) as { error: { code: string } }).error.code).toBe("UNAUTHORIZED");
@@ -263,7 +263,7 @@ describe("M4 US4 GET /api/admin/stats(T026 契约 api-admin-m4)", () => {
     expect(okRes.status).toBe(200);
     const body = (await okRes.json()) as Record<string, unknown>;
     expect(Object.keys(body).sort()).toEqual(
-      ["articleTop", "notFoundTop", "online", "orders7d", "umami", "users7d"].sort(),
+      ["articleTop", "funnel", "notFoundTop", "online", "orders7d", "umami", "users7d"].sort(),
     );
     expect(body.umami).toEqual({ configured: false }); // dev 基线无 umami 配置
   });

@@ -1,10 +1,11 @@
-import Link from "next/link";
 import { listInvitationCodes } from "@/server/services/users-admin/admin";
 import {
   InvitationGenerateForm,
   InvitationStatusToggle,
 } from "@/components/admin/invitation-admin";
 import { AdminPager } from "@/components/ui/pagination";
+import { Badge } from "@/components/ui/badge";
+import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
 import { buildPageHref } from "@/lib/pagination";
 
 /**
@@ -26,35 +27,29 @@ export default async function AdminInvitationCodesPage({
       <InvitationGenerateForm />
 
       {items.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-700 px-6 py-10 text-center text-gray-400">
+        <p className="rounded-xl border border-dashed border-[#22385a] px-6 py-10 text-center text-[#6482a3]">
           暂无邀请码,先在上方批量生成。
         </p>
       ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-800 text-left text-gray-400">
-              <th className="py-2 pr-3 font-normal">邀请码</th>
-              <th className="py-2 pr-3 font-normal">状态</th>
-              <th className="py-2 pr-3 font-normal">已用/上限</th>
-              <th className="py-2 pr-3 font-normal">使用者</th>
-              <th className="py-2 pr-3 font-normal">过期时间</th>
-              <th className="py-2 pr-3 font-normal">操作</th>
+        <Table>
+          <THead>
+            <tr>
+              <Th>邀请码</Th>
+              <Th>状态</Th>
+              <Th>已用/上限</Th>
+              <Th>使用者</Th>
+              <Th>过期时间</Th>
+              <Th>操作</Th>
             </tr>
-          </thead>
+          </THead>
           <tbody>
             {items.map((c) => {
               const effDisabled = c.status === "disabled" || c.expired || c.usedCount >= c.maxUses;
               return (
-                <tr key={c.id} className="border-b border-gray-900">
-                  <td className="py-2 pr-3 font-mono text-xs text-gray-200">{c.code}</td>
-                  <td className="py-2 pr-3">
-                    <span
-                      className={`rounded px-2 py-0.5 text-xs ${
-                        effDisabled
-                          ? "bg-gray-800 text-gray-500"
-                          : "bg-green-950 text-green-400"
-                      }`}
-                    >
+                <Tr key={c.id}>
+                  <Td className="font-mono text-xs text-[#dcebf7]">{c.code}</Td>
+                  <Td>
+                    <Badge tone={effDisabled ? "muted" : "ok"}>
                       {c.status === "disabled"
                         ? "已停用"
                         : c.expired
@@ -62,25 +57,25 @@ export default async function AdminInvitationCodesPage({
                           : c.usedCount >= c.maxUses
                             ? "已用尽"
                             : "可用"}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-3 text-gray-400">
+                    </Badge>
+                  </Td>
+                  <Td className="text-[#93b2ce]">
                     {c.usedCount}/{c.maxUses}
-                  </td>
-                  <td className="py-2 pr-3 text-xs text-gray-400">
+                  </Td>
+                  <Td className="text-xs text-[#93b2ce]">
                     {c.usedBy.length ? c.usedBy.join(", ") : "—"}
-                  </td>
-                  <td className="py-2 pr-3 text-xs text-gray-500">
+                  </Td>
+                  <Td className="text-xs text-[#6482a3]">
                     {c.expiresAt ? new Date(c.expiresAt).toLocaleDateString("zh-CN") : "永久"}
-                  </td>
-                  <td className="py-2 pr-3">
+                  </Td>
+                  <Td>
                     <InvitationStatusToggle codeId={c.id} status={c.status} />
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               );
             })}
           </tbody>
-        </table>
+        </Table>
       )}
 
       <AdminPager

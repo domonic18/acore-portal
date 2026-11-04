@@ -84,11 +84,12 @@ afterAll(async () => {
 });
 
 describe("浏览查询(T038)", () => {
-  it("版块列表聚合主题数+最新主题", async () => {
+  it("版块列表聚合主题数与回复数(#57 后不再取板块内最新主题)", async () => {
     const boards = await listForumBoards();
     const mine = boards.find((b) => b.slug === BOARD_SLUG);
     expect(mine?.threadCount).toBe(4);
-    expect(mine?.latestThread?.title).toContain("T36");
+    expect(mine?.replyCount).toBeGreaterThanOrEqual(0);
+    expect("latestThread" in (mine ?? {})).toBe(false);
   });
 
   it("主题列表 pinned desc+lastPostAt desc;楼层 floor asc", async () => {

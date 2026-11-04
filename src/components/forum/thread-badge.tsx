@@ -19,7 +19,7 @@ export function ThreadStatusBadge({
   if (!label || key === "none") return null;
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded-full border px-2 py-[3px] text-[11px] leading-none ${STATUS_TONE[key]}`}
+      className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-2 py-[3px] text-[11px] leading-none ${STATUS_TONE[key]}`}
     >
       【{label}】
     </span>
@@ -28,7 +28,7 @@ export function ThreadStatusBadge({
 
 export function PinnedBadge() {
   return (
-    <span className="inline-flex shrink-0 items-center rounded-full border border-[#e8c877]/30 bg-[#e8c877]/12 px-2 py-[3px] text-[11px] leading-none text-[#e8c877]">
+    <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-[#e8c877]/30 bg-[#e8c877]/12 px-2 py-[3px] text-[11px] leading-none text-[#e8c877]">
       置顶
     </span>
   );

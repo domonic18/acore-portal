@@ -10,7 +10,7 @@ import path from "node:path";
 
 const KEY_PATTERN = /^media\/\d{8}\/[0-9a-f]{64}(?:\.[a-z0-9]{1,8})?$/;
 
-const MIME_BY_EXT: Record<string, string> = {
+export const MIME_BY_EXT: Record<string, string> = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",

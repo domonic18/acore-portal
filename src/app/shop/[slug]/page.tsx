@@ -14,6 +14,7 @@ import type { CharacterOption } from "@/components/shop/character-select";
 import type { CartParamField } from "@/components/shop/add-to-cart-form";
 import { AddToCartForm } from "@/components/shop/add-to-cart-form";
 import { ProductGallery } from "@/components/shop/product-gallery";
+import { ProductViewBeacon } from "@/components/shop/product-view-beacon";
 import { WowheadItemLink } from "@/components/shop/wowhead-item-link";
 
 /**
@@ -60,6 +61,7 @@ export default async function ProductDetailPage({
 
   return (
     <main className="container-site flex-1 py-5 lg:py-6">
+      <ProductViewBeacon productId={detail.id} />
       <ContentPanel className="mx-auto flex max-w-4xl flex-col gap-6 p-5 lg:p-6">
         <nav aria-label="面包屑" className="text-sm text-gray-400">
           <Link href="/shop" className="hover:text-white">

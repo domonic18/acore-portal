@@ -64,15 +64,45 @@ test("轮播闭环:新建→首页可见→停用隐藏→删除", async ({ page
   await page.getByLabel("标题", { exact: true }).fill(TITLE_A);
   await page.getByPlaceholder("/images/… 或 https://…").fill("/images/legacy-missing.svg");
   await page.getByRole("button", { name: "创建" }).click();
-  const rowA = page.getByRole("row", { name: new RegExp(TITLE_A) });
-  await expect(rowA).toBeVisible();
+  const cardA = page.getByTestId("banner-card").filter({ hasText: TITLE_A });
+  await expect(cardA).toBeVisible();
 
   // 再建一张(启用):首页轮播出现两张+圆点
   await page.getByRole("button", { name: "新建物料" }).click();
   await page.getByLabel("标题", { exact: true }).fill(TITLE_B);
   await page.getByPlaceholder("/images/… 或 https://…").fill("/images/legacy-missing.svg");
   await page.getByRole("button", { name: "创建" }).click();
-  await expect(page.getByRole("row", { name: new RegExp(TITLE_B) })).toBeVisible();
+  await expect(page.getByTestId("banner-card").filter({ hasText: TITLE_B })).toBeVisible();
+
+  // ↑↓ 排序持久化(issue #50):B 上移后 sort 对调,再下移还原
+  await page
+    .getByTestId("banner-card")
+    .filter({ hasText: TITLE_B })
+    .getByRole("button", { name: "上移「" })
+    .click();
+  await expect
+    .poll(
+      async () =>
+        await prisma.homeBanner.findFirstOrThrow({
+          where: { title: TITLE_B },
+          select: { sort: true },
+        }),
+    )
+    .toEqual({ sort: 0 });
+  await page
+    .getByTestId("banner-card")
+    .filter({ hasText: TITLE_B })
+    .getByRole("button", { name: /下移「/ })
+    .click();
+  await expect
+    .poll(
+      async () =>
+        await prisma.homeBanner.findFirstOrThrow({
+          where: { title: TITLE_B },
+          select: { sort: true },
+        }),
+    )
+    .toEqual({ sort: 1 });
 
   await page.goto("/");
   await expect(page.getByRole("img", { name: TITLE_A })).toBeVisible();
@@ -80,10 +110,14 @@ test("轮播闭环:新建→首页可见→停用隐藏→删除", async ({ page
 
   // 停用 A → 首页只剩 B
   await page.goto("/admin/home");
-  const rowA2 = page.getByRole("row", { name: new RegExp(TITLE_A) });
-  await expect(rowA2.getByRole("button", { name: "停用" })).toBeEnabled();
-  await rowA2.getByRole("button", { name: "停用" }).click();
-  await expect(rowA2.getByRole("button", { name: "启用" })).toBeEnabled();
+  const cardA2 = page.getByTestId("banner-card").filter({ hasText: TITLE_A });
+  const switchA = cardA2.getByRole("switch");
+  await expect(switchA).toBeEnabled();
+  await switchA.click();
+  await expect(page.getByTestId("banner-card").filter({ hasText: TITLE_A }).getByRole("switch")).toHaveAttribute(
+    "aria-checked",
+    "false",
+  );
   await page.goto("/");
   await expect(page.getByRole("img", { name: TITLE_B })).toBeVisible();
   await expect(page.getByRole("img", { name: TITLE_A })).toHaveCount(0);
@@ -95,15 +129,22 @@ test("轮播闭环:新建→首页可见→停用隐藏→删除", async ({ page
     where: { action: "home_banner_saved" },
     select: { payloadJson: true },
   });
+  // 创建+停用必有;↑↓ 排序持久化(#50)亦各产生一条 A 的 sort 审计 → ≥2
+  const auditsA = audits.filter((a) => (a.payloadJson as { title?: string }).title === TITLE_A);
+  expect(auditsA.length).toBeGreaterThanOrEqual(2);
   expect(
-    audits.filter((a) => (a.payloadJson as { title?: string }).title === TITLE_A),
-  ).toHaveLength(2); // 创建+停用各一条
+    auditsA.some((a) => (a.payloadJson as { enabled?: boolean }).enabled === false),
+  ).toBe(true);
 
   // 删除 A:确认弹窗 + 行消失 + 库清理
   await page.goto("/admin/home");
   await page.on("dialog", (d) => d.accept());
-  await rowA2.getByRole("button", { name: "删除" }).click();
-  await expect(page.getByRole("row", { name: new RegExp(TITLE_A) })).toHaveCount(0);
+  await page
+    .getByTestId("banner-card")
+    .filter({ hasText: TITLE_A })
+    .getByRole("button", { name: "删除" })
+    .click();
+  await expect(page.getByTestId("banner-card").filter({ hasText: TITLE_A })).toHaveCount(0);
   expect(await prisma.homeBanner.findFirst({ where: { title: TITLE_A } })).toBeNull();
 });
 

@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MarkdownEditor } from "@/components/admin/markdown-editor";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { CheckChip } from "@/components/ui/check-chip";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Input, Select, Textarea } from "@/components/ui/input";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
@@ -19,8 +24,6 @@ export type ArticleFormValues = {
   status: string;
   tagIds: string[];
 };
-
-const inputCls = "rounded border border-gray-700 bg-gray-900 px-3 py-2 text-white";
 
 export function ArticleForm({
   initial,
@@ -89,72 +92,94 @@ export function ArticleForm({
   }
 
   return (
-    <div className="flex max-w-3xl flex-col gap-3 text-sm">
-      <div className="grid grid-cols-2 gap-3">
-        <label className="flex flex-col gap-1">
-          <span className="text-gray-300">标题</span>
-          <input value={values.title} onChange={(e) => set("title", e.target.value)} className={inputCls} />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-gray-300">别名 slug(留空=按标题自动生成)</span>
-          <input value={values.slug} onChange={(e) => set("slug", e.target.value)} className={inputCls} />
-        </label>
-      </div>
-      <label className="flex flex-col gap-1">
-        <span className="text-gray-300">分类</span>
-        <select value={values.categoryId} onChange={(e) => set("categoryId", e.target.value)} className={inputCls}>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      {tags.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <span className="text-gray-300">标签(可多选)</span>
-          <div className="flex flex-wrap gap-2">
-            {tags.map((t) => (
-              <label key={t.id} className="flex items-center gap-1 rounded border border-gray-700 px-2 py-1">
-                <input
-                  type="checkbox"
-                  checked={values.tagIds.includes(t.id)}
-                  onChange={() => toggleTag(t.id)}
-                />
-                <span className="text-gray-300">{t.name}</span>
-              </label>
-            ))}
+    <div className="flex flex-col gap-4 text-sm">
+      <Card>
+        <CardHeader title="基础信息" />
+        <CardBody className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-[#93b2ce]">标题</span>
+              <Input value={values.title} onChange={(e) => set("title", e.target.value)} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[#93b2ce]">别名 slug(留空=按标题自动生成)</span>
+              <Input value={values.slug} onChange={(e) => set("slug", e.target.value)} />
+            </label>
           </div>
-        </div>
-      )}
-      <label className="flex flex-col gap-1">
-        <span className="text-gray-300">摘要(留空=列表截取正文)</span>
-        <textarea value={values.excerpt} onChange={(e) => set("excerpt", e.target.value)} rows={2} className={inputCls} />
-      </label>
-      <div className="flex flex-col gap-1">
-        <span className="text-gray-300">正文(Markdown,支持粘贴图片直接上传)</span>
-        <MarkdownEditor value={values.bodyMd} onChange={(v) => set("bodyMd", v)} />
-      </div>
-      <label className="flex flex-col gap-1">
-        <span className="text-gray-300">状态</span>
-        <select value={values.status} onChange={(e) => set("status", e.target.value)} className={`${inputCls} w-fit`}>
-          <option value="draft">草稿</option>
-          <option value="published">发布(draft→published 记录首发时间)</option>
-        </select>
-      </label>
-      <button
-        type="button"
-        onClick={submit}
-        disabled={busy}
-        className="w-fit rounded bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-      >
-        {busy ? "保存中…" : "保存"}
-      </button>
-      {error && (
-        <p role="alert" className="text-sm text-red-400">
-          {error}
-        </p>
-      )}
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-[#93b2ce]">分类</span>
+              <Select value={values.categoryId} onChange={(e) => set("categoryId", e.target.value)} className="w-auto">
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[#93b2ce]">摘要(留空=列表截取正文)</span>
+              <Textarea value={values.excerpt} onChange={(e) => set("excerpt", e.target.value)} rows={1} />
+            </label>
+          </div>
+          {tags.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <span className="text-[#93b2ce]">标签(可多选)</span>
+              <div className="flex flex-wrap gap-2">
+                {tags.map((t) => (
+                  <CheckChip
+                    key={t.id}
+                    checked={values.tagIds.includes(t.id)}
+                    onChange={() => toggleTag(t.id)}
+                  >
+                    {t.name}
+                  </CheckChip>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader title="正文(Markdown,支持粘贴图片直接上传)" />
+        <CardBody>
+          <MarkdownEditor value={values.bodyMd} onChange={(v) => set("bodyMd", v)} />
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title={
+            <span className="flex items-center gap-2">
+              发布
+              <Badge tone={values.status === "published" ? "ok" : "muted"}>
+                {values.status === "published" ? "已发布" : "草稿"}
+              </Badge>
+            </span>
+          }
+          actions={
+            <Button type="button" variant="primary" onClick={submit} disabled={busy}>
+              {busy ? "保存中…" : "保存"}
+            </Button>
+          }
+        />
+        <CardBody className="flex flex-wrap items-end gap-4">
+          <label className="flex flex-col gap-1">
+            <span className="text-[#93b2ce]">状态</span>
+            <Select value={values.status} onChange={(e) => set("status", e.target.value)} className="w-auto">
+              <option value="draft">草稿</option>
+              <option value="published">发布</option>
+            </Select>
+            <span className="text-xs text-[#6482a3]">首次发布将记录发布时间</span>
+          </label>
+          {error && (
+            <p role="alert" className="text-sm text-[#eda9a9]">
+              {error}
+            </p>
+          )}
+        </CardBody>
+      </Card>
     </div>
   );
 }

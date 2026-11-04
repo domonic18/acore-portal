@@ -12,9 +12,9 @@ export default async function AdminHomePage() {
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-bold">首页配置</h1>
       <BannerManager banners={banners} />
-      <hr className="border-gray-800" />
+      <hr className="border-[#22385a]" />
       <CarouselSettingsForm initial={{ carouselIntervalSec: config.home.carouselIntervalSec }} />
-      <hr className="border-gray-800" />
+      <hr className="border-[#22385a]" />
       <AchievementEmbedForm
         rankBase={config.tools.rankBase}
         initial={{

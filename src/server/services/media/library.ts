@@ -5,14 +5,17 @@ import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { MEDIA_DEFAULT_CATEGORY } from "@/constants/media";
 import { MEDIA_PAGE_SIZE } from "@/constants/pagination";
 import { paginate } from "@/lib/pagination";
-import { writeAudit } from "@/server/services/shared/audit";
-import { CosNotConfiguredError, getCosClient } from "@/lib/cos/client";
 import {
+  MIME_BY_EXT,
   deleteLocalMedia,
   isLocalMediaUrl,
+  isValidLocalMediaKey,
   localMediaUrl,
+  readLocalMedia,
   writeLocalMedia,
 } from "@/lib/media/local-store";
+import { writeAudit } from "@/server/services/shared/audit";
+import { CosNotConfiguredError, getCosClient } from "@/lib/cos/client";
 
 /**
  * 媒体库最小集(R13/FR-217,api-admin-m3 媒体节):
@@ -202,6 +205,42 @@ export async function listMediaAssets(opts: {
     counts,
     items: rows.map((r) => ({ ...toDto(r), createdAt: r.createdAt.toISOString() })),
   };
+}
+
+/**
+ * 论坛图片站内代理(#34):按 cosKey 读内容——本地优先,
+ * 缺失且配置 COS 时从 COS 回源并写穿本地缓存(下次命中本地)。
+ * 返回 null=key 非法/本地与 COS 均无。
+ */
+export async function readMediaWithFallback(
+  cosKey: string,
+): Promise<{ bytes: Buffer; mimeType: string } | null> {
+  const local = await readLocalMedia(cosKey);
+  if (local) return local;
+  if (!isValidLocalMediaKey(cosKey)) return null;
+  const storage = await resolveStorage();
+  if (!storage) return null;
+  try {
+    const buf = await new Promise<Buffer>((resolve, reject) => {
+      storage.client.getObject(
+        {
+          Bucket: storage.config.bucket,
+          Region: storage.config.region,
+          Key: cosKey,
+        },
+        (err, data) => {
+          if (err) reject(err);
+          else resolve(Buffer.from(data.Body as Buffer));
+        },
+      );
+    });
+    if (buf.byteLength === 0) return null;
+    await writeLocalMedia(cosKey, new Uint8Array(buf)).catch(() => {});
+    const ext = cosKey.slice(cosKey.lastIndexOf(".")).toLowerCase();
+    return { bytes: buf, mimeType: MIME_BY_EXT[ext] ?? "application/octet-stream" };
+  } catch {
+    return null;
+  }
 }
 
 /** COS 未配置返回 null(走本地回退);其他初始化错误仍上抛 */

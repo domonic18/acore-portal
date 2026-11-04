@@ -9,6 +9,9 @@ import {
   type SidebarCardConfig,
   type SidebarLinkConfig,
 } from "@/constants/sidebar";
+import { Button } from "@/components/ui/button";
+import { FOCUS_RING } from "@/components/ui/admin-tokens";
+import { Input } from "@/components/ui/input";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
@@ -18,9 +21,6 @@ import { errorMessage, requestJson } from "@/lib/api-client";
 
 type DraftCard = SidebarCardConfig;
 type DraftLink = SidebarLinkConfig;
-
-const inputCls =
-  "rounded border border-gray-700 bg-gray-900 px-2 py-1 text-sm text-white placeholder:text-gray-600";
 
 function newKey() {
   return `custom-${Date.now().toString(36)}`;
@@ -156,41 +156,41 @@ export function SidebarManager({ cards: initial }: { cards: SidebarCardConfig[] 
   return (
     <section data-testid="admin-sidebar-manager" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <button
+        <Button
           type="button"
+          variant="secondary"
           data-testid="sidebar-add-card"
           disabled={busy || cards.length >= SIDEBAR_LIMITS.cards}
           onClick={addCard}
-          className="rounded border border-gray-600 px-3 py-1.5 text-sm text-gray-200 hover:border-gray-400 disabled:opacity-50"
         >
           添加快捷卡
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="primary"
           data-testid="sidebar-save"
           disabled={busy}
           onClick={() => void save()}
-          className="rounded bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
         >
           {busy ? "保存中…" : "保存"}
-        </button>
+        </Button>
         {saved ? (
-          <span data-testid="sidebar-save-result" className="text-sm text-green-400">
+          <span data-testid="sidebar-save-result" className="text-sm text-[#6ee7b7]">
             已保存,即时生效
           </span>
         ) : null}
         {error ? (
-          <span data-testid="sidebar-error" role="alert" className="text-sm text-red-400">
+          <span data-testid="sidebar-error" role="alert" className="text-sm text-[#eda9a9]">
             {error}
           </span>
         ) : null}
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-[#6482a3]">
           空白链接行保存时忽略;卡片按列表顺序展示,链接留空文案无法保存。
         </span>
       </div>
 
       {cards.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-700 px-6 py-8 text-center text-gray-400">
+        <p className="rounded-xl border border-dashed border-[#22385a] px-6 py-8 text-center text-[#6482a3]">
           暂无侧栏快捷卡;点击「添加快捷卡」创建。
         </p>
       ) : null}
@@ -199,122 +199,136 @@ export function SidebarManager({ cards: initial }: { cards: SidebarCardConfig[] 
         <div
           key={card.key}
           data-testid={`sidebar-card-${card.key}`}
-          className="flex flex-col gap-3 rounded border border-gray-800 p-4"
+          className="flex flex-col gap-3 rounded-xl border border-[#22385a] bg-[#13233a] p-4"
         >
           <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 text-xs text-gray-300">
+            <label className="flex flex-col gap-1 text-xs text-[#93b2ce]">
               标题
-              <input
+              <Input
                 data-testid={`sidebar-card-${card.key}-title`}
                 value={card.title}
                 maxLength={SIDEBAR_LIMITS.title}
                 onChange={(e) => updateCard(index, { title: e.target.value })}
-                className={`${inputCls} w-44`}
+                className="w-44 py-1"
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs text-gray-300">
+            <label className="flex flex-col gap-1 text-xs text-[#93b2ce]">
               正文(可选,无链接卡必填)
-              <input
+              <Input
                 data-testid={`sidebar-card-${card.key}-body`}
                 value={card.body ?? ""}
                 maxLength={SIDEBAR_LIMITS.body}
                 onChange={(e) => updateCard(index, { body: e.target.value })}
                 placeholder="如:频道号见公告"
-                className={`${inputCls} w-64`}
+                className="w-64 py-1"
               />
             </label>
-            <span className="flex flex-wrap items-center gap-2 text-xs text-gray-300">
+            <span className="flex flex-wrap items-center gap-2 text-xs text-[#93b2ce]">
               页面范围
               {SITE_PAGE_TYPES.map((page) => (
-                <label key={page} className="flex items-center gap-1">
+                <label
+                  key={page}
+                  className={`inline-flex cursor-pointer items-center gap-1 whitespace-nowrap rounded-md border px-2 py-0.5 text-[12px] transition ${FOCUS_RING} ${
+                    card.pages.includes(page)
+                      ? "border-[#6fb7e0] bg-[#6fb7e0]/15 text-[#a8d9f5]"
+                      : "border-[#22385a] bg-[#0b1526] text-[#93b2ce] hover:border-[#6fb7e0]/40"
+                  }`}
+                >
                   <input
                     type="checkbox"
                     data-testid={`sidebar-card-${card.key}-page-${page}`}
                     checked={card.pages.includes(page)}
                     onChange={(e) => togglePage(index, page, e.target.checked)}
+                    className="sr-only"
                   />
                   {SIDEBAR_PAGE_LABELS[page]}
                 </label>
               ))}
             </span>
             <span className="ml-auto flex gap-1">
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 data-testid={`sidebar-move-card-${card.key}-up`}
                 disabled={busy || index === 0}
                 onClick={() => moveCard(index, -1)}
-                className="rounded border border-gray-600 px-2 py-1 text-xs text-gray-200 hover:border-gray-400 disabled:opacity-40"
               >
                 上移
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 data-testid={`sidebar-move-card-${card.key}-down`}
                 disabled={busy || index === cards.length - 1}
                 onClick={() => moveCard(index, 1)}
-                className="rounded border border-gray-600 px-2 py-1 text-xs text-gray-200 hover:border-gray-400 disabled:opacity-40"
               >
                 下移
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="danger"
+                size="sm"
                 data-testid={`sidebar-remove-card-${card.key}`}
                 disabled={busy}
                 onClick={() => removeCard(index)}
-                className="rounded border border-red-800 px-2 py-1 text-xs text-red-300 hover:border-red-500 disabled:opacity-40"
               >
                 删除卡
-              </button>
+              </Button>
             </span>
           </div>
 
           <div className="flex flex-col gap-2">
             {card.links.map((link, linkIndex) => (
               <div key={linkIndex} className="flex flex-wrap items-center gap-2">
-                <input
+                <Input
                   data-testid={`sidebar-card-${card.key}-link-${linkIndex}-label`}
                   value={link.label}
                   maxLength={SIDEBAR_LIMITS.label}
                   onChange={(e) => updateLink(index, linkIndex, { label: e.target.value })}
                   placeholder="链接文案"
-                  className={`${inputCls} w-40`}
+                  className="w-40 py-1"
                 />
-                <input
+                <Input
                   data-testid={`sidebar-card-${card.key}-link-${linkIndex}-href`}
                   value={link.href}
                   maxLength={SIDEBAR_LIMITS.href}
                   onChange={(e) => updateLink(index, linkIndex, { href: e.target.value })}
                   placeholder="/tutorial#patch_download 或 https://…"
-                  className={`${inputCls} w-80`}
+                  className="w-80 py-1"
                 />
-                <input
+                <Input
                   data-testid={`sidebar-card-${card.key}-link-${linkIndex}-note`}
                   value={link.note ?? ""}
                   maxLength={SIDEBAR_LIMITS.note}
                   onChange={(e) => updateLink(index, linkIndex, { note: e.target.value })}
                   placeholder="备注(可选)"
-                  className={`${inputCls} w-40`}
+                  className="w-40 py-1"
                 />
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   data-testid={`sidebar-remove-link-${card.key}-${linkIndex}`}
                   disabled={busy}
                   onClick={() => removeLink(index, linkIndex)}
-                  className="rounded border border-gray-600 px-2 py-1 text-xs text-gray-300 hover:border-gray-400 disabled:opacity-40"
                 >
                   删除链接
-                </button>
+                </Button>
               </div>
             ))}
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
+              className="w-fit"
               data-testid={`sidebar-add-link-${card.key}`}
               disabled={busy || card.links.length >= SIDEBAR_LIMITS.linksPerCard}
               onClick={() => addLink(index)}
-              className="w-fit rounded border border-gray-600 px-2 py-1 text-xs text-gray-300 hover:border-gray-400 disabled:opacity-40"
             >
               添加链接
-            </button>
+            </Button>
           </div>
         </div>
       ))}

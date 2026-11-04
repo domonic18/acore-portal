@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { ServerStatusResult } from "@/lib/status-types";
 import { requestJson } from "@/lib/api-client";
@@ -46,12 +47,10 @@ export function StatusCard({ initial }: { initial: ServerStatusResult }) {
   const allyPct = factionTotal > 0 ? ((status.allianceCount ?? 0) / factionTotal) * 100 : 50;
   const online = status.online;
 
-  const chips: { label: string; testid: string; value: string; gold?: boolean }[] = [
-    { label: "今日峰值", testid: "status-peak", value: fmt(status.todayPeak) },
-    { label: "稳定运行", testid: "status-uptime", value: status.uptimeText ?? "--" },
-    { label: "当前阶段", testid: "status-stage", value: status.currentStage ?? "待定", gold: true },
-    { label: "角色总数", testid: "status-char-total", value: fmt(status.charTotal) },
-  ];
+  // 2026-11-04 #42:移除 今日峰值/稳定运行/角色总数,仅保留当前阶段
+  // #53/#54:单行全宽完整展示(#42 后仅剩一枚 chip,原 grid-cols-2 半宽挤成两行),可点击直达渐进计划锚点
+  const stage = status.currentStage;
+  const stageNodeId = status.currentStageNodeId;
 
   return (
     <section
@@ -130,25 +129,26 @@ export function StatusCard({ initial }: { initial: ServerStatusResult }) {
         </div>
       </div>
 
-      <dl className="mt-4 grid grid-cols-2 gap-2">
-        {chips.map((c) => (
-          <div
-            key={c.label}
-            className="flex items-center justify-between gap-2 rounded-lg bg-[#0d1828] px-3 py-2"
+      <div className="mt-4 flex items-center justify-between gap-2.5 rounded-lg bg-[#0d1828] px-3 py-2">
+        <span className="shrink-0 text-[13px] text-[#6482a3]">当前阶段</span>
+        {stage !== null && stageNodeId !== null ? (
+          <Link
+            href={`/progression#node-${stageNodeId}`}
+            data-testid="status-stage"
+            className="min-w-0 text-right text-sm font-medium leading-snug text-[#e8c877] hover:text-[#f5dc9a]"
+            title={stage}
           >
-            <dt className="shrink-0 text-[13px] text-[#6482a3]">{c.label}</dt>
-            <dd
-              data-testid={c.testid}
-              className={`break-words text-right text-sm font-medium leading-snug ${
-                c.gold ? "text-[#e8c877]" : "text-[#dcebf7]"
-              }`}
-              title={c.value}
-            >
-              {c.value}
-            </dd>
-          </div>
-        ))}
-      </dl>
+            {stage}
+          </Link>
+        ) : (
+          <span
+            data-testid="status-stage"
+            className="min-w-0 text-right text-sm font-medium text-[#e8c877]"
+          >
+            待定
+          </span>
+        )}
+      </div>
 
       <p className="mt-3 text-right text-xs text-[#6482a3]" suppressHydrationWarning>
         更新于 {new Date(status.updatedAt).toLocaleTimeString("zh-CN", { hour12: false })}

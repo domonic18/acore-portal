@@ -4,7 +4,8 @@ import { PrismaClient } from "../../src/generated/business";
 /**
  * T026 US2 商城 E2E(quickstart S2 → FR-108~112/120):
  * 列表筛选→详情→选角色→加购→复核→移除全流程;游客加购引导登录;
- * 越权直发他人 guid → 403 CHARACTER_NOT_OWNED+审计;售罄可见禁购。
+ * 越权直发他人 guid → 403 CHARACTER_NOT_OWNED+审计;售罄可见禁购;
+ * 转化埋点:详情浏览+加购落 conversion_event。
  * fixture:业务库直写商品(.Run 隔离),游戏端复用 initdb 种子
  * (LEGACYUSER=account 1,guid 10 Oldwarrior/11 Oldmage/12 Oldpriest;TAMPER 20)。
  */
@@ -75,6 +76,13 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  const products = await prisma.product.findMany({
+    where: { slug: { startsWith: "e2eshop-" } },
+    select: { id: true },
+  });
+  await prisma.conversionEvent.deleteMany({
+    where: { productId: { in: products.map((p) => p.id) } },
+  });
   await prisma.cartItem.deleteMany({ where: { product: { slug: { startsWith: "e2eshop-" } } } });
   await prisma.product.deleteMany({ where: { slug: { startsWith: "e2eshop-" } } });
   await prisma.productCategory.deleteMany({ where: { slug: CATEGORY_SLUG } });
@@ -107,6 +115,19 @@ test.describe("US2 商城与购物车(T026)", () => {
     await page.getByLabel("选择角色").selectOption("10");
     await page.getByRole("button", { name: "加入购物车" }).click();
     await expect(page.getByRole("status")).toContainText("已加入购物车");
+
+    // 转化埋点:详情页浏览(beacon,前序用例已多次访问→≥1)与本次加购各落事件
+    const product = await prisma.product.findUniqueOrThrow({
+      where: { slug: ITEM_SLUG },
+      select: { id: true },
+    });
+    const events = await prisma.conversionEvent.findMany({
+      where: { productId: product.id, type: { in: ["product_view", "add_cart"] } },
+      select: { type: true, qty: true },
+    });
+    expect(events.map((e) => e.type)).toContain("product_view");
+    expect(events.map((e) => e.type)).toContain("add_cart");
+    expect(events.find((e) => e.type === "add_cart")?.qty).toBe(1);
 
     await page.getByRole("link", { name: "去结算" }).click();
     await expect(page).toHaveURL(/\/cart$/);

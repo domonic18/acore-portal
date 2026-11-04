@@ -23,7 +23,7 @@ import { getSidebarView } from "@/server/services/sidebar/view";
 
 /**
  * 快捷入口(设计稿 qlinks 六行,对齐生产原站链接):下载项走教程页锚点,
- * 高清端/解压/登录问题/补丁生效/插件教程落迁移后的文章详情页。
+ * 高清端/解压/登录问题/补丁生效已升格为静态页(硬核模式同),插件教程仍落文章详情页。
  */
 const QUICK_LINKS: { title: string; links: { label: string; href: string }[] }[] = [
   {
@@ -31,30 +31,30 @@ const QUICK_LINKS: { title: string; links: { label: string; href: string }[] }[]
     links: [
       { label: "注册方法", href: "/register" },
       { label: "渐进计划", href: "/progression" },
-      { label: "硬核模式", href: "/post/硬核挑战模式一命模式" },
-      { label: "规范要求", href: "/agreement" },
+      { label: "硬核模式", href: "/hardcore-mode" },
+      { label: "规范要求", href: "/post/网站规范" },
     ],
   },
   {
     title: "客户端",
     links: [
       { label: "普清端", href: `/tutorial#${TUTORIAL_ANCHORS.client}` },
-      { label: "高清端", href: "/post/【教程】魔兽世界3-35高清端试用指南" },
-      { label: "解压方法", href: "/post/客户端下载解压方法" },
+      { label: "高清端", href: "/hd-client" },
+      { label: "解压方法", href: "/client-extract" },
     ],
   },
   {
     title: "登录器",
     links: [
       { label: "下载", href: `/tutorial#${TUTORIAL_ANCHORS.launcher}` },
-      { label: "常见登录问题", href: "/post/关于登录不了游戏的排查方法" },
+      { label: "常见登录问题", href: "/login-troubleshoot" },
     ],
   },
   {
     title: "补丁",
     links: [
       { label: "下载", href: `/tutorial#${TUTORIAL_ANCHORS.patch}` },
-      { label: "补丁生效方法", href: "/post/经验加成合剂显示问号解决方法" },
+      { label: "补丁生效方法", href: "/patch-guide" },
     ],
   },
   {
@@ -197,9 +197,17 @@ export default async function HomePage() {
 
           <section className="rounded-2xl border border-[#22385a] bg-[#13233a] p-5">
             <SectionHeader title="当前阶段" moreHref="/progression" moreLabel="渐进计划 →" />
-            <p className="text-lg font-semibold text-[#e8c877]">
-              {progression.current?.title ?? "待定"}
-            </p>
+            {/* #54:点击直达渐进计划对应阶段锚点 */}
+            {progression.current ? (
+              <Link
+                href={`/progression#node-${progression.current.id}`}
+                className="text-lg font-semibold leading-snug text-[#e8c877] hover:text-[#f5dc9a]"
+              >
+                {progression.current.title}
+              </Link>
+            ) : (
+              <p className="text-lg font-semibold leading-snug text-[#e8c877]">待定</p>
+            )}
             {progression.current?.phaseDate && (
               <p className="mt-1 text-xs text-[#6482a3]">
                 开放于 {formatDate(progression.current.phaseDate)}
@@ -207,7 +215,13 @@ export default async function HomePage() {
             )}
             {progression.next && (
               <p className="mt-2 text-sm text-[#93b2ce]">
-                下一阶段:{progression.next.title}
+                下一阶段:
+                <Link
+                  href={`/progression#node-${progression.next.id}`}
+                  className="hover:text-[#a8d9f5]"
+                >
+                  {progression.next.title}
+                </Link>
               </p>
             )}
           </section>

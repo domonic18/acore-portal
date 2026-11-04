@@ -4,7 +4,8 @@ import { PrismaClient } from "../../src/generated/business";
 /**
  * T036 US3 结账 E2E(quickstart S3/SC-101/SC-104):
  * 登录→选角色→加购→结算页复核→支付→订单详情 completed(异步发货轮询到位);
- * 余额不足:结算页拦截+按钮禁付+API 402,无订单产生。
+ * 余额不足:结算页拦截+按钮禁付+API 402,无订单产生;
+ * 转化埋点:下单落 order 事件(orderId 回溯)。
  * fixture:业务库直写商品(.Run 隔离)+ legacyuser 临时积分账户(用后还原);
  * 发货走 soap-mock(localhost:7878,.send items 正常态)。
  */
@@ -129,6 +130,13 @@ test.afterAll(async () => {
   await prisma.order.deleteMany({
     where: { id: { in: orders.map((o) => o.id) } },
   });
+  const products = await prisma.product.findMany({
+    where: { slug: { startsWith: "e2eckout-" } },
+    select: { id: true },
+  });
+  await prisma.conversionEvent.deleteMany({
+    where: { productId: { in: products.map((p) => p.id) } },
+  });
   await prisma.cartItem.deleteMany({ where: { product: { slug: { startsWith: "e2eckout-" } } } });
   await prisma.product.deleteMany({ where: { slug: { startsWith: "e2eckout-" } } });
   await prisma.productCategory.deleteMany({ where: { slug: CATEGORY_SLUG } });
@@ -167,9 +175,18 @@ test.describe("US3 结账支付(T036)", () => {
     // 库存已扣(3→2)
     const product = await prisma.product.findUniqueOrThrow({
       where: { slug: PAY_SLUG },
-      select: { stock: true },
+      select: { id: true, stock: true },
     });
     expect(product.stock).toBe(2);
+
+    // 转化埋点:下单落 order 事件(orderId 回溯+qty)
+    const orderId = /\/account\/orders\/(\d+)$/.exec(page.url())?.[1];
+    const conversion = await prisma.conversionEvent.findFirstOrThrow({
+      where: { orderId: BigInt(orderId!), type: "order" },
+      select: { productId: true, qty: true },
+    });
+    expect(conversion.productId).toBe(product.id);
+    expect(conversion.qty).toBe(1);
   });
 
   test("余额不足:结算页拦截+按钮禁付+API 402 无订单", async ({ page }) => {

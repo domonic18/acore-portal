@@ -91,6 +91,20 @@ export const ORDER_STATUS_LABEL: Record<OrderStatusValue, string> = {
   [ORDER_STATUS.REFUNDED]: "已退款",
 };
 
+/** 订单状态 → Badge tone(ui/badge;后台列表/仪表盘共用,值与 ui/badge.tsx 的 Tone 对应) */
+export const ORDER_STATUS_TONE: Record<
+  OrderStatusValue,
+  "ok" | "muted" | "warn" | "danger" | "accent"
+> = {
+  [ORDER_STATUS.PENDING]: "muted",
+  [ORDER_STATUS.PAID]: "warn",
+  [ORDER_STATUS.DELIVERING]: "accent",
+  [ORDER_STATUS.COMPLETED]: "ok",
+  [ORDER_STATUS.DELIVERY_FAILED]: "danger",
+  [ORDER_STATUS.CANCELLED]: "muted",
+  [ORDER_STATUS.REFUNDED]: "muted",
+};
+
 /** 行级发货状态中文标签 */
 export const DELIVERY_STATUS_LABEL: Record<OrderItemDeliveryStatusValue, string> = {
   [ORDER_ITEM_DELIVERY_STATUS.PENDING]: "待发货",

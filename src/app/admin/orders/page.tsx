@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { listAdminOrders } from "@/server/services/orders/admin";
-import { ORDER_STATUS, ORDER_STATUS_LABEL } from "@/constants/shop";
+import { ORDER_STATUS, ORDER_STATUS_LABEL, ORDER_STATUS_TONE } from "@/constants/shop";
 import { AdminPager } from "@/components/ui/pagination";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableEmpty, Td, Th, THead, Tr } from "@/components/ui/table";
+import { FOCUS_RING } from "@/components/ui/admin-tokens";
 import { displayUserName } from "@/lib/format";
 import { buildPageHref } from "@/lib/pagination";
 
@@ -12,16 +15,6 @@ const FILTERS: { value: string; label: string }[] = [
   { value: "", label: "全部" },
   ...Object.values(ORDER_STATUS).map((s) => ({ value: s, label: ORDER_STATUS_LABEL[s] })),
 ];
-
-const STATUS_BADGE: Record<string, string> = {
-  pending: "bg-gray-800 text-gray-300",
-  paid: "bg-amber-950 text-amber-400",
-  delivering: "bg-blue-950 text-blue-400",
-  completed: "bg-green-950 text-green-400",
-  delivery_failed: "bg-red-950 text-red-400",
-  cancelled: "bg-gray-800 text-gray-400",
-  refunded: "bg-gray-800 text-gray-400",
-};
 
 export default async function AdminOrdersPage({
   searchParams,
@@ -42,63 +35,70 @@ export default async function AdminOrdersPage({
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-bold">订单</h1>
       <nav className="flex flex-wrap gap-2 text-sm">
-        {FILTERS.map((f) => (
-          <Link
-            key={f.value}
-            href={f.value ? `/admin/orders?status=${f.value}` : "/admin/orders"}
-            className={`rounded border px-3 py-1 ${
-              status === f.value
-                ? "border-blue-600 bg-blue-950 text-blue-300"
-                : "border-gray-700 text-gray-300 hover:bg-gray-800"
-            }`}
-          >
-            {f.label}
-          </Link>
-        ))}
+        {FILTERS.map((f) => {
+          const active = status === f.value;
+          return (
+            <Link
+              key={f.value}
+              href={f.value ? `/admin/orders?status=${f.value}` : "/admin/orders"}
+              className={`rounded-md px-3 py-1 text-[13px] transition ${FOCUS_RING} ${
+                active
+                  ? "border border-[#6fb7e0]/50 bg-[#6fb7e0]/10 text-[#a8d9f5]"
+                  : "border border-transparent text-[#93b2ce] hover:bg-[#13233a] hover:text-[#dcebf7]"
+              }`}
+            >
+              {f.label}
+            </Link>
+          );
+        })}
       </nav>
 
       {orders.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-700 px-6 py-10 text-center text-gray-400">
+        <p className="rounded-xl border border-dashed border-[#22385a] px-6 py-10 text-center text-[#6482a3]">
           没有符合条件的订单。
         </p>
       ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-800 text-left text-gray-400">
-              <th className="py-2 pr-3 font-normal">订单号</th>
-              <th className="py-2 pr-3 font-normal">用户</th>
-              <th className="py-2 pr-3 font-normal">状态</th>
-              <th className="py-2 pr-3 font-normal">件数</th>
-              <th className="py-2 pr-3 font-normal">积分</th>
-              <th className="py-2 pr-3 font-normal">时间</th>
+        <Table>
+          <THead>
+            <tr>
+              <Th>订单号</Th>
+              <Th>用户</Th>
+              <Th>状态</Th>
+              <Th>件数</Th>
+              <Th>积分</Th>
+              <Th>时间</Th>
             </tr>
-          </thead>
+          </THead>
           <tbody>
             {orders.map((o) => (
-              <tr key={o.id} className="border-b border-gray-900">
-                <td className="py-2 pr-3">
+              <Tr key={o.id}>
+                <Td>
                   <Link
                     href={`/admin/orders/${o.id}`}
-                    className="font-mono text-xs text-blue-400 hover:underline"
+                    className="rounded font-mono text-xs text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60"
                   >
                     {o.orderNo}
                   </Link>
-                </td>
-                <td className="py-2 pr-3 text-gray-300">{displayUserName(o)}</td>
-                <td className="py-2 pr-3">
-                  <span className={`rounded px-2 py-0.5 text-xs ${STATUS_BADGE[o.status] ?? "bg-gray-800 text-gray-300"}`}>
-                    {ORDER_STATUS_LABEL[o.status] ?? o.status}
-                  </span>
-                </td>
-                <td className="py-2 pr-3 text-gray-400">{o.itemCount}</td>
-                <td className="py-2 pr-3 text-amber-400">{o.pointCost}</td>
-                <td className="py-2 pr-3 text-xs text-gray-500">
+                </Td>
+                <Td className="text-[#dcebf7]">{displayUserName(o)}</Td>
+                <Td>
+                  <Badge
+                    tone={
+                      ORDER_STATUS_TONE[o.status as keyof typeof ORDER_STATUS_TONE] ?? "muted"
+                    }
+                  >
+                    {ORDER_STATUS_LABEL[o.status as keyof typeof ORDER_STATUS_LABEL] ?? o.status}
+                  </Badge>
+                </Td>
+                <Td className="text-[#93b2ce]">{o.itemCount}</Td>
+                <Td className="font-medium text-[#e8c877]">{o.pointCost}</Td>
+                <Td className="text-xs text-[#6482a3]">
                   {new Date(o.createdAt).toLocaleString("zh-CN")}
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             ))}
           </tbody>
-        </table>
+        </Table>
       )}
 
       <AdminPager

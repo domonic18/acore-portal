@@ -2,7 +2,10 @@ import Link from "next/link";
 import { listMigrationReviews } from "@/server/services/orders/admin";
 import { ORDER_STATUS_LABEL, type OrderStatusValue } from "@/constants/shop";
 import { ReviewActions } from "@/components/admin/review-actions";
+import { Badge } from "@/components/ui/badge";
 import { PaginationNav } from "@/components/ui/pagination";
+import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
+import { FOCUS_RING } from "@/components/ui/admin-tokens";
 import { displayUserName } from "@/lib/format";
 import { buildPageHref } from "@/lib/pagination";
 
@@ -33,90 +36,92 @@ export default async function AdminReviewItemsPage({
     <div className="flex flex-col gap-4">
       <div className="flex items-baseline gap-3">
         <h1 className="text-2xl font-bold">迁移复核</h1>
-        <span className="text-xs text-gray-500">共 {total} 项</span>
+        <span className="text-xs text-[#6482a3]">共 {total} 项</span>
       </div>
       <nav className="flex flex-wrap gap-2 text-sm">
-        {FILTERS.map((f) => (
-          <Link
-            key={f.value}
-            href={`/admin/review-items?resolved=${f.value}`}
-            className={`rounded border px-3 py-1 ${
-              resolved === f.value
-                ? "border-blue-600 bg-blue-950 text-blue-300"
-                : "border-gray-700 text-gray-300 hover:bg-gray-800"
-            }`}
-          >
-            {f.label}
-          </Link>
-        ))}
+        {FILTERS.map((f) => {
+          const active = resolved === f.value;
+          return (
+            <Link
+              key={f.value}
+              href={`/admin/review-items?resolved=${f.value}`}
+              className={`rounded-md px-3 py-1 text-[13px] transition ${FOCUS_RING} ${
+                active
+                  ? "border border-[#6fb7e0]/50 bg-[#6fb7e0]/10 text-[#a8d9f5]"
+                  : "border border-transparent text-[#93b2ce] hover:bg-[#13233a] hover:text-[#dcebf7]"
+              }`}
+            >
+              {f.label}
+            </Link>
+          );
+        })}
       </nav>
 
       {items.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-700 px-6 py-10 text-center text-gray-400">
+        <p className="rounded-xl border border-dashed border-[#22385a] px-6 py-10 text-center text-[#6482a3]">
           没有待处理的复核项。
         </p>
       ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-800 text-left text-gray-400">
-              <th className="py-2 pr-3 font-normal">WP 单号</th>
-              <th className="py-2 pr-3 font-normal">新站订单</th>
-              <th className="py-2 pr-3 font-normal">用户</th>
-              <th className="py-2 pr-3 font-normal">差异(实扣/应扣)</th>
-              <th className="py-2 pr-3 font-normal">状态</th>
-              <th className="py-2 pr-3 font-normal">复核</th>
+        <Table>
+          <THead>
+            <tr>
+              <Th>WP 单号</Th>
+              <Th>新站订单</Th>
+              <Th>用户</Th>
+              <Th>差异(实扣/应扣)</Th>
+              <Th>状态</Th>
+              <Th>复核</Th>
             </tr>
-          </thead>
+          </THead>
           <tbody>
             {items.map((r) => {
               const detail = r.detail as { paid?: number; expected?: number } | null;
               return (
-                <tr key={r.id} className="border-b border-gray-900 align-middle">
-                  <td className="py-2 pr-3 font-mono text-xs">WP{r.legacyWpOrderId}</td>
-                  <td className="py-2 pr-3">
-                    {r.orderNo ? (
-                      <span className="font-mono text-xs">{r.orderNo}</span>
-                    ) : (
-                      <span className="text-xs text-gray-500">无订单行</span>
-                    )}
-                    {r.pointCost !== null && (
-                      <span className="ml-2 text-xs text-gray-400">{r.pointCost} 积分</span>
-                    )}
-                  </td>
-                  <td className="py-2 pr-3 text-xs">
-                    {r.username ? displayUserName(r) : "-"}
-                  </td>
-                  <td className="py-2 pr-3 font-mono text-xs">
-                    {detail?.paid ?? "?"} / {detail?.expected ?? "?"}
-                  </td>
-                  <td className="py-2 pr-3">
-                    {r.resolvedAt ? (
-                      <span className="text-xs text-gray-400">
-                        已落定 {new Date(r.resolvedAt).toLocaleDateString("zh-CN")}
-                      </span>
-                    ) : (
-                      <span className="rounded bg-amber-900/60 px-2 py-0.5 text-xs text-amber-300">
-                        待复核
-                      </span>
-                    )}
-                    {r.orderStatus && (
-                      <span className="ml-2 text-xs text-gray-500">
-                        单={ORDER_STATUS_LABEL[r.orderStatus as OrderStatusValue] ?? r.orderStatus}
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-2 pr-3">
-                    {r.resolvedAt ? (
-                      <span className="text-xs text-gray-600">-</span>
-                    ) : (
-                      <ReviewActions reviewId={r.id} />
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
+                  <Tr key={r.id} className="align-middle">
+                    <Td className="font-mono text-xs">WP{r.legacyWpOrderId}</Td>
+                    <Td>
+                      {r.orderNo ? (
+                        <span className="font-mono text-xs">{r.orderNo}</span>
+                      ) : (
+                        <span className="text-xs text-[#6482a3]">无订单行</span>
+                      )}
+                      {r.pointCost !== null && (
+                        <span className="ml-2 text-xs text-[#93b2ce]">{r.pointCost} 积分</span>
+                      )}
+                    </Td>
+                    <Td className="text-xs">
+                      {r.username ? displayUserName(r) : "-"}
+                    </Td>
+                    <Td className="font-mono text-xs">
+                      {detail?.paid ?? "?"} / {detail?.expected ?? "?"}
+                    </Td>
+                    <Td>
+                      {r.resolvedAt ? (
+                        <span className="text-xs text-[#93b2ce]">
+                          已落定 {new Date(r.resolvedAt).toLocaleDateString("zh-CN")}
+                        </span>
+                      ) : (
+                        <Badge tone="warn">待复核</Badge>
+                      )}
+                      {r.orderStatus && (
+                        <span className="ml-2 text-xs text-[#6482a3]">
+                          单={ORDER_STATUS_LABEL[r.orderStatus as OrderStatusValue] ?? r.orderStatus}
+                        </span>
+                      )}
+                    </Td>
+                    <Td>
+                      {r.resolvedAt ? (
+                        <span className="text-xs text-[#6482a3]">-</span>
+                      ) : (
+                        <ReviewActions reviewId={r.id} />
+                      )}
+                    </Td>
+                  </Tr>
+                );
+              })
+            }
           </tbody>
-        </table>
+        </Table>
       )}
 
       <PaginationNav page={page} totalPages={totalPages} href={pageHref} tone="compact" />

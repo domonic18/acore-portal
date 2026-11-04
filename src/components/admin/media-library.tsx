@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { MEDIA_CATEGORIES, MEDIA_DEFAULT_CATEGORY } from "@/constants/media";
 import { prepareUploadFile } from "@/lib/media/prepare-upload";
+import { Input, Select } from "@/components/ui/input";
+import { FOCUS_RING } from "@/components/ui/admin-tokens";
+import { MediaLightbox } from "@/components/admin/media-lightbox";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
@@ -59,6 +62,10 @@ export function MediaAssetList({
   /** 初始分类(如商品配图入口默认「商店配图」);空=全部 */
   defaultCategory?: string;
 }) {
+  const CHIP_BTN =
+    "inline-flex items-center whitespace-nowrap rounded-full border px-3 py-1 text-[12.5px] transition select-none";
+  const CHIP_ACTIVE = "border-[#6fb7e0] bg-[#6fb7e0]/15 font-medium text-[#a8d9f5]";
+  const CHIP_IDLE = "border-[#22385a] text-[#93b2ce] hover:border-[#6fb7e0]/40 hover:text-[#dcebf7]";
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [category, setCategory] = useState(defaultCategory);
@@ -69,6 +76,7 @@ export function MediaAssetList({
     counts: Record<string, number>;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [viewer, setViewer] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,32 +122,27 @@ export function MediaAssetList({
   return (
     <div className="flex flex-col gap-3 text-sm">
       <div className="flex items-center gap-2">
-        <input
+        <Input
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
             setPage(1);
           }}
           placeholder="搜索文件名…"
-          className="rounded border border-gray-700 bg-gray-900 px-3 py-1.5 text-white"
+          className="w-56"
         />
-        <span className="text-gray-500">共 {data?.total ?? "…"} 个</span>
+        <span className="shrink-0 whitespace-nowrap text-[#6482a3]">共 {data?.total ?? "…"} 个</span>
       </div>
       {tabs.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1" role="tablist" aria-label="媒体分类">
+        <div className="flex flex-wrap items-center gap-1.5" aria-label="媒体分类">
           <button
             type="button"
-            role="tab"
-            aria-selected={category === ""}
+            aria-pressed={category === ""}
             onClick={() => {
               setCategory("");
               setPage(1);
             }}
-            className={`rounded-full border px-3 py-0.5 text-xs ${
-              category === ""
-                ? "border-amber-400 text-amber-300"
-                : "border-gray-700 text-gray-400 hover:border-gray-500"
-            }`}
+            className={`${CHIP_BTN} ${category === "" ? CHIP_ACTIVE : CHIP_IDLE} ${FOCUS_RING}`}
           >
             全部
           </button>
@@ -147,17 +150,12 @@ export function MediaAssetList({
             <button
               key={name}
               type="button"
-              role="tab"
-              aria-selected={category === name}
+              aria-pressed={category === name}
               onClick={() => {
                 setCategory(name);
                 setPage(1);
               }}
-              className={`rounded-full border px-3 py-0.5 text-xs ${
-                category === name
-                  ? "border-amber-400 text-amber-300"
-                  : "border-gray-700 text-gray-400 hover:border-gray-500"
-              }`}
+              className={`${CHIP_BTN} ${category === name ? CHIP_ACTIVE : CHIP_IDLE} ${FOCUS_RING}`}
             >
               {name}({count})
             </button>
@@ -165,46 +163,97 @@ export function MediaAssetList({
         </div>
       )}
       {error && (
-        <p role="alert" className="text-red-400">
+        <p role="alert" className="text-[#eda9a9]">
           {error}
         </p>
       )}
-      <ul className="grid max-h-80 grid-cols-2 gap-2 overflow-y-auto md:grid-cols-3">
-        {(data?.items ?? []).map((asset) => (
-          <li key={asset.id} className="rounded border border-gray-700 p-2">
-            <button
-              type="button"
-              onClick={() => onPick?.(asset)}
-              className="block w-full text-left"
-              title={onPick ? "点击插入" : asset.originalName}
-            >
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {(data?.items ?? []).map((asset, index) => (
+          <li key={asset.id} className="group relative overflow-hidden rounded-lg border border-[#22385a] bg-[#13233a]">
+            <div className="relative aspect-[4/3]">
               {asset.mimeType.startsWith("image/") ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={asset.url} alt={asset.originalName} className="h-20 w-full object-contain" />
+                <img
+                  src={asset.url}
+                  alt={asset.originalName}
+                  loading="lazy"
+                  className="absolute inset-0 h-full w-full cursor-zoom-in object-cover"
+                  onClick={() => setViewer(index)}
+                />
               ) : (
-                <span className="flex h-20 items-center justify-center text-gray-400">PDF</span>
+                <button
+                  type="button"
+                  onClick={() => setViewer(index)}
+                  className="absolute inset-0 flex items-center justify-center text-[#6482a3]"
+                >
+                  PDF
+                </button>
               )}
-              <span className="mt-1 block truncate text-xs text-gray-300">{asset.originalName}</span>
-            </button>
-            {onDelete && (
-              <button
-                type="button"
-                onClick={() => remove(asset)}
-                className="mt-1 text-xs text-red-400 hover:text-red-300"
-              >
-                删除
-              </button>
-            )}
+              {onPick && (
+                <button
+                  type="button"
+                  onClick={() => onPick(asset)}
+                  title="点击插入"
+                  className="absolute inset-0 flex items-end justify-center bg-[#081120]/60 pb-3 opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100"
+                >
+                  <span className="rounded-lg bg-[#6fb7e0] px-3 py-1 text-xs font-semibold text-[#081120]">
+                    插入
+                  </span>
+                </button>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-1 px-2 py-1.5">
+              <span className="min-w-0 truncate text-xs text-[#dcebf7]" title={asset.originalName}>
+                {asset.originalName}
+              </span>
+              {onDelete ? (
+                <button
+                  type="button"
+                  onClick={() => remove(asset)}
+                  className={`shrink-0 rounded text-xs text-[#eda9a9] underline-offset-2 hover:text-[#f3c5c5] hover:underline ${FOCUS_RING}`}
+                >
+                  删除
+                </button>
+              ) : (
+                <span className="shrink-0 text-[10.5px] text-[#6482a3]">
+                  {asset.sizeBytes >= 1024 * 1024
+                    ? `${(asset.sizeBytes / 1024 / 1024).toFixed(1)}MB`
+                    : `${Math.max(1, Math.round(asset.sizeBytes / 1024))}KB`}
+                </span>
+              )}
+            </div>
           </li>
         ))}
+        {(data?.items ?? []).length === 0 && (
+          <li className="col-span-full py-10 text-center text-[13px] text-[#6482a3]">没有匹配的文件。</li>
+        )}
       </ul>
+      {viewer !== null && data && (
+        <MediaLightbox
+          items={data.items}
+          index={Math.min(viewer, data.items.length - 1)}
+          onClose={() => setViewer(null)}
+          onIndexChange={setViewer}
+          onDeleted={
+            onDelete
+              ? (asset) => {
+                  setData((prev) =>
+                    prev ? { ...prev, items: prev.items.filter((i) => i.id !== asset.id), total: prev.total - 1 } : prev,
+                  );
+                  setViewer(null);
+                  onDelete();
+                }
+              : undefined
+          }
+        />
+      )}
       {(data?.totalPages ?? 1) > 1 && (
-        <div className="flex items-center gap-3 text-xs text-gray-400">
+        <div className="flex items-center gap-3 text-xs text-[#93b2ce]">
           <button
             type="button"
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
-            className="disabled:opacity-40"
+            className={`rounded text-[#6fb7e0] hover:text-[#a8d9f5] disabled:opacity-40 ${FOCUS_RING}`}
           >
             ← 上一页
           </button>
@@ -215,7 +264,7 @@ export function MediaAssetList({
             type="button"
             disabled={page >= (data?.totalPages ?? 1)}
             onClick={() => setPage((p) => p + 1)}
-            className="disabled:opacity-40"
+            className={`rounded text-[#6fb7e0] hover:text-[#a8d9f5] disabled:opacity-40 ${FOCUS_RING}`}
           >
             下一页 →
           </button>
@@ -234,85 +283,19 @@ export function MediaCategorySelect({
   onChange: (v: string) => void;
 }) {
   return (
-    <label className="flex items-center gap-1 text-xs text-gray-300">
+    <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-[#93b2ce]">
       上传分类
-      <select
+      <Select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded border border-gray-700 bg-gray-900 px-2 py-1 text-white"
+        className="w-auto py-1 pr-7 text-xs"
       >
         {MEDIA_CATEGORIES.map((c) => (
           <option key={c} value={c}>
             {c}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
-  );
-}
-
-export function MediaPickerModal({
-  open,
-  onClose,
-  onInsert,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onInsert: (markdown: string) => void;
-}) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [category, setCategory] = useState<string>(MEDIA_DEFAULT_CATEGORY);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  if (!open) return null;
-
-  async function handleUpload(files: FileList | null) {
-    if (!files || files.length === 0) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await uploadMediaFiles(Array.from(files), category);
-      setRefreshKey((k) => k + 1);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "上传失败");
-    } finally {
-      setBusy(false);
-      if (fileRef.current) fileRef.current.value = "";
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-gray-700 bg-[#0d1728] p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-bold text-[#e6d8a8]">媒体库</h2>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white">
-            关闭
-          </button>
-        </div>
-        <div className="mb-3 flex items-center gap-3">
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*,application/pdf"
-            multiple
-            disabled={busy}
-            onChange={(e) => handleUpload(e.target.files)}
-            className="text-xs text-gray-300"
-          />
-          <MediaCategorySelect value={category} onChange={setCategory} />
-          {busy && <span className="text-xs text-gray-400">上传中…</span>}
-        </div>
-        <MediaAssetList
-          refreshKey={refreshKey}
-          onPick={(asset) => {
-            onInsert(`![](${asset.url})\n`);
-            onClose();
-          }}
-        />
-      </div>
-    </div>
   );
 }

@@ -668,12 +668,13 @@ model MediaAsset {
 
 /// 版块(存量 5)
 model ForumBoard {
-  id               BigInt @id @default(autoincrement())
-  slug             String @unique @db.VarChar(64) // /forum/{board}
-  name             String @db.VarChar(64)
-  description      String? @db.VarChar(255)
-  sort             Int    @default(0)
-  legacyWpForumId  Int?   @unique @map("legacy_wp_forum_id") // 幂等导入键
+  id               BigInt  @id @default(autoincrement())
+  slug             String  @unique @db.VarChar(64) // /forum/{board}
+  name             String  @db.VarChar(64)
+  description      String? @db.Text // 版块说明(Markdown;列表行内纯文本截断)
+  icon             String? @db.VarChar(64) // 版块图标(lucide key,NavIcon 渲染)
+  sort             Int     @default(0)
+  legacyWpForumId  Int?    @unique @map("legacy_wp_forum_id") // 幂等导入键
 
   threads ForumThread[]
 
@@ -713,7 +714,7 @@ model ForumPost {
   floor           Int // 楼层序号(1=主贴),迁移期按 wp 早序分配
   authorUserId    BigInt?   @map("author_user_id")
   authorName      String    @map("author_name") @db.VarChar(64)
-  contentHtml     String    @map("content_html") @db.MediumText
+  contentHtml     String    @map("content_html") @db.MediumText // 存量帖=HTML;2026-11-04 起新帖存 Markdown,渲染按 legacyWpPostId 判别
   legacyWpPostId  Int?      @unique @map("legacy_wp_post_id") // 幂等导入键(471 回复+259 主贴)
   deletedAt       DateTime? @map("deleted_at")
   createdAt       DateTime  @default(now()) @map("created_at")
@@ -772,4 +773,28 @@ model SidebarLink {
 
   @@index([cardId, sort])
   @@map("sidebar_link")
+}
+
+/// 转化漏斗事件类型(业务转化自建埋点;流量层归 Umami,不在此表)
+enum ConversionEventType {
+  product_view // 商品详情页浏览(匿名可报,客户端 beacon)
+  add_cart // 加入购物车成功(合并/新建两分支各记一次)
+  order // 下单成功(每订单商品一行,orderId 回溯)
+
+  @@map("conversion_event_type")
+}
+
+/// 转化事件(product_view→add_cart→order;productId 不建 FK,商品可删历史保留)
+model ConversionEvent {
+  id        BigInt              @id @default(autoincrement())
+  type      ConversionEventType
+  productId BigInt              @map("product_id")
+  userId    BigInt?             @map("user_id")
+  qty       Int?
+  orderId   BigInt?             @map("order_id")
+  createdAt DateTime            @default(now()) @map("created_at") @db.DateTime(3)
+
+  @@index([type, createdAt])
+  @@index([productId, createdAt])
+  @@map("conversion_event")
 }

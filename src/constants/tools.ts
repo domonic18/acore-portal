@@ -68,7 +68,6 @@ export const TOOL_PAGES: readonly ToolPageMeta[] = [
     heading: "在线玩家",
     tagline: "当前在线 · 阵营 / 种族 / 职业 / 位置 · 30s 自动刷新",
     browserHint: "— Live Players",
-    tabs: true,
   },
   {
     path: "/playermap",
@@ -80,7 +79,6 @@ export const TOOL_PAGES: readonly ToolPageMeta[] = [
     heading: "在线地图",
     tagline: "世界地图 · 在线角色实时点位 · 点击查看角色",
     browserHint: "— Live Player Map",
-    tabs: true,
   },
   {
     path: "/hardcore",
@@ -92,7 +90,6 @@ export const TOOL_PAGES: readonly ToolPageMeta[] = [
     heading: "英雄榜",
     tagline: "泰坦之眼 TitanEye · 硬核模式 · 死亡即终局",
     browserHint: "— TitanEye Hardcore Leaderboard",
-    tabs: true,
   },
   {
     path: "/banlist",

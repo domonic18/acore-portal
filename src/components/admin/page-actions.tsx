@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { requestJson } from "@/lib/api-client";
 
 /** 静态页行内删除 */
@@ -23,13 +24,8 @@ export function PageDeleteButton({ id, title }: { id: string; title: string }) {
   }
 
   return (
-    <button
-      type="button"
-      onClick={remove}
-      disabled={busy}
-      className="text-red-400 hover:text-red-300 disabled:opacity-50"
-    >
+    <Button type="button" variant="danger" size="sm" onClick={remove} disabled={busy}>
       删除
-    </button>
+    </Button>
   );
 }

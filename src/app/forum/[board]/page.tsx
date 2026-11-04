@@ -7,6 +7,11 @@ import { FORUM_PAGE_SIZE } from "@/constants/pagination";
 import { formatShortDate } from "@/lib/format";
 import { paginate } from "@/lib/pagination";
 import { getForumBoardBySlug, listBoardThreads } from "@/server/services/forum/browse";
+import { getServerSession } from "@/server/session-guard";
+import { ButtonLink } from "@/components/ui/button";
+import { renderMarkdown } from "@/lib/markdown";
+import { getCdnHosts } from "@/lib/config";
+import { MARKDOWN_BODY_CLS } from "@/constants/content";
 
 export const metadata = { title: "版块 · 老克塔论坛" };
 
@@ -49,6 +54,7 @@ export default async function ForumBoardPage({
   params: { board: string };
   searchParams: { page?: string };
 }) {
+  const session = await getServerSession();
   const board = await getForumBoardBySlug(params.board);
   if (!board) notFound();
   const page = Math.max(1, Number.parseInt(searchParams.page ?? "1", 10) || 1);
@@ -61,6 +67,12 @@ export default async function ForumBoardPage({
   const href = (p: number) => (p > 1 ? `/forum/${board.slug}?page=${p}` : `/forum/${board.slug}`);
   const pinned = page === 1 ? items.filter((t) => t.pinned) : [];
   const rest = items.filter((t) => !t.pinned);
+
+  const descHtml = board.description
+    ? (
+        await renderMarkdown(board.description, { cdnHosts: await getCdnHosts() })
+      ).html
+    : null;
 
   return (
     <main className="container-site flex-1 py-5 lg:py-6">
@@ -78,14 +90,35 @@ export default async function ForumBoardPage({
           <span className="text-[#a8d9f5]">{board.name}</span>
         </nav>
 
-        <header className="mb-4 flex items-center gap-4 rounded-xl border border-[#22385a] bg-[#13233a] px-5 py-4">
-          <span className="h-[38px] w-1 rounded-sm bg-[#6fb7e0]" aria-hidden="true" />
-          <div className="min-w-0 flex-1">
-            <h1 className="text-[19px] font-bold text-[#dcebf7]">{board.name}</h1>
-            <p className="mt-1.5 text-[13px] text-[#93b2ce] lg:text-[13.5px]">
-              {board.description ?? "版块说明暂无"}
-              <span className="text-[#6482a3]"> · 共 {total} 主题</span>
-            </p>
+        <header className="mb-4 rounded-xl border border-[#22385a] bg-[#13233a] px-5 py-4">
+          <div className="flex items-start gap-4">
+            <span className="h-[38px] w-1 rounded-sm bg-[#6fb7e0]" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <h1 className="text-[19px] font-bold text-[#dcebf7]">{board.name}</h1>
+              {descHtml ? (
+                <div
+                  className={`mt-1.5 text-[13px] ${MARKDOWN_BODY_CLS}`}
+                  dangerouslySetInnerHTML={{ __html: descHtml }}
+                />
+              ) : (
+                <p className="mt-1.5 text-[13px] text-[#93b2ce]">版块说明暂无</p>
+              )}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[12.5px] text-[#6482a3]">共 {total} 主题</p>
+                {session ? (
+                  <ButtonLink href={`/forum/${board.slug}/new`} size="sm">
+                    发帖
+                  </ButtonLink>
+                ) : (
+                  <Link
+                    href={`/login?next=${encodeURIComponent(`/forum/${board.slug}/new`)}`}
+                    className="text-[12px] text-[#6fb7e0] hover:underline"
+                  >
+                    登录后可发帖
+                  </Link>
+                )}
+              </div>
+            </div>
           </div>
         </header>
 

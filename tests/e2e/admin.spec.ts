@@ -175,10 +175,10 @@ test.describe("US5 运营后台(T055)", () => {
     await expect(page.getByLabel("上传商品图片")).toBeVisible();
     await page.getByRole("button", { name: "从媒体库选择" }).click();
     await expect(page.getByPlaceholder("搜索文件名…")).toBeVisible();
-    await expect(page.getByRole("tab", { name: /商店配图/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /商店配图/ })).toBeVisible();
     await expect(page.getByText(`e2e-media-${RUN}.png`)).toBeVisible();
-    // Markdown 编辑器:GFM 工具栏+粘贴上传提示
-    await expect(page.getByRole("button", { name: "图片", exact: true })).toBeVisible();
+    // Markdown 编辑器:专业工具栏(@uiw)+媒体库插入入口
+    await expect(page.getByRole("toolbar", { name: "Markdown 工具栏" })).toBeVisible();
     await expect(page.getByRole("button", { name: "媒体库…" })).toBeVisible();
     // 列表页有「图」列(缩略图/占位)
     await page.goto("/admin/products");
@@ -261,9 +261,9 @@ test.describe("US5 运营后台(T055)", () => {
 
     await login(page, "m1admin", "adminpass123");
     await page.goto(`/admin/users/${legacy.id}`);
-    await page.getByLabel(/数量/).fill("50");
+    await page.getByLabel(/调整分值/).fill("50");
     await page.getByLabel(/原因/).fill("E2E 后台手调");
-    await page.getByRole("button", { name: "增加" }).click();
+    await page.getByRole("button", { name: "提交调整" }).click();
 
     await expect(page.getByText(`已调整,当前余额 ${before + 50}`)).toBeVisible();
     await expect(page.getByText(`余额 ${before + 50} 积分`)).toBeVisible();

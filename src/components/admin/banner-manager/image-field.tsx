@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import { MediaAssetList, uploadMediaFiles } from "@/components/admin/media-library";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 /** 图片字段:手填 + 媒体库选图(上传/选择复用媒体库) */
 export function ImageField({
@@ -22,24 +24,25 @@ export function ImageField({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-1">
-        <input
+        <Input
           required
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="/images/… 或 https://…"
-          className="w-72 rounded border border-gray-700 bg-gray-900 px-2 py-1 text-sm text-white"
+          className="w-72 py-1"
         />
-        <button
+        <Button
           type="button"
+          variant="secondary"
+          size="sm"
           disabled={disabled}
           onClick={() => setOpen((v) => !v)}
-          className="rounded border border-gray-600 px-2 py-1 text-xs text-gray-300 hover:border-gray-400 disabled:opacity-50"
         >
           {open ? "收起媒体库" : "从媒体库选图"}
-        </button>
+        </Button>
       </div>
       {open && (
-        <div className="rounded border border-gray-700 p-2">
+        <div className="rounded-lg border border-[#22385a] bg-[#0b1526] p-2">
           <div className="mb-2 flex items-center gap-2">
             <input
               ref={fileRef}
@@ -63,11 +66,11 @@ export function ImageField({
                   if (fileRef.current) fileRef.current.value = "";
                 }
               }}
-              className="text-xs text-gray-300"
+              className="text-xs text-[#93b2ce]"
             />
-            {uploading && <span className="text-xs text-gray-400">上传中…</span>}
+            {uploading && <span className="text-xs text-[#93b2ce]">上传中…</span>}
             {uploadError && (
-              <span role="alert" className="text-xs text-red-400">
+              <span role="alert" className="text-xs text-[#eda9a9]">
                 {uploadError}
               </span>
             )}

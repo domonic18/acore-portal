@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input, Select } from "@/components/ui/input";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
@@ -26,7 +28,7 @@ export function UserActions({
   const [badgeError, setBadgeError] = useState<string | null>(null);
   const [badgeBusy, setBadgeBusy] = useState(false);
 
-  async function adjust(sign: 1 | -1) {
+  async function adjust() {
     setAdjustBusy(true);
     setAdjustError(null);
     setAdjustMsg(null);
@@ -37,7 +39,7 @@ export function UserActions({
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            amount: sign * (Number(amount) || 0),
+            amount: Number(amount) || 0,
             reason,
           }),
         },
@@ -70,84 +72,86 @@ export function UserActions({
     }
   }
 
-  const inputCls = "rounded border border-gray-700 bg-gray-900 px-3 py-2 text-white";
-
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-2">
-        <h2 className="font-semibold">积分手调</h2>
+        <h2 className="text-[14px] font-semibold text-[#dcebf7]">积分手调</h2>
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-sm">
-            <span className="text-gray-300">数量(正整数)</span>
-            <input
+            <span className="text-[#93b2ce]">调整分值(正数=增加,负数=扣减,不可为 0)</span>
+            <Input
               type="number"
-              min={1}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className={`${inputCls} w-32`}
+              placeholder="如 50 或 -30"
+              className="w-40"
             />
           </label>
           <label className="flex flex-1 flex-col gap-1 text-sm">
-            <span className="text-gray-300">原因(2-255 字,必填)</span>
-            <input
+            <span className="text-[#93b2ce]">原因(2-255 字,必填,可从常用项选择)</span>
+            <Input
+              list="adjust-reason-presets"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className={`${inputCls} min-w-64`}
+              className="min-w-64"
             />
+            <datalist id="adjust-reason-presets">
+              <option value="管理员手动调整" />
+              <option value="活动补偿" />
+              <option value="赞助奖励" />
+              <option value="违规扣减" />
+              <option value="数据纠错" />
+            </datalist>
           </label>
-          <button
+          <Button
             type="button"
-            disabled={adjustBusy || !amount || reason.trim().length < 2}
-            onClick={() => adjust(1)}
-            className="rounded bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
+            variant="primary"
+            disabled={adjustBusy || !amount || Number(amount) === 0 || reason.trim().length < 2}
+            onClick={() => void adjust()}
           >
-            增加
-          </button>
-          <button
-            type="button"
-            disabled={adjustBusy || !amount || reason.trim().length < 2}
-            onClick={() => adjust(-1)}
-            className="rounded bg-gray-700 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-600 disabled:opacity-50"
-          >
-            扣减
-          </button>
+            提交调整
+          </Button>
         </div>
         {adjustError && (
-          <p role="alert" className="text-sm text-red-400">
+          <p role="alert" className="text-sm text-[#eda9a9]">
             {adjustError}
           </p>
         )}
-        {adjustMsg && <p className="text-sm text-green-400">{adjustMsg}</p>}
+        {adjustMsg && <p className="text-sm text-[#6ee7b7]">{adjustMsg}</p>}
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="font-semibold">徽章授予</h2>
+        <h2 className="text-[14px] font-semibold text-[#dcebf7]">徽章授予</h2>
         {badges.length === 0 ? (
-          <p className="text-sm text-gray-500">暂无可选徽章,先在后台创建徽章定义。</p>
+          <p className="text-sm text-[#6482a3]">暂无可选徽章,先在后台创建徽章定义。</p>
         ) : (
           <div className="flex items-end gap-3">
             <label className="flex flex-col gap-1 text-sm">
-              <span className="text-gray-300">徽章</span>
-              <select value={badgeId} onChange={(e) => setBadgeId(e.target.value)} className={inputCls}>
+              <span className="text-[#93b2ce]">徽章</span>
+              <Select
+                value={badgeId}
+                onChange={(e) => setBadgeId(e.target.value)}
+                className="w-auto min-w-48"
+              >
                 {badges.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
-            <button
+            <Button
               type="button"
+              variant="primary"
               disabled={badgeBusy || !badgeId}
               onClick={grant}
-              className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
             >
               {badgeBusy ? "授予中…" : "授予"}
-            </button>
+            </Button>
           </div>
         )}
         {badgeError && (
-          <p role="alert" className="text-sm text-red-400">
+          <p role="alert" className="text-sm text-[#eda9a9]">
             {badgeError}
           </p>
         )}

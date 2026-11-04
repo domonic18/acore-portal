@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MarkdownEditor } from "@/components/admin/markdown-editor";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Input, Select } from "@/components/ui/input";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 /** 静态页表单(T032,FR-216):slug 保留字/冲突错误由服务端 422 原样呈现 */
@@ -14,8 +18,6 @@ export type PageFormValues = {
   status: string;
   sortOrder: number;
 };
-
-const inputCls = "rounded border border-gray-700 bg-gray-900 px-3 py-2 text-white";
 
 export function PageForm({ initial }: { initial?: PageFormValues }) {
   const router = useRouter();
@@ -48,51 +50,68 @@ export function PageForm({ initial }: { initial?: PageFormValues }) {
   }
 
   return (
-    <div className="flex max-w-3xl flex-col gap-3 text-sm">
-      <div className="grid grid-cols-3 gap-3">
-        <label className="flex flex-col gap-1">
-          <span className="text-gray-300">标题</span>
-          <input value={values.title} onChange={(e) => set("title", e.target.value)} className={inputCls} />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-gray-300">别名 slug(根级 /{"{slug}"} 路由;系统保留字会被拒绝)</span>
-          <input value={values.slug} onChange={(e) => set("slug", e.target.value)} className={inputCls} />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-gray-300">排序(网站地图用)</span>
-          <input
-            type="number"
-            min={0}
-            value={values.sortOrder}
-            onChange={(e) => set("sortOrder", Number(e.target.value) || 0)}
-            className={inputCls}
-          />
-        </label>
-      </div>
-      <div className="flex flex-col gap-1">
-        <span className="text-gray-300">正文(Markdown)</span>
-        <MarkdownEditor value={values.bodyMd} onChange={(v) => set("bodyMd", v)} />
-      </div>
-      <label className="flex flex-col gap-1">
-        <span className="text-gray-300">状态</span>
-        <select value={values.status} onChange={(e) => set("status", e.target.value)} className={`${inputCls} w-fit`}>
-          <option value="draft">草稿</option>
-          <option value="published">发布</option>
-        </select>
-      </label>
-      <button
-        type="button"
-        onClick={submit}
-        disabled={busy}
-        className="w-fit rounded bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-      >
-        {busy ? "保存中…" : "保存"}
-      </button>
-      {error && (
-        <p role="alert" className="text-sm text-red-400">
-          {error}
-        </p>
-      )}
+    <div className="flex flex-col gap-4 text-sm">
+      <Card>
+        <CardHeader title="基础信息" />
+        <CardBody className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-[#93b2ce]">标题</span>
+            <Input value={values.title} onChange={(e) => set("title", e.target.value)} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[#93b2ce]">别名 slug(根级 /{"{slug}"} 路由;系统保留字会被拒绝)</span>
+            <Input value={values.slug} onChange={(e) => set("slug", e.target.value)} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[#93b2ce]">排序(网站地图用)</span>
+            <Input
+              type="number"
+              min={0}
+              value={values.sortOrder}
+              onChange={(e) => set("sortOrder", Number(e.target.value) || 0)}
+            />
+          </label>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader title="正文(Markdown)" />
+        <CardBody>
+          <MarkdownEditor value={values.bodyMd} onChange={(v) => set("bodyMd", v)} />
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title={
+            <span className="flex items-center gap-2">
+              发布
+              <Badge tone={values.status === "published" ? "ok" : "muted"}>
+                {values.status === "published" ? "已发布" : "草稿"}
+              </Badge>
+            </span>
+          }
+          actions={
+            <Button type="button" variant="primary" onClick={submit} disabled={busy}>
+              {busy ? "保存中…" : "保存"}
+            </Button>
+          }
+        />
+        <CardBody className="flex flex-wrap items-end gap-4">
+          <label className="flex flex-col gap-1">
+            <span className="text-[#93b2ce]">状态</span>
+            <Select value={values.status} onChange={(e) => set("status", e.target.value)} className="w-auto">
+              <option value="draft">草稿</option>
+              <option value="published">发布</option>
+            </Select>
+          </label>
+          {error && (
+            <p role="alert" className="text-sm text-[#eda9a9]">
+              {error}
+            </p>
+          )}
+        </CardBody>
+      </Card>
     </div>
   );
 }

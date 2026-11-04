@@ -16,52 +16,53 @@ export default async function AdminServerStatusPage() {
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-bold">状态配置</h1>
 
-      <section className="rounded border border-gray-800 p-4 text-sm">
-        <h2 className="mb-2 font-semibold text-gray-200">实时读数(只读)</h2>
+      <section className="rounded-xl border border-[#22385a] bg-[#13233a] p-4 text-sm">
+        <h2 className="mb-2 font-semibold text-[#dcebf7]">实时读数(只读)</h2>
         {status.enabled ? (
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-gray-400 md:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-[#93b2ce] md:grid-cols-4">
             <div>
               运行:
-              <span className="text-gray-200">
+              <span className="text-[#dcebf7]">
                 {status.online ? "在线" : "离线"}
                 {status.degraded ? "(数据延迟)" : ""}
               </span>
             </div>
             <div>
-              在线:<span className="text-gray-200">{status.onlineCount ?? "--"}</span>
+              在线:<span className="text-[#dcebf7]">{status.onlineCount ?? "--"}</span>
             </div>
             <div>
               阵营比:
-              <span className="text-gray-200">
+              <span className="text-[#dcebf7]">
                 {status.allianceCount ?? "--"} : {status.hordeCount ?? "--"}
               </span>
             </div>
             <div>
-              登录队列:<span className="text-gray-200">{status.queueCount ?? "N/A"}</span>
+              登录队列:<span className="text-[#dcebf7]">{status.queueCount ?? "N/A"}</span>
             </div>
             <div>
-              今日峰值:<span className="text-gray-200">{status.todayPeak ?? "--"}</span>
+              今日峰值:<span className="text-[#dcebf7]">{status.todayPeak ?? "--"}</span>
             </div>
             <div>
-              角色总数:<span className="text-gray-200">{status.charTotal ?? "--"}</span>
+              角色总数:<span className="text-[#dcebf7]">{status.charTotal ?? "--"}</span>
             </div>
             <div>
-              今日新注册:<span className="text-gray-200">{status.todayNewChars ?? "--"}</span>
+              今日新注册:<span className="text-[#dcebf7]">{status.todayNewChars ?? "--"}</span>
             </div>
             <div>
-              当前阶段:<span className="text-gray-200">{status.currentStage ?? "待定"}</span>
+              当前阶段:<span className="text-[#dcebf7]">{status.currentStage ?? "待定"}</span>
             </div>
           </dl>
         ) : (
-          <p className="text-gray-500">状态卡展示已关闭,开启后此处显示实时读数。</p>
+          <p className="text-[#6482a3]">状态卡展示已关闭,开启后此处显示实时读数。</p>
         )}
       </section>
 
       <ServerStatusConfigForm
         enabled={raw.enabled}
         maintenanceMode={raw.maintenanceMode}
-        currentNodeId={raw.currentNodeId}
-        nodes={nodes.map((n) => ({ id: n.id.toString(), title: n.title, status: n.status }))}
+        currentNodeTitle={
+          nodes.find((n) => n.id.toString() === raw.currentNodeId)?.title ?? null
+        }
       />
     </div>
   );

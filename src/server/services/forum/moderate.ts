@@ -3,7 +3,7 @@ import { writeAudit } from "@/server/services/shared/audit";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 
 /**
- * 论坛版主操作(T038,FR-220;Q1 只读边界下唯一的写面):
+ * 论坛版主操作(T038,FR-220;2026-11-04 增删楼层能力):
  * 置顶/关闭/状态标签/软删,全部审计(category=forum,SC-207);
  * closed 仅经 close 接口设置,label 传 closed → LABEL_INVALID(契约 422)。
  * 审计在写库成功后落(与 content/admin.ts 同序);payload 只记 id/布尔/标签,不记正文。
@@ -13,9 +13,11 @@ export class ForumModerateError extends Error {
   constructor(
     public readonly code:
       | "THREAD_NOT_FOUND"
-      | "LABEL_INVALID",
+      | "LABEL_INVALID"
+      | "INVALID_FLOOR",
+    message?: string,
   ) {
-    super(code);
+    super(message ?? code);
   }
 }
 
@@ -108,5 +110,55 @@ export async function undeleteThread(id: bigint, actor: Actor) {
     action: AUDIT_ACTION.FORUM_THREAD_UNDELETE,
     actorUserId: actor.id,
     payload: { threadId: id.toString(), title: thread.title },
+  });
+}
+
+const POST_FLOOR_MAIN = 1;
+
+/** 版主删楼层(#34 软删口径):主贴(floor=1)不走此接口,引导用 deleteThread;replyCount 回减+lastPostAt 重算+审计 */
+export async function deletePost(input: {
+  threadId: bigint;
+  postId: bigint;
+  actor: Actor;
+}): Promise<void> {
+  const post = await prisma.forumPost.findFirst({
+    where: { id: input.postId, threadId: input.threadId, deletedAt: null },
+  });
+  if (!post) throw new ForumModerateError("THREAD_NOT_FOUND");
+  if (post.floor === POST_FLOOR_MAIN) {
+    throw new ForumModerateError("INVALID_FLOOR", "主贴请使用「删除主题」整体软删。");
+  }
+
+  const now = new Date();
+  await prisma.$transaction(async (tx) => {
+    await tx.forumPost.update({
+      where: { id: post.id },
+      data: { deletedAt: now },
+    });
+    const remaining = await tx.forumPost.findFirst({
+      where: { threadId: input.threadId, deletedAt: null, floor: { not: POST_FLOOR_MAIN } },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    });
+    await tx.forumThread.update({
+      where: { id: input.threadId },
+      data: {
+        replyCount: { decrement: 1 },
+        lastPostAt: remaining?.createdAt ?? (await tx.forumThread.findUniqueOrThrow({
+          where: { id: input.threadId },
+          select: { createdAt: true },
+        })).createdAt,
+      },
+    });
+  });
+  await writeAudit({
+    category: AUDIT_CATEGORY.FORUM,
+    action: AUDIT_ACTION.FORUM_POST_DELETED,
+    actorUserId: input.actor.id,
+    payload: {
+      threadId: input.threadId.toString(),
+      postId: post.id.toString(),
+      floor: post.floor,
+    },
   });
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHydrated } from "@/lib/use-hydrated";
 import { errorMessage, requestJson } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
 
 /**
  * 商品行内上下架/目录隐藏/删除(FR-127):POST /api/admin/products/[id]/status
@@ -72,36 +73,42 @@ export function ProductStatusActions({
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <div className="flex gap-2 text-xs">
+      <div className="flex gap-1.5 text-xs">
         {status === "published" ? (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             disabled={busy || !hydrated}
             onClick={() => post("draft")}
-            className="rounded border border-gray-600 px-2 py-1 text-gray-300 hover:bg-gray-800 disabled:opacity-50"
           >
             下架
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             disabled={busy || !hydrated}
             onClick={() => post("published")}
-            className="rounded border border-green-700 px-2 py-1 text-green-400 hover:bg-green-950 disabled:opacity-50"
+            className="text-[#6ee7b7] hover:text-[#a7f3d0]"
           >
             上架
-          </button>
+          </Button>
         )}
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           disabled={busy || !hydrated}
           onClick={() => post(status, !listed)}
-          className="rounded border border-gray-600 px-2 py-1 text-gray-300 hover:bg-gray-800 disabled:opacity-50"
         >
           {listed ? "目录隐藏" : "目录可见"}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           disabled={busy || !hydrated || type === "game_item"}
           onClick={() => void duplicate()}
           title={
@@ -109,20 +116,21 @@ export function ProductStatusActions({
               ? "物品类商品不可复制:同一物品只能映射一个 itemsend_{id} SKU"
               : "复制为草稿副本"
           }
-          className="rounded border border-gray-600 px-2 py-1 text-gray-300 hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+          className="disabled:cursor-not-allowed disabled:opacity-40"
         >
           复制
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="danger"
+          size="sm"
           disabled={busy || !hydrated}
           onClick={() => void del()}
-          className="rounded border border-red-800 px-2 py-1 text-red-300 hover:bg-red-950 disabled:opacity-50"
         >
           删除
-        </button>
+        </Button>
       </div>
-      {error && <span className="text-xs text-red-400">{error}</span>}
+      {error && <span className="text-xs text-[#eda9a9]">{error}</span>}
     </div>
   );
 }

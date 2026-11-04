@@ -108,6 +108,25 @@ test.describe("静态页与兜底(T025 FR-210/R15)", () => {
     });
   }
 
+  for (const [slug, title] of [
+    ["hardcore-mode", "硬核模式介绍"],
+    ["mount-guide", "坐骑掉落与获取指南"],
+    ["hd-client", "高清端下载与试用指南"],
+    ["client-extract", "客户端下载解压方法"],
+    ["login-troubleshoot", "常见登录问题排查"],
+    ["patch-guide", "补丁说明与生效方法"],
+  ] as const) {
+    test(`/${slug} 渲染「${title}」(快捷操作页升格)`, async ({ page }) => {
+      await page.goto(`/${slug}`);
+      await expect(page.getByRole("heading", { name: title }).first()).toBeVisible();
+    });
+  }
+
+  test("旧 /post/ 教程链接 308 跳静态页", async ({ page }) => {
+    await page.goto("/post/硬核挑战模式一命模式");
+    await expect(page).toHaveURL(/\/hardcore-mode$/);
+  });
+
   test("随机 slug 落 notFound(404)", async ({ page }) => {
     const res = await page.goto("/this-page-never-exists-9527");
     expect(res?.status()).toBe(404);
@@ -315,24 +334,24 @@ test.describe("首页四区块(T027)", () => {
     );
     await expect(quick.getByRole("link", { name: "高清端" })).toHaveAttribute(
       "href",
-      "/post/【教程】魔兽世界3-35高清端试用指南",
+      "/hd-client",
     );
     await expect(quick.getByRole("link", { name: "解压方法" })).toHaveAttribute(
       "href",
-      "/post/客户端下载解压方法",
+      "/client-extract",
     );
     await expect(quick.getByRole("link", { name: "常见登录问题" })).toHaveAttribute(
       "href",
-      "/post/关于登录不了游戏的排查方法",
+      "/login-troubleshoot",
     );
     await expect(quick.getByRole("link", { name: "补丁生效方法" })).toHaveAttribute(
       "href",
-      "/post/经验加成合剂显示问号解决方法",
+      "/patch-guide",
     );
     // 硬核模式指向迁移后的模式说明文章,不再落到教程页(issue #21)
     await expect(quick.getByRole("link", { name: "硬核模式" })).toHaveAttribute(
       "href",
-      "/post/硬核挑战模式一命模式",
+      "/hardcore-mode",
     );
     const downloadHrefs = await quick
       .getByRole("link", { name: "下载", exact: true })

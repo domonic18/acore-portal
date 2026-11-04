@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHydrated } from "@/lib/use-hydrated";
+import { Select } from "@/components/ui/input";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 /** 行内角色分配(改后即吊销目标全部会话,提示文案同步告知) */
@@ -36,24 +37,24 @@ export function RoleSelect({ userId, role }: { userId: string; role: string }) {
   return (
     <span className="flex flex-col gap-0.5">
       <span className="flex items-center gap-2">
-        <select
+        <Select
           value={value}
           disabled={busy || !hydrated}
           onChange={(e) => {
             setValue(e.target.value);
             void apply(e.target.value);
           }}
-          className="rounded border border-gray-700 bg-gray-900 px-2 py-1 text-white disabled:opacity-50"
+          className="w-auto min-w-28 py-1"
           aria-label="分配角色"
         >
           <option value="user">user</option>
           <option value="moderator">moderator</option>
           <option value="admin">admin</option>
-        </select>
-        {changed && !error && <span className="text-xs text-green-400">已保存,该用户会话已重置</span>}
+        </Select>
+        {changed && !error && <span className="text-xs text-[#6ee7b7]">已保存,该用户会话已重置</span>}
       </span>
       {error && (
-        <span role="alert" className="text-xs text-red-400">
+        <span role="alert" className="text-xs text-[#eda9a9]">
           {error}
         </span>
       )}

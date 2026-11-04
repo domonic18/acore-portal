@@ -117,6 +117,9 @@ describe("US6 服务器状态(T042)", () => {
     expect(status.todayNewChars).toBeGreaterThanOrEqual(1);
     expect(typeof status.currentStage).toBe("string");
     expect(status.currentStage!.length).toBeGreaterThan(0);
+    // #54:阶段锚点 id 随 currentStage 一同下发(待定时二者同为 null)
+    expect(typeof status.currentStageNodeId).toBe("number");
+    expect(status.currentStageNodeId!).toBeGreaterThan(0);
     expect(status.maintenanceMode).toBe(false);
     expect(new Date(status.updatedAt).toString()).not.toBe("Invalid Date");
   });

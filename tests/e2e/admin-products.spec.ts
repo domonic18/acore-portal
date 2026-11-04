@@ -5,7 +5,8 @@ import { PrismaClient } from "../../src/generated/business";
  * 二期商城增强后台 E2E:
  * ① 限购字段表单保存→回显(API PATCH 透传 max_per_user);
  * ② 商品列表批量选择→批量下架生效(工具栏+行状态);
- * ③ 服务类商品复制生成草稿副本;物品类复制按钮禁用。
+ * ③ 服务类商品复制生成草稿副本;物品类复制按钮禁用;
+ * ④ 快速编辑:行内改价+精选保存落库,促销价校验红字,服务类库存禁用。
  */
 const prisma = new PrismaClient();
 const RUN = Date.now().toString(36);
@@ -170,5 +171,57 @@ test.describe("商品增强后台(限购/批量/复制)", () => {
     const itemRow = page.getByRole("row", { name: new RegExp(`E2E 物品商品 ${RUN}`) });
     await expect(itemRow.getByRole("button", { name: "复制" })).toBeDisabled();
     expect(await prisma.product.count({ where: { slug: { startsWith: `${SLUG_PREFIX}item-copy` } } })).toBe(0);
+  });
+
+  test("快速编辑:行内改价+首页精选保存落库(issue 2026-11-03)", async ({ page }) => {
+    await login(page);
+    await page.goto("/admin/products?page=1");
+    const row = page.getByRole("row", { name: new RegExp(`E2E 物品商品 ${RUN}`) });
+    await row.getByRole("button", { name: "快速编辑" }).click();
+
+    const form = page.getByTestId("product-quick-edit-form");
+    const priceInput = form.getByLabel("原价(积分)");
+    await priceInput.fill("128");
+    await form.getByLabel("首页精选").click();
+    await form.getByRole("button", { name: "保存" }).click();
+    await expect(page.getByTestId("product-quick-edit-form")).toHaveCount(0);
+
+    const saved = await prisma.product.findUniqueOrThrow({
+      where: { id: (await prisma.product.findFirstOrThrow({
+        where: { slug: `${SLUG_PREFIX}item` },
+        select: { id: true },
+      })).id },
+      select: { price: true, featured: true },
+    });
+    expect(saved.price).toBe(128);
+    expect(saved.featured).toBe(true);
+
+    // 行内促销价校验:促销价 ≥ 原价红字,不提交
+    await row.getByRole("button", { name: "快速编辑" }).click();
+    const form2 = page.getByTestId("product-quick-edit-form");
+    await form2.getByLabel("促销价(留空=无促销)").fill("128");
+    await form2.getByRole("button", { name: "保存" }).click();
+    await expect(form2.getByRole("alert")).toContainText("促销价必须低于原价");
+    await form2.getByRole("button", { name: "取消" }).click();
+    await expect(page.getByTestId("product-quick-edit-form")).toHaveCount(0);
+    const untouched = await prisma.product.findUniqueOrThrow({
+      where: { slug: `${SLUG_PREFIX}item` },
+      select: { salePrice: true },
+    });
+    expect(untouched.salePrice).toBeNull();
+  });
+
+  test("快速编辑:服务类库存禁用并提示(issue 2026-11-03)", async ({ page }) => {
+    await login(page);
+    await page.goto("/admin/products?page=1");
+    // 前序用例已生成「副本」行,按 SKU 精确匹配原行避免 strict 冲突
+    const svcRow = page
+      .getByRole("row")
+      .filter({ has: page.getByText(`e2e-svc-${RUN}`, { exact: true }) });
+    await svcRow.getByRole("button", { name: "快速编辑" }).click();
+    const form = page.getByTestId("product-quick-edit-form");
+    await expect(form.getByLabel("启用库存")).toBeDisabled();
+    await expect(form.getByText("服务类商品不使用库存")).toBeVisible();
+    await form.getByRole("button", { name: "取消" }).click();
   });
 });

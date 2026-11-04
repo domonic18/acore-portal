@@ -1,25 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronDown, ChevronUp, GripVertical, Plus } from "lucide-react";
 import { useHydrated } from "@/lib/use-hydrated";
 import { errorMessage, requestJson } from "@/lib/api-client";
-import { ImageField } from "./image-field";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { FOCUS_RING } from "@/components/ui/admin-tokens";
+import { BannerEditorFields, BannerImagePreview } from "./edit-fields";
 
-type Banner = {
-  id: string;
-  title: string;
-  imageUrl: string;
-  linkUrl: string;
-  sort: number;
-  enabled: boolean;
-};
+import { EMPTY, type Banner, type Draft } from "./draft-types";
 
-type Draft = { title: string; imageUrl: string; linkUrl: string; sort: string; enabled: boolean };
-
-const EMPTY: Draft = { title: "", imageUrl: "", linkUrl: "", sort: "0", enabled: true };
-
-/** 轮播物料管理:新建/行内编辑(全量提交)/启停/删除;图片走媒体库 */
+/**
+ * 轮播物料管理(2026-11-03 重做,Elementor 式所见即所得):
+ * 卡片即预览(16:5 图+标题覆盖+启停开关),原生拖拽排序(触屏有 ↑↓ 兜底,
+ * 落下即按新序持久化 sort),编辑/新建在卡片原位展开(图片即时预览)。
+ */
 export function BannerManager({ banners }: { banners: Banner[] }) {
   const router = useRouter();
   const hydrated = useHydrated();
@@ -29,8 +26,22 @@ export function BannerManager({ banners }: { banners: Banner[] }) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [creating, setCreating] = useState(false);
   const [newBanner, setNewBanner] = useState<Draft>(EMPTY);
+  const [order, setOrder] = useState<string[]>(() => banners.map((b) => b.id));
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
 
-  const inputCls = "rounded border border-gray-700 bg-gray-900 px-2 py-1 text-sm text-white";
+  // props.banners(refresh 后)与本地排序对齐:新出现的 id 追加、消失的移除
+  useEffect(() => {
+    setOrder((prev) => {
+      const ids = banners.map((b) => b.id);
+      const kept = prev.filter((id) => ids.includes(id));
+      const added = ids.filter((id) => !kept.includes(id));
+      return [...kept.filter((id) => ids.includes(id)), ...added];
+    });
+  }, [banners]);
+
+  const byId = new Map(banners.map((b) => [b.id, b]));
+  const ordered = order.map((id) => byId.get(id)).filter((b): b is Banner => Boolean(b));
 
   async function send(method: string, path: string, body?: unknown) {
     setBusy(true);
@@ -51,6 +62,55 @@ export function BannerManager({ banners }: { banners: Banner[] }) {
     }
   }
 
+  async function persistOrder(next: string[]) {
+    if (busy || !hydrated) return;
+    setReordering(true);
+    setError(null);
+    try {
+      await Promise.all(
+        next.map((id, index) => {
+          const b = byId.get(id);
+          if (!b || b.sort === index) return Promise.resolve();
+          return requestJson(`/api/admin/banners/${id}`, {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              title: b.title,
+              imageUrl: b.imageUrl,
+              linkUrl: b.linkUrl,
+              sort: index,
+              enabled: b.enabled,
+            }),
+          });
+        }),
+      );
+      setOrder(next);
+      router.refresh();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setReordering(false);
+    }
+  }
+
+  function moveLocal(id: string, delta: number) {
+    const index = order.indexOf(id);
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= order.length) return;
+    const next = [...order];
+    next.splice(index, 1);
+    next.splice(target, 0, id);
+    void persistOrder(next);
+  }
+
+  function handleDrop(targetId: string) {
+    if (!dragId || dragId === targetId) return;
+    const next = order.filter((id) => id !== dragId);
+    next.splice(order.indexOf(targetId), 0, dragId);
+    setDragId(null);
+    void persistOrder(next);
+  }
+
   function toPayload(d: Draft) {
     return {
       title: d.title,
@@ -61,83 +121,29 @@ export function BannerManager({ banners }: { banners: Banner[] }) {
     };
   }
 
-  function startEdit(b: Banner) {
-    setEditingId(b.id);
-    setDraft({
-      title: b.title,
-      imageUrl: b.imageUrl,
-      linkUrl: b.linkUrl,
-      sort: String(b.sort),
-      enabled: b.enabled,
-    });
-  }
-
-  function editorFields(d: Draft, setD: (updater: (prev: Draft) => Draft) => void) {
-    return (
-      <>
-        <label className="flex flex-col gap-1 text-xs text-gray-300">
-          标题
-          <input
-            required
-            value={d.title}
-            onChange={(e) => setD((p) => ({ ...p, title: e.target.value }))}
-            className={`${inputCls} w-44`}
-          />
-        </label>
-        <span className="flex flex-col gap-1 text-xs text-gray-300">
-          图片
-          <ImageField value={d.imageUrl} onChange={(url) => setD((p) => ({ ...p, imageUrl: url }))} disabled={busy || !hydrated} />
-        </span>
-        <label className="flex flex-col gap-1 text-xs text-gray-300">
-          跳转链接(可空)
-          <input
-            value={d.linkUrl}
-            onChange={(e) => setD((p) => ({ ...p, linkUrl: e.target.value }))}
-            placeholder="https://…"
-            className={`${inputCls} w-56`}
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-gray-300">
-          排序
-          <input
-            type="number"
-            value={d.sort}
-            onChange={(e) => setD((p) => ({ ...p, sort: e.target.value }))}
-            className={`${inputCls} w-16`}
-          />
-        </label>
-        <label className="flex items-center gap-1 text-xs text-gray-300">
-          <input
-            type="checkbox"
-            checked={d.enabled}
-            onChange={(e) => setD((p) => ({ ...p, enabled: e.target.checked }))}
-          />
-          启用
-        </label>
-      </>
-    );
-  }
+  const editorPreviewUrl = editingId !== null ? draft.imageUrl : newBanner.imageUrl;
 
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">轮播物料</h2>
-        <button
+        <h2 className="text-lg font-semibold text-[#dcebf7]">轮播物料</h2>
+        <Button
           type="button"
+          variant="primary"
           disabled={!hydrated}
-          className="rounded bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
           onClick={() => {
             setCreating((v) => !v);
             setNewBanner(EMPTY);
           }}
         >
+          <Plus aria-hidden="true" className="h-4 w-4" />
           {creating ? "收起新建" : "新建物料"}
-        </button>
+        </Button>
       </div>
 
       {creating && (
         <form
-          className="flex flex-wrap items-end gap-3 rounded border border-gray-700 p-3"
+          className="flex flex-col gap-3 rounded-xl border border-[#22385a] bg-[#13233a] p-4"
           onSubmit={(e) => {
             e.preventDefault();
             void send("POST", "/api/admin/banners", toPayload(newBanner)).then((ok) => {
@@ -148,126 +154,169 @@ export function BannerManager({ banners }: { banners: Banner[] }) {
             });
           }}
         >
-          {editorFields(newBanner, setNewBanner)}
-          <button
-            type="submit"
-            disabled={busy || !hydrated}
-            className="rounded bg-green-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
-          >
-            创建
-          </button>
+          {editorPreviewUrl ? <BannerImagePreview url={editorPreviewUrl} /> : null}
+          <BannerEditorFields draft={newBanner} setDraft={setNewBanner} disabled={busy || !hydrated} />
+          <div className="flex items-center gap-2">
+            <Button type="submit" variant="primary" disabled={busy || !hydrated}>
+              创建
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => setCreating(false)}>
+              取消
+            </Button>
+          </div>
         </form>
       )}
 
-      {banners.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-700 px-6 py-8 text-center text-gray-400">
-          暂无轮播物料;首页轮播位在存在启用物料时展示。
-        </p>
+      {banners.length === 0 && !creating ? (
+        <button
+          type="button"
+          onClick={() => setCreating(true)}
+          className={`flex aspect-[16/5] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[#22385a] text-[#6482a3] transition hover:border-[#6fb7e0]/50 hover:text-[#93b2ce] ${FOCUS_RING}`}
+        >
+          <Plus aria-hidden="true" className="h-5 w-5" />
+          暂无轮播物料,点击新建;首页轮播位在存在启用物料时展示。
+        </button>
       ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-800 text-left text-gray-400">
-              <th className="py-2 pr-3 font-normal">预览</th>
-              <th className="py-2 pr-3 font-normal">标题</th>
-              <th className="py-2 pr-3 font-normal">跳转</th>
-              <th className="py-2 pr-3 font-normal">排序</th>
-              <th className="py-2 pr-3 font-normal">状态</th>
-              <th className="py-2 pr-3 font-normal">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {banners.map((b) =>
-              editingId === b.id ? (
-                <tr key={b.id} className="border-b border-gray-900">
-                  <td colSpan={6} className="py-3 pr-3">
-                    <div className="flex flex-wrap items-end gap-3">
-                      {editorFields(draft, setDraft)}
-                      <button
-                        type="button"
-                        disabled={busy || !hydrated}
-                        className="rounded bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-                        onClick={() =>
-                          void send("PUT", `/api/admin/banners/${b.id}`, toPayload(draft)).then((ok) => {
-                            if (ok) setEditingId(null);
-                          })
-                        }
-                      >
-                        保存
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded border border-gray-600 px-2 py-1 text-xs text-gray-300 hover:border-gray-400"
-                        onClick={() => setEditingId(null)}
-                      >
-                        取消
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                <tr key={b.id} className="border-b border-gray-900">
-                  <td className="py-2 pr-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={b.imageUrl} alt={b.title} className="h-10 w-24 rounded object-cover" />
-                  </td>
-                  <td className="py-2 pr-3">{b.title}</td>
-                  <td className="max-w-[16rem] truncate py-2 pr-3 text-xs text-gray-400">
-                    {b.linkUrl || "—"}
-                  </td>
-                  <td className="py-2 pr-3 text-gray-400">{b.sort}</td>
-                  <td className="py-2 pr-3">
-                    {b.enabled ? (
-                      <span className="text-green-400">启用</span>
-                    ) : (
-                      <span className="text-gray-500">停用</span>
-                    )}
-                  </td>
-                  <td className="flex flex-wrap gap-1 py-2 pr-3">
-                    <button
-                      type="button"
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {ordered.map((b, index) =>
+            editingId === b.id ? (
+              <div key={b.id} className="rounded-xl border border-[#6fb7e0]/50 bg-[#13233a] p-4">
+                {editorPreviewUrl ? <BannerImagePreview url={editorPreviewUrl} /> : null}
+                <BannerEditorFields draft={draft} setDraft={setDraft} disabled={busy || !hydrated} />
+                <div className="mt-3 flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    disabled={busy || !hydrated}
+                    onClick={() =>
+                      void send("PUT", `/api/admin/banners/${b.id}`, toPayload(draft)).then((ok) => {
+                        if (ok) setEditingId(null);
+                      })
+                    }
+                  >
+                    保存
+                  </Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setEditingId(null)}>
+                    取消
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div
+                key={b.id}
+                data-testid="banner-card"
+                data-title={b.title}
+                draggable={hydrated && !busy}
+                onDragStart={() => setDragId(b.id)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => handleDrop(b.id)}
+                onDragEnd={() => setDragId(null)}
+                className={`group relative overflow-hidden rounded-xl border bg-[#13233a] transition ${
+                  dragId === b.id ? "border-[#6fb7e0] opacity-60" : "border-[#22385a] hover:border-[#35577f]"
+                }`}
+              >
+                <div className="relative aspect-[16/5]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={b.imageUrl} alt={b.title} className="absolute inset-0 h-full w-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#081120]/85 via-transparent to-transparent" />
+                  <span className="absolute left-3 top-2.5 max-w-[70%] truncate text-[15px] font-semibold text-white drop-shadow">
+                    {b.title}
+                  </span>
+                  {!b.enabled && (
+                    <span className="absolute right-3 top-2.5 rounded-full border border-white/30 bg-black/50 px-2 py-0.5 text-[11px] text-white/80">
+                      已停用
+                    </span>
+                  )}
+                  <span
+                    aria-hidden="true"
+                    title="拖拽排序"
+                    className="absolute bottom-2 left-2 cursor-grab rounded-md bg-black/45 p-1 text-white/70 opacity-0 transition group-hover:opacity-100"
+                  >
+                    <GripVertical className="h-4 w-4" />
+                  </span>
+                  <div className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-lg bg-black/55 px-2 py-1 backdrop-blur">
+                    <Switch
+                      checked={b.enabled}
                       disabled={busy || !hydrated}
-                      className="rounded border border-gray-600 px-2 py-1 text-xs text-gray-200 hover:border-gray-400 disabled:opacity-50"
-                      onClick={() => startEdit(b)}
-                    >
-                      编辑
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy || !hydrated}
-                      className="rounded border border-gray-600 px-2 py-1 text-xs text-gray-200 hover:border-gray-400 disabled:opacity-50"
-                      onClick={() =>
+                      onChange={(v) =>
                         void send("PUT", `/api/admin/banners/${b.id}`, {
                           title: b.title,
                           imageUrl: b.imageUrl,
                           linkUrl: b.linkUrl,
                           sort: b.sort,
-                          enabled: !b.enabled,
+                          enabled: v,
                         })
                       }
-                    >
-                      {b.enabled ? "停用" : "启用"}
-                    </button>
-                    <button
-                      type="button"
+                      ariaLabel={`启用「${b.title}」`}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       disabled={busy || !hydrated}
-                      className="rounded border border-red-800 px-2 py-1 text-xs text-red-300 hover:border-red-500 disabled:opacity-50"
+                      onClick={() => {
+                        setEditingId(b.id);
+                        setDraft({
+                          title: b.title,
+                          imageUrl: b.imageUrl,
+                          linkUrl: b.linkUrl,
+                          sort: String(b.sort),
+                          enabled: b.enabled,
+                        });
+                      }}
+                    >
+                      编辑
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`上移「${b.title}」`}
+                      disabled={busy || !hydrated || index === 0 || reordering}
+                      onClick={() => moveLocal(b.id, -1)}
+                    >
+                      <ChevronUp aria-hidden="true" className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`下移「${b.title}」`}
+                      disabled={busy || !hydrated || index === ordered.length - 1 || reordering}
+                      onClick={() => moveLocal(b.id, 1)}
+                    >
+                      <ChevronDown aria-hidden="true" className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      disabled={busy || !hydrated}
                       onClick={() => {
                         if (!window.confirm(`确认删除轮播物料「${b.title}」?`)) return;
                         void send("DELETE", `/api/admin/banners/${b.id}`);
                       }}
                     >
                       删除
-                    </button>
-                  </td>
-                </tr>
-              ),
-            )}
-          </tbody>
-        </table>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ),
+          )}
+          {banners.length > 0 && creating === false && (
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              className={`flex min-h-[96px] flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#22385a] text-[#6482a3] transition hover:border-[#6fb7e0]/50 hover:text-[#93b2ce] ${FOCUS_RING}`}
+            >
+              <Plus aria-hidden="true" className="h-5 w-5" />
+              新建一张轮播
+            </button>
+          )}
+        </div>
       )}
 
+      {(reordering || busy) && <p className="text-xs text-[#93b2ce]">处理中…</p>}
       {error && (
-        <p role="alert" className="text-sm text-red-400">
+        <p role="alert" className="text-sm text-[#eda9a9]">
           {error}
         </p>
       )}

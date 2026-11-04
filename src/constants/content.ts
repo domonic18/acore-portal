@@ -48,6 +48,33 @@ export const CORE_PAGE_SLUGS = [
 ] as const;
 
 /**
+ * 教程内容升格映射(2026-11-03):快捷操作类指南从「文章」升格为「静态页」,
+ * 获得稳定 slug 与根级路由;旧 /post/{oldSlug} 外链/内链由 post/[slug] 层
+ * permanentRedirect 兜底(308)。文章行随迁移删除,不做双份内容。
+ */
+export const PROMOTED_GUIDE_PAGES = [
+  { oldSlug: "硬核挑战模式一命模式", slug: "hardcore-mode", title: "硬核模式介绍" },
+  {
+    oldSlug: "魔兽国服关服后错过的坐骑盘点-101款坐骑获取方式",
+    slug: "mount-guide",
+    title: "坐骑掉落与获取指南",
+  },
+  {
+    oldSlug: "【教程】魔兽世界3-35高清端试用指南",
+    slug: "hd-client",
+    title: "高清端下载与试用指南",
+  },
+  { oldSlug: "客户端下载解压方法", slug: "client-extract", title: "客户端下载解压方法" },
+  { oldSlug: "关于登录不了游戏的排查方法", slug: "login-troubleshoot", title: "常见登录问题排查" },
+  { oldSlug: "经验加成合剂显示问号解决方法", slug: "patch-guide", title: "补丁说明与生效方法" },
+] as const;
+
+/** 旧文章 slug → 升格静态页路径(301 查找表) */
+export const PROMOTED_GUIDE_MAP: Record<string, string> = Object.fromEntries(
+  PROMOTED_GUIDE_PAGES.map((p) => [p.oldSlug, `/${p.slug}`]),
+);
+
+/**
  * 教程页下载章节锚点(规格 §菜单结构:客户端/登录器/补丁下载走锚点):
  * 沿用旧站 #client_download/#login_download/#patch_download,外链与站内菜单共用;
  * 渲染时按标题文案覆写 rehype-slug 生成的中文 id,正文标点/空格调整不影响跳转。

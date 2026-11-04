@@ -31,7 +31,7 @@ export function HomeCarousel({
   return (
     <section
       aria-label="首页轮播"
-      className="relative aspect-[8/3] overflow-hidden rounded-2xl border border-[#35577f] bg-[#13233a] lg:aspect-auto lg:h-full"
+      className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-[#35577f] bg-[#13233a] lg:aspect-auto lg:h-full"
     >
       <a href={current.linkUrl || undefined} className="block h-full" draggable={false}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -44,8 +44,8 @@ export function HomeCarousel({
       </a>
 
       {/* 左下标题叠层 */}
-      <div className="pointer-events-none absolute bottom-0 left-0 max-w-[85%] rounded-tr-2xl bg-[#050a12]/85 px-5 py-4">
-        <h2 className="text-xl font-bold leading-snug text-white sm:text-2xl lg:text-[28px]">
+      <div className="pointer-events-none absolute bottom-0 left-0 max-w-[85%] rounded-tr-2xl bg-[#050a12]/85 px-3 py-2.5 lg:px-5 lg:py-4">
+        <h2 className="text-[15px] font-bold leading-snug text-white sm:text-xl lg:text-[28px]">
           {current.title}
         </h2>
       </div>

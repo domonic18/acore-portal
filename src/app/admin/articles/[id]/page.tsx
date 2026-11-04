@@ -6,6 +6,7 @@ import {
   listAdminArticleCategories,
   listAdminTags,
 } from "@/server/services/content/admin";
+import { FOCUS_RING } from "@/components/ui/admin-tokens";
 
 /** 文章编辑回填(T032):全字段(含正文 MD 与标签)回填表单 */
 export default async function AdminArticleEditPage({
@@ -21,14 +22,15 @@ export default async function AdminArticleEditPage({
     listAdminTags(),
   ]);
   if (!article) notFound();
+  const backLinkCls = `rounded text-sm text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline ${FOCUS_RING}`;
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold">编辑文章</h1>
-        <Link href={`/post/${article.slug}`} className="text-sm text-blue-400 hover:underline">
+        <h1 className="text-2xl font-bold text-[#dcebf7]">编辑文章</h1>
+        <Link href={`/post/${article.slug}`} className={backLinkCls}>
           前台查看 ↗
         </Link>
-        <Link href="/admin/articles" className="text-sm text-blue-400 hover:underline">
+        <Link href="/admin/articles" className={backLinkCls}>
           ← 返回列表
         </Link>
       </div>

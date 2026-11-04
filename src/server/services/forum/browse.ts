@@ -5,30 +5,20 @@ import {
 } from "@/constants/pagination";
 
 /**
- * 论坛浏览查询层(T038,FR-219;Q1 完全只读——零写路径):
- * 版块列表(聚合主题数/最新主题)/版块主题列表 20/页(pinned desc+lastPostAt desc)/
- * 主题楼层 20/页(floor asc);软删(deletedAt)全域过滤;阅读数原子自增(R2 Q7 口径)。
+ * 论坛浏览查询层(T038,FR-219;2026-11-04 开放登录用户发帖回帖,写路径见 write.ts/moderate.ts):
+ * 版块列表(聚合主题数/回复数;#57 后前台不再展示板块内最新主题)/版块主题列表 20/页
+ * (pinned desc+lastPostAt desc)/主题楼层 20/页(floor asc);软删(deletedAt)全域过滤;阅读数原子自增(R2 Q7 口径)。
  */
 export async function listForumBoards() {
   const [boards, replyTotals] = await Promise.all([
     prisma.forumBoard.findMany({
       orderBy: [{ sort: "asc" }, { id: "asc" }],
-      include: {
-        threads: {
-          where: { deletedAt: null },
-          orderBy: [{ lastPostAt: "desc" }],
-          take: 1,
-          select: {
-            id: true,
-            title: true,
-            authorName: true,
-            lastPostAt: true,
-            replyCount: true,
-            pinned: true,
-            closedAt: true,
-            statusLabel: true,
-          },
-        },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        description: true,
+        icon: true,
         _count: { select: { threads: { where: { deletedAt: null } } } },
       },
     }),
@@ -46,20 +36,9 @@ export async function listForumBoards() {
     slug: b.slug,
     name: b.name,
     description: b.description,
+    icon: b.icon,
     threadCount: b._count.threads,
     replyCount: replyByBoard.get(b.id.toString()) ?? 0,
-    latestThread: b.threads[0]
-      ? {
-          id: b.threads[0].id.toString(),
-          title: b.threads[0].title,
-          authorName: b.threads[0].authorName,
-          lastPostAt: b.threads[0].lastPostAt,
-          replyCount: b.threads[0].replyCount,
-          pinned: b.threads[0].pinned,
-          closedAt: b.threads[0].closedAt,
-          statusLabel: b.threads[0].statusLabel,
-        }
-      : null,
   }));
 }
 
@@ -167,6 +146,7 @@ export async function listThreadPosts(opts: {
         authorUserId: true,
         authorName: true,
         contentHtml: true,
+        legacyWpPostId: true,
         createdAt: true,
         authorUser: { select: { role: true } },
       },

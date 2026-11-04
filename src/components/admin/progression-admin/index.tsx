@@ -12,6 +12,8 @@ import {
   type ProgressionDraftItem,
 } from "../progression-card-editor";
 import { uploadMediaFiles } from "../media-library";
+import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/input";
 import { errorMessage, requestJson } from "@/lib/api-client";
 import { toDraft, toPayload, type AdminProgressionNode } from "./draft";
 
@@ -179,14 +181,14 @@ export function ProgressionAdmin({ nodes }: { nodes: AdminProgressionNode[] }) {
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-[#93b2ce]">
             <label className="flex items-center gap-2">
               当前阶段
-              <select
+              <Select
                 data-testid="progression-current"
                 value={currentId ?? ""}
                 onChange={(e) => {
                   setSaved(false);
                   setCurrentId(e.target.value || null);
                 }}
-                className="rounded border border-[#35577f] bg-[#13233a] px-2 py-1 text-[13px] text-[#dcebf7] focus:border-[#6fb7e0] focus:outline-none"
+                className="w-auto py-1 text-[13px]"
               >
                 <option value="">自动(回退末位开放)</option>
                 {items
@@ -196,7 +198,7 @@ export function ProgressionAdmin({ nodes }: { nodes: AdminProgressionNode[] }) {
                       {item.title || "未命名阶段"}
                     </option>
                   ))}
-              </select>
+              </Select>
             </label>
             <span>
               下一阶段:
@@ -218,42 +220,46 @@ export function ProgressionAdmin({ nodes }: { nodes: AdminProgressionNode[] }) {
               </span>
             )}
             {!dirty && saved && (
-              <span data-testid="progression-saved" className="text-[12px] text-[#7bd88f]">
+              <span data-testid="progression-saved" className="text-[12px] text-[#6ee7b7]">
                 已更新,前台即时生效
               </span>
             )}
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               data-testid="progression-reset"
               onClick={reset}
               disabled={busy || !dirty}
-              className="rounded border border-[#35577f] px-3 py-1.5 text-[12.5px] text-[#93b2ce] hover:border-[#6fb7e0] hover:text-[#dcebf7] disabled:opacity-40"
+              className="py-1.5 text-[12.5px]"
             >
               撤销修改
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="primary"
+              size="sm"
               data-testid="progression-save"
               onClick={submit}
               disabled={busy}
-              className="rounded bg-[#e8c877] px-5 py-1.5 text-[12.5px] font-semibold text-[#0a1220] hover:bg-[#f3d78f] disabled:opacity-50"
+              className="bg-[#e8c877] px-5 py-1.5 text-[12.5px] text-[#0a1220] hover:bg-[#f3d78f] active:bg-[#d9b968]"
             >
               {busy ? "保存中…" : "更新"}
-            </button>
+            </Button>
           </div>
         </div>
         <p className="mt-2 text-[12px] text-[#6482a3]">
           直接在下方时间轴上编辑:点击卡片右上「编辑」修改内容,↑ ↓ 调整顺序,「设为当前」钉住当前阶段;改动一次性「更新」。
         </p>
         {error && (
-          <p data-testid="progression-error" className="mt-2 text-[12.5px] text-[#f08787]">
+          <p data-testid="progression-error" className="mt-2 text-[12.5px] text-[#eda9a9]">
             {error}
           </p>
         )}
       </section>
 
       {items.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-[#35577f] py-16 text-center text-sm text-[#6482a3]">
+        <p className="rounded-xl border border-dashed border-[#22385a] py-16 text-center text-sm text-[#6482a3]">
           暂无渐进阶段,点击下方「添加阶段」开始。
         </p>
       ) : (
@@ -302,15 +308,16 @@ export function ProgressionAdmin({ nodes }: { nodes: AdminProgressionNode[] }) {
       )}
 
       <div className="flex justify-center">
-        <button
+        <Button
           type="button"
+          variant="secondary"
           data-testid="progression-add"
           onClick={addItem}
           disabled={busy || items.length >= 200}
-          className="rounded-md border border-[#35577f] bg-[#13233a] px-5 py-2 text-[13px] text-[#a8d9f5] hover:border-[#6fb7e0] hover:text-white disabled:opacity-40"
+          className="text-[#a8d9f5]"
         >
           + 添加阶段
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -61,6 +61,10 @@ export const AUDIT_ACTION = {
   FORUM_BOARD_SAVED: "forum_board_saved",
   FORUM_BOARD_DELETED: "forum_board_deleted",
   FORUM_MODERATION_VIOLATION: "forum_moderation_violation",
+  /** 2026-11-04 开放发帖回帖(#34):创建/回帖/版主删楼层(category=forum;payload 记 id/标题,正文不落) */
+  FORUM_THREAD_CREATED: "forum_thread_created",
+  FORUM_POST_CREATED: "forum_post_created",
+  FORUM_POST_DELETED: "forum_post_deleted",
   /** M4 防滥用:连续失败达阈值触发锁定(category=security;payload 无密码,只记用户名/ip/计数) */
   LOGIN_LOCKED: "login_locked",
   /** M4 系统设置保存(category=admin;只落组名/键名/掩码 diff,任何值不落审计) */
@@ -75,6 +79,8 @@ export const AUDIT_ACTION = {
   PRODUCT_BATCH_UPDATED: "product_batch_updated",
   /** 商品复制(category=shop;仅服务类,payload 含 sourceId/targetId/sku) */
   PRODUCT_DUPLICATED: "product_duplicated",
+  /** 商品列表快速编辑(category=shop;payload 含 productId/sku/fields,只记字段名不记值) */
+  PRODUCT_QUICK_EDITED: "product_quick_edited",
   /** 首页轮播物料管理(category=content;payload 含 id/title/enabled) */
   HOME_BANNER_SAVED: "home_banner_saved",
   HOME_BANNER_DELETED: "home_banner_deleted",

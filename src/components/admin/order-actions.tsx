@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
@@ -34,35 +35,32 @@ export function OrderActions({
     }
   }
 
-  const btnCls =
-    "rounded px-4 py-1.5 text-sm font-semibold disabled:opacity-50";
-
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-3">
         {status === "delivery_failed" && (
-          <button
+          <Button
             type="button"
+            variant="primary"
             disabled={busy !== null}
             onClick={() => act("redeliver")}
-            className={`${btnCls} bg-blue-600 text-white hover:bg-blue-500`}
           >
             {busy === "redeliver" ? "补发中…" : "补发"}
-          </button>
+          </Button>
         )}
         {(status === "paid" || status === "delivery_failed" || status === "completed") && (
-          <button
+          <Button
             type="button"
+            variant="danger"
             disabled={busy !== null}
             onClick={() => act("refund")}
-            className={`${btnCls} bg-red-700 text-white hover:bg-red-600`}
           >
             {busy === "refund" ? "退款中…" : "退款"}
-          </button>
+          </Button>
         )}
       </div>
       {error && (
-        <p role="alert" className="text-sm text-red-400">
+        <p role="alert" className="text-sm text-[#eda9a9]">
           {error}
         </p>
       )}

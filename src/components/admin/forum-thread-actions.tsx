@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHydrated } from "@/lib/use-hydrated";
+import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/input";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
@@ -45,22 +47,21 @@ export function ForumThreadActions({
     }
   }
 
-  const btn =
-    "rounded border border-gray-600 px-2 py-1 text-xs text-gray-200 hover:border-gray-400 disabled:opacity-50";
-
   if (deleted) {
     return (
       <span className="flex flex-col items-start gap-0.5">
-        <button
+        <Button
           type="button"
+          variant="secondary"
+          size="sm"
           disabled={busy || !hydrated}
-          className={`${btn} border-green-700 text-green-400 hover:border-green-500`}
+          className="border-[#34d399]/40 bg-[#34d399]/10 text-[#6ee7b7] hover:border-[#34d399]/60 hover:text-[#6ee7b7]"
           onClick={() => act({ action: "undelete" })}
         >
           恢复
-        </button>
+        </Button>
         {error && (
-          <span role="alert" className="text-xs text-red-400">
+          <span role="alert" className="text-xs text-[#eda9a9]">
             {error}
           </span>
         )}
@@ -70,43 +71,46 @@ export function ForumThreadActions({
 
   return (
     <span className="flex flex-wrap items-center gap-1">
-      <button
+      <Button
         type="button"
+        variant="secondary"
+        size="sm"
         disabled={busy || !hydrated}
-        className={btn}
         onClick={() => act({ action: "pin", pinned: !pinned })}
       >
         {pinned ? "取消置顶" : "置顶"}
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
+        variant="secondary"
+        size="sm"
         disabled={busy || !hydrated}
-        className={btn}
         onClick={() => act({ action: "close", closed: !closed })}
       >
         {closed ? "开放" : "关闭"}
-      </button>
-      <select
+      </Button>
+      <Select
         aria-label="状态标签"
         disabled={busy || !hydrated}
         value={label}
         onChange={(e) => act({ action: "label", label: e.target.value })}
-        className="rounded border border-gray-600 bg-gray-900 px-1 py-1 text-xs text-gray-200 disabled:opacity-50"
+        className="w-auto py-0.5 pr-7 text-xs"
       >
         <option value="none">无标签</option>
         <option value="standard">规范</option>
         <option value="resolved">已解决</option>
-      </select>
-      <button
+      </Select>
+      <Button
         type="button"
+        variant="danger"
+        size="sm"
         disabled={busy || !hydrated}
-        className={`${btn} border-red-800 text-red-300 hover:border-red-500`}
         onClick={() => act({ action: "delete" }, `确认删除主题 #${threadId}?可在回收站恢复。`)}
       >
         删除
-      </button>
+      </Button>
       {error && (
-        <span role="alert" className="text-xs text-red-400">
+        <span role="alert" className="text-xs text-[#eda9a9]">
           {error}
         </span>
       )}

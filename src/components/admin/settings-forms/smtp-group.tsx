@@ -22,7 +22,7 @@ export function SmtpGroup({ view }: { view: SettingsView["smtp"] }) {
       <TextRow label="SMTP 端口(465=SSL)" testid="settings-field-smtp-port" value={port} onChange={setPort} />
       <TextRow label="用户名" testid="settings-field-smtp-user" value={user} onChange={setUser} />
       <label className="flex flex-col gap-1 text-sm md:flex-row md:items-center md:gap-3">
-        <span className="w-56 shrink-0 text-gray-300">密码</span>
+        <span className="w-56 shrink-0 text-[#93b2ce]">密码</span>
         <SecretInput
           testid="settings-field-smtp-password"
           configured={view.passwordConfigured}

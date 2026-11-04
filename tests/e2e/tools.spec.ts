@@ -83,7 +83,7 @@ test.describe("工具页六页(US1,SC-301)", () => {
     await expect(page.getByTestId("tools-iframe")).toBeVisible();
   });
 
-  test("数据库页壳:标题/来源 chip/页内 tab/浏览器框(p05)", async ({ page }) => {
+  test("数据库页壳:标题/来源 chip/浏览器框,无页内 tab(p05,issue #41)", async ({ page }) => {
     await page.goto("/hardcore");
     await expect(
       page.getByRole("heading", { level: 1, name: "英雄榜" }),
@@ -94,30 +94,10 @@ test.describe("工具页六页(US1,SC-301)", () => {
     ).toBeVisible();
     await expect(page.getByText(/iframe src=/)).toHaveCount(0);
 
-    const tabs = page.getByRole("navigation", { name: "数据库工具切换" });
-    await expect(tabs.getByRole("link", { name: "硬核天梯" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-    await expect(tabs.getByRole("link", { name: "在线玩家" })).toHaveAttribute(
-      "href",
-      "/online-players",
-    );
-    await expect(tabs.getByRole("link", { name: "在线地图" })).toHaveAttribute(
-      "href",
-      "/playermap",
-    );
-
-    await tabs.getByRole("link", { name: "在线地图" }).click();
-    await expect(page).toHaveURL(/\/playermap$/);
+    // 页签行已移除(issue #41 2026-11-04):三页直达靠主导航「数据库」下拉
     await expect(
-      page.getByRole("heading", { level: 1, name: "在线地图" }),
-    ).toBeVisible();
-    await expect(
-      page
-        .getByRole("navigation", { name: "数据库工具切换" })
-        .getByRole("link", { name: "在线地图" }),
-    ).toHaveAttribute("aria-current", "page");
+      page.getByRole("navigation", { name: "数据库工具切换" }),
+    ).toHaveCount(0);
   });
 
   test("查询/封禁/DKP 页壳:无页内 tab,DKP 外部提示(p06)", async ({ page }) => {

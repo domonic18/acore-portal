@@ -119,7 +119,7 @@ test.describe("游客菜单(FR-201)", () => {
     await expect(sidebar.getByTestId("sidebar-points-balance")).toHaveCount(0);
   });
 
-  test("375px 汉堡折叠展开全层级(FR-205)", async ({ page }) => {
+  test("375px 汉堡折叠展开全层级(FR-205);二级菜单手风琴默认折叠(#56)", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/");
     const button = page.getByTestId("mobile-menu-button");
@@ -131,6 +131,10 @@ test.describe("游客菜单(FR-201)", () => {
     // 游客折叠菜单无商城/账户入口(设计稿 LoginMenu 口径:登录态才出现)
     await expect(menu.getByText("积分商店", { exact: true })).toHaveCount(0);
     await expect(menu.getByText("我的账户", { exact: true })).toHaveCount(0);
+    // #56:首页▾ 二级项默认折叠,点箭头展开后可见
+    await expect(menu.getByRole("link", { name: "客户端下载", exact: true })).toHaveCount(0);
+    await menu.getByTestId("mobile-submenu-toggle-首页").click();
+    await expect(menu.getByRole("link", { name: "客户端下载", exact: true })).toBeVisible();
     await button.click();
     await expect(menu).toHaveCount(0);
   });

@@ -1,69 +1,67 @@
 import Link from "next/link";
 import { listAdminPages } from "@/server/services/content/admin";
 import { PageDeleteButton } from "@/components/admin/page-actions";
+import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
+import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
+import { FOCUS_RING } from "@/components/ui/admin-tokens";
 
 /** 静态页列表(T032,FR-216):含 draft;行内编辑/删除;新建入口 */
 export default async function AdminPagesPage() {
   const items = await listAdminPages();
+  const linkCls = `rounded text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline ${FOCUS_RING}`;
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold">静态页</h1>
-        <Link
-          href="/admin/pages/new"
-          className="rounded bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-500"
-        >
+        <ButtonLink href="/admin/pages/new" variant="primary">
           新建静态页
-        </Link>
+        </ButtonLink>
       </div>
       {items.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-700 px-6 py-10 text-center text-gray-400">
+        <p className="rounded-xl border border-dashed border-[#22385a] px-6 py-10 text-center text-[#6482a3]">
           暂无静态页。
         </p>
       ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-800 text-left text-gray-400">
-              <th className="py-2 pr-3 font-normal">标题</th>
-              <th className="py-2 pr-3 font-normal">slug</th>
-              <th className="py-2 pr-3 font-normal">状态</th>
-              <th className="py-2 pr-3 font-normal">排序</th>
-              <th className="py-2 pr-3 font-normal">更新时间</th>
-              <th className="py-2 pr-3 font-normal">操作</th>
+        <Table>
+          <THead>
+            <tr>
+              <Th>标题</Th>
+              <Th>slug</Th>
+              <Th>状态</Th>
+              <Th>排序</Th>
+              <Th>更新时间</Th>
+              <Th>操作</Th>
             </tr>
-          </thead>
+          </THead>
           <tbody>
             {items.map((p) => (
-              <tr key={p.id} className="border-b border-gray-900">
-                <td className="py-2 pr-3">
-                  <Link href={`/admin/pages/${p.id}`} className="text-blue-400 hover:underline">
+              <Tr key={p.id}>
+                <Td className="whitespace-nowrap">
+                  <Link href={`/admin/pages/${p.id}`} className={linkCls}>
                     {p.title}
                   </Link>
-                </td>
-                <td className="py-2 pr-3 font-mono text-xs text-gray-400">/{p.slug}</td>
-                <td className="py-2 pr-3">
-                  <span
-                    className={`rounded px-2 py-0.5 text-xs ${
-                      p.status === "published"
-                        ? "bg-green-950 text-green-400"
-                        : "bg-gray-800 text-gray-400"
-                    }`}
-                  >
+                </Td>
+                <Td className="font-mono text-xs text-[#93b2ce]">/{p.slug}</Td>
+                <Td>
+                  <Badge tone={p.status === "published" ? "ok" : "muted"}>
                     {p.status === "published" ? "已发布" : "草稿"}
-                  </span>
-                </td>
-                <td className="py-2 pr-3 text-gray-400">{p.sortOrder}</td>
-                <td className="py-2 pr-3 text-gray-500">{p.updatedAt.slice(0, 10)}</td>
-                <td className="flex gap-3 py-2 pr-3">
-                  <Link href={`/admin/pages/${p.id}`} className="text-blue-400 hover:underline">
-                    编辑
-                  </Link>
-                  <PageDeleteButton id={p.id} title={p.title} />
-                </td>
-              </tr>
+                  </Badge>
+                </Td>
+                <Td className="text-[#93b2ce]">{p.sortOrder}</Td>
+                <Td className="text-xs text-[#6482a3]">{p.updatedAt.slice(0, 10)}</Td>
+                <Td>
+                  <div className="flex items-center gap-2">
+                    <Link href={`/admin/pages/${p.id}`} className={linkCls}>
+                      编辑
+                    </Link>
+                    <PageDeleteButton id={p.id} title={p.title} />
+                  </div>
+                </Td>
+              </Tr>
             ))}
           </tbody>
-        </table>
+        </Table>
       )}
     </div>
   );

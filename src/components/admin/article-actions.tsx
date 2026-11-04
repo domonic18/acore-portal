@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { requestJson } from "@/lib/api-client";
 
 /** 文章行内删除(硬删,级联标签关联;契约 article_delete 审计在服务端) */
@@ -23,13 +24,8 @@ export function ArticleDeleteButton({ id, title }: { id: string; title: string }
   }
 
   return (
-    <button
-      type="button"
-      onClick={remove}
-      disabled={busy}
-      className="text-red-400 hover:text-red-300 disabled:opacity-50"
-    >
+    <Button type="button" variant="danger" size="sm" onClick={remove} disabled={busy}>
       删除
-    </button>
+    </Button>
   );
 }

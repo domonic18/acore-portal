@@ -16,6 +16,7 @@
 | 角色总数 `charTotal` | characters count | ✅ | |
 | 今日新注册 `todayNewChars` | characters `creation_date` 计数 | ✅ | 真机列 `creation_date TIMESTAMP`(2026-10-29 核对) |
 | 当前阶段 `currentStage` | SystemConfig 指针 → progression_node.title | ❌ 人工 | 指针失效回退最新 open 节点 |
+| 阶段锚点 `currentStageNodeId` | 同上(指针节点 id) | ❌ 人工 | 2026-11-04 #54 新增:前台「当前阶段」点击直达 `/progression#node-{id}` |
 | 维护模式 `maintenanceMode` | SystemConfig | ❌ 人工 | |
 | 展示开关 `enabled` | SystemConfig | ❌ 人工 | false 时 /api/status 返回 `{ enabled: false }`，首页状态卡整卡隐藏 |
 
@@ -34,6 +35,7 @@
   "charTotal": 53112,
   "todayNewChars": 17,
   "currentStage": "第一阶段·熔火之心",
+  "currentStageNodeId": 2,       // 渐进节点 id,#54 阶段锚点;待定 → null
   "maintenanceMode": false,
   "updatedAt": "2026-10-24T12:00:30+08:00"  // degraded 时为缓存写入时间
 }

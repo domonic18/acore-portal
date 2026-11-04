@@ -3,31 +3,20 @@ import { prisma } from "@/lib/db";
 import { ORDER_STATUS } from "@/constants/shop";
 import { countLowStockProducts } from "@/server/services/catalog/admin";
 
-/** 后台外壳顶栏告警计数(admin layout) */
-export type AdminBadgeCounts = {
+/** 后台总览计数卡(低库存/发货异常/用户/复核;顶栏告警已于 2026-11-03 收敛至此) */
+export type AdminDashboardCounts = {
   lowStock: number;
   deliveryFailed: number;
-};
-
-/** 后台总览四张计数卡 */
-export type AdminDashboardCounts = AdminBadgeCounts & {
   userCount: number;
   reviewPending: number;
 };
 
-export async function getAdminBadgeCounts(): Promise<AdminBadgeCounts> {
-  const [lowStock, deliveryFailed] = await Promise.all([
+export async function getAdminDashboardCounts(): Promise<AdminDashboardCounts> {
+  const [lowStock, deliveryFailed, userCount, reviewPending] = await Promise.all([
     countLowStockProducts(),
     prisma.order.count({ where: { status: ORDER_STATUS.DELIVERY_FAILED } }),
-  ]);
-  return { lowStock, deliveryFailed };
-}
-
-export async function getAdminDashboardCounts(): Promise<AdminDashboardCounts> {
-  const [counts, userCount, reviewPending] = await Promise.all([
-    getAdminBadgeCounts(),
     prisma.user.count(),
     prisma.migrationReviewItem.count({ where: { resolvedAt: null } }),
   ]);
-  return { ...counts, userCount, reviewPending };
+  return { lowStock, deliveryFailed, userCount, reviewPending };
 }

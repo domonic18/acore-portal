@@ -1,12 +1,19 @@
 import Link from "next/link";
+import { MessagesSquare, LayoutList } from "lucide-react";
 import { adminListThreads, listAdminBoards } from "@/server/services/forum/admin";
 import { ForumThreadActions } from "@/components/admin/forum-thread-actions";
 import { ForumBoardManager } from "@/components/admin/forum-board-manager";
+import { ForumFilterChips } from "@/components/admin/forum-filter-chips";
 import { PinnedBadge, ThreadStatusBadge } from "@/components/forum/thread-badge";
 import { AdminPager } from "@/components/ui/pagination";
+import { Button } from "@/components/ui/button";
+import { Input, Select } from "@/components/ui/input";
+import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
+import { FOCUS_RING } from "@/components/ui/admin-tokens";
 import { buildPageHref } from "@/lib/pagination";
 
 type SearchParams = {
+  tab?: string;
   board?: string;
   q?: string;
   pinned?: string;
@@ -16,10 +23,63 @@ type SearchParams = {
   page?: string;
 };
 
-/** 后台论坛管理:跨版块主题筛选+版务操作(含回收站/恢复)+版块管理区块 */
+const TABS = [
+  { key: "boards", label: "版块管理", icon: LayoutList },
+  { key: "threads", label: "主题管理", icon: MessagesSquare },
+] as const;
+
+/**
+ * 后台论坛管理(2026-11-03 tab 化,行业惯例:先版块管理后主题管理):
+ * tab 走 URL(?tab=threads 可直达/分享);主题侧保留跨版块筛选+版务操作+回收站。
+ */
 export default async function AdminForumPage({
   searchParams,
 }: {
+  searchParams: SearchParams;
+}) {
+  const tab = searchParams.tab === "threads" ? "threads" : "boards";
+  const boards = await listAdminBoards();
+
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="text-2xl font-bold">论坛管理</h1>
+
+      <div className="flex items-center gap-1.5" role="tablist" aria-label="论坛管理分区">
+        {TABS.map(({ key, label, icon: Icon }) => {
+          const active = tab === key;
+          return (
+            <Link
+              key={key}
+              href={`/admin/forum${key === "threads" ? "?tab=threads" : ""}`}
+              role="tab"
+              aria-selected={active}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-[13px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60 ${
+                active
+                  ? "border-[#6fb7e0] bg-[#6fb7e0]/15 font-semibold text-[#a8d9f5]"
+                  : "border-[#22385a] text-[#93b2ce] hover:border-[#6fb7e0]/40 hover:text-[#dcebf7]"
+              }`}
+            >
+              <Icon aria-hidden="true" className="h-4 w-4" />
+              {label}
+            </Link>
+          );
+        })}
+      </div>
+
+      {tab === "boards" ? (
+        <ForumBoardManager boards={boards} />
+      ) : (
+        <ThreadsSection boards={boards} searchParams={searchParams} />
+      )}
+    </div>
+  );
+}
+
+async function ThreadsSection({
+  boards,
+  searchParams,
+}: {
+  boards: Awaited<ReturnType<typeof listAdminBoards>>;
   searchParams: SearchParams;
 }) {
   const q = searchParams.q?.trim() ?? "";
@@ -30,8 +90,9 @@ export default async function AdminForumPage({
   const boardSlug = searchParams.board ?? "";
   const page = Math.max(1, Number.parseInt(searchParams.page ?? "1", 10) || 1);
 
-  const boards = await listAdminBoards();
-  const boardId = boardSlug ? BigInt(boards.find((b) => b.slug === boardSlug)?.id ?? 0) || undefined : undefined;
+  const boardId = boardSlug
+    ? BigInt(boards.find((b) => b.slug === boardSlug)?.id ?? 0) || undefined
+    : undefined;
   const { items, totalPages, total } = await adminListThreads({
     boardId,
     q,
@@ -46,6 +107,7 @@ export default async function AdminForumPage({
     buildPageHref(
       "/admin/forum",
       {
+        tab: "threads",
         board: boardSlug || undefined,
         q: q || undefined,
         pinned: pinned ? "1" : undefined,
@@ -56,108 +118,89 @@ export default async function AdminForumPage({
       p,
     );
 
-  const selectCls = "rounded border border-gray-700 bg-gray-900 px-3 py-2 text-white";
-
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">论坛管理</h1>
-
       <form method="GET" action="/admin/forum" className="flex flex-wrap items-end gap-3">
+        <input type="hidden" name="tab" value="threads" />
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-300">版块</span>
-          <select name="board" defaultValue={boardSlug} className={selectCls}>
+          <span className="text-[#93b2ce]">版块</span>
+          <Select name="board" defaultValue={boardSlug} className="w-auto">
             <option value="">全部版块</option>
             {boards.map((b) => (
               <option key={b.id} value={b.slug}>
                 {b.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-300">标题关键词</span>
-          <input
-            name="q"
-            defaultValue={q}
-            placeholder="回车搜索"
-            className={`${selectCls} w-56`}
-          />
+          <span className="text-[#93b2ce]">标题关键词</span>
+          <Input name="q" defaultValue={q} placeholder="回车搜索" className="w-56" />
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-300">状态标签</span>
-          <select name="label" defaultValue={label} className={selectCls}>
+          <span className="text-[#93b2ce]">状态标签</span>
+          <Select name="label" defaultValue={label} className="w-auto">
             <option value="">全部</option>
             <option value="none">无标签</option>
             <option value="standard">规范</option>
             <option value="resolved">已解决</option>
             <option value="closed">已关闭</option>
-          </select>
+          </Select>
         </label>
-        <label className="flex items-center gap-1 text-sm text-gray-300">
-          <input type="checkbox" name="pinned" value="1" defaultChecked={pinned} />
-          仅置顶
-        </label>
-        <label className="flex items-center gap-1 text-sm text-gray-300">
-          <input type="checkbox" name="closed" value="1" defaultChecked={closed} />
-          仅已关闭
-        </label>
-        <label className="flex items-center gap-1 text-sm text-gray-300">
-          <input type="checkbox" name="deleted" value="1" defaultChecked={deleted} />
-          回收站(已删)
-        </label>
-        <button
-          type="submit"
-          className="rounded bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-500"
-        >
+        <ForumFilterChips pinned={pinned === true} closed={closed === true} deleted={deleted} />
+        <Button type="submit" variant="primary">
           筛选
-        </button>
-        <Link href="/admin/forum" className="text-sm text-gray-400 hover:underline">
+        </Button>
+        <Link
+          href="/admin/forum?tab=threads"
+          className={`rounded text-sm text-[#6482a3] underline-offset-2 hover:text-[#a8d9f5] hover:underline ${FOCUS_RING}`}
+        >
           清除
         </Link>
       </form>
 
       {items.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-700 px-6 py-10 text-center text-gray-400">
+        <p className="rounded-xl border border-dashed border-[#22385a] px-6 py-10 text-center text-[#6482a3]">
           没有匹配的主题。
         </p>
       ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-800 text-left text-gray-400">
-              <th className="py-2 pr-3 font-normal">标题</th>
-              <th className="py-2 pr-3 font-normal">版块</th>
-              <th className="py-2 pr-3 font-normal">作者</th>
-              <th className="py-2 pr-3 font-normal">状态</th>
-              <th className="py-2 pr-3 font-normal">回复</th>
-              <th className="py-2 pr-3 font-normal">最后活动</th>
-              <th className="py-2 pr-3 font-normal">操作</th>
+        <Table minWidth="min-w-[860px]">
+          <THead>
+            <tr>
+              <Th>标题</Th>
+              <Th>版块</Th>
+              <Th>作者</Th>
+              <Th>状态</Th>
+              <Th>回复</Th>
+              <Th>最后活动</Th>
+              <Th>操作</Th>
             </tr>
-          </thead>
+          </THead>
           <tbody>
             {items.map((t) => (
-              <tr key={t.id} className="border-b border-gray-900">
-                <td className="max-w-md py-2 pr-3">
+              <Tr key={t.id}>
+                <Td className="max-w-md">
                   <Link
                     href={`/forum/thread/${t.id}`}
-                    className="text-blue-400 hover:underline"
+                    className={`rounded text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline ${FOCUS_RING}`}
                     target="_blank"
                   >
                     {t.pinned && <PinnedBadge />} {t.title}
                   </Link>
-                </td>
-                <td className="py-2 pr-3 text-gray-400">{t.boardName}</td>
-                <td className="py-2 pr-3 text-gray-400">{t.authorName}</td>
-                <td className="py-2 pr-3">
+                </Td>
+                <Td className="whitespace-nowrap text-[#93b2ce]">{t.boardName}</Td>
+                <Td className="whitespace-nowrap text-[#93b2ce]">{t.authorName}</Td>
+                <Td>
                   <ThreadStatusBadge
                     statusLabel={t.statusLabel as "none" | "standard" | "resolved" | "closed"}
                     closedAt={t.closedAt ? new Date(t.closedAt) : null}
                   />
-                </td>
-                <td className="py-2 pr-3 text-gray-400">{t.replyCount}</td>
-                <td className="py-2 pr-3 text-xs text-gray-500">
+                </Td>
+                <Td className="whitespace-nowrap text-[#93b2ce]">{t.replyCount}</Td>
+                <Td className="whitespace-nowrap text-xs text-[#6482a3]">
                   {new Date(t.lastPostAt).toLocaleString("zh-CN")}
-                </td>
-                <td className="py-2 pr-3">
+                </Td>
+                <Td>
                   <ForumThreadActions
                     threadId={t.id}
                     pinned={t.pinned}
@@ -165,11 +208,11 @@ export default async function AdminForumPage({
                     label={t.statusLabel === "closed" ? "none" : t.statusLabel}
                     deleted={deleted}
                   />
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             ))}
           </tbody>
-        </table>
+        </Table>
       )}
 
       <AdminPager
@@ -179,9 +222,6 @@ export default async function AdminForumPage({
         unit="条主题"
         href={pageHref}
       />
-
-      <hr className="border-gray-800" />
-      <ForumBoardManager boards={boards} />
     </div>
   );
 }
