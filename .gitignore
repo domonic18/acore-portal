@@ -40,3 +40,9 @@ coverage/
 
 # TS 增量构建缓存
 *.tsbuildinfo
+
+# cc-connect 消息桥本地状态(会话附件缓存)
+.cc-connect/
+
+# 根目录 UI 验证截图(反馈会话产物,历史截图已移 workspace/screenshots)
+/*.png
