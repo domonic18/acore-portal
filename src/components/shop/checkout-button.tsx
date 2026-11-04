@@ -42,7 +42,7 @@ export function CheckoutButton({ total, disabled }: { total: number; disabled: b
         type="button"
         onClick={submit}
         disabled={disabled || submitting}
-        className="rounded bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
+        className="rounded-md bg-[#5ea3cc] px-6 py-2 font-semibold text-[#0a1220] hover:bg-[#6fb7e0] disabled:cursor-not-allowed disabled:bg-[#22385a] disabled:text-[#93b2ce]"
       >
         {submitting ? "结算中…" : `确认支付 ${total} 积分`}
       </button>

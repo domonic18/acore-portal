@@ -16,7 +16,7 @@ export default async function AccountOverviewPage() {
     <main className="flex flex-col gap-6">
       <h1 className="text-2xl font-bold">账号总览</h1>
 
-      <section className="flex flex-wrap items-center gap-4 rounded border border-gray-800 p-4">
+      <section className="flex flex-wrap items-center gap-4 rounded-md border border-[#22385a] p-4">
         <span
           aria-hidden
           className="flex h-12 w-12 items-center justify-center rounded-full text-xl font-bold text-gray-900"
@@ -26,20 +26,20 @@ export default async function AccountOverviewPage() {
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-sm">
           <span className="text-base font-semibold">{user.nickname ?? user.username}</span>
-          <span className="text-gray-400">用户名:{user.username}</span>
+          <span className="text-[#93b2ce]">用户名:{user.username}</span>
           {/* #43:长邮箱优先自然边界断行,不在单词中间硬拆(break-words 仍会把长 token 从中间截断) */}
-          <span className="text-gray-400 [overflow-wrap:anywhere] [word-break:keep-all]">
+          <span className="text-[#93b2ce] [overflow-wrap:anywhere] [word-break:keep-all]">
             邮箱:{user.email}
           </span>
         </div>
         <div className="ml-auto flex gap-6 whitespace-nowrap text-sm">
           <div className="flex flex-col items-center">
             <span className="text-xl font-bold">{characterCount ?? "—"}</span>
-            <span className="text-gray-400">角色数</span>
+            <span className="text-[#93b2ce]">角色数</span>
           </div>
           <div className="flex flex-col items-center">
             <span className="text-xl font-bold">{recent.length}</span>
-            <span className="text-gray-400">最近流水</span>
+            <span className="text-[#93b2ce]">最近流水</span>
           </div>
         </div>
       </section>
@@ -52,24 +52,24 @@ export default async function AccountOverviewPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">最近积分流水</h2>
         {recent.length === 0 ? (
-          <p className="text-sm text-gray-400">暂无积分流水。</p>
+          <p className="text-sm text-[#93b2ce]">暂无积分流水。</p>
         ) : (
           <ul className="flex flex-col gap-1 text-sm">
             {recent.map((t) => (
-              <li key={t.id} className="flex justify-between rounded border border-gray-800 px-3 py-2">
+              <li key={t.id} className="flex justify-between rounded-md border border-[#22385a] px-3 py-2">
                 <span>{t.remark ?? t.type}</span>
                 <span className="flex gap-4">
                   <span className={t.amount >= 0 ? "text-green-400" : "text-red-400"}>
                     {t.amount >= 0 ? "+" : ""}
                     {t.amount}
                   </span>
-                  <span className="text-gray-400">{formatDateTime(t.createdAt.toISOString())}</span>
+                  <span className="text-[#93b2ce]">{formatDateTime(t.createdAt.toISOString())}</span>
                 </span>
               </li>
             ))}
           </ul>
         )}
-        <a href="/account/points" className="text-sm text-blue-400 hover:text-blue-300">
+        <a href="/account/points" className="text-sm text-[#6fb7e0] hover:text-[#a8d9f5]">
           查看全部积分 →
         </a>
       </section>
@@ -81,7 +81,7 @@ export default async function AccountOverviewPage() {
             <a
               key={item.href}
               href={item.href}
-              className="rounded border border-gray-800 px-3 py-4 text-center hover:border-gray-600"
+              className="rounded-md border border-[#22385a] px-3 py-4 text-center hover:border-[#6fb7e0]"
             >
               {item.label}
             </a>
