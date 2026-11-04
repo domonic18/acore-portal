@@ -10,13 +10,13 @@ import { buildPageHref } from "@/lib/pagination";
  */
 
 const STATUS_BADGE: Record<string, string> = {
-  pending: "bg-gray-800 text-gray-300",
+  pending: "bg-[#22385a] text-[#c7d5e6]",
   paid: "bg-amber-950 text-amber-400",
-  delivering: "bg-blue-950 text-blue-400",
+  delivering: "bg-[#13233a] text-[#6fb7e0]",
   completed: "bg-green-950 text-green-400",
   delivery_failed: "bg-red-950 text-red-400",
-  cancelled: "bg-gray-800 text-gray-400",
-  refunded: "bg-gray-800 text-gray-400",
+  cancelled: "bg-[#22385a] text-[#93b2ce]",
+  refunded: "bg-[#22385a] text-[#93b2ce]",
 };
 
 export default async function OrdersPage({
@@ -33,9 +33,9 @@ export default async function OrdersPage({
       <h1 className="text-2xl font-bold">订单</h1>
 
       {orders.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded border border-dashed border-gray-700 px-6 py-12 text-center">
-          <p className="text-gray-300">暂无订单</p>
-          <p className="text-sm text-gray-500">
+        <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-[#22385a] px-6 py-12 text-center">
+          <p className="text-[#c7d5e6]">暂无订单</p>
+          <p className="text-sm text-[#6482a3]">
             去<Link href="/shop" className="mx-1 underline">商城</Link>逛逛吧。
           </p>
         </div>
@@ -43,17 +43,17 @@ export default async function OrdersPage({
         <>
           <ul className="flex flex-col gap-3">
             {orders.map((o) => (
-              <li key={o.id} className="flex flex-wrap items-center gap-3 rounded border border-gray-800 p-4">
+              <li key={o.id} className="flex flex-wrap items-center gap-3 rounded-md border border-[#22385a] p-4">
                 <Link
                   href={`/account/orders/${o.id}`}
-                  className="font-mono text-sm text-blue-400 hover:underline"
+                  className="font-mono text-sm text-[#6fb7e0] hover:underline"
                 >
                   {o.orderNo}
                 </Link>
-                <span className={`rounded px-2 py-0.5 text-xs ${STATUS_BADGE[o.status] ?? "bg-gray-800 text-gray-300"}`}>
+                <span className={`rounded px-2 py-0.5 text-xs ${STATUS_BADGE[o.status] ?? "bg-[#22385a] text-[#c7d5e6]"}`}>
                   {ORDER_STATUS_LABEL[o.status] ?? o.status}
                 </span>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-[#6482a3]">
                   {o.itemCount} 件 · {new Date(o.createdAt).toLocaleString("zh-CN")}
                 </span>
                 <span className="ml-auto font-semibold text-amber-400">{o.pointCost} 积分</span>

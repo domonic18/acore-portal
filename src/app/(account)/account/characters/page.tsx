@@ -27,7 +27,7 @@ export default async function CharactersPage() {
           {error}
         </p>
       ) : characters.length === 0 ? (
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-[#93b2ce]">
           名下暂无游戏角色。创建角色后此处会自动展示。
         </p>
       ) : (
@@ -37,7 +37,7 @@ export default async function CharactersPage() {
             return (
               <li
                 key={c.guid}
-                className="flex items-center gap-4 rounded border border-gray-800 px-4 py-3"
+                className="flex items-center gap-4 rounded-md border border-[#22385a] px-4 py-3"
               >
                 <span
                   aria-hidden
@@ -47,13 +47,13 @@ export default async function CharactersPage() {
                   {avatar.initial}
                 </span>
                 <span className="font-semibold">{c.name}</span>
-                <span className="text-sm text-gray-400">
+                <span className="text-sm text-[#93b2ce]">
                   {raceName(c.race)} · {className(c.class)}
                 </span>
-                <span className="text-sm text-gray-400">{c.gender === 0 ? "男" : "女"}</span>
+                <span className="text-sm text-[#93b2ce]">{c.gender === 0 ? "男" : "女"}</span>
                 <span className="text-sm">Lv{c.level}</span>
                 <span
-                  className={`ml-auto text-sm ${c.online ? "text-green-400" : "text-gray-500"}`}
+                  className={`ml-auto text-sm ${c.online ? "text-green-400" : "text-[#6482a3]"}`}
                 >
                   {c.online ? "在线" : "离线"}
                 </span>
