@@ -27,6 +27,8 @@ export function SiteHeaderClient({
   headerBackgroundUrl: string;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  // #56:二级菜单手风琴,默认折叠,记录当前展开的分组
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -62,6 +64,16 @@ export function SiteHeaderClient({
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [userMenuOpen]);
+
+  // #55:移动菜单展开时锁定底层页面滚动,滚动只发生在菜单面板内
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileOpen]);
 
   const logout = async () => {
     setLoggingOut(true);
@@ -263,44 +275,87 @@ export function SiteHeaderClient({
         </div>
       </div>
 
-      {/* 移动折叠面板(设计稿:抽屉式,二级菜单手风琴展开) */}
+      {/* 移动折叠面板(设计稿:抽屉式,二级菜单手风琴展开)。
+          #55:面板自身限高滚动(overscroll-contain 防滚动链穿透到底层页面);
+          #56:二级菜单默认折叠,点父项/箭头展开 */}
       {mobileOpen && (
         <nav
           aria-label="移动导航"
           data-testid="mobile-menu"
-          className="border-t border-[#22385a] bg-[#0d1a2e] lg:hidden"
+          className="max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain border-t border-[#22385a] bg-[#0d1a2e] lg:hidden"
         >
           <ul className="container-site px-4 py-2 text-[15px]">
-            {items.map((item) => (
-              <li key={item.label} className="border-b border-[#1a2c47] last:border-0">
-                {item.href ? (
-                  <Link
-                    href={item.href}
-                    className="block py-2.5 text-[#c7d5e6]"
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    {item.label}
-                  </Link>
-                ) : (
-                  <span className="block py-2.5 text-[#93b2ce]">{item.label}</span>
-                )}
-                {item.children && (
-                  <ul className="pb-2 pl-4">
-                    {item.children.map((child) => (
-                      <li key={child.label}>
-                        <Link
-                          href={child.href}
-                          className="block py-1.5 text-[#6fb7e0]"
-                          onClick={() => setMobileOpen(false)}
+            {items.map((item) => {
+              const open = expandedGroup === item.label;
+              return (
+                <li key={item.label} className="border-b border-[#1a2c47] last:border-0">
+                  <div className="flex items-center justify-between gap-2">
+                    {item.href ? (
+                      <Link
+                        href={item.href}
+                        className="min-w-0 flex-1 py-2.5 text-[#c7d5e6]"
+                        onClick={() => setMobileOpen(false)}
+                      >
+                        {item.label}
+                      </Link>
+                    ) : item.children ? (
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 py-2.5 text-left text-[#93b2ce]"
+                        aria-expanded={open}
+                        onClick={() => setExpandedGroup(open ? null : item.label)}
+                      >
+                        {item.label}
+                      </button>
+                    ) : (
+                      <span className="min-w-0 flex-1 py-2.5 text-[#93b2ce]">{item.label}</span>
+                    )}
+                    {item.children && (
+                      <button
+                        type="button"
+                        aria-label={`${open ? "收起" : "展开"}${item.label}子菜单`}
+                        aria-expanded={open}
+                        data-testid={`mobile-submenu-toggle-${item.label}`}
+                        onClick={() => setExpandedGroup(open ? null : item.label)}
+                        className="rounded-md p-2 text-[#93b2ce] hover:text-[#6fb7e0]"
+                      >
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 10 10"
+                          aria-hidden="true"
+                          className={`transition-transform ${open ? "rotate-180" : ""}`}
                         >
-                          {child.label}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            ))}
+                          <path
+                            d="M2 3.5l3 3 3-3"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  {item.children && open && (
+                    <ul className="pb-2 pl-4">
+                      {item.children.map((child) => (
+                        <li key={child.label}>
+                          <Link
+                            href={child.href}
+                            className="block py-1.5 text-[#6fb7e0]"
+                            onClick={() => setMobileOpen(false)}
+                          >
+                            {child.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </nav>
       )}
