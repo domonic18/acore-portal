@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { renderMarkdown } from "@/lib/markdown";
-import { TUTORIAL_ANCHOR_ALIASES } from "@/constants/content";
+import { renderLegacyHtml, renderMarkdown } from "@/lib/markdown";
+import {
+  FORUM_POST_BODY_CLS,
+  MARKDOWN_BODY_CLS,
+  TUTORIAL_ANCHOR_ALIASES,
+} from "@/constants/content";
 
 /**
  * T008 MD 渲染管线单测(R3/R3b):
@@ -131,5 +135,52 @@ describe("markdown 渲染管线(T008)", () => {
     const { html, toc } = await render("纯文本一行");
     expect(html).toContain("<p>纯文本一行</p>");
     expect(toc).toEqual([]);
+  });
+
+  it("存量 WP 原始 HTML 保留:表格/加粗不再整块丢失(坐骑指南等页面)", async () => {
+    const { html } = await render(
+      "<table><tbody><tr><td><span>坐骑名称</span></td><td>来源</td></tr></tbody></table>",
+    );
+    expect(html).toContain("<table>");
+    expect(html).toContain("<td>");
+    expect(html).toContain("坐骑名称");
+    const strong = await render("<strong>原生加粗</strong>与正文");
+    expect(strong.html).toContain("<strong>原生加粗</strong>");
+  });
+
+  it("原始 HTML 里的样式/脚本仍被剔除(开启原始 HTML 不放松白名单)", async () => {
+    const { html } = await render(
+      "<style>body{display:none}</style><div onclick=\"steal()\">正文</div>",
+    );
+    expect(html).not.toContain("<style");
+    expect(html).not.toContain("display:none");
+    expect(html).not.toContain("onclick");
+    expect(html).toContain("正文");
+  });
+
+  it("WordPress ''斜体'' 转为 <em>(markdown 与存量 HTML 两条管线)", async () => {
+    const md = await render("战士点出天赋 ''强化法术反射'' 生效");
+    expect(md.html).toContain("<em>强化法术反射</em>");
+    expect(md.html).not.toContain("''");
+    const legacy = await renderLegacyHtml(
+      "<p>战士点出天赋 ''强化法术反射'' 生效</p>",
+    );
+    expect(legacy).toContain("<em>强化法术反射</em>");
+  });
+
+  it("'' 斜体转换不误伤代码块与 SQL 空串", async () => {
+    const code = await render("```\nSELECT * FROM x WHERE name = '';\n```");
+    expect(code.html).toContain("name = '';");
+    expect(code.html).not.toContain("<em>");
+    const legacy = await renderLegacyHtml("<p>INSERT INTO x VALUES (1, '');</p>");
+    expect(legacy).toContain("''");
+    expect(legacy).not.toContain("<em>");
+  });
+
+  it("排版基线类名含强调/列表标记规则(全站 Markdown 统一口径)", () => {
+    expect(MARKDOWN_BODY_CLS).toContain("[&_strong]");
+    expect(MARKDOWN_BODY_CLS).toContain("list-decimal");
+    expect(MARKDOWN_BODY_CLS).toContain("list-disc");
+    expect(FORUM_POST_BODY_CLS).toContain("[&_strong]");
   });
 });

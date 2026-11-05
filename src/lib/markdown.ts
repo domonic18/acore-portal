@@ -6,18 +6,20 @@ import remarkCjkFriendly from "remark-cjk-friendly";
 import remarkRehype from "remark-rehype";
 import rehypeHighlight from "rehype-highlight";
 import rehypeParse from "rehype-parse";
+import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
 import { visit, SKIP } from "unist-util-visit";
-import type { Element, Root } from "hast";
+import type { Element, Root, Text } from "hast";
 import { toSameSiteHref } from "@/constants/legacy-routes";
 
 /**
  * Markdown 渲染管线收口(M3 research R3):
- * react-markdown + remark-gfm + rehype-highlight + rehype-slug + rehype-sanitize 白名单。
- * 原始 HTML 默认不渲染(react-markdown 无 rehype-raw),sanitize 兜底属性级注入
- * (javascript: 链接/事件属性),双防线(XSS 硬防线,宪法 VI)。
+ * unified + remark-gfm + remark-breaks + remark-cjk-friendly + rehype-raw +
+ * rehype-highlight + rehype-slug + rehype-sanitize 白名单。
+ * 原始 HTML 经 rehype-raw 解析为节点后由 sanitize 白名单兜底(标签/属性/协议三级
+ * 过滤,script/style/iframe 连内容剔除),存量 WP 正文里的表格/加粗不再整块丢失。
  * 图片域白名单:站内相对路径 + cdnHosts 参数(RSC 调用方传 cos.cdnBase 域)。
  */
 
@@ -31,6 +33,9 @@ const WOWHEAD_URL =
 const sanitizeSchema = {
   ...defaultSchema,
   tagNames: [...(defaultSchema.tagNames ?? []), "span"],
+  // style/iframe 连内容剔除(默认 schema 只剔除 script,style 的 CSS 文本会
+  // 作为可见文本漏到正文里)
+  strip: [...(defaultSchema.strip ?? []), "style", "iframe"],
   attributes: {
     ...defaultSchema.attributes,
     "*": [...(defaultSchema.attributes?.["*"] ?? [])],
@@ -161,6 +166,51 @@ function textOf(node: Element): string {
   return out.trim();
 }
 
+/**
+ * WordPress 经典编辑器斜体 ''文本'' → <em>:
+ * WP 用双单引号表示斜体,迁移到 Markdown 后原样保留,渲染层不识别会把引号
+ * 原样显示给用户(存量论坛帖等)。仅作用于正文文本节点,跳过 code/pre 等
+ * 包裹(避免破坏 SQL 空串 '')。markdown 与存量 HTML 两条管线共用。
+ */
+function rehypeWpItalic() {
+  const PATTERN = /''([^'<>\n]{1,200})''/g;
+  return (tree: Root) => {
+    visit(tree, "text", (node: Text, index, parent) => {
+      if (index == null || parent == null) return;
+      if (!node.value.includes("''")) return;
+      const parentEl = parent as Element;
+      if (
+        parentEl.type === "element" &&
+        /^(code|pre|kbd|samp|script|style)$/.test(parentEl.tagName)
+      ) {
+        return;
+      }
+      PATTERN.lastIndex = 0;
+      const children: (Text | Element)[] = [];
+      let last = 0;
+      let m: RegExpExecArray | null;
+      while ((m = PATTERN.exec(node.value)) !== null) {
+        if (m.index > last) {
+          children.push({ type: "text", value: node.value.slice(last, m.index) });
+        }
+        children.push({
+          type: "element",
+          tagName: "em",
+          properties: {},
+          children: [{ type: "text", value: m[1] ?? "" }],
+        });
+        last = m.index + m[0].length;
+      }
+      if (last === 0) return;
+      if (last < node.value.length) {
+        children.push({ type: "text", value: node.value.slice(last) });
+      }
+      (parent.children as (Text | Element)[]).splice(index, 1, ...children);
+      return [SKIP, index + children.length];
+    });
+  };
+}
+
 export async function renderMarkdown(
   md: string,
   opts: {
@@ -170,8 +220,9 @@ export async function renderMarkdown(
   } = {},
 ): Promise<{ html: string; toc: TocItem[] }> {
   const toc: TocItem[] = [];
-  // unified 管线(非 react-dom/server——RSC 禁运):原始 HTML 不渲染
-  // (remark-rehype 默认丢弃 raw 节点),sanitize 属性级兜底,双防线不变。
+  // unified 管线(非 react-dom/server——RSC 禁运):原始 HTML 经 rehype-raw 解析为
+  // 节点(存量 WP 表格/加粗不再整块丢失),sanitize 白名单兜底属性级注入
+  // (javascript: 链接/事件属性),双防线不变。
   let pipeline = unified()
     .use(remarkParse)
     .use(remarkGfm)
@@ -181,9 +232,10 @@ export async function renderMarkdown(
     // CJK 加粗闭合修复:CommonMark 对「**中文：**中文」形态不识别强调(冒号后紧跟
     // 汉字时闭合符不成 right-flanking),WP 迁移存量正文大量该形态,站点级兜底
     .use(remarkCjkFriendly)
-    .use(remarkRehype);
+    .use(remarkRehype, { allowDangerousHtml: true })
+    .use(rehypeRaw);
   if (opts.sections) pipeline = pipeline.use(rehypePageSections);
-  pipeline = pipeline.use(rehypeHighlight).use(rehypeSlug);
+  pipeline = pipeline.use(rehypeWpItalic).use(rehypeHighlight).use(rehypeSlug);
   let tail = pipeline
     .use(rehypeWowhead)
     .use(rehypeLegacyLinks)
@@ -213,6 +265,7 @@ export async function renderLegacyHtml(
     .use(rehypeWowhead)
     .use(rehypeLegacyLinks)
     .use(rehypeImageAllowlist, opts.cdnHosts ?? [])
+    .use(rehypeWpItalic)
     .use(rehypeSanitize, sanitizeSchema as never)
     .use(rehypeStringify)
     .process(html);

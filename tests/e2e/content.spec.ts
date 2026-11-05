@@ -133,6 +133,70 @@ test.describe("静态页与兜底(T025 FR-210/R15)", () => {
   });
 });
 
+/**
+ * Markdown 渲染基线(2026-11-05 用户反馈:静态页加粗/''斜体看不出效果):
+ * 加粗须与正文异色、有序列表须有编号、存量 WP 原始 HTML 表格须保留。
+ */
+test.describe("Markdown 渲染基线(强调/列表/原始 HTML)", () => {
+  const prisma = new PrismaClient();
+  const FIX_SLUG = "e2e-markdown-render";
+  const BODY = [
+    "# 渲染基线",
+    "",
+    "**重点提示**：这里必须醒目。",
+    "",
+    "斜体 ''重点'' 内容。",
+    "",
+    "1. 第一步",
+    "2. 第二步",
+    "",
+    "<table><tbody><tr><td>坐骑名称</td><td>来源</td></tr></tbody></table>",
+  ].join("\n");
+
+  test.beforeAll(async () => {
+    await prisma.contentPage.upsert({
+      where: { slug: FIX_SLUG },
+      update: { title: "渲染基线", bodyMd: BODY, status: "published" },
+      create: {
+        slug: FIX_SLUG,
+        title: "渲染基线",
+        bodyMd: BODY,
+        status: "published",
+      },
+    });
+  });
+
+  test.afterAll(async () => {
+    await prisma.contentPage.deleteMany({ where: { slug: FIX_SLUG } });
+    await prisma.$disconnect();
+  });
+
+  test("加粗异色醒目/斜体可识别/有序列表有编号/原始 HTML 表格保留", async ({ page }) => {
+    await page.goto(`/${FIX_SLUG}`);
+    const strong = page.locator("article strong").first();
+    await expect(strong).toBeVisible();
+    const strongStyle = await strong.evaluate((el) => ({
+      color: getComputedStyle(el).color,
+      weight: Number(getComputedStyle(el).fontWeight),
+      baseColor: getComputedStyle(el.parentElement as HTMLElement).color,
+    }));
+    // 与正文同色=看不出加粗(旧实现缺陷)
+    expect(strongStyle.color).not.toBe(strongStyle.baseColor);
+    expect(strongStyle.weight).toBeGreaterThanOrEqual(700);
+    // ''斜体'' → <em>
+    await expect(page.locator("article em").first()).toHaveText("重点");
+    // 有序列表编号(Tailwind preflight 清空 list-style,须显式恢复)
+    const listStyle = await page
+      .locator("article ol li")
+      .first()
+      .evaluate((el) => getComputedStyle(el).listStyleType);
+    expect(listStyle).toBe("decimal");
+    // 存量原始 HTML 表格保留(旧实现整块丢失)
+    await expect(page.locator("article table")).toBeVisible();
+    await expect(page.locator("article table td").first()).toHaveText("坐骑名称");
+  });
+});
+
 test.describe("p02 设计稿壳(简介/教程/渐进/日志)", () => {
   test("简介页:面包屑+更新日期+当前阶段联动", async ({ page }) => {
     await page.goto("/about");
