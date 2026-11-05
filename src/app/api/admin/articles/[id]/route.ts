@@ -40,6 +40,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       bodyMd: parsed.data.bodyMd,
       excerpt: parsed.data.excerpt ?? null,
       status: parsed.data.status,
+      tocEnabled: parsed.data.tocEnabled,
       tagIds: parsed.data.tagIds?.map((n) => BigInt(n)),
       actorUserId: BigInt(guard.session.userId),
     });

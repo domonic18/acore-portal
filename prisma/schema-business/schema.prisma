@@ -603,6 +603,7 @@ model Article {
   status          ContentStatus @default(draft)
   publishedAt     DateTime?     @map("published_at") // published ⇒ 非空(应用层流转)
   views           Int           @default(0) // 迁移初始化自 wp_post_views(SC-203)
+  tocEnabled      Boolean?      @map("toc_enabled") // 页面级目录开关(null=跟随全局 content.tocEnabled)
   legacyWpPostId  Int?          @unique @map("legacy_wp_post_id") // 幂等导入键
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
@@ -623,6 +624,7 @@ model ContentPage {
   bodyMd          String        @map("body_md") @db.LongText
   status          ContentStatus @default(draft)
   sortOrder       Int           @default(0) @map("sort_order") // 网站地图页排序
+  tocEnabled      Boolean?      @map("toc_enabled") // 页面级目录开关(null=跟随全局 content.tocEnabled)
   legacyWpPageId  Int?          @unique @map("legacy_wp_page_id") // 幂等导入键
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")

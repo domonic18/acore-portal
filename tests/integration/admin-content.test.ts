@@ -278,11 +278,42 @@ describe("静态页管理(T029 FR-216/R15)", () => {
       bodyMd: existing?.bodyMd ?? "## 2099-01-01 开发日志\n\n> fixture",
       status: existing?.status ?? "draft",
       sortOrder: existing?.sortOrder,
+      // 透传存量值:不带 tocEnabled 的更新语义=跟随全局,会把页面级关闭重置回 null
+      tocEnabled: existing?.tocEnabled ?? null,
       actorUserId: guardUids[0]!,
     });
     const row = await prisma.contentPage.findUniqueOrThrow({ where: { id } });
     expect(row.slug).toBe("devlog");
     if (!existing) await deletePage(id, guardUids[0]!);
+  });
+
+  it("页面级目录开关 tocEnabled 三态透传落库(2026-11-05)", async () => {
+    const slug = `${PAGE_PREFIX}toc`;
+    const artSlug = `${ART_PREFIX}toc`;
+    const { id } = await savePage({
+      slug, title: "T29 目录开关", bodyMd: "## A\n\n## B", status: "published",
+      tocEnabled: false, actorUserId: guardUids[0]!,
+    });
+    expect(
+      (await prisma.contentPage.findUniqueOrThrow({ where: { id } })).tocEnabled,
+    ).toBe(false);
+
+    const { id: artId } = await saveArticle({
+      title: `T29 目录文章`, slug: artSlug, categoryId: catId,
+      bodyMd: "## A", status: "published", tocEnabled: true, actorUserId: guardUids[0]!,
+    });
+    expect(
+      (await prisma.article.findUniqueOrThrow({ where: { id: artId } })).tocEnabled,
+    ).toBe(true);
+
+    // 显式 null = 回到跟随全局
+    await savePage({
+      id, slug, title: "T29 目录开关", bodyMd: "## A", status: "published",
+      tocEnabled: null, actorUserId: guardUids[0]!,
+    });
+    expect(
+      (await prisma.contentPage.findUniqueOrThrow({ where: { id } })).tocEnabled,
+    ).toBeNull();
   });
 
   it("slug 冲突 → SLUG_CONFLICT;发布/更新/删除闭环", async () => {

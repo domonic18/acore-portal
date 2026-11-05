@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 export async function getPublishedPage(slug: string) {
   return prisma.contentPage.findFirst({
     where: { slug, status: "published" },
-    select: { slug: true, title: true, bodyMd: true, updatedAt: true },
+    select: { slug: true, title: true, bodyMd: true, updatedAt: true, tocEnabled: true },
   });
 }
 

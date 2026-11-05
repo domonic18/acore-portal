@@ -12,6 +12,7 @@ export const articleSchema = z.object({
   bodyMd: z.string().min(1),
   excerpt: z.string().max(500).nullable().optional(),
   status: z.enum(["draft", "published"]),
+  tocEnabled: z.boolean().nullable().optional(),
   tagIds: z.array(z.coerce.number().int().positive()).max(20).optional(),
 });
 
@@ -26,6 +27,7 @@ export const pageSchema = z.object({
   bodyMd: z.string().min(1),
   status: z.enum(["draft", "published"]),
   sortOrder: z.coerce.number().int().min(0).max(9999).optional(),
+  tocEnabled: z.boolean().nullable().optional(),
 });
 
 export const categorySchema = z.object({
