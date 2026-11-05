@@ -169,16 +169,25 @@ describe("US2 注册受理(T026/T027/T028)", () => {
     });
   });
 
-  it("占位+token 过期→回收重注册成功;占位+live token→占用", async () => {
+  it("占位+token 过期:游戏账号在→拒绝且保留站点记录(#65);游戏账号清→回收重注册成功;live token→占用", async () => {
     const input = await makeRegisterInput(4);
     createdUsers.push(input.username);
     await registerAccount(input);
-    // 手动过期 token → 可回收
+    // 手动过期 token → 站点侧可回收状态
     await prisma.userToken.updateMany({
       where: { user: { username: input.username }, type: "activate" },
       data: { expiresAt: new Date(Date.now() - 1000) },
     });
-    // 首次的站点 user 会被回收删除,游戏端账号仍占名 → 需一并清理以模拟"彻底过期"
+
+    // #65 回归:不手工删除游戏账号的真实过期回收 —— 同名重注册被拒,
+    // 且站点占位记录不被先删后败(无孤儿游戏账号、站点数据可追溯)
+    const blocked = await registerAccount(input);
+    expect(blocked).toEqual({ ok: false, reason: "username_taken" });
+    const kept = await prisma.user.findUniqueOrThrow({ where: { username: input.username } });
+    expect(kept.passwordHash.startsWith(PENDING_HASH_PREFIX)).toBe(true);
+    expect(await authDb.findByUsername(input.username)).not.toBeNull();
+
+    // 游戏账号经人工/运维清理后,同一占位可回收重注册
     await prisma.$executeRaw`DELETE FROM acore_auth.account WHERE username = ${input.username.toUpperCase()}`;
     const again = await registerAccount(input);
     expect(again).toEqual({ ok: true });
