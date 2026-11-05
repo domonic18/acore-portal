@@ -20,6 +20,14 @@ async function login(page: Page) {
   await expect(page).toHaveURL(/\/account\/overview$/);
 }
 
+async function loginAdmin(page: Page) {
+  await page.goto("/login");
+  await page.getByLabel("用户名").fill("m1admin");
+  await page.getByLabel("密码", { exact: true }).fill("adminpass123");
+  await page.getByRole("button", { name: "登录" }).click();
+  await expect(page).toHaveURL(/\/account\/overview$/);
+}
+
 test.describe("游客菜单(FR-201)", () => {
   test("顶级菜单结构对齐设计稿,商城/账户入口不出现,登录/注册入口可见", async ({
     page,
@@ -187,6 +195,28 @@ test.describe("登录菜单(FR-201)", () => {
     const menuPoints = page.getByTestId("menu-points");
     await expect(menuPoints).toContainText("积分");
     await expect(menuPoints.locator("span").last()).toHaveText(/^\d+$/);
+  });
+
+  test("管理员头像下拉含「进入后台」快捷入口,普通用户无(#97)", async ({ page }) => {
+    // 普通登录用户:菜单无后台入口
+    await login(page);
+    await page.goto("/");
+    await page.getByTestId("user-menu-button").click();
+    await expect(page.getByTestId("menu-admin-entry")).toHaveCount(0);
+
+    // 管理员:头像下拉给出后台入口,点击直达后台
+    await loginAdmin(page);
+    await page.goto("/");
+    await page.getByTestId("user-menu-button").click();
+    const entry = page.getByTestId("menu-admin-entry");
+    await expect(entry).toBeVisible();
+    await expect(entry).toHaveAttribute("href", "/admin");
+    await entry.click();
+    await expect(page).toHaveURL(/\/admin$/);
+    // 后台外壳自带后台导航(前台页头不在 /admin 渲染)
+    await expect(
+      page.getByRole("navigation", { name: "后台导航" }).getByRole("link", { name: "仪表盘" }),
+    ).toBeVisible();
   });
 
   test("侧栏 QQ 交流群卡:群号展示+点击复制加群指引(2026-11 用户反馈)", async ({ page }) => {

@@ -11,9 +11,11 @@ import { useEffect, useRef, useState } from "react";
 export function HeaderUserMenu({
   portraitUrl,
   points,
+  isAdmin,
 }: {
   portraitUrl: string;
   points: number;
+  isAdmin: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -116,6 +118,17 @@ export function HeaderUserMenu({
           >
             账户设置
           </Link>
+          {isAdmin && (
+            <Link
+              role="menuitem"
+              href="/admin"
+              data-testid="menu-admin-entry"
+              className={itemClass}
+              onClick={() => setOpen(false)}
+            >
+              进入后台
+            </Link>
+          )}
           <button
             type="button"
             role="menuitem"
