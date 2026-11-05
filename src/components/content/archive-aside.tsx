@@ -9,7 +9,7 @@ export function ArchiveAside({
   hot: { slug: string; title: string; views: number }[];
 }) {
   return (
-    <aside className="space-y-5 lg:sticky lg:top-20">
+    <aside className="space-y-5 lg:sticky lg:top-24">
       <ContentAsideCard title="快捷入口">
         <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
           {ARCHIVE_ASIDE_LINKS.map((l) => (

@@ -775,6 +775,16 @@ model SidebarLink {
   @@map("sidebar_link")
 }
 
+/// 侧栏内置组件页面范围(键=代码注册表 SidebarComponentKey;pages 为页面类型数组,空=全站隐藏;
+/// 行缺失=回落代码缺省 DEFAULT_COMPONENT_PAGES,写死行为的等价值随迁移种子)
+model SidebarComponent {
+  key       String   @id @db.VarChar(64)
+  pages     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("sidebar_component")
+}
+
 /// 转化漏斗事件类型(业务转化自建埋点;流量层归 Umami,不在此表)
 enum ConversionEventType {
   product_view // 商品详情页浏览(匿名可报,客户端 beacon)

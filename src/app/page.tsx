@@ -29,7 +29,7 @@ const QUICK_LINKS: { title: string; links: { label: string; href: string }[] }[]
   {
     title: "项目简介",
     links: [
-      { label: "注册方法", href: "/register" },
+      { label: "注册方法", href: "/tutorial" },
       { label: "渐进计划", href: "/progression" },
       { label: "硬核模式", href: "/hardcore-mode" },
       { label: "规范要求", href: "/post/网站规范" },

@@ -28,6 +28,8 @@ const ORCHESTRATION_EDGES = {
   orders: ["shop"],
   // 首页聚合文章/进度/商品
   home: ["progression", "content", "catalog"],
+  // 侧栏聚合在线人数与最新资讯（内置组件按页面范围启用时条件取数）
+  sidebar: ["status", "content"],
 };
 export default [
   { ignores: ["node_modules/**", ".next/**", "src/generated/**", "next-env.d.ts"] },

@@ -12,6 +12,7 @@ export type GroupName =
   | "turnstile"
   | "security"
   | "notify"
+  | "content"
   | "site"
   | "appearance"
   | "umami";
@@ -65,6 +66,36 @@ export function TextRow({
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         className="w-64 py-1"
+      />
+    </label>
+  );
+}
+
+export function TextAreaRow({
+  label,
+  testid,
+  value,
+  onChange,
+  rows = 3,
+  placeholder,
+}: {
+  label: string;
+  testid: string;
+  value: string;
+  onChange: (v: string) => void;
+  rows?: number;
+  placeholder?: string;
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-sm md:flex-row md:gap-3">
+      <span className="w-56 shrink-0 text-[#93b2ce]">{label}</span>
+      <textarea
+        data-testid={testid}
+        value={value}
+        rows={rows}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full max-w-xl rounded-lg border border-[#22385a] bg-[#0d1828] px-2.5 py-1.5 text-sm text-[#dcebf7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60"
       />
     </label>
   );

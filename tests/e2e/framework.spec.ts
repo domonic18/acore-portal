@@ -94,7 +94,7 @@ test.describe("游客菜单(FR-201)", () => {
     );
   });
 
-  test("页脚协议/公约链接(FR-204)", async ({ page }) => {
+  test("页脚协议/公约链接(FR-204)+英文版权声明(WP 原版迁移)", async ({ page }) => {
     await page.goto("/");
     const footer = page.getByRole("contentinfo");
     await expect(footer.getByRole("link", { name: "用户协议" })).toBeVisible();
@@ -102,6 +102,11 @@ test.describe("游客菜单(FR-201)", () => {
     // 设计稿口径:项目简介/使用教程经页脚可达
     await expect(footer.getByRole("link", { name: "项目简介" })).toBeVisible();
     await expect(footer.getByRole("link", { name: "使用教程" })).toBeVisible();
+    // WP 原版页脚的暴雪商标免责声明逐字迁移(system_config site.copyrightEn)
+    await expect(
+      footer.getByText(/World of Warcraft® and Blizzard Entertainment®/),
+    ).toBeVisible();
+    await expect(footer.getByText(/in no way associated with or endorsed by/)).toBeVisible();
   });
 
   test("侧栏下线组件不渲染,游客无积分余额组件(FR-206)", async ({ page }) => {
@@ -172,5 +177,20 @@ test.describe("登录菜单(FR-201)", () => {
     await expect(
       sidebar.getByTestId("sidebar-points-balance").getByRole("link"),
     ).toHaveText("积分明细 →");
+  });
+
+  test("侧栏 QQ 交流群卡:群号展示+点击复制加群指引(2026-11 用户反馈)", async ({ page }) => {
+    await page.goto("/");
+    const card = page.getByTestId("site-sidebar").getByTestId("sidebar-qq-group");
+    await expect(card).toBeVisible();
+    // 群号为 5-12 位数字(具体值由后台配置,并行 spec 保存期间不锁定具体值)
+    await expect(card.getByTestId("sidebar-qq-group-number")).toHaveText(/^\d{5,12}$/);
+    // 二维码默认渲染(WP 原版页脚素材 public/qq-group-qr.png;不锁 src,防并行 spec 保存干扰)
+    await expect(card.getByTestId("sidebar-qq-group-qr")).toBeVisible();
+    await expect(card.getByTestId("sidebar-qq-group-hint")).toContainText("点击群号复制");
+    // 点击群号 → 剪贴板写入或环境拒绝,均回显加群指引(不留默认文案)
+    await card.getByTestId("sidebar-qq-group-copy").click();
+    await expect(card.getByTestId("sidebar-qq-group-hint")).toContainText(/群号/);
+    await expect(card.getByTestId("sidebar-qq-group-hint")).not.toContainText("点击群号复制");
   });
 });

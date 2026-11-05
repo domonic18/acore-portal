@@ -225,7 +225,9 @@ export async function renderMarkdown(
   // (javascript: 链接/事件属性),双防线不变。
   let pipeline = unified()
     .use(remarkParse)
-    .use(remarkGfm)
+    // singleTilde=false:GFM 默认 ~x~ 也算删除线,中文数字区间「60~70级…54~70级」
+    // 会被误判为一段删除(WP 原版无 Markdown 解析按字面显示);仅保留 ~~x~~ 形态
+    .use(remarkGfm, { singleTilde: false })
     // 单换行即换行(GFM 软换行→<br>):后台编辑器按回车即生效,存量 WP 正文
     // 的逐行条目(空行在迁移期被折叠)也按行展示;中文内容无英文软折行习惯
     .use(remarkBreaks)

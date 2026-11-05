@@ -105,23 +105,31 @@ export const SITE_PAGE_TYPES = [
 export type SitePageType = (typeof SITE_PAGE_TYPES)[number];
 
 /**
- * 侧栏固定组件注册键(research R9):快捷卡已改为 sidebar_card 表后台 CRUD,
- * 此处仅保留代码内置组件(积分余额);空清单=该页面无固定组件。
+ * 侧栏固定组件注册键:代码内置组件,渲染顺序=数组顺序(数据卡在前,工具卡在后);
+ * 每个组件在哪些页面类型出现由 sidebar_component 表后台配置
+ * (行缺失回落 DEFAULT_COMPONENT_PAGES),组件本体不可增删(注册表=代码)。
  */
-export const SIDEBAR_COMPONENT_KEYS = ["points-balance"] as const;
+export const SIDEBAR_COMPONENT_KEYS = [
+  "server-status",
+  "latest-news",
+  "qq-group",
+  "points-balance",
+] as const;
 
 export type SidebarComponentKey = (typeof SIDEBAR_COMPONENT_KEYS)[number];
 
-export const SIDE_BY_PAGE_TYPE: Record<SitePageType, readonly SidebarComponentKey[]> = {
-  home: ["points-balance"],
-  archive: [],
-  // article 栏目卡改由 ArticleAside 直出(在线人数/最新资讯/公告推送,p04);
-  // 注册表仅保留登录态积分余额
-  article: ["points-balance"],
-  page: ["points-balance"],
-  progression: [],
-  forum: [],
-  shop: [],
+/**
+ * 内置组件缺省页面范围(sidebar_component 行缺失时兜底),等价 2026-11-05 前写死行为:
+ * QQ 群/积分余额随快捷卡页;在线人数/最新资讯为文章页右栏 ArticleAside 直出(已并入注册表)。
+ */
+export const DEFAULT_COMPONENT_PAGES: Record<
+  SidebarComponentKey,
+  readonly SitePageType[]
+> = {
+  "server-status": ["article"],
+  "latest-news": ["article"],
+  "qq-group": ["home", "article", "page"],
+  "points-balance": ["home", "article", "page"],
 };
 
 /** 内容页右栏快捷入口(ardot p04 侧栏;链接落站内真实路由) */
@@ -167,9 +175,10 @@ export const MARKDOWN_BODY_CLS = [
   "mt-6 max-w-none space-y-4 text-[15px] leading-8 text-[#93b2ce]",
   // 正文 h1 与页面标题重复(详情页页头已渲染标题),隐藏避免同页两个 h1
   "[&_h1]:hidden",
-  "[&_h2]:mt-8 [&_h2]:border-l-[3px] [&_h2]:border-[#5ea3cc] [&_h2]:pl-3 [&_h2]:text-[19px] [&_h2]:font-bold [&_h2]:leading-7 [&_h2]:text-[#dcebf7]",
-  "[&_h3]:mt-5 [&_h3]:text-[17px] [&_h3]:font-bold [&_h3]:text-[#dcebf7]",
-  "[&_h4]:font-bold [&_h4]:text-[#c7d5e6]",
+  // 锚点跳转落点下移:吸顶页头 88px+间距,否则目标标题被页头遮住
+  "[&_h2]:mt-8 [&_h2]:scroll-mt-24 [&_h2]:border-l-[3px] [&_h2]:border-[#5ea3cc] [&_h2]:pl-3 [&_h2]:text-[19px] [&_h2]:font-bold [&_h2]:leading-7 [&_h2]:text-[#dcebf7]",
+  "[&_h3]:mt-5 [&_h3]:scroll-mt-24 [&_h3]:text-[17px] [&_h3]:font-bold [&_h3]:text-[#dcebf7]",
+  "[&_h4]:scroll-mt-24 [&_h4]:font-bold [&_h4]:text-[#c7d5e6]",
   "[&_a]:text-[#6fb7e0]",
   "[&_img]:max-w-full [&_img]:rounded-lg",
   "[&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-[#22385a] [&_td]:px-2.5 [&_td]:py-1.5 [&_th]:border [&_th]:border-[#22385a] [&_th]:bg-[#0d1828] [&_th]:px-2.5 [&_th]:py-1.5",

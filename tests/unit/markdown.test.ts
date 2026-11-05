@@ -56,6 +56,15 @@ describe("markdown 渲染管线(T008)", () => {
     expect(html).toContain('type="checkbox"');
   });
 
+  it("单波浪线数字区间不触发删除线,~~双波浪~~ 保留(传家宝说明 60~70级)", async () => {
+    const { html } = await render(
+      "传家宝在60~70级的表现过于强力,所以在54~70级不会属性成长。~~旧价~~",
+    );
+    expect(html).not.toContain("<del>70级");
+    expect(html).toContain("60~70级");
+    expect(html).toContain("<del>旧价</del>");
+  });
+
   it("代码块高亮语言 class 通过,任意 class/裸 HTML 不通过", async () => {
     const { html } = await render(
       "```lua\nprint('hi')\n```\n\n<span class=\"evil\">x</span>",

@@ -9,7 +9,7 @@ vi.mock("@/lib/mail", () => ({
 }));
 
 import { prisma } from "@/lib/db/business";
-import { reloadSystemConfig, getConfig } from "@/lib/config";
+import { DEFAULT_SITE_COPYRIGHT_EN, reloadSystemConfig, getConfig } from "@/lib/config";
 import { AUDIT_ACTION } from "@/constants/audit";
 import { getSettingsView } from "@/server/services/settings/view";
 import { saveSettingsGroup as saveGroup, sendTestMail } from "@/server/services/settings/save";
@@ -26,7 +26,7 @@ const SMTP_KEYS = ["smtp.host", "smtp.port", "smtp.user", "smtp.password", "smtp
 const TURNSTILE_KEYS = ["turnstile.enabled", "turnstile.siteKey", "turnstile.secretKey"];
 const SECURITY_KEYS = ["security.loginMaxFails", "security.loginWindowSec", "security.loginLockSec"];
 const NOTIFY_KEYS = ["notify.pointEmailThreshold"];
-const SITE_KEYS = ["site.icp", "site.qqGroup"];
+const SITE_KEYS = ["site.icp", "site.copyrightEn", "site.qqGroup", "site.qqGroupQr"];
 const UMAMI_KEYS = [
   "umami.scriptUrl",
   "umami.websiteId",
@@ -40,6 +40,7 @@ const HOME_KEYS = [
   "home.achievementScrolling",
   "home.carouselIntervalSec",
 ];
+const CONTENT_KEYS = ["content.tocEnabled"];
 const ALL_KEYS = [
   ...SMTP_KEYS,
   ...TURNSTILE_KEYS,
@@ -48,6 +49,7 @@ const ALL_KEYS = [
   ...SITE_KEYS,
   ...UMAMI_KEYS,
   ...HOME_KEYS,
+  ...CONTENT_KEYS,
 ];
 
 let backup: { key: string; value: string }[] = [];
@@ -258,10 +260,16 @@ describe("saveSettingsGroup(T029)", () => {
 });
 
 describe("site 组(CRUD 对齐审计)", () => {
-  it("键缺失 → 默认值兜底(旧站备案号/QQ 群)", async () => {
+  it("键缺失 → 默认值兜底(旧站备案号/英文版权声明/QQ 群号)", async () => {
     await delKeys(SITE_KEYS);
     const config = await getConfig();
-    expect(config.site).toEqual({ icp: "京ICP备2022035466号", qqGroup: "184670219" });
+    expect(config.site).toEqual({
+      icp: "京ICP备2022035466号",
+      copyrightEn: DEFAULT_SITE_COPYRIGHT_EN,
+      qqGroup: "184670219",
+      // 默认=WP 原版页脚二维码素材迁移的 public/qq-group-qr.png
+      qqGroupQr: "/qq-group-qr.png",
+    });
     const view = await getSettingsView();
     expect(view.site).toEqual(config.site);
   });
@@ -269,23 +277,68 @@ describe("site 组(CRUD 对齐审计)", () => {
   it("site 组保存 → 落库+热生效;审计只落键名不落值", async () => {
     const result = await saveGroup(
       "site",
-      { icp: "京ICP备E2E000001号", qqGroup: "12345678" },
+      { icp: "京ICP备E2E000001号", qqGroup: "10086100", qqGroupQr: "/uploads/qq-qr.png" },
       { id: ADMIN_ID },
     );
     expect(result).toEqual({ ok: true });
-    expect((await getConfig()).site).toEqual({ icp: "京ICP备E2E000001号", qqGroup: "12345678" });
+    expect((await getConfig()).site).toEqual({
+      icp: "京ICP备E2E000001号",
+      // copyrightEn 缺省=保持(无行则回落默认),不进 diff
+      copyrightEn: DEFAULT_SITE_COPYRIGHT_EN,
+      qqGroup: "10086100",
+      qqGroupQr: "/uploads/qq-qr.png",
+    });
     const audit = await latestAudit(AUDIT_ACTION.SETTINGS_CHANGED);
     expect((audit!.payloadJson as { group?: string }).group).toBe("site");
     expect(Object.keys((audit!.payloadJson as { diff: Record<string, string> }).diff).sort()).toEqual(
-      ["site.icp", "site.qqGroup"].sort(),
+      ["site.icp", "site.qqGroup", "site.qqGroupQr"].sort(),
     );
     expect(JSON.stringify(audit!.payloadJson)).not.toContain("京ICP备E2E000001号");
+    // copyrightEn 覆写与显式清空(空串=页脚隐藏英文声明);
+    // qqGroup 空串=侧栏隐藏 QQ 卡,qqGroupQr 空串=卡内不渲染二维码
+    await saveGroup(
+      "site",
+      { icp: "京ICP备E2E000001号", copyrightEn: "Custom EN line.", qqGroup: "10086100", qqGroupQr: "/uploads/qq-qr.png" },
+      { id: ADMIN_ID },
+    );
+    expect((await getConfig()).site.copyrightEn).toBe("Custom EN line.");
+    await saveGroup(
+      "site",
+      { icp: "京ICP备E2E000001号", copyrightEn: "", qqGroup: "10086100", qqGroupQr: "/uploads/qq-qr.png" },
+      { id: ADMIN_ID },
+    );
+    expect((await getConfig()).site.copyrightEn).toBe("");
+    await saveGroup(
+      "site",
+      { icp: "京ICP备E2E000001号", qqGroup: "", qqGroupQr: "" },
+      { id: ADMIN_ID },
+    );
+    expect((await getConfig()).site.qqGroup).toBe("");
+    expect((await getConfig()).site.qqGroupQr).toBe("");
   });
 
-  it("site 组:非法 QQ 群号 422 零写入", async () => {
-    const badQq = await saveGroup("site", { icp: "", qqGroup: "abc12" }, { id: ADMIN_ID });
-    expect(badQq).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
-    expect((await getConfig()).site.qqGroup).toBe("12345678");
+  it("site 组:icp 超长/QQ 群号非数字/二维码非法地址 422 零写入", async () => {
+    const badIcp = await saveGroup(
+      "site",
+      { icp: "x".repeat(65), qqGroup: "10086100", qqGroupQr: "" },
+      { id: ADMIN_ID },
+    );
+    expect(badIcp).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
+    const badGroup = await saveGroup(
+      "site",
+      { icp: "京ICP备E2E000001号", qqGroup: "not-a-number", qqGroupQr: "" },
+      { id: ADMIN_ID },
+    );
+    expect(badGroup).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
+    const badQr = await saveGroup(
+      "site",
+      { icp: "京ICP备E2E000001号", qqGroup: "10086100", qqGroupQr: "javascript:alert(1)" },
+      { id: ADMIN_ID },
+    );
+    expect(badQr).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
+    expect((await getConfig()).site.icp).toBe("京ICP备E2E000001号");
+    expect((await getConfig()).site.qqGroup).toBe("");
+    expect((await getConfig()).site.qqGroupQr).toBe("");
   });
 });
 
@@ -334,6 +387,32 @@ describe("home 组(轮播间隔+成就嵌入)", () => {
     expect(
       (await prisma.systemConfig.findUnique({ where: { key: "home.carouselIntervalSec" } }))?.value,
     ).toBe("2");
+  });
+});
+
+describe("content 组(正文目录开关)", () => {
+  it("键缺失 → 默认开启;关闭保存 → 热生效;视图同步;审计只落键名", async () => {
+    await delKeys(CONTENT_KEYS);
+    expect((await getConfig()).content.tocEnabled).toBe(true);
+    expect((await getSettingsView()).content.tocEnabled).toBe(true);
+    await saveGroup("content", { tocEnabled: false }, { id: ADMIN_ID });
+    expect((await getConfig()).content.tocEnabled).toBe(false);
+    expect((await getSettingsView()).content.tocEnabled).toBe(false);
+    const audit = await latestAudit(AUDIT_ACTION.SETTINGS_CHANGED);
+    expect((audit!.payloadJson as { group?: string }).group).toBe("content");
+    expect(Object.keys((audit!.payloadJson as { diff: Record<string, string> }).diff)).toEqual([
+      "content.tocEnabled",
+    ]);
+    await saveGroup("content", { tocEnabled: true }, { id: ADMIN_ID });
+    expect((await getConfig()).content.tocEnabled).toBe(true);
+  });
+
+  it("非布尔值 422 零写入", async () => {
+    const result = await saveGroup("content", { tocEnabled: "yes" }, { id: ADMIN_ID });
+    expect(result).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
+    expect(
+      (await prisma.systemConfig.findUnique({ where: { key: "content.tocEnabled" } }))?.value,
+    ).toBe("true");
   });
 });
 

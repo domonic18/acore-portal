@@ -1,7 +1,13 @@
 import "server-only";
 import { z } from "zod";
 import { prisma } from "@/lib/db/business";
-import { SITE_PAGE_TYPES, type SitePageType } from "@/constants/content";
+import {
+  DEFAULT_COMPONENT_PAGES,
+  SIDEBAR_COMPONENT_KEYS,
+  SITE_PAGE_TYPES,
+  type SidebarComponentKey,
+  type SitePageType,
+} from "@/constants/content";
 import type { SidebarCardConfig } from "@/constants/sidebar";
 
 /**
@@ -53,4 +59,34 @@ export async function listAllSidebarCards(): Promise<SidebarCardConfig[]> {
 export async function listSidebarCards(pageType: SitePageType): Promise<SidebarCardConfig[]> {
   const cards = await listAllSidebarCards();
   return cards.filter((card) => card.pages.includes(pageType));
+}
+
+/**
+ * 内置组件页面范围全量(前台渲染+后台编辑共用):行缺失/脏数据回落代码缺省
+ * DEFAULT_COMPONENT_PAGES(空数组是显式"全站隐藏"配置,不回落)。
+ */
+export async function listSidebarComponentPages(): Promise<
+  Record<SidebarComponentKey, SitePageType[]>
+> {
+  const rows = await prisma.sidebarComponent.findMany({
+    select: { key: true, pages: true },
+  });
+  const byKey = new Map(rows.map((row) => [row.key, row.pages]));
+  return Object.fromEntries(
+    SIDEBAR_COMPONENT_KEYS.map((key) => {
+      const parsed = pagesSchema.safeParse(byKey.get(key));
+      return [
+        key,
+        parsed.success ? parsed.data : [...DEFAULT_COMPONENT_PAGES[key]],
+      ] as const;
+    }),
+  ) as Record<SidebarComponentKey, SitePageType[]>;
+}
+
+/** 页面类型命中的内置组件(注册表顺序;供渲染层映射组件) */
+export async function enabledSidebarComponents(
+  pageType: SitePageType,
+): Promise<SidebarComponentKey[]> {
+  const pages = await listSidebarComponentPages();
+  return SIDEBAR_COMPONENT_KEYS.filter((key) => pages[key].includes(pageType));
 }

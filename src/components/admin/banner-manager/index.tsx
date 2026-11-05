@@ -221,7 +221,7 @@ export function BannerManager({ banners }: { banners: Banner[] }) {
                   <img src={b.imageUrl} alt={b.title} className="absolute inset-0 h-full w-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#081120]/85 via-transparent to-transparent" />
                   <span className="absolute left-3 top-2.5 max-w-[70%] truncate text-[15px] font-semibold text-white drop-shadow">
-                    {b.title}
+                    {b.title || "未命名"}
                   </span>
                   {!b.enabled && (
                     <span className="absolute right-3 top-2.5 rounded-full border border-white/30 bg-black/50 px-2 py-0.5 text-[11px] text-white/80">
@@ -248,7 +248,7 @@ export function BannerManager({ banners }: { banners: Banner[] }) {
                           enabled: v,
                         })
                       }
-                      ariaLabel={`启用「${b.title}」`}
+                      ariaLabel={`启用「${b.title || "未命名"}」`}
                     />
                     <Button
                       variant="ghost"
@@ -270,7 +270,7 @@ export function BannerManager({ banners }: { banners: Banner[] }) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      aria-label={`上移「${b.title}」`}
+                      aria-label={`上移「${b.title || "未命名"}」`}
                       disabled={busy || !hydrated || index === 0 || reordering}
                       onClick={() => moveLocal(b.id, -1)}
                     >
@@ -279,7 +279,7 @@ export function BannerManager({ banners }: { banners: Banner[] }) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      aria-label={`下移「${b.title}」`}
+                      aria-label={`下移「${b.title || "未命名"}」`}
                       disabled={busy || !hydrated || index === ordered.length - 1 || reordering}
                       onClick={() => moveLocal(b.id, 1)}
                     >
@@ -290,7 +290,7 @@ export function BannerManager({ banners }: { banners: Banner[] }) {
                       size="sm"
                       disabled={busy || !hydrated}
                       onClick={() => {
-                        if (!window.confirm(`确认删除轮播物料「${b.title}」?`)) return;
+                        if (!window.confirm(`确认删除轮播物料「${b.title || "未命名"}」?`)) return;
                         void send("DELETE", `/api/admin/banners/${b.id}`);
                       }}
                     >

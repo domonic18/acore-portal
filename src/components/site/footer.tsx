@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getConfig } from "@/lib/config";
 
-/** 全站页脚(M3 US1 T018,FR-204;2026-10 设计稿对齐):居中链接 + 版权行;备案号与 QQ 群后台可配,留空不渲染 */
+/** 全站页脚(M3 US1 T018,FR-204;2026-10 设计稿对齐):居中链接 + 版权行;备案号与英文版权声明后台可配,留空不渲染 */
 export async function SiteFooter() {
   const { site } = await getConfig();
   return (
@@ -23,11 +23,9 @@ export async function SiteFooter() {
           <Link href="/sitemap" className="hover:text-[#e8c877]">
             网站地图
           </Link>
-          {site.qqGroup && <span>QQ 群:{site.qqGroup}</span>}
         </div>
         <p>
-          © {new Date().getFullYear()} 老克塔 LoktaCN · 怀旧公益项目(非营利) ·
-          Powered by AzerothCore
+          © {new Date().getFullYear()} 老克塔 LoktaCN · 怀旧公益项目(非营利)
           {site.icp && (
             <>
               {" · "}
@@ -42,6 +40,11 @@ export async function SiteFooter() {
             </>
           )}
         </p>
+        {site.copyrightEn && (
+          <p className="max-w-3xl whitespace-pre-line text-center text-[11px] leading-5 text-[#4d6a8c]">
+            {site.copyrightEn}
+          </p>
+        )}
       </div>
     </footer>
   );

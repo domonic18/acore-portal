@@ -5,7 +5,7 @@ import { PrismaClient } from "../../src/generated/business";
 /**
  * M4 US5 系统设置 E2E(T032,quickstart S5.1-S5.3 简版自动化,主链路在集成层):
  * ① 权限口径:游客/user 访问 /admin/settings → 登录页;
- * ② 七组渲染+NAV 入口+敏感字段掩码态(已配置显「已配置,留空保持」,不回显明文);
+ * ② 八组渲染+NAV 入口+敏感字段掩码态(已配置显「已配置,留空保持」,不回显明文);
  * ③ 保存校验:非法值 422 错误回显;合法保存「已保存,即时生效」;
  * ④ 测试发信:正常配置 → Mailpit 收到;坏 SMTP 配置热生效后 → 页面回显失败摘要。
  * smtp 键为全局行:用前快照、用后还原;E2E schema 指向 dev Mailpit(localhost:1025)。
@@ -13,7 +13,8 @@ import { PrismaClient } from "../../src/generated/business";
 const prisma = new PrismaClient();
 const SMTP_KEYS = ["smtp.host", "smtp.port", "smtp.user", "smtp.password", "smtp.from"];
 const SECURITY_KEYS = ["security.loginMaxFails", "security.loginWindowSec", "security.loginLockSec"];
-const SITE_KEYS = ["site.icp", "site.qqGroup"];
+const SITE_KEYS = ["site.icp", "site.copyrightEn", "site.qqGroup", "site.qqGroupQr"];
+const CONTENT_KEYS = ["content.tocEnabled"];
 const APPEARANCE_KEYS = [
   "appearance.logoUrl",
   "appearance.faviconUrl",
@@ -27,6 +28,7 @@ const MAILPIT_API = "http://127.0.0.1:8025";
 let smtpBackup: { key: string; value: string }[] = [];
 let securityBackup: { key: string; value: string }[] = [];
 let siteBackup: { key: string; value: string }[] = [];
+let contentBackup: { key: string; value: string }[] = [];
 let appearanceBackup: { key: string; value: string }[] = [];
 
 async function login(page: Page, username: string, password: string) {
@@ -50,6 +52,10 @@ test.beforeAll(async () => {
     where: { key: { in: SITE_KEYS } },
     select: { key: true, value: true },
   });
+  contentBackup = await prisma.systemConfig.findMany({
+    where: { key: { in: CONTENT_KEYS } },
+    select: { key: true, value: true },
+  });
   appearanceBackup = await prisma.systemConfig.findMany({
     where: { key: { in: APPEARANCE_KEYS } },
     select: { key: true, value: true },
@@ -60,11 +66,11 @@ test.afterAll(async () => {
   await prisma.systemConfig.deleteMany({
     where: {
       key: {
-        in: [...SMTP_KEYS, ...SECURITY_KEYS, ...SITE_KEYS, ...APPEARANCE_KEYS],
+        in: [...SMTP_KEYS, ...SECURITY_KEYS, ...SITE_KEYS, ...APPEARANCE_KEYS, ...CONTENT_KEYS],
       },
     },
   });
-  const restore = [...smtpBackup, ...securityBackup, ...siteBackup, ...appearanceBackup];
+  const restore = [...smtpBackup, ...securityBackup, ...siteBackup, ...appearanceBackup, ...contentBackup];
   if (restore.length > 0) {
     await prisma.systemConfig.createMany({ data: restore });
   }
@@ -83,7 +89,7 @@ test("user 角色 → 同样拦截(非 admin)", async ({ page }) => {
 });
 
 test.describe.serial("admin 设置页", () => {
-  test("七组渲染+NAV 入口+掩码态不回显明文", async ({ page }) => {
+  test("八组渲染+NAV 入口+掩码态不回显明文", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
     await page.goto("/admin");
 
@@ -93,7 +99,7 @@ test.describe.serial("admin 设置页", () => {
     ).toHaveAttribute("href", "/admin/settings");
     await page.goto("/admin/settings");
 
-    for (const group of ["smtp", "turnstile", "security", "notify", "site", "appearance", "umami"]) {
+    for (const group of ["smtp", "turnstile", "security", "notify", "content", "site", "appearance", "umami"]) {
       await expect(page.getByTestId(`settings-group-${group}`)).toBeVisible();
     }
     // 服务端 config 是进程级快照:经 UI 保存密码触发 reloadSystemConfig 后,
@@ -137,20 +143,32 @@ test.describe.serial("admin 设置页", () => {
     await expect(page.getByTestId("settings-result-security")).toContainText("已保存");
   });
 
-  test("site 组保存 → 页脚即时生效", async ({ page }) => {
+  test("site 组保存 → 页脚/侧栏 QQ 卡即时生效", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
     await page.goto("/admin/settings");
 
-    // site 组:备案号+QQ 群 → 页脚即时渲染(旧站对齐:京ICP 备案链接 + QQ 群)
+    // site 组:备案号+英文版权声明 → 页脚;QQ 群号+二维码 → 首页侧栏卡
     const icp = `京ICP备E2E${Date.now().toString(36)}号`;
     await page.getByTestId("settings-field-site-icp").fill(icp);
-    await page.getByTestId("settings-field-site-qqGroup").fill("123456789");
+    await page.getByTestId("settings-field-site-copyrightEn").fill("E2E copyright line.");
+    await page.getByTestId("settings-field-site-qqGroup").fill("88888888");
+    await page.getByTestId("settings-field-site-qqGroupQr").fill("/favicon-192.png");
     await page.getByTestId("settings-save-site").click();
     await expect(page.getByTestId("settings-result-site")).toContainText("已保存");
     await page.goto("/");
     const footer = page.getByRole("contentinfo");
     await expect(footer).toContainText(icp);
-    await expect(footer).toContainText("QQ 群:123456789");
+    await expect(footer).toContainText("E2E copyright line.");
+    // QQ 群展示与 Powered by AzerothCore 已随 2026-11-05 页脚文案调整下线
+    await expect(footer).not.toContainText("QQ 群");
+    await expect(footer).not.toContainText("AzerothCore");
+    // 侧栏 QQ 交流群卡:群号+二维码即时生效(复用内置静态图占位二维码)
+    const qqCard = page.getByTestId("site-sidebar").getByTestId("sidebar-qq-group");
+    await expect(qqCard.getByTestId("sidebar-qq-group-number")).toHaveText("88888888");
+    await expect(qqCard.getByTestId("sidebar-qq-group-qr")).toHaveAttribute(
+      "src",
+      "/favicon-192.png",
+    );
   });
 
   test("appearance 组保存 → 页头 logo 即时生效", async ({ page }) => {
@@ -165,6 +183,34 @@ test.describe.serial("admin 设置页", () => {
     await expect(
       page.getByRole("banner").locator('img[alt="老克塔"]'),
     ).toHaveAttribute("src", "/favicon-192.png");
+  });
+
+  test("content 组:目录开关关闭 → 文章/静态页目录消失,重开恢复", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await login(page, "m1admin", "adminpass123");
+    await page.goto("/admin/settings");
+
+    // 键缺省默认开:开关呈开态
+    const tocSwitch = page.getByTestId("settings-field-content-tocEnabled");
+    await expect(tocSwitch).toHaveAttribute("aria-checked", "true");
+    await tocSwitch.click();
+    await page.getByTestId("settings-save-content").click();
+    await expect(page.getByTestId("settings-result-content")).toContainText("已保存");
+
+    // 关闭后有 h2 标题的正文不再渲染目录(左列与顶部回落块整块移除,栅格回落两栏)
+    await page.goto("/post/seed-announcement-second");
+    await expect(page.getByTestId("article-toc-rail")).toHaveCount(0);
+    await expect(page.getByTestId("article-toc-top")).toHaveCount(0);
+    await page.goto("/tutorial");
+    await expect(page.getByTestId("article-toc-rail")).toHaveCount(0);
+
+    // 重开 → 目录恢复
+    await page.goto("/admin/settings");
+    await page.getByTestId("settings-field-content-tocEnabled").click();
+    await page.getByTestId("settings-save-content").click();
+    await expect(page.getByTestId("settings-result-content")).toContainText("已保存");
+    await page.goto("/post/seed-announcement-second");
+    await expect(page.getByTestId("article-toc-rail")).toBeVisible();
   });
 
   test("测试发信:Mailpit 收到;坏配置热生效后回显失败摘要", async ({ page }) => {

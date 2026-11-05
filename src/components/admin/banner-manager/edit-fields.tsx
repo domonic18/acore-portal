@@ -18,9 +18,8 @@ export function BannerEditorFields({
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <label className="flex flex-col gap-1 text-xs text-[#93b2ce]">
-        标题
+        标题(可空=纯图无文案)
         <Input
-          required
           value={draft.title}
           onChange={(e) => setDraft((p) => ({ ...p, title: e.target.value }))}
         />

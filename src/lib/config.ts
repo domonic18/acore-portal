@@ -20,6 +20,12 @@ const assetUrlSchema = z
     "须为站内路径或 http(s) 地址",
   );
 
+/** 页脚英文版权声明默认值(WP 原版 lokta.cn 页脚逐字迁移,两行以 \n 分隔) */
+export const DEFAULT_SITE_COPYRIGHT_EN = [
+  "World of Warcraft® and Blizzard Entertainment® are all trademarks or registered trademarks of Blizzard Entertainment in the United States and/or other countries.",
+  "These terms and all related materials, logos, and images are copyright © Blizzard Entertainment. This site is in no way associated with or endorsed by Blizzard Entertainment®.",
+].join("\n");
+
 const configSchema = z.object({
   app: z.object({
     url: z.string().url(),
@@ -88,10 +94,19 @@ const configSchema = z.object({
   notify: z.object({
     pointEmailThreshold: z.coerce.number().int().min(0).default(0),
   }),
-  // 站点标识与联系方式(CRUD 对齐审计):icp 空=页脚不渲染备案链接,qqGroup 空=不渲染
+  // 内容域(2026-11-05 用户反馈):正文目录开关;键缺省按 tocEnabled=true
+  content: z.object({
+    tocEnabled: z.boolean().default(true),
+  }),
+  // 站点标识(CRUD 对齐审计):icp 空=页脚不渲染备案链接,
+  // copyrightEn 空=页脚不渲染英文版权声明(WP 原版商标免责声明逐字迁移);
+  // qqGroup 空=侧栏不渲染 QQ 交流群卡,qqGroupQr 空=卡内不渲染二维码
+  // (默认=public/qq-group-qr.png,WP 原版页脚素材 qrcode_for_qq.png 迁移)
   site: z.object({
     icp: z.string().default("京ICP备2022035466号"),
+    copyrightEn: z.string().default(DEFAULT_SITE_COPYRIGHT_EN),
     qqGroup: z.string().default("184670219"),
+    qqGroupQr: z.string().default("/qq-group-qr.png"),
   }),
   // 站点外观(2026-10 用户反馈):favicon / 页头 logo / 页头背景 / 页面背景均可后台配置;
   // logo 与 favicon 空=回落内置资源,背景空=不渲染背景图(纯色底)
@@ -189,9 +204,14 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
     notify: {
       pointEmailThreshold: flat["notify.pointEmailThreshold"] ?? "0",
     },
+    content: {
+      tocEnabled: flat["content.tocEnabled"] !== "false",
+    },
     site: {
       icp: flat["site.icp"] ?? "京ICP备2022035466号",
+      copyrightEn: flat["site.copyrightEn"] ?? DEFAULT_SITE_COPYRIGHT_EN,
       qqGroup: flat["site.qqGroup"] ?? "184670219",
+      qqGroupQr: flat["site.qqGroupQr"] ?? "/qq-group-qr.png",
     },
     appearance: {
       logoUrl: flat["appearance.logoUrl"] ?? "/logo.png",

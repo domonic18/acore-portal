@@ -1,13 +1,20 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/business";
 import { AUDIT_ACTION } from "@/constants/audit";
+import { SIDEBAR_COMPONENT_KEYS } from "@/constants/content";
 import type { SidebarCardConfig } from "@/constants/sidebar";
-import { listAllSidebarCards, listSidebarCards } from "@/server/services/sidebar/query";
-import { saveSidebarCards } from "@/server/services/sidebar/save";
+import {
+  enabledSidebarComponents,
+  listAllSidebarCards,
+  listSidebarCards,
+  listSidebarComponentPages,
+} from "@/server/services/sidebar/query";
+import { saveSidebarData } from "@/server/services/sidebar/save";
 
 /**
- * M4 侧栏快捷卡服务集成:list 过滤/排序/pages 解析 + save 整树重建/校验零写入/审计。
- * sidebar_card/sidebar_link 为全局共享数据:用前快照、用后还原(settings 先例)。
+ * M4 侧栏服务集成:list 过滤/排序/pages 解析 + save 整树重建(卡+内置组件页面范围)/
+ * 校验零写入/审计。sidebar_card/sidebar_link/sidebar_component 为全局共享数据:
+ * 用前快照、用后还原(settings 先例)。
  */
 
 const ADMIN_ID = 3n;
@@ -22,6 +29,7 @@ type CardSnapshot = {
 };
 
 let backup: CardSnapshot[] = [];
+let componentBackup: { key: string; pages: unknown }[] = [];
 
 async function snapshot(): Promise<CardSnapshot[]> {
   const rows = await prisma.sidebarCard.findMany({
@@ -109,20 +117,33 @@ async function latestAudit(action: string) {
 
 beforeAll(async () => {
   backup = await snapshot();
+  componentBackup = await prisma.sidebarComponent.findMany({
+    select: { key: true, pages: true },
+  });
 });
 
 beforeEach(async () => {
   await prisma.sidebarLink.deleteMany();
   await prisma.sidebarCard.deleteMany();
+  await prisma.sidebarComponent.deleteMany();
 });
 
 afterAll(async () => {
   await restore(backup);
+  await prisma.sidebarComponent.deleteMany();
+  if (componentBackup.length > 0) {
+    await prisma.sidebarComponent.createMany({
+      data: componentBackup as { key: string; pages: string[] }[],
+    });
+  }
   await prisma.auditLog.deleteMany({
     where: { action: AUDIT_ACTION.SIDEBAR_CHANGED, actorUserId: ADMIN_ID },
   });
   await prisma.$disconnect();
 });
+
+/** 一次性覆盖注册表全部键的合法组件提交(pages 全空=全站隐藏的合法形态) */
+const allComponents = SIDEBAR_COMPONENT_KEYS.map((key) => ({ key, pages: [] as const }));
 
 describe("listSidebarCards", () => {
   it("按 sort 排序;pages 解析后按页面类型过滤;脏 pages 回退空数组", async () => {
@@ -142,9 +163,9 @@ describe("listSidebarCards", () => {
   });
 });
 
-describe("saveSidebarCards", () => {
+describe("saveSidebarData(整树=卡+内置组件)", () => {
   it("合法整树:按数组顺序重建卡片与链接,热读取一致,审计只记 key", async () => {
-    const result = await saveSidebarCards(validCards, { id: ADMIN_ID });
+    const result = await saveSidebarData(validCards, allComponents, { id: ADMIN_ID });
     expect(result).toEqual({ ok: true });
 
     const cards = await listAllSidebarCards();
@@ -155,15 +176,19 @@ describe("saveSidebarCards", () => {
 
     const audit = await latestAudit(AUDIT_ACTION.SIDEBAR_CHANGED);
     expect(audit).not.toBeNull();
-    expect(audit!.payloadJson).toEqual({ cards: ["card-b", "card-a"] });
+    expect(audit!.payloadJson).toEqual({
+      cards: ["card-b", "card-a"],
+      components: [...SIDEBAR_COMPONENT_KEYS],
+    });
     expect(JSON.stringify(audit!.payloadJson)).not.toContain("B 卡");
     expect(JSON.stringify(audit!.payloadJson)).not.toContain("/b-1");
   });
 
   it("整树覆盖:再次保存只保留新提交的卡片", async () => {
-    await saveSidebarCards(validCards, { id: ADMIN_ID });
-    await saveSidebarCards(
+    await saveSidebarData(validCards, allComponents, { id: ADMIN_ID });
+    await saveSidebarData(
       [{ key: "only", title: "唯一卡", pages: ["forum"], links: [{ label: "论坛", href: "/forum" }] }],
+      allComponents,
       { id: ADMIN_ID },
     );
     expect((await listAllSidebarCards()).map((card) => card.key)).toEqual(["only"]);
@@ -186,7 +211,7 @@ describe("saveSidebarCards", () => {
     await seedCard({ key: "kept", title: "保留", pages: ["page"], sort: 0 });
     const before = await prisma.sidebarCard.count();
 
-    const result = await saveSidebarCards(cards, { id: ADMIN_ID });
+    const result = await saveSidebarData(cards, allComponents, { id: ADMIN_ID });
     expect(result).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
 
     expect(await prisma.sidebarCard.count()).toBe(before);
@@ -200,8 +225,72 @@ describe("saveSidebarCards", () => {
       pages: ["page"] as const,
       links: [{ label: `L${i}`, href: `/l-${i}` }],
     }));
-    const result = await saveSidebarCards([...cards], { id: ADMIN_ID });
+    const result = await saveSidebarData([...cards], allComponents, { id: ADMIN_ID });
     expect(result).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
     expect(await prisma.sidebarCard.count()).toBe(0);
+  });
+});
+
+describe("内置组件页面范围(2026-11-05 后台可配)", () => {
+  it("行缺失 → 代码缺省兜底;enabledSidebarComponents 按注册表顺序过滤", async () => {
+    const pages = await listSidebarComponentPages();
+    expect(pages["server-status"]).toEqual(["article"]);
+    expect(pages["latest-news"]).toEqual(["article"]);
+    expect(pages["qq-group"]).toEqual(["home", "article", "page"]);
+    expect(pages["points-balance"]).toEqual(["home", "article", "page"]);
+    expect(await enabledSidebarComponents("article")).toEqual([
+      "server-status",
+      "latest-news",
+      "qq-group",
+      "points-balance",
+    ]);
+    expect(await enabledSidebarComponents("forum")).toEqual([]);
+  });
+
+  it("保存页面范围(含空=全站隐藏)落库;脏数据行回退缺省", async () => {
+    const result = await saveSidebarData(
+      [],
+      [
+        { key: "server-status", pages: ["home"] },
+        { key: "latest-news", pages: [] },
+        { key: "qq-group", pages: ["home", "page"] },
+        { key: "points-balance", pages: [] },
+      ],
+      { id: ADMIN_ID },
+    );
+    expect(result).toEqual({ ok: true });
+    expect(await enabledSidebarComponents("home")).toEqual(["server-status", "qq-group"]);
+    expect(await enabledSidebarComponents("article")).toEqual([]);
+
+    await prisma.sidebarComponent.update({
+      where: { key: "qq-group" },
+      data: { pages: ["nope"] },
+    });
+    const pages = await listSidebarComponentPages();
+    expect(pages["qq-group"]).toEqual(["home", "article", "page"]);
+  });
+
+  it.each([
+    ["缺组件", allComponents.slice(0, 2)],
+    [
+      "重复组件",
+      [...allComponents, { key: "qq-group", pages: [] }],
+    ],
+    [
+      "未注册键",
+      [...allComponents, { key: "bogus", pages: [] }],
+    ],
+    [
+      "pages 非法值",
+      allComponents.map((c) =>
+        c.key === "points-balance" ? { ...c, pages: ["nope"] } : c,
+      ),
+    ],
+  ])("%s → 422 语义且零写入", async (_name, components) => {
+    await saveSidebarData([], allComponents, { id: ADMIN_ID });
+    const result = await saveSidebarData([], components, { id: ADMIN_ID });
+    expect(result).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
+    // 零写入:此前落库的全空范围保持不变
+    expect(await enabledSidebarComponents("article")).toEqual([]);
   });
 });

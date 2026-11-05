@@ -2,14 +2,17 @@ import "server-only";
 import { z } from "zod";
 import { prisma } from "@/lib/db/business";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { SITE_PAGE_TYPES } from "@/constants/content";
+import {
+  SIDEBAR_COMPONENT_KEYS,
+  SITE_PAGE_TYPES,
+} from "@/constants/content";
 import { SIDEBAR_LIMITS } from "@/constants/sidebar";
 import { writeAudit } from "@/server/services/shared/audit";
 
 /**
- * 侧栏快捷卡整树保存(后台 CRUD 的唯一写入口):
- * 先 zod 校验整树,失败零写入;成功事务内按数组顺序重建卡片与链接(sort=索引)。
- * 审计只记卡片 key,不记标题/链接值。
+ * 侧栏整树保存(后台 CRUD 的唯一写入口):快捷卡+内置组件页面范围一次提交,
+ * 先 zod 校验整树,失败零写入;成功事务内按数组顺序重建卡片与链接、
+ * 覆写组件页面范围。审计只记卡片/组件 key,不记标题/链接/范围值。
  */
 
 const hrefSchema = z
@@ -68,29 +71,63 @@ const cardsSchema = z
     });
   });
 
+// 内置组件页面范围:必须恰好覆盖注册表全部键各一次(全量提交,不允许可选缺省);
+// pages 允许空数组=显式全站隐藏(与卡片 min(1) 不同)
+const componentsSchema = z
+  .array(
+    z.object({
+      key: z.enum(SIDEBAR_COMPONENT_KEYS),
+      pages: z.array(z.enum(SITE_PAGE_TYPES)),
+    }),
+  )
+  .superRefine((components, ctx) => {
+    const counts = new Map(components.map((c) => [c.key, (components.filter((x) => x.key === c.key).length)]));
+    for (const key of SIDEBAR_COMPONENT_KEYS) {
+      const n = counts.get(key) ?? 0;
+      if (n !== 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["components"],
+          message: `内置组件 ${key} 须恰好提交一次(收到 ${n} 次)`,
+        });
+      }
+    }
+  });
+
 export type SaveSidebarResult =
   | { ok: true }
   | { ok: false; code: "VALIDATION_FAILED"; message: string };
 
-export async function saveSidebarCards(
+export async function saveSidebarData(
   cards: unknown,
+  components: unknown,
   actor: { id: bigint },
 ): Promise<SaveSidebarResult> {
-  const parsed = cardsSchema.safeParse(cards);
-  if (!parsed.success) {
-    const first = parsed.error.issues[0];
+  const parsedCards = cardsSchema.safeParse(cards);
+  if (!parsedCards.success) {
+    const first = parsedCards.error.issues[0];
     return {
       ok: false,
       code: "VALIDATION_FAILED",
       message: `参数错误:${first?.path.join(".") || "cards"}`,
     };
   }
-  const value = parsed.data;
+  const parsedComponents = componentsSchema.safeParse(components);
+  if (!parsedComponents.success) {
+    const first = parsedComponents.error.issues[0];
+    return {
+      ok: false,
+      code: "VALIDATION_FAILED",
+      message: `参数错误:${first?.path.join(".") || "components"}`,
+    };
+  }
+  const cardValue = parsedCards.data;
+  const componentValue = parsedComponents.data;
 
   await prisma.$transaction(async (tx) => {
     await tx.sidebarLink.deleteMany();
     await tx.sidebarCard.deleteMany();
-    for (const [index, card] of value.entries()) {
+    for (const [index, card] of cardValue.entries()) {
       await tx.sidebarCard.create({
         data: {
           key: card.key,
@@ -109,13 +146,23 @@ export async function saveSidebarCards(
         },
       });
     }
+    for (const component of componentValue) {
+      await tx.sidebarComponent.upsert({
+        where: { key: component.key },
+        create: { key: component.key, pages: component.pages },
+        update: { pages: component.pages },
+      });
+    }
   });
 
   await writeAudit({
     category: AUDIT_CATEGORY.ADMIN,
     action: AUDIT_ACTION.SIDEBAR_CHANGED,
     actorUserId: actor.id,
-    payload: { cards: value.map((card) => card.key) },
+    payload: {
+      cards: cardValue.map((card) => card.key),
+      components: componentValue.map((component) => component.key),
+    },
   });
   return { ok: true };
 }

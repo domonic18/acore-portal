@@ -5,7 +5,8 @@ import { requireApiAdmin } from "@/server/session-guard";
 import { BannerAdminError, deleteBanner, updateBanner } from "@/server/services/home/banners";
 
 const updateSchema = z.object({
-  title: z.string().trim().min(1, "标题必填").max(64),
+  // 标题可空=纯图 banner(WP 原站首页顶部特色图形态,前台不渲染文字叠层)
+  title: z.string().trim().max(64),
   imageUrl: z
     .string()
     .trim()

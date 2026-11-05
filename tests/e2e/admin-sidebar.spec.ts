@@ -20,6 +20,7 @@ type CardSnapshot = {
 };
 
 let backup: CardSnapshot[] = [];
+let componentBackup: { key: string; pages: string[] }[] = [];
 
 async function snapshot(): Promise<CardSnapshot[]> {
   const rows = await prisma.sidebarCard.findMany({
@@ -68,10 +69,18 @@ async function login(page: Page, username: string, password: string) {
 
 test.beforeAll(async () => {
   backup = await snapshot();
+  componentBackup = (await prisma.sidebarComponent.findMany()).map((row) => ({
+    key: row.key,
+    pages: row.pages as string[],
+  }));
 });
 
 test.afterAll(async () => {
   await restore(backup);
+  await prisma.sidebarComponent.deleteMany();
+  if (componentBackup.length > 0) {
+    await prisma.sidebarComponent.createMany({ data: componentBackup });
+  }
   await prisma.$disconnect();
 });
 
@@ -125,4 +134,34 @@ test("admin 编辑卡片+新增卡片 → 前台侧栏即时生效", async ({ pa
   await expect(
     page.getByRole("link", { name: "新入口 · E2E 备注" }),
   ).toHaveAttribute("href", "/tutorial#e2e-new");
+});
+
+test("内置组件页面范围可配:QQ 群卡关首页 → 首页消失,恢复后回归(2026-11-05)", async ({ page }) => {
+  await login(page, "m1admin", "adminpass123");
+  await page.goto("/admin/sidebar");
+
+  // 内置组件区:注册表 4 组件渲染,QQ 群默认含首页
+  const section = page.getByTestId("sidebar-components-section");
+  await expect(section).toBeVisible();
+  for (const key of ["server-status", "latest-news", "qq-group", "points-balance"]) {
+    await expect(page.getByTestId(`sidebar-comp-${key}`)).toBeVisible();
+  }
+  await expect(page.getByTestId("sidebar-comp-qq-group-page-home")).toBeChecked();
+
+  // 取消 QQ 群的首页范围 → 保存(checkbox 为 sr-only,点外层 chip 标签触发)
+  await page.getByTestId("sidebar-comp-qq-group").getByText("首页", { exact: true }).click();
+  await page.getByTestId("sidebar-save").click();
+  await expect(page.getByTestId("sidebar-save-result")).toContainText("已保存");
+
+  // 首页侧栏 QQ 卡消失
+  await page.goto("/");
+  await expect(page.getByTestId("sidebar-qq-group")).toHaveCount(0);
+
+  // 恢复首页范围 → QQ 卡回归
+  await page.goto("/admin/sidebar");
+  await page.getByTestId("sidebar-comp-qq-group").getByText("首页", { exact: true }).click();
+  await page.getByTestId("sidebar-save").click();
+  await expect(page.getByTestId("sidebar-save-result")).toContainText("已保存");
+  await page.goto("/");
+  await expect(page.getByTestId("sidebar-qq-group")).toBeVisible();
 });

@@ -18,7 +18,11 @@ INSERT INTO acore_portal.system_config (`key`, `value`, `updated_at`) VALUES
   ('gamedb.world',      'mysql://acore_reader:reader_pass@localhost:3307/acore_world', NOW()),
   ('gamedb.eluna',      'mysql://acore_reader:reader_pass@localhost:3307/eluna', NOW()),
   ('tools.rankBase',    'https://rank.lokta.cn', NOW()),
-  ('tools.dkpUrl',      'https://webdkp.nfuwow.com', NOW())
+  ('tools.dkpUrl',      'https://webdkp.nfuwow.com', NOW()),
+  ('site.copyrightEn',
+  'World of Warcraft® and Blizzard Entertainment® are all trademarks or registered trademarks of Blizzard Entertainment in the United States and/or other countries.\nThese terms and all related materials, logos, and images are copyright © Blizzard Entertainment. This site is in no way associated with or endorsed by Blizzard Entertainment®.', NOW()),
+  ('site.qqGroup',      '184670219', NOW()),
+  ('site.qqGroupQr',    '/qq-group-qr.png', NOW())
 ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW();
 
 -- 容器内栈(测试环境)参考取值(compose 服务名互访;真实凭据不入库不入 git):
