@@ -98,7 +98,12 @@ test.describe("游客菜单(FR-201)", () => {
     await page.goto("/");
     const footer = page.getByRole("contentinfo");
     await expect(footer.getByRole("link", { name: "用户协议" })).toBeVisible();
-    await expect(footer.getByRole("link", { name: "论坛公约" })).toBeVisible();
+    await expect(footer.getByRole("link", { name: "规范要求" })).toBeVisible();
+    // 规范要求与首页快捷入口同口径(2026-11-05 原「论坛公约」入口改指网站规范文章)
+    await expect(footer.getByRole("link", { name: "规范要求" })).toHaveAttribute(
+      "href",
+      "/post/网站规范",
+    );
     // 设计稿口径:项目简介/使用教程经页脚可达
     await expect(footer.getByRole("link", { name: "项目简介" })).toBeVisible();
     await expect(footer.getByRole("link", { name: "使用教程" })).toBeVisible();
