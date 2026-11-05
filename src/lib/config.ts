@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { prisma } from "@/lib/db/business";
+import { STATUS_CONFIG_KEYS } from "@/constants/status";
 
 /**
  * 系统配置唯一入口:SMTP/SOAP/游戏库连接串/站点地址等业务通道配置存 system_config 表,
@@ -186,8 +187,8 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
         }
       : undefined,
     status: {
-      enabled: flat["status.enabled"] !== "false",
-      maintenanceMode: flat["status.maintenance_mode"] === "true",
+      enabled: flat[STATUS_CONFIG_KEYS.enabled] !== "false",
+      maintenanceMode: flat[STATUS_CONFIG_KEYS.maintenanceMode] === "true",
     },
     turnstile: flat["turnstile.enabled"]
       ? {

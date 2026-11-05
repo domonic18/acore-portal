@@ -16,6 +16,22 @@ export type SiteHeaderView = {
   headerBackgroundUrl: string;
 };
 
+export type SiteFooterView = {
+  icp: string | null;
+  copyrightEn: string | null;
+};
+
+/** 全站页脚取数(FR-204):备案号与英文版权声明(留空不渲染) */
+export async function getSiteFooterView(): Promise<SiteFooterView> {
+  const site = await getConfig()
+    .then((c) => c.site)
+    .catch(() => null);
+  return {
+    icp: site?.icp || null,
+    copyrightEn: site?.copyrightEn || null,
+  };
+}
+
 /**
  * 全站页头取数(FR-201/203/312 相关):按登录态过滤 authOnly 菜单、
  * 随机角色头图(失败降级)、积分 chip 与会话外观配置。交互在 header-client。

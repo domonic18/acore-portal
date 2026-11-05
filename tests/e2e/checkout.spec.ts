@@ -118,12 +118,19 @@ test.afterAll(async () => {
   });
   for (const order of orders) {
     for (const item of order.items) {
-      const prefix = `orderitem:${item.id}:`;
-      await prisma.soapCall.deleteMany({ where: { idempotencyKey: { startsWith: prefix } } });
+      const base = `orderitem:${item.id}`;
+      await prisma.soapCall.deleteMany({
+        where: {
+          OR: [{ idempotencyKey: base }, { idempotencyKey: { startsWith: `${base}:` } }],
+        },
+      });
       await prisma.$executeRaw`
         DELETE FROM audit_log
         WHERE category = 'soap'
-          AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.key')) LIKE ${`${prefix}%`}
+          AND (
+            JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.key')) LIKE ${`${base}:%`}
+            OR JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.key')) = ${base}
+          )
       `;
     }
   }

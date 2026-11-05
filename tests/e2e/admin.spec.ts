@@ -41,8 +41,11 @@ test.beforeAll(async () => {
     select: { id: true, orderId: true },
   });
   for (const item of staleItems) {
+    const base = `orderitem:${item.id}`;
     await prisma.soapCall.deleteMany({
-      where: { idempotencyKey: { startsWith: `orderitem:${item.id}:` } },
+      where: {
+        OR: [{ idempotencyKey: base }, { idempotencyKey: { startsWith: `${base}:` } }],
+      },
     });
   }
   await prisma.order.deleteMany({
@@ -81,8 +84,11 @@ test.afterAll(async () => {
   });
   for (const order of orders) {
     for (const item of order.items) {
+      const base = `orderitem:${item.id}`;
       await prisma.soapCall.deleteMany({
-        where: { idempotencyKey: { startsWith: `orderitem:${item.id}:` } },
+        where: {
+          OR: [{ idempotencyKey: base }, { idempotencyKey: { startsWith: `${base}:` } }],
+        },
       });
     }
   }

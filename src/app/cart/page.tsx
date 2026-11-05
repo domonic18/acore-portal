@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { getSessionFromToken } from "@/lib/auth/session";
 import { SESSION } from "@/constants/session";
+import { ITEMSEND_SKU_PREFIX } from "@/constants/shop";
 import { getCartLines } from "@/server/services/shop/cart";
 import { listAccountCharacters } from "@/server/services/account/characters";
 import type { CartLine } from "@/server/services/shop/cart";
@@ -119,7 +120,7 @@ function CartRow({ line, guidNames }: { line: CartLine; guidNames: Map<number, s
         aria-hidden
         className="flex h-16 w-16 items-center justify-center rounded bg-gradient-to-br from-[#0d1828] to-[#13233a] text-2xl"
       >
-        {line.sku.startsWith("itemsend_") ? "⚔" : "🛠"}
+        {line.sku.startsWith(ITEMSEND_SKU_PREFIX) ? "⚔" : "🛠"}
       </div>
       <div className="flex min-w-48 flex-1 flex-col gap-1">
         <Link

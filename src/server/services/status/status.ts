@@ -1,6 +1,13 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { redis } from "@/lib/redis";
+import { maxCounter } from "@/lib/redis/counters";
+import {
+  PROGRESSION_CURRENT_NODE_KEY,
+  STATUS_CONFIG_KEYS,
+  STATUS_PROBE_TIMEOUT_MS,
+  STATUS_REDIS_KEYS,
+} from "@/constants/status";
 import { getConfig, reloadSystemConfig } from "@/lib/config";
 import { getCharactersDb } from "@/lib/db/characters";
 import type { ServerStatusPayload, ServerStatusResult } from "@/lib/status-types";
@@ -21,12 +28,12 @@ import { ALLIANCE_RACES, HORDE_RACES } from "@/constants/characters";
  * 无回退位(冷启动/持续故障)→数字字段 null(SC-208,宁显式空不给陈旧)。
  */
 
-const PROBE_CACHE_KEY = "status:probe";
+const PROBE_CACHE_KEY = STATUS_REDIS_KEYS.probe;
 // 上次成功快照存档(成功探针写入;失败回退时消费一次),TTL 48h 仅防悬空
-const PROBE_LASTOK_KEY = "status:probe:lastok";
-const PROBE_TTL_SECONDS = 25;
-const PROBE_TIMEOUT_MS = 2_000;
-const PEAK_TTL_SECONDS = 48 * 3600;
+const PROBE_LASTOK_KEY = STATUS_REDIS_KEYS.probeLastok;
+const PROBE_TTL_SECONDS = STATUS_REDIS_KEYS.probeTtlSeconds;
+const PROBE_TIMEOUT_MS = STATUS_PROBE_TIMEOUT_MS;
+const PEAK_TTL_SECONDS = STATUS_REDIS_KEYS.peakTtlSeconds;
 
 export type { ServerStatusPayload, ServerStatusResult };
 
@@ -35,7 +42,7 @@ export function todayPeakKey(): string {
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
-  return `status:peak:${yyyy}${mm}${dd}`;
+  return `${STATUS_REDIS_KEYS.peakPrefix}${yyyy}${mm}${dd}`;
 }
 
 type ProbeSnapshot = {
@@ -76,13 +83,9 @@ async function charactersStats(db: Awaited<ReturnType<typeof getCharactersDb>>) 
   return { onlineCount, charTotal, allianceCount, hordeCount, todayNewChars };
 }
 
-/** 探针成功路径更新今日峰值(max 语义;失败不调用) */
+/** 探针成功路径更新今日峰值(max 语义;失败不调用;原子取大值防并发覆盖,issue #77) */
 async function updateTodayPeak(onlineCount: number): Promise<number> {
-  const key = todayPeakKey();
-  const current = await redis.get(key);
-  const value = current === null || onlineCount > Number(current) ? onlineCount : Number(current);
-  await redis.set(key, String(value), "EX", PEAK_TTL_SECONDS);
-  return value;
+  return maxCounter(todayPeakKey(), onlineCount, PEAK_TTL_SECONDS);
 }
 
 async function runProbe(): Promise<ProbeSnapshot> {
@@ -199,7 +202,7 @@ export async function getRawStatusConfig(): Promise<{
   const [config, pointer] = await Promise.all([
     getConfig(),
     prisma.systemConfig.findUnique({
-      where: { key: "progression.current_node_id" },
+      where: { key: PROGRESSION_CURRENT_NODE_KEY },
       select: { value: true },
     }),
   ]);
@@ -219,9 +222,9 @@ export async function saveStatusConfig(
   actor: { id: bigint },
 ): Promise<SaveStatusConfigResult> {
   const KEYS = {
-    enabled: "status.enabled",
-    maintenanceMode: "status.maintenance_mode",
-    currentNodeId: "progression.current_node_id",
+    enabled: STATUS_CONFIG_KEYS.enabled,
+    maintenanceMode: STATUS_CONFIG_KEYS.maintenanceMode,
+    currentNodeId: PROGRESSION_CURRENT_NODE_KEY,
   } as const;
 
   const before: Record<string, string | null> = {};

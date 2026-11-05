@@ -188,9 +188,9 @@ test.describe("US5 论坛(T041)", () => {
 
     await page.goto("/forum");
     await expect(page.getByRole("heading", { name: "论坛" })).toBeVisible();
-    // 版块名同时出现在右栏最新主题,按链接定位避免 strict mode 冲突
-    await expect(page.getByRole("link", { name: "公会大厅" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "交易行" })).toBeVisible();
+    // 版块名同时出现在右栏最新主题,按精确链接文本定位避免 strict mode 冲突
+    await expect(page.getByRole("link", { name: "公会大厅", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "交易行", exact: true })).toBeVisible();
 
     await page.goto("/forum/guild-hall");
     // 置顶主题在列 + 置顶徽标(分区标题「置顶公告」也会匹配,取精确徽标文本)
