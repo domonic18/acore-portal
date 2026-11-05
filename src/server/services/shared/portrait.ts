@@ -1,17 +1,17 @@
 import { redis } from "@/lib/redis";
 import { getCharactersDb } from "@/lib/db/characters";
-import { PORTRAIT_DEFAULT, portraitPath } from "@/constants/portraits";
+import { PORTRAIT_DEFAULT, raceFacePath } from "@/constants/portraits";
 import { STATUS_REDIS_KEYS } from "@/constants/status";
 
 /**
- * 页头随机角色头图(M3 US1,R10):characters 只读抽样 → race/class/gender 映射
- * 静态头像;Redis 60s 平滑缓存;抽样失败/超时(500ms)降级默认图(FR-203)。
+ * 页头随机角色头图(M3 US1,R10):characters 只读抽样 → race/gender 映射
+ * WoW 官方种族头像;Redis 60s 平滑缓存;抽样失败/超时(500ms)降级默认图(FR-203)。
  */
 const CACHE_KEY = STATUS_REDIS_KEYS.portrait;
 const CACHE_TTL_SECONDS = STATUS_REDIS_KEYS.portraitTtlSeconds;
 const QUERY_TIMEOUT_MS = 500;
 
-type Sample = { race: number; class: number; gender: number };
+type Sample = { race: number; gender: number };
 
 /** 依赖注入面(单测注入假查询;默认 characters 库 ORDER BY RAND 抽样) */
 export type PortraitDeps = {
@@ -31,13 +31,13 @@ async function sampleFromCharacters(): Promise<Sample | null> {
   const db = await getCharactersDb();
   // 6K 行规模全表扫可接受(页头非高频热点;R10)
   const rows = await db.$queryRaw<Sample[]>`
-    SELECT race, class, gender FROM characters WHERE level > 0 ORDER BY RAND() LIMIT 1`;
+    SELECT race, gender FROM characters WHERE level > 0 ORDER BY RAND() LIMIT 1`;
   return rows[0] ?? null;
 }
 
 function mapToUrl(sample: Sample | null): string {
   if (!sample) return PORTRAIT_DEFAULT;
-  return portraitPath(sample.race, sample.class, sample.gender) ?? PORTRAIT_DEFAULT;
+  return raceFacePath(sample.race, sample.gender) ?? PORTRAIT_DEFAULT;
 }
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
