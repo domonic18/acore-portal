@@ -14,6 +14,7 @@ import {
   requestPasswordReset,
   resetPassword,
 } from "@/server/services/auth/password";
+import * as passwordShared from "@/server/services/auth/password/shared";
 import {
   createSession,
   getSessionFromToken,
@@ -223,6 +224,50 @@ describe("US3 改密双写(quickstart S3)", () => {
     expect(verifyGameCreds(game, u.username, "Retry123")).toBe(true);
   });
 
+  it("游戏端写入成功后站点写入失败→游戏端回滚+旧密码仍有效+审计与恢复留痕", async () => {
+    const u = await makeUser();
+    const beforeSite = await prisma.user.findUniqueOrThrow({
+      where: { id: u.id },
+      select: { passwordHash: true },
+    });
+    const beforeGame = await authDb.findByUsername(u.username);
+
+    const updateSpy = vi
+      .spyOn(passwordShared, "writeSitePassword")
+      .mockRejectedValueOnce(new Error("mock: site db down"));
+    const failed = await changePassword({
+      userId: u.id,
+      currentPassword: "oldpass456",
+      newPassword: "Split123",
+    });
+    expect(failed).toEqual({ ok: false, reason: "game_sync_failed" });
+    updateSpy.mockRestore();
+
+    // 站点未变更
+    const afterSite = await prisma.user.findUniqueOrThrow({
+      where: { id: u.id },
+      select: { passwordHash: true },
+    });
+    expect(afterSite.passwordHash).toBe(beforeSite.passwordHash);
+    // 游戏端已回滚到旧 verifier
+    expect(sameGameCreds(await authDb.findByUsername(u.username), beforeGame)).toBe(true);
+
+    // 旧密码双端可过,新密码双端不过
+    expect((await loginWithPassword(u.username, "oldpass456")).ok).toBe(true);
+    expect((await loginWithPassword(u.username, "Split123")).ok).toBe(false);
+
+    const failedAudit = await prisma.auditLog.findFirst({
+      where: { actorUserId: u.id, action: AUDIT_ACTION.PASSWORD_DUAL_WRITE_FAILED },
+    });
+    expect(failedAudit).not.toBeNull();
+    expect((failedAudit?.payloadJson as { reason?: string }).reason).toMatch(/^site_write_failed:/);
+
+    const recoveredAudit = await prisma.auditLog.findFirst({
+      where: { actorUserId: u.id, action: AUDIT_ACTION.PASSWORD_DUAL_WRITE_RECOVERED },
+    });
+    expect(recoveredAudit).not.toBeNull();
+  });
+
   it("改密后旧会话与 refresh 全部吊销(FR-014)", async () => {
     const u = await makeUser();
     const { accessToken, payload } = await createSession(u.id, "user");
@@ -353,6 +398,47 @@ describe("US3 找回密码(quickstart S3 + R11)", () => {
 
     // token 已释放回可重试(不标记完成)
     const retried = await resetPassword({ tokenPlain: token, newPassword: "Late1234" });
+    expect(retried).toEqual({ ok: true });
+  });
+
+  it("重置时游戏端成功后站点失败→token 释放+游戏回滚+同一链接可重试", async () => {
+    const u = await makeUser();
+    await clearResetGate(u.email);
+    await requestPasswordReset(u.email);
+    const token = await latestResetToken(u.email);
+    const beforeGame = await authDb.findByUsername(u.username);
+
+    const updateSpy = vi
+      .spyOn(passwordShared, "writeSitePassword")
+      .mockRejectedValueOnce(new Error("mock: site db down"));
+    const failed = await resetPassword({ tokenPlain: token, newPassword: "Split1234" });
+    expect(failed).toEqual({ ok: false, reason: "game_sync_failed" });
+    updateSpy.mockRestore();
+
+    // token 已释放
+    const tokenRow = await prisma.userToken.findFirstOrThrow({
+      where: { user: { username: u.username }, type: "password_reset" },
+    });
+    expect(tokenRow.usedAt).toBeNull();
+
+    // 游戏端回滚,旧密码仍有效
+    expect(sameGameCreds(await authDb.findByUsername(u.username), beforeGame)).toBe(true);
+    expect((await loginWithPassword(u.username, "oldpass456")).ok).toBe(true);
+    expect((await loginWithPassword(u.username, "Split1234")).ok).toBe(false);
+
+    const failedAudit = await prisma.auditLog.findFirst({
+      where: { actorUserId: u.id, action: AUDIT_ACTION.PASSWORD_DUAL_WRITE_FAILED },
+    });
+    expect(failedAudit).not.toBeNull();
+    expect((failedAudit?.payloadJson as { reason?: string }).reason).toMatch(/^site_write_failed:/);
+
+    const recoveredAudit = await prisma.auditLog.findFirst({
+      where: { actorUserId: u.id, action: AUDIT_ACTION.PASSWORD_DUAL_WRITE_RECOVERED },
+    });
+    expect(recoveredAudit).not.toBeNull();
+
+    // 同一链接重试成功
+    const retried = await resetPassword({ tokenPlain: token, newPassword: "Split1234" });
     expect(retried).toEqual({ ok: true });
   });
 });
