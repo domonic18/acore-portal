@@ -25,4 +25,9 @@ jobs:
         run: pnpm db:generate
       - run: pnpm lint
       - run: pnpm typecheck
+      # 单测经 redis 模块触发 env 格式校验(fail-fast,只验存在性不连库),给哑元即可
       - run: pnpm exec vitest run tests/unit
+        env:
+          DATABASE_URL: mysql://ci:ci@127.0.0.1:3306/ci
+          REDIS_URL: redis://127.0.0.1:6379/0
+          SESSION_SECRET: ci-only-dummy-secret
