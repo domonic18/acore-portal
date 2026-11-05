@@ -1,7 +1,7 @@
 import "server-only";
 import type { Prisma } from "@/generated/business";
 import { prisma } from "@/lib/db";
-import { ORDER_STATUS, PRODUCT_STATUS } from "@/constants/shop";
+import { ORDER_NO_PREFIX, ORDER_STATUS, PRODUCT_STATUS } from "@/constants/shop";
 import { POINT_TX_TYPE } from "@/constants/points";
 import { CONVERSION_EVENT } from "@/constants/conversion";
 import { effectivePrice } from "@/server/services/catalog/products";
@@ -49,7 +49,7 @@ async function nextOrderNo(tx: Tx): Promise<string> {
     `${now.getFullYear()}` +
     `${String(now.getMonth() + 1).padStart(2, "0")}` +
     `${String(now.getDate()).padStart(2, "0")}`;
-  const prefix = `M2${ymd}`;
+  const prefix = `${ORDER_NO_PREFIX}${ymd}`;
   const last = await tx.order.findFirst({
     where: { orderNo: { startsWith: prefix } },
     orderBy: { orderNo: "desc" },

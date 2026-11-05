@@ -1,34 +1,14 @@
 import type { NextRequest } from "next/server";
-import { z } from "zod";
 import { apiError, apiOk, parseBody } from "@/server/http";
 import { requireApiAdmin } from "@/server/session-guard";
 import { BannerAdminError, deleteBanner, updateBanner } from "@/server/services/home/banners";
-
-const updateSchema = z.object({
-  // 标题可空=纯图 banner(WP 原站首页顶部特色图形态,前台不渲染文字叠层)
-  title: z.string().trim().max(64),
-  imageUrl: z
-    .string()
-    .trim()
-    .min(1, "图片必填")
-    .max(512)
-    .refine((v) => v.startsWith("/") || /^https:\/\//.test(v), "图片地址须为站内路径或 https 链接"),
-  linkUrl: z
-    .union([
-      z.literal(""),
-      z.string().trim().max(512).refine((v) => v.startsWith("/") || /^https?:\/\//.test(v), "跳转链接须为站内路径或 http(s) 地址"),
-    ])
-    .optional()
-    .default(""),
-  sort: z.number().int().min(0).max(9999).optional().default(0),
-  enabled: z.boolean().optional().default(true),
-});
+import { bannerSchema } from "../../_shared/banners";
 
 /** 编辑轮播物料(全量提交) */
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const guard = await requireApiAdmin(req);
   if (!guard.ok) return apiError(guard.status, guard.code, guard.message);
-  const parsed = await parseBody(req, updateSchema);
+  const parsed = await parseBody(req, bannerSchema);
   if (!parsed.ok) return parsed.response;
   const id = Number(params.id);
   if (!Number.isInteger(id) || id <= 0) {

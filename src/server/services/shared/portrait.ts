@@ -1,13 +1,14 @@
 import { redis } from "@/lib/redis";
 import { getCharactersDb } from "@/lib/db/characters";
 import { PORTRAIT_DEFAULT, portraitPath } from "@/constants/portraits";
+import { STATUS_REDIS_KEYS } from "@/constants/status";
 
 /**
  * 页头随机角色头图(M3 US1,R10):characters 只读抽样 → race/class/gender 映射
  * 静态头像;Redis 60s 平滑缓存;抽样失败/超时(500ms)降级默认图(FR-203)。
  */
-const CACHE_KEY = "m3:portrait";
-const CACHE_TTL_SECONDS = 60;
+const CACHE_KEY = STATUS_REDIS_KEYS.portrait;
+const CACHE_TTL_SECONDS = STATUS_REDIS_KEYS.portraitTtlSeconds;
 const QUERY_TIMEOUT_MS = 500;
 
 type Sample = { race: number; class: number; gender: number };

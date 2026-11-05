@@ -40,6 +40,7 @@ const productSchema = z
     gameItemId: z.coerce.number().int().positive().nullable().optional(),
     status: z.enum(["draft", "published"]),
     listed: z.boolean(),
+    featured: z.boolean().optional(),
   })
   .refine((v) => !(v.salePrice != null && v.salePrice >= v.price), {
     message: "促销价必须低于原价",

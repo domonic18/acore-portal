@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { SESSION } from "@/constants/session";
 import { normalizeLegacyKey } from "@/constants/legacy-routes";
+import { edgeEnv } from "@/lib/env-edge";
 
 /**
  * edge 兼容层(edge runtime,无 Prisma):
@@ -65,7 +66,7 @@ export async function middleware(req: NextRequest) {
     const token = req.cookies.get(SESSION.ACCESS_COOKIE)?.value;
     if (token) {
       try {
-        const secret = new TextEncoder().encode(process.env.SESSION_SECRET);
+        const secret = new TextEncoder().encode(edgeEnv.SESSION_SECRET);
         const { payload } = await jwtVerify(token, secret);
         if (pathname.startsWith("/account")) return NextResponse.next();
         if (pathname.startsWith("/admin") && payload.role === "admin") {

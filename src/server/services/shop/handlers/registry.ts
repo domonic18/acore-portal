@@ -28,7 +28,7 @@ export type OrderItemCtx = {
   params: ValidatedCartParams;
   /** 下单用户游戏账号 id(UPPER 约定经 auth 库解析) */
   gameAccountId: number;
-  /** 发货幂等键 = orderitem:{item_id}:{attempt}(失败可重试,成功回放) */
+  /** 发货幂等键 = orderitem:{item_id}(失败同键删行重执行,成功/未知回放不重发,issue #67) */
   idempotencyKey: string;
 };
 

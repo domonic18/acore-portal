@@ -2,6 +2,11 @@ import "server-only";
 import { randomInt } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { ADMIN_INVITATION_PAGE_SIZE } from "@/constants/pagination";
+import {
+  INVITATION_ALPHABET,
+  INVITATION_LIMITS,
+  INVITATION_PREFIX_PATTERN,
+} from "@/constants/invitation";
 import { paginate } from "@/lib/pagination";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/shared/audit";
@@ -9,8 +14,7 @@ import { UsersAdminError } from "./shared";
 
 // ===== 邀请码(M1 表与状态机复用) =====
 
-const INVITATION_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-export const INVITATION_COUNT_MAX = 200;
+export const INVITATION_COUNT_MAX = INVITATION_LIMITS.COUNT_MAX;
 
 export type InvitationListItem = {
   id: string;
@@ -67,19 +71,48 @@ export async function generateInvitationCodes(input: {
   operatorId: bigint;
   ip?: string | null;
 }): Promise<string[]> {
-  if (input.count < 1 || input.count > INVITATION_COUNT_MAX) {
-    throw new UsersAdminError("PARAM_INVALID", `单次生成数量须在 1-${INVITATION_COUNT_MAX} 之间。`);
+  if (input.count < INVITATION_LIMITS.COUNT_MIN || input.count > INVITATION_LIMITS.COUNT_MAX) {
+    throw new UsersAdminError(
+      "PARAM_INVALID",
+      `单次生成数量须在 ${INVITATION_LIMITS.COUNT_MIN}-${INVITATION_LIMITS.COUNT_MAX} 之间。`,
+    );
+  }
+  if (
+    input.maxUses < INVITATION_LIMITS.MAX_USES_MIN ||
+    input.maxUses > INVITATION_LIMITS.MAX_USES_MAX
+  ) {
+    throw new UsersAdminError(
+      "PARAM_INVALID",
+      `每码可用次数须在 ${INVITATION_LIMITS.MAX_USES_MIN}-${INVITATION_LIMITS.MAX_USES_MAX} 之间。`,
+    );
+  }
+  if (
+    input.prefix.length < INVITATION_LIMITS.PREFIX_MIN ||
+    input.prefix.length > INVITATION_LIMITS.PREFIX_MAX ||
+    !INVITATION_PREFIX_PATTERN.test(input.prefix)
+  ) {
+    throw new UsersAdminError(
+      "PARAM_INVALID",
+      `前缀须为 ${INVITATION_LIMITS.PREFIX_MIN}-${INVITATION_LIMITS.PREFIX_MAX} 位大写字母/数字。`,
+    );
   }
   const bodyLen = input.length - input.prefix.length - 1;
-  if (bodyLen < 4) {
-    throw new UsersAdminError("PARAM_INVALID", "长度不足以容纳随机段(前缀+1+≥4)。");
+  if (
+    input.length < INVITATION_LIMITS.LENGTH_MIN ||
+    input.length > INVITATION_LIMITS.LENGTH_MAX ||
+    bodyLen < INVITATION_LIMITS.RANDOM_BODY_MIN
+  ) {
+    throw new UsersAdminError(
+      "PARAM_INVALID",
+      `总长度须为 ${INVITATION_LIMITS.LENGTH_MIN}-${INVITATION_LIMITS.LENGTH_MAX},且随机段不少于 ${INVITATION_LIMITS.RANDOM_BODY_MIN} 位。`,
+    );
   }
 
   const codes: string[] = [];
   for (let i = 0; i < input.count; i += 1) {
     let body = "";
     for (let j = 0; j < bodyLen; j += 1) {
-      body += INVITATION_CODE_CHARS[randomInt(INVITATION_CODE_CHARS.length)];
+      body += INVITATION_ALPHABET[randomInt(INVITATION_ALPHABET.length)];
     }
     codes.push(`${input.prefix}-${body}`);
   }

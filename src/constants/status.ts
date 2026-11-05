@@ -12,10 +12,11 @@ export const PROGRESSION_CURRENT_NODE_KEY = "progression.current_node_id";
 /** 探针缓存与峰值 Redis 键(非账务数据,可丢失) */
 export const STATUS_REDIS_KEYS = {
   probe: "status:probe",
+  probeLastok: "status:probe:lastok",
   probeTtlSeconds: 25,
   peakPrefix: "status:peak:",
   peakTtlSeconds: 48 * 60 * 60,
-  portrait: "header:random-char",
+  portrait: "m3:portrait",
   portraitTtlSeconds: 60,
 } as const;
 

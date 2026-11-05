@@ -13,11 +13,12 @@ import { checkoutCart } from "@/server/services/shop/checkout";
 import { driveOrderDelivery } from "@/server/services/shop/delivery";
 import {
   OrderAdminError,
+  getAdminOrderDetail,
   redeliverOrder,
   refundOrder,
 } from "@/server/services/orders/admin";
 import { adjustPoints } from "@/server/services/points/adjust";
-import { grantBadge } from "@/server/services/users-admin/admin";
+import { getAdminUserDetail, grantBadge } from "@/server/services/users-admin/admin";
 
 /**
  * T046 订单/用户后台服务集成(api-admin 契约,quickstart S5.4):
@@ -85,9 +86,25 @@ async function setMockMode(mode: "normal" | "failure") {
 }
 
 async function countCalls(itemId: bigint) {
+  const base = `orderitem:${itemId}`;
   return prisma.soapCall.count({
-    where: { idempotencyKey: { startsWith: `orderitem:${itemId}:` } },
+    where: {
+      OR: [{ idempotencyKey: base }, { idempotencyKey: { startsWith: `${base}:` } }],
+    },
   });
+}
+
+/** 实际 SOAP 执行次数(审计逐次尝试):稳定幂等键下同一行会被复用,执行次数看审计 */
+async function countSoapAttempts(itemId: bigint) {
+  const base = `orderitem:${itemId}`;
+  const rows = await prisma.auditLog.findMany({
+    where: { category: AUDIT_CATEGORY.SOAP, action: AUDIT_ACTION.SOAP_ATTEMPT },
+    select: { payloadJson: true },
+  });
+  return rows.filter((r) => {
+    const payload = r.payloadJson as { key?: unknown };
+    return typeof payload.key === "string" && payload.key.startsWith(base);
+  }).length;
 }
 
 beforeAll(async () => {
@@ -186,13 +203,21 @@ describe("US5 订单/用户后台服务(T046)", () => {
     expect(result.items.map((i) => i.deliveryStatus)).toEqual(["delivered"]);
     const done = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
     expect(done.status).toBe("completed");
-    expect(await countCalls(itemId)).toBe(2); // 失败 1 次+补发 1 次,无重复命令
+    // 稳定幂等键(issue #67):补发复用同一行(确定性失败删行重执行),命令行数仍为 1;
+    // 真实执行次数=失败 1 次+补发 1 次(审计逐次尝试),无重复发货命令
+    expect(await countCalls(itemId)).toBe(1);
+    expect(await countSoapAttempts(itemId)).toBe(2);
+    const call = await prisma.soapCall.findFirstOrThrow({
+      where: { idempotencyKey: `orderitem:${itemId}` },
+    });
+    expect(call.status).toBe("success");
 
-    // 非 delivery_failed 拒绝补发(completed 已终态);命令数不再增长
+    // 非 delivery_failed 拒绝补发(completed 已终态);命令与执行次数均不再增长
     await expect(redeliverOrder(order.id, operatorId)).rejects.toMatchObject({
       code: "INVALID_STATUS",
     });
-    expect(await countCalls(itemId)).toBe(2);
+    expect(await countCalls(itemId)).toBe(1);
+    expect(await countSoapAttempts(itemId)).toBe(2);
     const audits = await prisma.auditLog.findMany({
       where: { action: AUDIT_ACTION.ORDER_REDELIVER, category: AUDIT_CATEGORY.ADMIN },
     });
@@ -343,5 +368,100 @@ describe("US5 订单/用户后台服务(T046)", () => {
     } finally {
       await prisma.pointRule.update({ where: { id: rule.id }, data: { amount: rule.amount } });
     }
+  });
+});
+
+describe("后台详情 DTO 序列化(issue #78,2026-11-05)", () => {
+  it("订单/用户详情:BigInt 与日期在 service 序列化,DTO 可直接 JSON 化", async () => {
+    const { user } = await makeGameUser("dto");
+    usernames.push(user.username);
+
+    // 一笔流水(余额/流水行)+ 一枚徽章 → 用户详情 DTO
+    await debitLedger(prisma, {
+      userId: user.id,
+      amount: 120,
+      type: POINT_TX_TYPE.MANUAL_ADJUST,
+      remark: "DTO 测试流水",
+    });
+    const badge = await prisma.badge.create({
+      data: { name: `M5O徽章-${RUN}-DTO`, level: 2, description: "dto" },
+      select: { id: true, name: true, level: true },
+    });
+    const grant = await prisma.badgeGrant.create({
+      data: { userId: user.id, badgeId: badge.id, grantedBy: operatorId },
+      select: { id: true, createdAt: true },
+    });
+    const tx = await prisma.pointTransaction.findFirstOrThrow({
+      where: { userId: user.id },
+      orderBy: { id: "desc" },
+    });
+
+    const orderNo = `M2T${RUN.toUpperCase()}D1`;
+    const product = await makeServiceProduct("char-change-faction");
+    const order = await prisma.order.create({
+      data: {
+        orderNo,
+        userId: user.id,
+        status: "paid",
+        pointCost: 100,
+        legacyWpOrderId: 12345,
+        items: {
+          create: [
+            {
+              productId: product.id,
+              sku: "char-change-faction",
+              name: "阵营转换",
+              unitPrice: 100,
+              qty: 1,
+              params: {},
+            },
+          ],
+        },
+      },
+      include: { items: true },
+    });
+    const orderRow = await prisma.order.findUniqueOrThrow({
+      where: { id: order.id },
+      select: { createdAt: true },
+    });
+
+    const orderDto = await getAdminOrderDetail(order.id);
+    expect(orderDto).toMatchObject({
+      id: order.id.toString(),
+      orderNo,
+      legacyWpOrderId: 12345,
+      createdAt: orderRow.createdAt.toISOString(),
+      user: { id: user.id.toString(), username: user.username },
+      items: [
+        {
+          id: order.items[0]!.id.toString(),
+          sku: "char-change-faction",
+          // 同 SKU 商品可能带存量迁移 slug,按实际商品行断言
+          productSlug: (await prisma.product.findUniqueOrThrow({ where: { id: product.id }, select: { slug: true } })).slug,
+        },
+      ],
+    });
+
+    const userDto = await getAdminUserDetail(user.id);
+    expect(userDto?.id).toBe(user.id.toString());
+    expect(userDto?.balance).toBe(99880); // rich 初始 100000 - debit 120
+    expect(userDto?.badges).toEqual([
+      {
+        id: grant.id.toString(),
+        name: badge.name,
+        level: badge.level,
+        grantedAt: grant.createdAt.toISOString(),
+      },
+    ]);
+    expect(userDto?.recentTransactions[0]).toMatchObject({
+      id: tx.id.toString(),
+      type: POINT_TX_TYPE.MANUAL_ADJUST,
+      createdAt: tx.createdAt.toISOString(),
+    });
+    // 页面 DTO 可直接 JSON 序列化(残留 BigInt 会 throw)
+    expect(() => JSON.stringify({ orderDto, userDto })).not.toThrow();
+
+    expect(await getAdminOrderDetail(9_999_999n)).toBeNull();
+    expect(await getAdminUserDetail(9_999_999n)).toBeNull();
   });
 });

@@ -35,6 +35,7 @@ export type ProductFormValues = {
   gameItemId?: number | null;
   status: string;
   listed: boolean;
+  featured: boolean;
 };
 
 export function ProductForm({
@@ -59,6 +60,7 @@ export function ProductForm({
       stockEnabled: false,
       status: "draft",
       listed: true,
+      featured: false,
     },
   );
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +77,12 @@ export function ProductForm({
       await requestJson("/api/admin/products", {
         method: initial?.id ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(values),
+        // datetime-local 空串统一转 null(z.coerce.date 不接受空串)
+        body: JSON.stringify({
+          ...values,
+          saleStart: values.saleStart || null,
+          saleEnd: values.saleEnd || null,
+        }),
       });
       router.push("/admin/products");
       router.refresh();
@@ -168,6 +175,24 @@ export function ProductForm({
           />
         </label>
       </div>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="flex flex-col gap-1">
+          <span className="text-[#93b2ce]">促销开始(留空=无限制)</span>
+          <Input
+            type="datetime-local"
+            value={values.saleStart ?? ""}
+            onChange={(e) => set("saleStart", e.target.value || null)}
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-[#93b2ce]">促销结束(留空=无限制)</span>
+          <Input
+            type="datetime-local"
+            value={values.saleEnd ?? ""}
+            onChange={(e) => set("saleEnd", e.target.value || null)}
+          />
+        </label>
+      </div>
       <div className="flex items-center gap-6">
         <label className="flex items-center gap-2">
           <Switch
@@ -234,14 +259,24 @@ export function ProductForm({
             <option value="published">已发布</option>
           </Select>
         </label>
-        <label className="flex items-center gap-2 self-end">
-          <Switch
-            checked={values.listed}
-            onChange={(v) => set("listed", v)}
-            ariaLabel="目录可见"
-          />
-          <span className="text-[#93b2ce]">目录可见(listed)</span>
-        </label>
+        <div className="flex flex-col gap-2 self-end">
+          <label className="flex items-center gap-2">
+            <Switch
+              checked={values.listed}
+              onChange={(v) => set("listed", v)}
+              ariaLabel="目录可见"
+            />
+            <span className="text-[#93b2ce]">目录可见(listed)</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <Switch
+              checked={values.featured}
+              onChange={(v) => set("featured", v)}
+              ariaLabel="精选"
+            />
+            <span className="text-[#93b2ce]">精选(featured)</span>
+          </label>
+        </div>
       </div>
       <Button type="button" variant="primary" onClick={submit} disabled={busy} className="w-fit px-6 py-2 text-sm">
         {busy ? "保存中…" : "保存"}

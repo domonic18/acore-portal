@@ -15,7 +15,8 @@ import type { DeliveryHandler } from "./registry";
  * 数量口径对齐 WP ItemSend::payment_complete(2026-10-26 核对):`_stack` 后缀=可堆叠
  * 物品一封 qty 个;无后缀=qty 封各 1 个——AC Item::CreateItem 超过 maxStackSize 会
  * 静默钳制(武器 stackable=1,一封 "id:2" 玩家只收到 1 个)。
- * 幂等键:单封=orderitem:{id}:{attempt};多封追加 :m{i} 子键。重试防重发:非堆叠多封
+ * 幂等键:固定 orderitem:{id}(issue #67,不带 attempt 序;failed 同键删行重执行,
+ * success/unknown 回放不重发);多封追加 :m{i} 子键。重试防重发:非堆叠多封
  * 按 requestedBy 统计本行已成功封数,只补未发部分。
  */
 export const itemSendHandler: DeliveryHandler = {

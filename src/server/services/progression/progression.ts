@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
+import { PROGRESSION_CURRENT_NODE_KEY } from "@/constants/status";
 import { writeAudit } from "@/server/services/shared/audit";
 import { ContentAdminError } from "@/server/services/content/admin";
 
@@ -12,7 +13,7 @@ import { ContentAdminError } from "@/server/services/content/admin";
  * 审计只记 id/status/sort,不记标题/正文(T048 脱敏口径)。
  */
 
-const POINTER_KEY = "progression.current_node_id";
+const POINTER_KEY = PROGRESSION_CURRENT_NODE_KEY;
 
 /** 画布顺序即时间轴顺序(WP 区块顺序语义);日期只用于同日兜底 */
 const ORDER_BY = [

@@ -18,7 +18,9 @@ import { driveOrderDelivery, recoverStalledDeliveries } from "@/server/services/
  * T029 发货管线集成测试(soap-mock 契约,quickstart S3#1/2):
  * 成功→订单自动 completed 全程无人工(SC-102 前半);失败注入→delivery_failed 可见→
  * 补发成功闭环→重复补发幂等命中命令数不变;NO_HANDLER 防御拒绝;滞留 delivering 崩溃恢复扫描。
- * 每次调用落 soap_call(M1 机制);幂等键=orderitem:{item_id}:{attempt}(失败可重试,成功回放)。
+ * 每次调用落 soap_call(M1 机制);幂等键固定 orderitem:{item_id}(issue #67:success/unknown
+ * 回放不重发,failed 删行重执行,unknown 门控待人工核对);并发驱动租约互斥(#68);
+ * 滞留 paid 恢复扫描(#66)。
  */
 const RUN = Date.now().toString(36);
 const GUID_BASE = 950000 + (Number.parseInt(RUN, 36) % 40000);
@@ -65,7 +67,7 @@ async function makeItemProduct(tag: string, data: Partial<Prisma.ProductUnchecke
       ).id,
       ...data,
     },
-    select: { id: true },
+    select: { id: true, sku: true },
   });
   extraSlugs.push(slug);
   return created;
@@ -89,6 +91,14 @@ async function checkoutOne(
 async function setMockMode(mode: "normal" | "timeout" | "failure") {
   const res = await fetch(`${MOCK_BASE}/__mode?mode=${mode}`);
   if (!res.ok) throw new Error(`soap-mock 不可达(${MOCK_BASE}),请先启动 docker dev 栈`);
+}
+
+/** 本行全部幂等键(基键 + :m{i} 子键);不含尾冒号防误命中其他 item 前缀 */
+function itemCallFilter(itemId: bigint) {
+  const base = `orderitem:${itemId}`;
+  return {
+    OR: [{ idempotencyKey: base }, { idempotencyKey: { startsWith: `${base}:` } }],
+  };
 }
 
 async function setMockFail(command: string, on: boolean) {
@@ -122,14 +132,17 @@ afterAll(async () => {
     await prisma.cartItem.deleteMany({ where: { userId: { in: userIds } } });
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
   }
-  // 发货幂等键与审计按本次 item id 精确清理
+  // 发货幂等键与审计按本次 item id 精确清理(基键 + :m{i} 子键,尾冒号防误命中)
   for (const itemId of orderItemIds) {
-    const prefix = `orderitem:${itemId}:`;
-    await prisma.soapCall.deleteMany({ where: { idempotencyKey: { startsWith: prefix } } });
+    const base = `orderitem:${itemId}`;
+    await prisma.soapCall.deleteMany({ where: itemCallFilter(itemId) });
     await prisma.$executeRaw`
       DELETE FROM audit_log
       WHERE category = 'soap'
-        AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.key')) LIKE ${`${prefix}%`}
+        AND (
+          JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.key')) LIKE ${`${base}:%`}
+          OR JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.key')) = ${base}
+        )
     `;
   }
   if (gameUsernames.length > 0) {
@@ -171,7 +184,7 @@ describe("US3 发货管线(T029)", () => {
     const call = await prisma.soapCall.findUniqueOrThrow({
       where: { id: item.soapCallId! },
     });
-    expect(call.idempotencyKey).toBe(`orderitem:${itemId}:1`);
+    expect(call.idempotencyKey).toBe(`orderitem:${itemId}`);
     expect(call.status).toBe("success");
     expect(call.command).toBe(".send items");
     expect(call.attempts).toBe(1);
@@ -179,9 +192,7 @@ describe("US3 发货管线(T029)", () => {
 
     // 重复驱动(completed)→ 状态与命令数均不变
     await driveOrderDelivery(orderId);
-    expect(
-      await prisma.soapCall.count({ where: { idempotencyKey: { startsWith: `orderitem:${itemId}:` } } }),
-    ).toBe(1);
+    expect(await prisma.soapCall.count({ where: itemCallFilter(itemId) })).toBe(1);
   });
 
   it("失败注入→delivery_failed+deliveryError 可见;补发成功→completed;再次补发幂等命中命令数不变", async () => {
@@ -196,11 +207,11 @@ describe("US3 发货管线(T029)", () => {
     expect(order.deliveryError).toContain("mock injected failure");
     expect(order.items[0]!.deliveryStatus).toBe("failed");
     const failedAttempts = (
-      await prisma.soapCall.findUniqueOrThrow({ where: { idempotencyKey: `orderitem:${itemId}:1` } })
+      await prisma.soapCall.findUniqueOrThrow({ where: { idempotencyKey: `orderitem:${itemId}` } })
     ).attempts;
     expect(failedAttempts).toBeGreaterThanOrEqual(1);
 
-    // 补发(重试/后台补发路径):解除注入重新驱动
+    // 补发(重试/后台补发路径):解除注入重新驱动(确定性失败同键删行重执行)
     await setMockFail(".send items", false);
     await driveOrderDelivery(orderId);
     order = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, include: { items: true } });
@@ -209,13 +220,9 @@ describe("US3 发货管线(T029)", () => {
     expect(order.deliveryError).toBeNull();
 
     // 幂等命中:成功后再驱动不新增命令
-    const callsBefore = await prisma.soapCall.count({
-      where: { idempotencyKey: { startsWith: `orderitem:${itemId}:` } },
-    });
+    const callsBefore = await prisma.soapCall.count({ where: itemCallFilter(itemId) });
     await driveOrderDelivery(orderId);
-    expect(
-      await prisma.soapCall.count({ where: { idempotencyKey: { startsWith: `orderitem:${itemId}:` } } }),
-    ).toBe(callsBefore);
+    expect(await prisma.soapCall.count({ where: itemCallFilter(itemId) })).toBe(callsBefore);
   }, 30_000);
 
   it("非堆叠多件=逐封单件邮寄,堆叠多件=一封多件(WP 口径,防 CreateItem 超栈钳制)", async () => {
@@ -243,8 +250,9 @@ describe("US3 发货管线(T029)", () => {
     orderItemIds.push(o2.items[0]!.id);
     await driveOrderDelivery(o2.id);
 
+    const plainItemId = o1.items[0]!.id;
     const plainCalls = await prisma.soapCall.findMany({
-      where: { idempotencyKey: { startsWith: `orderitem:${o1.items[0]!.id}:` } },
+      where: itemCallFilter(plainItemId),
       orderBy: { id: "asc" },
     });
     expect(plainCalls).toHaveLength(2);
@@ -255,11 +263,11 @@ describe("US3 发货管线(T029)", () => {
       expect(args[0]).toBe(charName);
       expect(args[3]).toMatch(/:1$/);
     }
-    expect(plainCalls[0]!.idempotencyKey).toBe(`orderitem:${o1.items[0]!.id}:1:m0`);
-    expect(plainCalls[1]!.idempotencyKey).toBe(`orderitem:${o1.items[0]!.id}:1:m1`);
+    expect(plainCalls[0]!.idempotencyKey).toBe(`orderitem:${plainItemId}:m0`);
+    expect(plainCalls[1]!.idempotencyKey).toBe(`orderitem:${plainItemId}:m1`);
 
     const stackCalls = await prisma.soapCall.findMany({
-      where: { idempotencyKey: { startsWith: `orderitem:${o2.items[0]!.id}:` } },
+      where: itemCallFilter(o2.items[0]!.id),
     });
     expect(stackCalls).toHaveLength(1);
     expect((stackCalls[0]!.argsJson as string[])[3]).toMatch(/:3$/);
@@ -284,7 +292,7 @@ describe("US3 发货管线(T029)", () => {
     // 预置第 1 封已成功(模拟部分成功后的重试场景)
     await prisma.soapCall.create({
       data: {
-        idempotencyKey: `orderitem:${itemId}:1:m0`,
+        idempotencyKey: `orderitem:${itemId}:m0`,
         command: ".send items",
         argsJson: ["预置", '"t"', '"t"', "1900:1"],
         status: "success",
@@ -296,7 +304,7 @@ describe("US3 发货管线(T029)", () => {
     await driveOrderDelivery(order.id);
 
     const calls = await prisma.soapCall.findMany({
-      where: { idempotencyKey: { startsWith: `orderitem:${itemId}:` } },
+      where: itemCallFilter(itemId),
     });
     expect(calls).toHaveLength(2); // 预置 1 封 + 本次只补 1 封,不重发
     const after = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
@@ -358,5 +366,136 @@ describe("US3 发货管线(T029)", () => {
 
     const after = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
     expect(after.status).toBe("completed");
+  });
+});
+
+describe("发货可靠性(issue #66/#67/#68,2026-11-05)", () => {
+  it("#67 超时结果未知:unknown 终态+订单失败可见;恢复后重发被门控;人工核对删行后可补发", async () => {
+    const { user, guid } = await makeGameUser("unknown");
+    const product = await makeItemProduct("unknown", { stockEnabled: true, stock: 5 });
+    const { orderId, itemId } = await checkoutOne(user.id, product.id, guid);
+
+    await setMockMode("timeout");
+    await driveOrderDelivery(orderId);
+
+    let order = await prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
+      include: { items: true },
+    });
+    expect(order.status).toBe("delivery_failed");
+    expect(order.deliveryError).toContain("结果未知");
+    expect(order.items[0]!.deliveryStatus).toBe("failed");
+    const call = await prisma.soapCall.findUniqueOrThrow({
+      where: { idempotencyKey: `orderitem:${itemId}` },
+    });
+    expect(call.status).toBe("unknown");
+    expect(call.attempts).toBe(1); // 未知立即中止,不自动重试
+
+    // mock 恢复后重驱动:同键 unknown 回放门控,不重发(行不变、状态不变)
+    await setMockMode("normal");
+    await driveOrderDelivery(orderId);
+    const replayed = await prisma.soapCall.findUniqueOrThrow({
+      where: { idempotencyKey: `orderitem:${itemId}` },
+    });
+    expect(replayed.id).toBe(call.id);
+    expect(replayed.status).toBe("unknown");
+    const stillFailed = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
+    expect(stillFailed.status).toBe("delivery_failed");
+
+    // 人工核对确认游戏端未执行 → 删 unknown 行后补发成功闭环
+    await prisma.soapCall.delete({ where: { id: call.id } });
+    await driveOrderDelivery(orderId);
+    order = await prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
+      include: { items: true },
+    });
+    expect(order.status).toBe("completed");
+    expect(order.items[0]!.deliveryStatus).toBe("delivered");
+    expect(await prisma.soapCall.count({ where: itemCallFilter(itemId) })).toBe(1);
+  }, 30_000);
+
+  it("#67 成功回放收口:SOAP 成功但本地更新失败的行,重驱动回放 success 不重发", async () => {
+    const { user, guid } = await makeGameUser("replay");
+    const product = await makeItemProduct("replay", { stockEnabled: true, stock: 5 });
+    const { orderId, itemId } = await checkoutOne(user.id, product.id, guid);
+
+    // 模拟崩溃窗口:SOAP 已成功(预置 success 行)但订单行未落 delivered
+    await prisma.soapCall.create({
+      data: {
+        idempotencyKey: `orderitem:${itemId}`,
+        command: ".send items",
+        argsJson: ["预置", '"t"', '"t"', "1900:1"],
+        status: "success",
+        attempts: 1,
+        requestedBy: `order:${orderId}:item:${itemId}`,
+      },
+    });
+
+    await driveOrderDelivery(orderId);
+
+    const order = await prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
+      include: { items: true },
+    });
+    expect(order.status).toBe("completed");
+    expect(order.items[0]!.deliveryStatus).toBe("delivered");
+    expect(order.items[0]!.soapCallId).not.toBeNull();
+    expect(await prisma.soapCall.count({ where: itemCallFilter(itemId) })).toBe(1);
+  });
+
+  it("#66 滞留 paid(结账后驱动丢失)被恢复扫描补驱动;新鲜 paid 不误扫", async () => {
+    const { user, guid } = await makeGameUser("paidrec");
+    const product = await makeItemProduct("paidrec", { stockEnabled: true, stock: 5 });
+    const mkPaid = async (tag: string, paidAt: Date) => {
+      const order = await prisma.order.create({
+        data: {
+          orderNo: `M2TEST${RUN.toUpperCase()}${tag}`,
+          userId: user.id,
+          status: "paid",
+          pointCost: 100,
+          paidAt,
+          items: {
+            create: {
+              productId: product.id,
+              sku: product.sku,
+              name: "恢复测试",
+              unitPrice: 100,
+              qty: 1,
+              params: { characterGuid: guid },
+            },
+          },
+        },
+        include: { items: true },
+      });
+      orderItemIds.push(order.items[0]!.id);
+      return order;
+    };
+    const stalled = await mkPaid("PR", new Date(Date.now() - 10 * 60_000));
+    const fresh = await mkPaid("PF", new Date());
+
+    const { paid } = await recoverStalledDeliveries();
+    expect(paid).toBeGreaterThanOrEqual(1);
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: stalled.id } })).status).toBe(
+      "completed",
+    );
+    // 刚支付的订单仍留给在途 fire-and-forget 驱动,不被扫描抢跑
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: fresh.id } })).status).toBe("paid");
+  });
+
+  it("#68 并发驱动同一订单:租约原子领取仅一方执行,命令恰好一次且租约释放", async () => {
+    const { user, guid } = await makeGameUser("claim");
+    const product = await makeItemProduct("claim", { stockEnabled: true, stock: 5 });
+    const { orderId, itemId } = await checkoutOne(user.id, product.id, guid);
+
+    await Promise.allSettled([driveOrderDelivery(orderId), driveOrderDelivery(orderId)]);
+
+    const order = await prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
+      include: { items: true },
+    });
+    expect(order.status).toBe("completed");
+    expect(order.items[0]!.deliveryStatus).toBe("delivered");
+    expect(order.deliveryClaimUntil).toBeNull();
+    expect(await prisma.soapCall.count({ where: itemCallFilter(itemId) })).toBe(1);
   });
 });

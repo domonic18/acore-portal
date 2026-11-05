@@ -81,13 +81,19 @@ export async function labelThread(id: bigint, label: string, actor: Actor) {
   return updated;
 }
 
-/** 软删:thread+楼层同事务 deletedAt(数据保留,SC-207);payload 含 title 快照 */
+/**
+ * 软删:thread+可见楼层同事务级联删除并标记 deletedViaThread(issue #69:
+ * 已被独立删除的楼层保持原状态,恢复主题时不会误还原);payload 含 title 快照
+ */
 export async function deleteThread(id: bigint, actor: Actor) {
   const thread = await requireThread(id);
   const now = new Date();
   await prisma.$transaction([
     prisma.forumThread.update({ where: { id }, data: { deletedAt: now } }),
-    prisma.forumPost.updateMany({ where: { threadId: id }, data: { deletedAt: now } }),
+    prisma.forumPost.updateMany({
+      where: { threadId: id, deletedAt: null },
+      data: { deletedAt: now, deletedViaThread: true },
+    }),
   ]);
   await writeAudit({
     category: AUDIT_CATEGORY.FORUM,
@@ -97,14 +103,35 @@ export async function deleteThread(id: bigint, actor: Actor) {
   });
 }
 
-/** 后台恢复(M4):与 deleteThread 对偶,事务清 thread+楼层 deletedAt(仅已删主题可达) */
+/**
+ * 后台恢复(M4):与 deleteThread 对偶,只还原本次级联删除的楼层
+ * (deletedViaThread=true;issue #69 此前独立删除的楼层保持删除);
+ * replyCount/lastPostAt 按真实可见楼层重算,消除派生计数与可见内容失配。
+ */
 export async function undeleteThread(id: bigint, actor: Actor) {
   const thread = await prisma.forumThread.findUnique({ where: { id } });
   if (!thread || !thread.deletedAt) throw new ForumModerateError("THREAD_NOT_FOUND");
-  await prisma.$transaction([
-    prisma.forumThread.update({ where: { id }, data: { deletedAt: null } }),
-    prisma.forumPost.updateMany({ where: { threadId: id }, data: { deletedAt: null } }),
-  ]);
+  await prisma.$transaction(async (tx) => {
+    await tx.forumThread.update({ where: { id }, data: { deletedAt: null } });
+    await tx.forumPost.updateMany({
+      where: { threadId: id, deletedViaThread: true },
+      data: { deletedAt: null, deletedViaThread: false },
+    });
+    const [replyCount, lastReply] = await Promise.all([
+      tx.forumPost.count({
+        where: { threadId: id, deletedAt: null, floor: { not: POST_FLOOR_MAIN } },
+      }),
+      tx.forumPost.findFirst({
+        where: { threadId: id, deletedAt: null, floor: { not: POST_FLOOR_MAIN } },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
+      }),
+    ]);
+    await tx.forumThread.update({
+      where: { id },
+      data: { replyCount, lastPostAt: lastReply?.createdAt ?? thread.createdAt },
+    });
+  });
   await writeAudit({
     category: AUDIT_CATEGORY.FORUM,
     action: AUDIT_ACTION.FORUM_THREAD_UNDELETE,
@@ -115,25 +142,38 @@ export async function undeleteThread(id: bigint, actor: Actor) {
 
 const POST_FLOOR_MAIN = 1;
 
-/** 版主删楼层(#34 软删口径):主贴(floor=1)不走此接口,引导用 deleteThread;replyCount 回减+lastPostAt 重算+审计 */
+/**
+ * 版主删楼层(#34 软删口径):主贴(floor=1)不走此接口,引导用 deleteThread;
+ * 事务内 deletedAt:null 条件更新做原子迁移(issue #70:并发删除同一楼层
+ * 仅首个请求扣减 replyCount/落审计,后续请求拒绝);lastPostAt 重算。
+ */
 export async function deletePost(input: {
   threadId: bigint;
   postId: bigint;
   actor: Actor;
 }): Promise<void> {
-  const post = await prisma.forumPost.findFirst({
-    where: { id: input.postId, threadId: input.threadId, deletedAt: null },
-  });
-  if (!post) throw new ForumModerateError("THREAD_NOT_FOUND");
-  if (post.floor === POST_FLOOR_MAIN) {
-    throw new ForumModerateError("INVALID_FLOOR", "主贴请使用「删除主题」整体软删。");
-  }
-
   const now = new Date();
-  await prisma.$transaction(async (tx) => {
-    await tx.forumPost.update({
-      where: { id: post.id },
+  const floor = await prisma.$transaction(async (tx) => {
+    const hit = await tx.forumPost.updateMany({
+      where: {
+        id: input.postId,
+        threadId: input.threadId,
+        deletedAt: null,
+        floor: { not: POST_FLOOR_MAIN },
+      },
       data: { deletedAt: now },
+    });
+    if (hit.count === 0) {
+      const post = await tx.forumPost.findFirst({
+        where: { id: input.postId, threadId: input.threadId },
+        select: { floor: true, deletedAt: true },
+      });
+      if (!post || post.deletedAt) throw new ForumModerateError("THREAD_NOT_FOUND");
+      throw new ForumModerateError("INVALID_FLOOR", "主贴请使用「删除主题」整体软删。");
+    }
+    const deleted = await tx.forumPost.findUniqueOrThrow({
+      where: { id: input.postId },
+      select: { floor: true },
     });
     const remaining = await tx.forumPost.findFirst({
       where: { threadId: input.threadId, deletedAt: null, floor: { not: POST_FLOOR_MAIN } },
@@ -150,6 +190,7 @@ export async function deletePost(input: {
         })).createdAt,
       },
     });
+    return deleted.floor;
   });
   await writeAudit({
     category: AUDIT_CATEGORY.FORUM,
@@ -157,8 +198,8 @@ export async function deletePost(input: {
     actorUserId: input.actor.id,
     payload: {
       threadId: input.threadId.toString(),
-      postId: post.id.toString(),
-      floor: post.floor,
+      postId: input.postId.toString(),
+      floor,
     },
   });
 }

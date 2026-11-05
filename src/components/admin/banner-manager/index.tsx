@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, GripVertical, Plus } from "lucide-react";
 import { useHydrated } from "@/lib/use-hydrated";
@@ -8,6 +8,7 @@ import { errorMessage, requestJson } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { FOCUS_RING } from "@/components/ui/admin-tokens";
+import { useSortableList } from "@/components/admin/use-sortable-list";
 import { BannerEditorFields, BannerImagePreview } from "./edit-fields";
 
 import { EMPTY, type Banner, type Draft } from "./draft-types";
@@ -26,22 +27,27 @@ export function BannerManager({ banners }: { banners: Banner[] }) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [creating, setCreating] = useState(false);
   const [newBanner, setNewBanner] = useState<Draft>(EMPTY);
-  const [order, setOrder] = useState<string[]>(() => banners.map((b) => b.id));
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [reordering, setReordering] = useState(false);
 
-  // props.banners(refresh 后)与本地排序对齐:新出现的 id 追加、消失的移除
-  useEffect(() => {
-    setOrder((prev) => {
-      const ids = banners.map((b) => b.id);
-      const kept = prev.filter((id) => ids.includes(id));
-      const added = ids.filter((id) => !kept.includes(id));
-      return [...kept.filter((id) => ids.includes(id)), ...added];
-    });
-  }, [banners]);
-
-  const byId = new Map(banners.map((b) => [b.id, b]));
-  const ordered = order.map((id) => byId.get(id)).filter((b): b is Banner => Boolean(b));
+  // 排序流程(#79 抽共享 Hook):顺序/拖拽/防重入/持久化统一由 useSortableList 承担
+  const { ordered, dragId, setDragId, reordering, moveBy, moveTo } = useSortableList<Banner>({
+    items: banners,
+    enabled: hydrated && !busy,
+    save: async (b, index) => {
+      await requestJson(`/api/admin/banners/${b.id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title: b.title,
+          imageUrl: b.imageUrl,
+          linkUrl: b.linkUrl,
+          sort: index,
+          enabled: b.enabled,
+        }),
+      });
+    },
+    onError: setError,
+    onPersisted: () => router.refresh(),
+  });
 
   async function send(method: string, path: string, body?: unknown) {
     setBusy(true);
@@ -60,55 +66,6 @@ export function BannerManager({ banners }: { banners: Banner[] }) {
     } finally {
       setBusy(false);
     }
-  }
-
-  async function persistOrder(next: string[]) {
-    if (busy || !hydrated) return;
-    setReordering(true);
-    setError(null);
-    try {
-      await Promise.all(
-        next.map((id, index) => {
-          const b = byId.get(id);
-          if (!b || b.sort === index) return Promise.resolve();
-          return requestJson(`/api/admin/banners/${id}`, {
-            method: "PUT",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              title: b.title,
-              imageUrl: b.imageUrl,
-              linkUrl: b.linkUrl,
-              sort: index,
-              enabled: b.enabled,
-            }),
-          });
-        }),
-      );
-      setOrder(next);
-      router.refresh();
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setReordering(false);
-    }
-  }
-
-  function moveLocal(id: string, delta: number) {
-    const index = order.indexOf(id);
-    const target = index + delta;
-    if (index < 0 || target < 0 || target >= order.length) return;
-    const next = [...order];
-    next.splice(index, 1);
-    next.splice(target, 0, id);
-    void persistOrder(next);
-  }
-
-  function handleDrop(targetId: string) {
-    if (!dragId || dragId === targetId) return;
-    const next = order.filter((id) => id !== dragId);
-    next.splice(order.indexOf(targetId), 0, dragId);
-    setDragId(null);
-    void persistOrder(next);
   }
 
   function toPayload(d: Draft) {
@@ -210,7 +167,7 @@ export function BannerManager({ banners }: { banners: Banner[] }) {
                 draggable={hydrated && !busy}
                 onDragStart={() => setDragId(b.id)}
                 onDragOver={(e) => e.preventDefault()}
-                onDrop={() => handleDrop(b.id)}
+                onDrop={() => dragId && moveTo(dragId, b.id)}
                 onDragEnd={() => setDragId(null)}
                 className={`group relative overflow-hidden rounded-xl border bg-[#13233a] transition ${
                   dragId === b.id ? "border-[#6fb7e0] opacity-60" : "border-[#22385a] hover:border-[#35577f]"
@@ -272,7 +229,7 @@ export function BannerManager({ banners }: { banners: Banner[] }) {
                       size="sm"
                       aria-label={`上移「${b.title || "未命名"}」`}
                       disabled={busy || !hydrated || index === 0 || reordering}
-                      onClick={() => moveLocal(b.id, -1)}
+                      onClick={() => moveBy(b.id, -1)}
                     >
                       <ChevronUp aria-hidden="true" className="h-3.5 w-3.5" />
                     </Button>
@@ -281,7 +238,7 @@ export function BannerManager({ banners }: { banners: Banner[] }) {
                       size="sm"
                       aria-label={`下移「${b.title || "未命名"}」`}
                       disabled={busy || !hydrated || index === ordered.length - 1 || reordering}
-                      onClick={() => moveLocal(b.id, 1)}
+                      onClick={() => moveBy(b.id, 1)}
                     >
                       <ChevronDown aria-hidden="true" className="h-3.5 w-3.5" />
                     </Button>

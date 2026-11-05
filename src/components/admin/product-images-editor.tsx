@@ -7,9 +7,10 @@ import {
 } from "@/components/admin/media-library";
 import { Button } from "@/components/ui/button";
 import { FOCUS_RING } from "@/components/ui/admin-tokens";
+import { MEDIA_CATEGORY_SHOP } from "@/constants/media";
 
 /** 商品图分类(对齐旧站 FileBird 一级文件夹;媒体库列表/上传均默认落此分类) */
-const PRODUCT_CATEGORY = "商店配图";
+const PRODUCT_CATEGORY = MEDIA_CATEGORY_SHOP;
 
 /**
  * 商品图片编辑器(WP featured image 对齐,FR-126 扩展):

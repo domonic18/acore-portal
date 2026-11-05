@@ -73,6 +73,7 @@ enum SoapStatus {
   pending
   success
   failed
+  unknown // 超时/响应不可解析:游戏端可能已执行,禁止自动重发,待人工核对(issue #67)
 
   @@map("soap_status")
 }
@@ -463,6 +464,8 @@ model Order {
   cancelledAt     DateTime?   @map("cancelled_at")
   refundedAt      DateTime?   @map("refunded_at")
   deliveryError   String?     @map("delivery_error") @db.VarChar(255) // 最近一次失败摘要
+  // 发货驱动互斥租约(issue #68):并发驱动/恢复扫描与在途驱动撞车时,凭条件更新原子领取
+  deliveryClaimUntil DateTime? @map("delivery_claim_until")
   legacyWpOrderId Int?        @unique @map("legacy_wp_order_id") // 存量映射幂等键
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
@@ -717,6 +720,7 @@ model ForumPost {
   contentHtml     String    @map("content_html") @db.MediumText // 存量帖=HTML;2026-11-04 起新帖存 Markdown,渲染按 legacyWpPostId 判别
   legacyWpPostId  Int?      @unique @map("legacy_wp_post_id") // 幂等导入键(471 回复+259 主贴)
   deletedAt       DateTime? @map("deleted_at")
+  deletedViaThread Boolean @default(false) @map("deleted_via_thread") // true=随主题级联软删(issue #69:恢复主题只还原级联楼层)
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 

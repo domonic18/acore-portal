@@ -3,7 +3,7 @@
 > 通道基线：开发与验收全程走 soap-mock（contracts/soap-delivery.md 头注）。
 > 下表每处理器均有 1 条 mock 实测订单，证据 = `tests/integration/handlers-delivery.test.ts`（T038）
 > + `tests/unit/handlers.test.ts`（T037），`make check` 全绿（2026-10-24，115/115）。
-> 幂等键统一 = `orderitem:{order_item_id}:1`（US3 attempt 后缀方案），soap_call 落库可查。
+> 幂等键统一 = `orderitem:{order_item_id}`（固定键，2026-11-05 issue #67 起去 attempt 后缀），soap_call 落库可查。
 
 ## 一、每处理器 mock 实测清单
 
@@ -32,8 +32,9 @@ unlockName 规范化（含 12 位边界）、公会名 2-24 字符集、destAcco
 2. **precheck 双拦**：同一 `handler.precheck` 在结账事务外先行（失败 → 422 PRECHECK_FAILED
    零写入，quickstart S4）与发货驱动行前各跑一次（失败 → 行 failed 可补发）；
    契约流程 3 只描述发货侧，属增强非冲突。
-3. **幂等键**：`orderitem:{id}:{attempt}`（US3 方案，attempt 后缀），契约行文 `=item.id`
-   指首次尝试键，语义一致；非堆叠多封(qty>1)为 `orderitem:{id}:{attempt}:m{i}` 子键，
+3. **幂等键**：`orderitem:{id}`（固定键，2026-11-05 issue #67 取代 attempt 后缀方案），
+   契约行文 `=item.id` 一致；确定性失败（failed）删行后同键重执行，success/unknown 回放不重发；
+   非堆叠多封(qty>1)为 `orderitem:{id}:m{i}` 子键，
    重试按 requestedBy 计数只补差额(防 CreateItem 超栈钳制导致的重复/少发)。
 
 ## 三、真机抽测上线前置清单（mock→真机核对，发现偏差仅改 handlers 层映射并同步本表）

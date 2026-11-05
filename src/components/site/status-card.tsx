@@ -1,45 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import type { ServerStatusResult } from "@/lib/status-types";
-import { requestJson } from "@/lib/api-client";
+import { useStatusPoll } from "@/lib/use-status-poll";
 import { SectionHeader } from "@/components/site/section-header";
 
 /**
  * 首页服务器状态卡(US6/S6;2026-10 ardot 设计稿 p01-s1 对齐):
- * SSR 初值 + 30s 轮询 /api/status;大数字 + 阵营比条 + 双列 chip。
+ * SSR 初值 + 30s 轮询 /api/status(取数在 useStatusPoll Hook,issue #85 展示层无 IO);
+ * 大数字 + 阵营比条 + 双列 chip。
  * enabled=false 整卡隐藏;degraded 挂「数据延迟」徽标并保留缓存值;
  * 冷启动失败数字字段 null 按 "--"/N/A 两态渲染(SC-208)。
  * testid 契约:online-count 纯数字、faction "N : M"。
  */
-const POLL_INTERVAL_MS = 30_000;
 
 function fmt(n: number | null): string {
   return n === null ? "--" : String(n);
 }
 
 export function StatusCard({ initial }: { initial: ServerStatusResult }) {
-  const [status, setStatus] = useState(initial);
-
-  useEffect(() => {
-    let alive = true;
-    const poll = async () => {
-      try {
-        const next = await requestJson<ServerStatusResult>("/api/status", {
-          cache: "no-store",
-        });
-        if (alive) setStatus(next);
-      } catch {
-        // 网络抖动保留上次渲染,下个周期重试
-      }
-    };
-    const timer = setInterval(poll, POLL_INTERVAL_MS);
-    return () => {
-      alive = false;
-      clearInterval(timer);
-    };
-  }, []);
+  const status = useStatusPoll(initial);
 
   if (!status.enabled) return null;
 

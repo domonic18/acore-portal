@@ -69,9 +69,14 @@ async function purgeSiteUser(userId: bigint): Promise<void> {
   ]);
 }
 
-/** 占位且激活 token 已全部过期/不存在 → 可回收;有 live token 视为占用(还能激活) */
+/**
+ * 占位且激活 token 已全部过期/不存在 → 可回收;有 live token 视为占用(还能激活)。
+ * 游戏账号仍存在时不可回收(issue #65:游戏 writer 无 DELETE,先删站点数据
+ * 会留下孤儿游戏账号且同名永久不可注册 → 保留站点占位记录,调用方按占用返回)。
+ */
 async function recycleIfExpiredPlaceholder(user: {
   id: bigint;
+  username: string;
   passwordHash: string;
 }): Promise<boolean> {
   if (!isPlaceholder(user.passwordHash)) return false;
@@ -85,6 +90,7 @@ async function recycleIfExpiredPlaceholder(user: {
     select: { id: true },
   });
   if (live) return false;
+  if (await authDb.findByUsername(user.username)) return false;
   await purgeSiteUser(user.id);
   return true;
 }

@@ -73,11 +73,62 @@ export async function listAdminProducts(opts: {
   };
 }
 
-export async function getAdminProduct(id: bigint) {
-  return prisma.product.findUnique({
+/** 商品编辑页 DTO:BigInt/日期在 service 序列化,页面不做 ORM 适配(issue #78) */
+export type AdminProductDetail = {
+  id: string;
+  type: string;
+  sku: string;
+  slug: string;
+  name: string;
+  description: string;
+  images: string[];
+  detailMd: string;
+  categoryId: string;
+  categoryName: string;
+  price: number;
+  salePrice: number | null;
+  saleStart: string | null;
+  saleEnd: string | null;
+  stockEnabled: boolean;
+  stock: number | null;
+  lowStockThreshold: number | null;
+  maxPerUser: number | null;
+  gameItemId: number | null;
+  status: string;
+  listed: boolean;
+  featured: boolean;
+};
+
+export async function getAdminProduct(id: bigint): Promise<AdminProductDetail | null> {
+  const product = await prisma.product.findUnique({
     where: { id },
     include: { category: { select: { id: true, name: true } } },
   });
+  if (!product) return null;
+  return {
+    id: product.id.toString(),
+    type: product.type,
+    sku: product.sku,
+    slug: product.slug,
+    name: product.name,
+    description: product.description,
+    images: normalizeProductImages(product.images),
+    detailMd: product.detailMd ?? "",
+    categoryId: product.category.id.toString(),
+    categoryName: product.category.name,
+    price: product.price,
+    salePrice: product.salePrice,
+    saleStart: product.saleStart?.toISOString() ?? null,
+    saleEnd: product.saleEnd?.toISOString() ?? null,
+    stockEnabled: product.stockEnabled,
+    stock: product.stock,
+    lowStockThreshold: product.lowStockThreshold,
+    maxPerUser: product.maxPerUser,
+    gameItemId: product.gameItemId,
+    status: product.status,
+    listed: product.listed,
+    featured: product.featured,
+  };
 }
 
 export async function countLowStockProducts(): Promise<number> {

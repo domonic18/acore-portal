@@ -92,7 +92,7 @@
 
 - [x] T027 [P] [US3] 单测：`tests/unit/order-state-machine.test.ts` — 合法迁移表全覆盖（pending→paid→delivering→completed 主链/delivery_failed 重试/refunded/cancelled）/非法迁移抛错（FR-116，data-model §3）
 - [x] T028（偏差：结账用户须有游戏账号+自有角色，加购归属校验前置；双用户/同账户并发以 Promise.allSettled 真实竞争） [P] [US3] 集成：`tests/integration/checkout.test.ts` — 单事务原子性（扣分+Order(paid)+OrderItem 快照+扣库存+shop_payment 流水+清购物车行）；余额不足 402 无单无流水；双线程抢库存 1 恰 1 成功；同账户并发结账串行化无透支（用户行 FOR UPDATE，data-model §5）
-- [x] T029（偏差：幂等键升级为 orderitem:{item_id}:{attempt}——M1 同键失败永久回放会阻断补发；attempt=既有 soap_call 数+1，成功回放不变/失败新键重试） [P] [US3] 集成：`tests/integration/delivery.test.ts` — soap-mock 契约：发货成功订单自动 completed（全程无人工）；失败注入→`delivery_failed`+deliveryError 可见；重复补发幂等键命中、命令总次数不变（SC-102）；每次调用落 soap_call 审计
+- [x] T029（偏差：幂等键曾升级为 orderitem:{item_id}:{attempt}；2026-11-05 issue #67 改为固定键 orderitem:{item_id}（success/unknown 回放不重发、failed 删行同键重执行、unknown 门控待人工核对）） [P] [US3] 集成：`tests/integration/delivery.test.ts` — soap-mock 契约：发货成功订单自动 completed（全程无人工）；失败注入→`delivery_failed`+deliveryError 可见；重复补发幂等键命中、命令总次数不变（SC-102）；每次调用落 soap_call 审计
 
 **实现**:
 
@@ -115,7 +115,7 @@
 **Tests（先写先失败）**:
 
 - [x] T037 [P] [US4] 单测：`tests/unit/handlers.test.ts` — resolveHandler 路由（前缀/精确键/未命中）；各处理器 validateSchema 参数矩阵（名字解锁首字母大写规范化、公会名合法性、装备恢复必选物品、destAccount 非空）
-- [x] T038（偏差：自建 m4h-cat-{RUN} 分类+SKU 记忆化复用规避 product_sku_key 唯一冲突，不依赖共享 fixture；幂等键为 orderitem:{id}:1 attempt 后缀方案） [US4] 集成：`tests/integration/handlers-delivery.test.ts` — 每处理器 1 条 mock 实测订单（命令名/参数/幂等键=order_item.id/状态闭环，命令映射照录 soap-delivery 表）；装备恢复 precheck：mock health=down → 支付前拦截（FR-120）
+- [x] T038（偏差：自建 m4h-cat-{RUN} 分类+SKU 记忆化复用规避 product_sku_key 唯一冲突，不依赖共享 fixture；幂等键为 orderitem:{id} 固定键方案） [US4] 集成：`tests/integration/handlers-delivery.test.ts` — 每处理器 1 条 mock 实测订单（命令名/参数/幂等键=order_item.id/状态闭环，命令映射照录 soap-delivery 表）；装备恢复 precheck：mock health=down → 支付前拦截（FR-120）
 
 **实现**:
 

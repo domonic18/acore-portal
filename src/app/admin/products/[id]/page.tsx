@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import { getAdminProduct, listAdminCategories } from "@/server/services/catalog/admin";
-import { normalizeProductImages } from "@/server/services/catalog/products";
 import { ProductForm, type ProductFormValues } from "@/components/admin/product-form";
+import { isoToDateTimeInput } from "@/lib/format";
 
-/** 商品编辑(T048):读回现有商品为表单初值;保存走 PATCH。 */
+/** 商品编辑(T048):读回现有商品为表单初值(含真实促销窗口与精选,issue #72);保存走 PATCH。 */
 export default async function EditProductPage({
   params,
 }: {
@@ -18,19 +18,19 @@ export default async function EditProductPage({
   if (!product) notFound();
 
   const initial: ProductFormValues = {
-    id: product.id.toString(),
+    id: product.id,
     type: product.type,
     sku: product.sku,
     name: product.name,
     slug: product.slug,
     description: product.description,
-    images: normalizeProductImages(product.images),
-    detailMd: product.detailMd ?? "",
-    categoryId: product.category.id.toString(),
+    images: product.images,
+    detailMd: product.detailMd,
+    categoryId: product.categoryId,
     price: product.price,
     salePrice: product.salePrice,
-    saleStart: null,
-    saleEnd: null,
+    saleStart: isoToDateTimeInput(product.saleStart),
+    saleEnd: isoToDateTimeInput(product.saleEnd),
     stockEnabled: product.stockEnabled,
     stock: product.stock,
     lowStockThreshold: product.lowStockThreshold,
@@ -38,6 +38,7 @@ export default async function EditProductPage({
     gameItemId: product.gameItemId,
     status: product.status,
     listed: product.listed,
+    featured: product.featured,
   };
 
   return (

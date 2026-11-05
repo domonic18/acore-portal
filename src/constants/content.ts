@@ -16,6 +16,7 @@ export const ARCHIVE_SLUGS: readonly string[] = ARCHIVE_CATEGORIES.map((c) => c.
  * 静态页保留字清单(R15):content_page slug 禁止抢占代码持有的顶级路由段。
  * 首页/认证/账户/后台/商城/论坛/内容路由全部在内;核心内容页
  * (about/tutorial/agreement/convention/sitemap/devlog)不在清单——它们本身就是内容页。
+ * 与 src/app 顶级路由段一一对应(issue #83:tests/unit/reserved-slugs.test.ts 机械校验)。
  */
 export const RESERVED_SLUGS: readonly string[] = [
   "shop",
@@ -29,12 +30,21 @@ export const RESERVED_SLUGS: readonly string[] = [
   "register",
   "logout",
   "forgot-password",
+  "reset-password",
   "post",
   "news",
   "announcements",
   "guides",
   "progression",
   "legacy-redirect",
+  "banlist",
+  "dkp",
+  "hardcore",
+  "online",
+  "online-players",
+  "playermap",
+  "uploads",
+  "wp-admin",
 ];
 
 /** 核心静态页 slug(US3:generateStaticParams 预渲染集) */

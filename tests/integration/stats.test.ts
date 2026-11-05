@@ -10,6 +10,7 @@ import { reloadSystemConfig } from "@/lib/config";
 import { POST as trackNotFound } from "@/app/api/track/not-found/route";
 import { GET as adminStatsRoute } from "@/app/api/admin/stats/route";
 import { getDashboard } from "@/server/services/stats/dashboard";
+import { notFoundDayKey } from "@/server/services/stats/not-found";
 import { getUmamiSummary } from "@/lib/umami";
 
 /**
@@ -26,13 +27,8 @@ const UID = BASE; // 守卫三角色与看板 fixture 共用一个 uid
 const RL_IP = `ntip-${RUN}`;
 const TRACKED_FIELDS: string[] = [];
 
-function todayKey(): string {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `stats:404:${yyyy}${mm}${dd}`;
-}
+/** 日键单一来源:service 收口(issue #74),测试不再自行拼键 */
+const todayKey = (): string => notFoundDayKey();
 
 function trackReq(path: string, ip?: string): NextRequest {
   const headers = new Headers({ "content-type": "application/json" });
@@ -149,7 +145,7 @@ afterAll(async () => {
 });
 
 describe("M4 US4 404 采集 /api/track/not-found(T025)", () => {
-  it("合法 path 两次上报:HINCRBY 累计+键 TTL 落在 48h 内", async () => {
+  it("合法 path 两次上报:HINCRBY 累计+键 TTL 覆盖看板 7 日窗口(issue #74)", async () => {
     const path = `/nt-${RUN}/page`;
     TRACKED_FIELDS.push(path);
 
@@ -160,8 +156,8 @@ describe("M4 US4 404 采集 /api/track/not-found(T025)", () => {
 
     expect(Number(await redis.hget(todayKey(), path))).toBe(2);
     const ttl = await redis.ttl(todayKey());
-    expect(ttl).toBeGreaterThan(0);
-    expect(ttl).toBeLessThanOrEqual(48 * 3600);
+    expect(ttl).toBeGreaterThan(7 * 24 * 3600); // 覆盖看板 7 日查询窗口
+    expect(ttl).toBeLessThanOrEqual(8 * 24 * 3600);
   });
 
   it("非法 path 422 且零写入:外域/协议相对/非斜杠/含换行", async () => {

@@ -2,7 +2,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { AUDIT_ACTION } from "@/constants/audit";
 import { getForumThread, listThreadPosts } from "@/server/services/forum/browse";
-import { deleteThread, ForumModerateError, undeleteThread } from "@/server/services/forum/moderate";
+import {
+  deletePost,
+  deleteThread,
+  ForumModerateError,
+  undeleteThread,
+} from "@/server/services/forum/moderate";
 import {
   adminListThreads,
   createBoard,
@@ -153,6 +158,92 @@ describe("undeleteThread(回收站恢复)", () => {
     await expect(errCode(undeleteThread(tPlain, ACTOR), "moderate")).resolves.toBe(
       "THREAD_NOT_FOUND",
     );
+  });
+});
+
+describe("级联删除语义(issue #69/#70,2026-11-05)", () => {
+  it("#69 独立删除的回复不随主题恢复;replyCount/lastPostAt 按可见楼层重算", async () => {
+    const thread = await prisma.forumThread.create({
+      data: {
+        boardId: boardBId,
+        title: `级联恢复 ${RUN}`,
+        authorUserId: null,
+        authorName: `作者-${RUN}`,
+        lastPostAt: new Date(Date.now() - 86_400_000),
+      },
+    });
+    const mk = (floor: number, minutesAgo: number) =>
+      prisma.forumPost.create({
+        data: {
+          threadId: thread.id,
+          floor,
+          authorName: `楼层${floor}`,
+          contentHtml: `<p>楼层 ${floor}</p>`,
+          createdAt: new Date(Date.now() - minutesAgo * 60_000),
+        },
+        select: { id: true, createdAt: true },
+      });
+    await mk(1, 60);
+    const replyA = await mk(2, 50);
+    const replyB = await mk(3, 40);
+
+    // 回复A先独立软删 → 删主题(级联标记可见楼层)→ 恢复主题
+    await deletePost({ threadId: thread.id, postId: replyA.id, actor: ACTOR });
+    await deleteThread(thread.id, ACTOR);
+    await undeleteThread(thread.id, ACTOR);
+
+    const posts = await prisma.forumPost.findMany({
+      where: { threadId: thread.id },
+      orderBy: { floor: "asc" },
+    });
+    expect(posts.find((p) => p.floor === 1)?.deletedAt).toBeNull();
+    expect(posts.find((p) => p.floor === 2)?.deletedAt).not.toBeNull(); // 独立删除保持
+    expect(posts.find((p) => p.floor === 3)?.deletedAt).toBeNull(); // 级联删除还原
+    expect(posts.find((p) => p.floor === 3)?.deletedViaThread).toBe(false);
+
+    const row = await prisma.forumThread.findUniqueOrThrow({ where: { id: thread.id } });
+    expect(row.replyCount).toBe(1); // 仅回复B可见
+    expect(row.lastPostAt.toISOString()).toBe(replyB.createdAt.toISOString());
+  });
+
+  it("#70 并发删除同一回复:仅一方完成迁移,replyCount 单次扣减,单条审计", async () => {
+    const thread = await prisma.forumThread.create({
+      data: {
+        boardId: boardBId,
+        title: `并发删楼层 ${RUN}`,
+        authorUserId: null,
+        authorName: `作者-${RUN}`,
+        lastPostAt: new Date(),
+      },
+    });
+    await prisma.forumPost.create({
+      data: { threadId: thread.id, floor: 1, authorName: "主", contentHtml: "<p>主</p>" },
+    });
+    const reply = await prisma.forumPost.create({
+      data: { threadId: thread.id, floor: 2, authorName: "回", contentHtml: "<p>回</p>" },
+      select: { id: true },
+    });
+    await prisma.forumThread.update({ where: { id: thread.id }, data: { replyCount: 1 } });
+
+    const results = await Promise.allSettled([
+      deletePost({ threadId: thread.id, postId: reply.id, actor: ACTOR }),
+      deletePost({ threadId: thread.id, postId: reply.id, actor: ACTOR }),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.filter((r) => r.status === "rejected") as PromiseRejectedResult[];
+    expect(rejected[0]?.reason).toBeInstanceOf(ForumModerateError);
+
+    const row = await prisma.forumThread.findUniqueOrThrow({
+      where: { id: thread.id },
+      select: { replyCount: true },
+    });
+    expect(row.replyCount).toBe(0); // 只扣一次,不为负
+    const postAudits = await prisma.auditLog.findMany({
+      where: { actorUserId: ACTOR_UID, action: AUDIT_ACTION.FORUM_POST_DELETED },
+    });
+    expect(
+      postAudits.filter((a) => (a.payloadJson as { postId?: string }).postId === reply.id.toString()),
+    ).toHaveLength(1);
   });
 });
 

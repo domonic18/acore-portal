@@ -12,7 +12,7 @@ import { driveOrderDelivery } from "@/server/services/shop/delivery";
 /**
  * T038 服务处理器集成(soap-mock 契约,quickstart S4/SC-106):
  * 每处理器 1 条 mock 实测订单——命令/参数照录 soap-delivery 映射表,幂等键
- * orderitem:{id}:1,状态闭环 completed;名字解锁落库规范化;占用名/
+ * orderitem:{id} 固定键,状态闭环 completed;名字解锁落库规范化;占用名/
  * 离线恢复为支付前拦截(CheckoutError PRECHECK_FAILED,零写入,FR-120)。
  * 商品面对齐 WP 旧站:转移/复制/公会类不提供(无处理器,矩阵无行)。
  * SKU 是处理器路由键(product_sku_key 唯一):同 SKU 商品按 Map 复用,自建分类不依赖共享 fixture。
@@ -107,7 +107,7 @@ async function buyAndDeliver(
 
 async function callOf(itemId: bigint) {
   return prisma.soapCall.findUniqueOrThrow({
-    where: { idempotencyKey: `orderitem:${itemId}:1` },
+    where: { idempotencyKey: `orderitem:${itemId}` },
   });
 }
 
@@ -147,12 +147,17 @@ afterAll(async () => {
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
   }
   for (const itemId of orderItemIds) {
-    const prefix = `orderitem:${itemId}:`;
-    await prisma.soapCall.deleteMany({ where: { idempotencyKey: { startsWith: prefix } } });
+    const base = `orderitem:${itemId}`;
+    await prisma.soapCall.deleteMany({
+      where: { OR: [{ idempotencyKey: base }, { idempotencyKey: { startsWith: `${base}:` } }] },
+    });
     await prisma.$executeRaw`
       DELETE FROM audit_log
       WHERE category = 'soap'
-        AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.key')) LIKE ${`${prefix}%`}
+        AND (
+          JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.key')) LIKE ${`${base}:%`}
+          OR JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.key')) = ${base}
+        )
     `;
   }
   await prisma.$executeRaw`

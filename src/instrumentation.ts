@@ -3,6 +3,7 @@
  * 业务库断言 fail-fast → 装载 system_config 预热缓存(缺失/非法 fail-fast)
  * → 游戏四库断言 fail-fast(连接串来自配置);
  * SOAP 未开仅 degraded 警告,不阻塞启动(worldserver 可能后开)。
+ * 自检通过后非阻塞触发一次发货恢复扫描(issue #66:重启前结账后驱动丢失的 paid 单不靠 cron 兜底)。
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
@@ -38,4 +39,14 @@ export async function register() {
   } else {
     console.warn(`[boot] SOAP 通道 degraded(不阻塞启动): ${soap.error}`);
   }
+
+  // 非阻塞:恢复滞留 delivering/paid 订单(失败不拖垮启动,cron 仍会兜底)
+  void import("@/server/services/shop/delivery")
+    .then(({ recoverStalledDeliveries }) => recoverStalledDeliveries())
+    .then(({ delivering, paid }) => {
+      if (delivering > 0 || paid > 0) {
+        console.log(`[boot] 发货恢复扫描:重新驱动 delivering=${delivering} paid=${paid}`);
+      }
+    })
+    .catch((err) => console.warn("[boot] 发货恢复扫描失败(cron 兜底):", err));
 }
