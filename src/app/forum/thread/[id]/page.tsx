@@ -9,6 +9,7 @@ import { formatDateTimeShort } from "@/lib/format";
 import { getCdnHosts } from "@/lib/config";
 import { getServerSession } from "@/server/session-guard";
 import { FORUM_POST_PAGE_SIZE } from "@/constants/pagination";
+import { FORUM_POST_BODY_CLS } from "@/constants/content";
 import { PostActions } from "@/components/forum/post-actions";
 import { ReplyForm } from "@/components/forum/reply-form";
 import { incrementThreadViews } from "@/server/services/forum/browse";
@@ -155,7 +156,7 @@ export default async function ForumThreadPage({
                     </div>
                     {/* 迁移层仅图片重写;XSS 白名单在 renderLegacyHtml 收口(research R4) */}
                     <div
-                      className="forum-post-body mt-3 text-[14px] leading-[1.9] text-[#93b2ce] lg:text-[15px] [&_a]:text-[#6fb7e0] [&_a:hover]:text-[#e8c877] [&_blockquote]:border-l-2 [&_blockquote]:border-[#35577f] [&_blockquote]:pl-3 [&_blockquote]:text-[#6482a3] [&_code]:rounded [&_code]:bg-[#0d1828] [&_code]:px-1 [&_img]:max-w-full [&_p]:my-2"
+                      className={`${FORUM_POST_BODY_CLS} mt-3 lg:text-[15px]`}
                       dangerouslySetInnerHTML={{ __html: p.html }}
                     />
                   </div>

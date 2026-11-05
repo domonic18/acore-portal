@@ -143,6 +143,45 @@ export const ARCHIVE_COMMON_LINKS = [
   { label: "DKP 查询", href: "/dkp" },
 ] as const;
 
+/**
+ * Markdown 正文排版基线(强调/列表/代码):静态页、文章/商品详情、版块描述与论坛
+ * 正文共用同一套规则(2026-11-05 修「标识看不出效果」):
+ * - 正文色 #93b2ce 下 strong 与正文同色,加粗看不出差别,改用设计稿强调金;
+ * - Tailwind v4 preflight 清空 list-style 与标题字号,有序/无序列表标记需显式恢复;
+ * - 行内 code 与代码块区分(块内 code 不再叠加深底与内边距)。
+ */
+export const MARKDOWN_TYPOGRAPHY_CLS = [
+  "[&_strong]:font-bold [&_strong]:text-[#e8c877]",
+  "[&_em]:italic [&_em]:text-[#dcebf7]",
+  "[&_del]:text-[#6482a3] [&_del]:line-through",
+  "[&_code]:rounded [&_code]:bg-[#0d1828] [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[13px] [&_code]:text-[#a8d9f5]",
+  "[&_pre]:my-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-[#22385a] [&_pre]:bg-[#0d1828] [&_pre]:p-4",
+  "[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-[13.5px] [&_pre_code]:text-[#93b2ce]",
+  "[&_ul]:my-3 [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5",
+  "[&_ol]:my-3 [&_ol]:list-decimal [&_ol]:space-y-1.5 [&_ol]:pl-5",
+  "[&_li::marker]:text-[#6fb7e0]",
+].join(" ");
+
 /** Markdown 渲染体共享样式(前台详情/静态页与后台编辑器预览同源,所见即所得) */
-export const MARKDOWN_BODY_CLS =
-  "prose-invert mt-6 max-w-none space-y-4 text-[15px] leading-8 text-[#93b2ce] [&_h2]:mt-8 [&_h2]:border-l-[3px] [&_h2]:border-[#5ea3cc] [&_h2]:pl-3 [&_h2]:text-[19px] [&_h2]:font-bold [&_h2]:leading-7 [&_h2]:text-[#dcebf7] [&_h3]:mt-5 [&_h3]:text-[17px] [&_h3]:font-bold [&_h3]:text-[#dcebf7] [&_h4]:font-bold [&_h4]:text-[#c7d5e6] [&_a]:text-[#6fb7e0] [&_img]:max-w-full [&_img]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-[#22385a] [&_pre]:bg-[#0d1828] [&_pre]:p-4 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-[#22385a] [&_td]:px-2.5 [&_td]:py-1.5 [&_th]:border [&_th]:border-[#22385a] [&_th]:bg-[#0d1828] [&_th]:px-2.5 [&_th]:py-1.5 [&_blockquote]:border-l-[3px] [&_blockquote]:border-[#35577f] [&_blockquote]:pl-4 [&_blockquote]:text-[#6482a3]";
+export const MARKDOWN_BODY_CLS = [
+  "mt-6 max-w-none space-y-4 text-[15px] leading-8 text-[#93b2ce]",
+  // 正文 h1 与页面标题重复(详情页页头已渲染标题),隐藏避免同页两个 h1
+  "[&_h1]:hidden",
+  "[&_h2]:mt-8 [&_h2]:border-l-[3px] [&_h2]:border-[#5ea3cc] [&_h2]:pl-3 [&_h2]:text-[19px] [&_h2]:font-bold [&_h2]:leading-7 [&_h2]:text-[#dcebf7]",
+  "[&_h3]:mt-5 [&_h3]:text-[17px] [&_h3]:font-bold [&_h3]:text-[#dcebf7]",
+  "[&_h4]:font-bold [&_h4]:text-[#c7d5e6]",
+  "[&_a]:text-[#6fb7e0]",
+  "[&_img]:max-w-full [&_img]:rounded-lg",
+  "[&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-[#22385a] [&_td]:px-2.5 [&_td]:py-1.5 [&_th]:border [&_th]:border-[#22385a] [&_th]:bg-[#0d1828] [&_th]:px-2.5 [&_th]:py-1.5",
+  "[&_blockquote]:border-l-[3px] [&_blockquote]:border-[#35577f] [&_blockquote]:pl-4 [&_blockquote]:text-[#6482a3]",
+  MARKDOWN_TYPOGRAPHY_CLS,
+].join(" ");
+
+/** 论坛正文排版(楼层正文与编辑器实时预览同源,保证所见即所得) */
+export const FORUM_POST_BODY_CLS = [
+  "forum-post-body text-[14px] leading-[1.9] text-[#93b2ce]",
+  "[&_a]:text-[#6fb7e0] [&_a:hover]:text-[#e8c877]",
+  "[&_blockquote]:border-l-2 [&_blockquote]:border-[#35577f] [&_blockquote]:pl-3 [&_blockquote]:text-[#6482a3]",
+  "[&_p]:my-2",
+  MARKDOWN_TYPOGRAPHY_CLS,
+].join(" ");

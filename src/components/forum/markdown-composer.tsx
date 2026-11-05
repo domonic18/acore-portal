@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, ImagePlus } from "lucide-react";
 import { errorMessage, requestJson } from "@/lib/api-client";
+import { FORUM_POST_BODY_CLS } from "@/constants/content";
 import { FOCUS_RING } from "@/components/ui/admin-tokens";
 
 const MAX_CONTENT = 20_000;
@@ -158,7 +159,7 @@ export function MarkdownComposer({
           >
             {previewHtml ? (
               <div
-                className="forum-post-body text-[14px] leading-[1.9] text-[#93b2ce] [&_a]:text-[#6fb7e0] [&_blockquote]:border-l-2 [&_blockquote]:border-[#35577f] [&_blockquote]:pl-3 [&_code]:rounded [&_code]:bg-[#0d1828] [&_code]:px-1 [&_img]:max-w-full [&_p]:my-2 [&_strong]:text-[#dcebf7]"
+                className={FORUM_POST_BODY_CLS}
                 dangerouslySetInnerHTML={{ __html: previewHtml }}
               />
             ) : (
