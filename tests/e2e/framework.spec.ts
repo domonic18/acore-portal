@@ -219,7 +219,7 @@ test.describe("登录菜单(FR-201)", () => {
     ).toBeVisible();
   });
 
-  test("侧栏 QQ 交流群卡:群号展示+点击复制加群指引(2026-11 用户反馈)", async ({ page }) => {
+  test("侧栏 QQ 交流群卡:群号直达加群链接+复制指引(issue #95 恢复原站点行为)", async ({ page }) => {
     await page.goto("/");
     const card = page.getByTestId("site-sidebar").getByTestId("sidebar-qq-group");
     await expect(card).toBeVisible();
@@ -227,10 +227,11 @@ test.describe("登录菜单(FR-201)", () => {
     await expect(card.getByTestId("sidebar-qq-group-number")).toHaveText(/^\d{5,12}$/);
     // 二维码默认渲染(WP 原版页脚素材 public/qq-group-qr.png;不锁 src,防并行 spec 保存干扰)
     await expect(card.getByTestId("sidebar-qq-group-qr")).toBeVisible();
-    await expect(card.getByTestId("sidebar-qq-group-hint")).toContainText("点击群号复制");
-    // 点击群号 → 剪贴板写入或环境拒绝,均回显加群指引(不留默认文案)
+    // 加群链接默认配置:群号渲染为 qm.qq.com 超链接,点击直达加群页(不锁 key,防并行 spec 改写)
+    await expect(card.getByTestId("sidebar-qq-group-join")).toHaveAttribute("href", /qm\.qq\.com/);
+    await expect(card.getByTestId("sidebar-qq-group-hint")).toContainText("点击群号直接加群");
+    // 复制按钮仍可用 → 剪贴板写入或环境拒绝,均离开默认文案(复制结果态)
     await card.getByTestId("sidebar-qq-group-copy").click();
-    await expect(card.getByTestId("sidebar-qq-group-hint")).toContainText(/群号/);
-    await expect(card.getByTestId("sidebar-qq-group-hint")).not.toContainText("点击群号复制");
+    await expect(card.getByTestId("sidebar-qq-group-hint")).toContainText(/已复制群号|复制失败/);
   });
 });

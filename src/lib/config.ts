@@ -108,6 +108,11 @@ const configSchema = z.object({
     copyrightEn: z.string().default(DEFAULT_SITE_COPYRIGHT_EN),
     qqGroup: z.string().default("184670219"),
     qqGroupQr: z.string().default("/qq-group-qr.png"),
+    // 加群链接(issue #95):默认=WP 原站 qm.qq.com 短链;空=群号回落点击复制
+    qqGroupJoinUrl: z
+      .string()
+      .refine((v) => v === "" || /^https?:\/\//.test(v), "加群链接须为 http(s) 地址")
+      .default("https://qm.qq.com/q/hz9TWpqU2A"),
   }),
   // 站点外观(2026-10 用户反馈):favicon / 页头 logo / 页头背景 / 页面背景均可后台配置;
   // logo 与 favicon 空=回落内置资源,背景空=不渲染背景图(纯色底)
@@ -213,6 +218,7 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       copyrightEn: flat["site.copyrightEn"] ?? DEFAULT_SITE_COPYRIGHT_EN,
       qqGroup: flat["site.qqGroup"] ?? "184670219",
       qqGroupQr: flat["site.qqGroupQr"] ?? "/qq-group-qr.png",
+      qqGroupJoinUrl: flat["site.qqGroupJoinUrl"] ?? "https://qm.qq.com/q/hz9TWpqU2A",
     },
     appearance: {
       logoUrl: flat["appearance.logoUrl"] ?? "/logo.png",

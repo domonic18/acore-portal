@@ -16,6 +16,7 @@ export function SiteSidebar({
   components,
   qqGroup,
   qqGroupQr,
+  qqGroupJoinUrl,
   status,
   latestNews,
   className = "lg:w-64",
@@ -26,6 +27,7 @@ export function SiteSidebar({
   components: SidebarComponentKey[];
   qqGroup: string;
   qqGroupQr: string;
+  qqGroupJoinUrl: string;
   status: ServerStatusResult | null;
   latestNews: SidebarNewsItem[];
   className?: string;
@@ -48,6 +50,7 @@ export function SiteSidebar({
             key={key}
             qqGroup={qqGroup}
             qqGroupQr={qqGroupQr}
+            qqGroupJoinUrl={qqGroupJoinUrl}
             status={status}
             latestNews={latestNews}
           />

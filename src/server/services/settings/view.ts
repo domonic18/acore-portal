@@ -37,6 +37,7 @@ export async function getSettingsView(): Promise<SettingsView> {
       copyrightEn: config.site.copyrightEn,
       qqGroup: config.site.qqGroup,
       qqGroupQr: config.site.qqGroupQr,
+      qqGroupJoinUrl: config.site.qqGroupJoinUrl,
     },
     appearance: {
       logoUrl: config.appearance.logoUrl,

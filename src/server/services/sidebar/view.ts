@@ -13,6 +13,8 @@ export type SidebarView = {
   components: SidebarComponentKey[];
   qqGroup: string;
   qqGroupQr: string;
+  /** 加群链接(issue #95):空=群号回落点击复制 */
+  qqGroupJoinUrl: string;
   /** 在线人数卡数据(server-status 未启用时为 null,组件不渲染) */
   status: ServerStatusResult | null;
   /** 最新资讯卡数据(latest-news 未启用时为空数组) */
@@ -43,6 +45,7 @@ export async function getSidebarView(pageType: SitePageType): Promise<SidebarVie
     components,
     qqGroup: config.site.qqGroup,
     qqGroupQr: config.site.qqGroupQr,
+    qqGroupJoinUrl: config.site.qqGroupJoinUrl,
     status,
     latestNews,
   };

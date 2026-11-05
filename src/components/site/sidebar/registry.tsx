@@ -10,6 +10,7 @@ import { LatestNewsCard } from "./latest-news-card";
 export type SidebarSlotProps = {
   qqGroup: string;
   qqGroupQr: string;
+  qqGroupJoinUrl: string;
   status: ServerStatusResult | null;
   latestNews: SidebarNewsItem[];
 };

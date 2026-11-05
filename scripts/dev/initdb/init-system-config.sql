@@ -22,7 +22,9 @@ INSERT INTO acore_portal.system_config (`key`, `value`, `updated_at`) VALUES
   ('site.copyrightEn',
   'World of Warcraft® and Blizzard Entertainment® are all trademarks or registered trademarks of Blizzard Entertainment in the United States and/or other countries.\nThese terms and all related materials, logos, and images are copyright © Blizzard Entertainment. This site is in no way associated with or endorsed by Blizzard Entertainment®.', NOW()),
   ('site.qqGroup',      '184670219', NOW()),
-  ('site.qqGroupQr',    '/qq-group-qr.png', NOW())
+  ('site.qqGroupQr',    '/qq-group-qr.png', NOW()),
+  -- WP 原站群号加群短链(qm.qq.com 群 key 由群主在 qun.qq.com 生成)
+  ('site.qqGroupJoinUrl', 'https://qm.qq.com/q/hz9TWpqU2A', NOW())
 ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW();
 
 -- 容器内栈(测试环境)参考取值(compose 服务名互访;真实凭据不入库不入 git):
