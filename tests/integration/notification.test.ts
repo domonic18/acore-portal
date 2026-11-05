@@ -308,6 +308,27 @@ describe("M4 US3 收件箱服务(T015)", () => {
 });
 
 describe("M4 US3 通知 API 三路由(T018 契约逐字段)", () => {
+  it("limit 边界校验(issue #75):非法值 422 不入 Prisma,合法上限放行", async () => {
+    const user = await makeUser("limit");
+    const { accessToken } = await createSession(user.id, "user");
+
+    for (const bad of ["abc", "0", "51", "1.5", "-3"]) {
+      const res = await listRoute(
+        await authedReq(`/api/account/notifications?limit=${bad}`, accessToken),
+      );
+      expect(res.status, bad).toBe(422);
+      expect(((await res.json()) as { error: { code: string } }).error.code).toBe(
+        "VALIDATION_ERROR",
+      );
+    }
+
+    const ok = await listRoute(
+      await authedReq("/api/account/notifications?limit=50", accessToken),
+    );
+    expect(ok.status).toBe(200);
+    expect(((await ok.json()) as { items: unknown[] }).items).toEqual([]);
+  });
+
   it("unread/list/read 全链路:未登录 401;仅本人;契约字段形状", async () => {
     const user = await makeUser("api");
     const stranger = await makeUser("api-b");

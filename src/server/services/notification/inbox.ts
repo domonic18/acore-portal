@@ -6,8 +6,8 @@ import { prisma } from "@/lib/db";
  * 全部 where userId 本人(越权防御=无跨用户寻址面);已读不可逆,删除不做(M4)。
  * 游标分页:createdAt desc, id desc;cursor=末条 id,重放同游标结果稳定。
  */
-const DEFAULT_LIMIT = 10;
-const MAX_LIMIT = 50;
+export const DEFAULT_LIMIT = 10;
+export const MAX_LIMIT = 50;
 
 export type InboxItem = {
   id: string;

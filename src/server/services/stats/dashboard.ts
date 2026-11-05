@@ -5,6 +5,10 @@ import { POINT_TX_TYPE } from "@/constants/points";
 import { getServerStatus } from "@/server/services/status/status";
 import { getUmamiSummary } from "@/lib/umami";
 import { getConversionFunnel, EMPTY_FUNNEL, type ConversionFunnel } from "./funnel";
+import {
+  notFoundDayKey,
+  NOT_FOUND_DASHBOARD_DAYS,
+} from "./not-found";
 
 /**
  * 统计看板聚合(US4 T026,FR-313/R12):五区块只读查询,
@@ -21,21 +25,13 @@ export type DashboardData = {
 };
 
 const TOP_N = 10;
-const NOT_FOUND_DAYS = 7;
-
-function dayKey(d: Date): string {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `stats:404:${yyyy}${mm}${dd}`;
-}
 
 /** 近 7 日 404 hash 合并 top10(单键失败降级空,不影响其余日) */
 async function notFoundTop(): Promise<{ path: string; count: number }[]> {
   const merged = new Map<string, number>();
   const now = Date.now();
-  for (let i = 0; i < NOT_FOUND_DAYS; i++) {
-    const key = dayKey(new Date(now - i * 24 * 3600 * 1000));
+  for (let i = 0; i < NOT_FOUND_DASHBOARD_DAYS; i++) {
+    const key = notFoundDayKey(new Date(now - i * 24 * 3600 * 1000));
     try {
       const fields = await redis.hgetall(key);
       for (const [path, count] of Object.entries(fields)) {
