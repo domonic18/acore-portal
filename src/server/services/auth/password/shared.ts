@@ -1,9 +1,10 @@
 import "server-only";
+import { prisma } from "@/lib/db";
 import { redis } from "@/lib/redis";
 import { srp6MakeRegistrationData } from "@/lib/auth/game-hash";
-import { verifyWpBcrypt } from "@/lib/auth/wp-bcrypt";
+import { hashWpBcrypt, verifyWpBcrypt } from "@/lib/auth/wp-bcrypt";
 import { verifyPhpass } from "@/lib/auth/phpass";
-import { PHPASS_PREFIX, WP_BCRYPT_PREFIX } from "@/constants/password";
+import { PASSWORD_ALGO, PHPASS_PREFIX, WP_BCRYPT_PREFIX } from "@/constants/password";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/shared/audit";
 import { revokeAllSessions, revokeAllRefreshTokens } from "@/lib/auth/session";
@@ -13,8 +14,9 @@ import { authDb } from "@/lib/db/auth";
  * 密码变更共享件:策略校验、站点哈希前缀分派、per-user 锁与双写游戏端。
  * 双写顺序=游戏端先写、站点后写(契约:站点新哈希仅在双写成功后生效);
  * 游戏端失败→不标记完成、token 不消费(留待重试)+审计告警(FR-014 禁单边);
- * 成功→吊销全部会话与 refresh(FR-014)。并发用 per-user Redis 锁串行化
- * (跨库无原子性,双请求交错会产生双端不一致)。
+ * 游戏端成功但站点写入失败→回滚游戏 credential 到旧 verifier(并释放已消费
+ * token),确保双端最终一致;成功→吊销全部会话与 refresh(FR-014)。并发用
+ * per-user Redis 锁串行化(跨库无原子性,双请求交错会产生双端不一致)。
  */
 
 export type PasswordChangeFailure =
@@ -80,17 +82,41 @@ export type SiteUser = {
   status: string;
 };
 
-/** 游戏端写入;失败抛出 GameSyncError(调用方决定重试语义) */
+/** 游戏端写入失败;调用方决定重试语义 */
 export class GameSyncError extends Error {}
 
+export type GameCredential = { salt: string; verifier: string };
+
+/** 游戏端写入:先读当前 credential 作为回滚快照,再写新 verifier */
 export async function writeGamePassword(
   username: string,
   newPassword: string,
-): Promise<void> {
+): Promise<{ accountId: number; previous: GameCredential }> {
   const account = await authDb.findByUsername(username);
   if (!account) throw new GameSyncError("game_account_missing");
+  const previous: GameCredential = {
+    salt: Buffer.from(account.salt).toString("hex"),
+    verifier: Buffer.from(account.verifier).toString("hex"),
+  };
   // 与 AC ChangePassword 同口径:重置随机 salt + verifier
   await authDb.updateAccountCredential(account.id, srp6MakeRegistrationData(username, newPassword));
+  return { accountId: account.id, previous };
+}
+
+/** 用快照回滚游戏端 credential */
+export async function restoreGameCredential(
+  accountId: number,
+  previous: GameCredential,
+): Promise<void> {
+  await authDb.updateAccountCredential(accountId, previous);
+}
+
+/** 站点侧写新密码哈希(改密/找回/激活三处统一走此口径) */
+export async function writeSitePassword(userId: bigint, password: string): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash: hashWpBcrypt(password), passwordAlgo: PASSWORD_ALGO.BCRYPT_WP },
+  });
 }
 
 export async function auditDualWriteFailed(
@@ -98,13 +124,35 @@ export async function auditDualWriteFailed(
   reason: string,
   ip?: string | null,
 ): Promise<void> {
-  await writeAudit({
-    category: AUDIT_CATEGORY.SECURITY,
-    action: AUDIT_ACTION.PASSWORD_DUAL_WRITE_FAILED,
-    actorUserId: userId,
-    payload: { reason },
-    ip,
-  });
+  try {
+    await writeAudit({
+      category: AUDIT_CATEGORY.SECURITY,
+      action: AUDIT_ACTION.PASSWORD_DUAL_WRITE_FAILED,
+      actorUserId: userId,
+      payload: { reason },
+      ip,
+    });
+  } catch {
+    // 审计失败不应吞掉用户响应;已由上游返回可重试错误
+  }
+}
+
+export async function auditDualWriteRecovered(
+  userId: bigint,
+  reason: string,
+  ip?: string | null,
+): Promise<void> {
+  try {
+    await writeAudit({
+      category: AUDIT_CATEGORY.SECURITY,
+      action: AUDIT_ACTION.PASSWORD_DUAL_WRITE_RECOVERED,
+      actorUserId: userId,
+      payload: { reason },
+      ip,
+    });
+  } catch {
+    // 审计失败不应吞掉用户响应
+  }
 }
 
 export async function revokeEverything(userId: bigint): Promise<void> {

@@ -1,8 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { getConfig } from "@/lib/config";
-import { hashWpBcrypt } from "@/lib/auth/wp-bcrypt";
-import { PASSWORD_ALGO } from "@/constants/password";
 import { TOKEN_TYPE } from "@/constants/token";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/shared/audit";
@@ -19,12 +17,16 @@ import { MAIL_TEMPLATE } from "@/constants/mail";
 import { isUniqueViolation } from "@/server/http";
 import {
   auditDualWriteFailed,
+  auditDualWriteRecovered,
   GameSyncError,
+  restoreGameCredential,
   revokeEverything,
   validateNewPassword,
   verifySitePassword,
   withPasswordLock,
   writeGamePassword,
+  writeSitePassword,
+  type GameCredential,
   type PasswordChangeOutcome,
   type SiteUser,
 } from "./shared";
@@ -59,8 +61,10 @@ export async function changePassword(input: {
   return withPasswordLock<PasswordChangeOutcome>(
     user.id,
     async () => {
+      let accountId: number;
+      let previous: GameCredential;
       try {
-        await writeGamePassword(user.username, input.newPassword);
+        ({ accountId, previous } = await writeGamePassword(user.username, input.newPassword));
       } catch (err) {
         await auditDualWriteFailed(
           user.id,
@@ -70,11 +74,21 @@ export async function changePassword(input: {
         return { ok: false as const, reason: "game_sync_failed" as const };
       }
 
-      const siteHash = hashWpBcrypt(input.newPassword);
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { passwordHash: siteHash, passwordAlgo: PASSWORD_ALGO.BCRYPT_WP },
-      });
+      try {
+        await writeSitePassword(user.id, input.newPassword);
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : "site_write_failed";
+        try {
+          await restoreGameCredential(accountId, previous);
+          await auditDualWriteFailed(user.id, `site_write_failed:${reason}`, input.ip);
+          await auditDualWriteRecovered(user.id, "game_rollback_succeeded", input.ip);
+        } catch (rollbackErr) {
+          const rollbackReason = rollbackErr instanceof Error ? rollbackErr.message : "unknown";
+          await auditDualWriteFailed(user.id, `rollback_failed:${rollbackReason}`, input.ip);
+        }
+        return { ok: false as const, reason: "game_sync_failed" as const };
+      }
+
       await writeAudit({
         category: AUDIT_CATEGORY.SECURITY,
         action: AUDIT_ACTION.PASSWORD_CHANGED,
