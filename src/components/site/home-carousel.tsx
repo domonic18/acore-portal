@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
  * 自动轮播间隔由后台配置(carouselIntervalSec→intervalMs);不做悬停暂停
  * (悬停即静默停转,前台无从得知曾被误读为"不轮播"),手动切换走箭头/圆点。
  * 单张静态展示,空物料整块隐藏(父级短路);初始固定第 0 张,水合后才开定时器。
+ * imageUrl 留空=纯文字形态(WP 原站资讯轮播复刻:深底居中标题,整卡可点)。
  */
 export function HomeCarousel({
   banners,
@@ -33,22 +34,43 @@ export function HomeCarousel({
       aria-label="首页轮播"
       className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-[#35577f] bg-[#13233a] lg:aspect-auto lg:h-full"
     >
-      <a href={current.linkUrl || undefined} className="block h-full" draggable={false}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={current.imageUrl}
-          alt={current.title}
-          className="absolute inset-0 h-full w-full object-cover"
-          draggable={false}
-        />
-      </a>
+      {current.imageUrl ? (
+        <>
+          <a href={current.linkUrl || undefined} className="block h-full" draggable={false}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={current.imageUrl}
+              alt={current.title}
+              className="absolute inset-0 h-full w-full object-cover"
+              draggable={false}
+            />
+          </a>
 
-      {/* 左下标题叠层 */}
-      <div className="pointer-events-none absolute bottom-0 left-0 max-w-[85%] rounded-tr-2xl bg-[#050a12]/85 px-3 py-2.5 lg:px-5 lg:py-4">
-        <h2 className="text-[15px] font-bold leading-snug text-white sm:text-xl lg:text-[28px]">
-          {current.title}
-        </h2>
-      </div>
+          {/* 左下标题叠层(标题留空=纯图形态,WP 原站首页顶部特色图无文案) */}
+          {current.title && (
+            <div className="pointer-events-none absolute bottom-0 left-0 max-w-[85%] rounded-tr-2xl bg-[#050a12]/85 px-3 py-2.5 lg:px-5 lg:py-4">
+              <h2 className="text-[15px] font-bold leading-snug text-white sm:text-xl lg:text-[28px]">
+                {current.title}
+              </h2>
+            </div>
+          )}
+        </>
+      ) : current.linkUrl ? (
+        <a
+          href={current.linkUrl}
+          className="absolute inset-0 flex items-center justify-center px-6 py-4 text-center"
+        >
+          <h2 className="text-base font-bold leading-snug text-white sm:text-xl lg:text-2xl">
+            {current.title}
+          </h2>
+        </a>
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center px-6 py-4 text-center">
+          <h2 className="text-base font-bold leading-snug text-white sm:text-xl lg:text-2xl">
+            {current.title}
+          </h2>
+        </div>
+      )}
 
       {count > 1 && (
         <>

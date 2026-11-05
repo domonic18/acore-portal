@@ -34,10 +34,11 @@ export function SiteHeaderClient({
   const userMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router = useRouter();
-  // 页头背景图(后台可配):暗色叠层保证导航可读;留空回落纯色底
+  // 页头背景图(后台可配):轻蒙层保导航可读同时透出原站场景图
+  // (WP 原站页头无蒙层直出背景画,100px 高;0.6 对齐其观感)
   const headerStyle: CSSProperties | undefined = headerBackgroundUrl
     ? {
-        backgroundImage: `linear-gradient(rgba(16, 32, 53, 0.82), rgba(16, 32, 53, 0.82)), url("${headerBackgroundUrl}")`,
+        backgroundImage: `linear-gradient(rgba(16, 32, 53, 0.6), rgba(16, 32, 53, 0.6)), url("${headerBackgroundUrl}")`,
         backgroundSize: "cover",
         backgroundPosition: "center",
       }
@@ -121,16 +122,16 @@ export function SiteHeaderClient({
         className="sticky top-0 z-40 border-b border-[#35577f] bg-[#102035]/95 backdrop-blur"
         style={headerStyle}
       >
-        <div className="container-site flex h-16 items-center gap-8 lg:h-[72px]">
+        <div className="container-site flex h-16 items-center gap-8 lg:h-[88px]">
           <Link href="/" className="shrink-0" aria-label="老克塔首页">
-            {/* 400×157 源图(生产 800×313 缩放),46px 显示下高倍屏不糊 */}
+            {/* 800×313 生产原图(WP 原版 Logo 迁移),54px 显示高倍屏不糊 */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={logoUrl}
               alt="老克塔"
-              width={400}
-              height={157}
-              className="h-10 w-auto lg:h-[46px]"
+              width={800}
+              height={313}
+              className="h-10 w-auto lg:h-[54px]"
             />
           </Link>
 
