@@ -33,8 +33,9 @@
 
 ## sitemap 口径（app/sitemap.ts）
 
-- 含：`/`、/announcements、/news、/guides、/devlog、/progression、/forum、/shop、六工具页、静态页 4（/about /tutorial /agreement /convention）
-- 动态：文章 publish（/post/{slug}，lastModified=updatedAt）、商品 published 且 listed（/shop/{slug}）、版块（/forum/{board}）、未关闭主题（/forum/thread/{id}，上限 5000）
+- 固定路由（代码持有的路由段）：`/`、/announcements、/news、/guides、/progression、/forum、/shop、六工具页
+- 动态：内容页 published（/{slug}，含 /about /tutorial /agreement /convention /sitemap /devlog 与升格指南页，lastModified=updatedAt）、文章 publish（/post/{slug}，lastModified=updatedAt）、商品 published 且 listed（/shop/{slug}）、版块（/forum/{board}）、未关闭主题（/forum/thread/{id}，上限 5000）
+- 内容页口径 2026-11-06 起改为由 content_page 已发布行推导（issue #101）：此前只固定收录 4 个静态页，其余已发布公开内容页漏收录
 - 不含：draft/deleted、listed=0、/admin/*、/account/*、/api/*
 - base：config app.url
 

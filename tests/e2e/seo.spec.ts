@@ -16,6 +16,8 @@ const POST_OK = `t36-post-ok-${RUN}`;
 const POST_DRAFT = `t36-post-draft-${RUN}`;
 const SKU_OK = `t36-sku-ok-${RUN}`;
 const SKU_UNLISTED = `t36-sku-unlisted-${RUN}`;
+const PAGE_OK = `t36-page-ok-${RUN}`;
+const PAGE_DRAFT = `t36-page-draft-${RUN}`;
 const MISSING_PATH = `/nt-${RUN}`;
 
 let acatId: bigint;
@@ -57,6 +59,12 @@ test.beforeAll(async () => {
   await prisma.product.create({
     data: { sku: SKU_UNLISTED, slug: SKU_UNLISTED, name: "T36 隐藏", description: "", type: "service", status: "published", listed: false, price: 1, categoryId: pcat.id },
   });
+  await prisma.contentPage.createMany({
+    data: [
+      { slug: PAGE_OK, title: "T36 已发布页", bodyMd: "x", status: "published" },
+      { slug: PAGE_DRAFT, title: "T36 草稿页", bodyMd: "x", status: "draft" },
+    ],
+  });
   const t = { boardId: board.id, authorName: "t36", lastPostAt: new Date() };
   threadOkId = (
     await prisma.forumThread.create({ data: { ...t, title: "T36 开放主题" } })
@@ -78,6 +86,7 @@ test.afterAll(async () => {
   await prisma.articleCategory.delete({ where: { id: acatId } });
   await prisma.product.deleteMany({ where: { categoryId: pcatId } });
   await prisma.productCategory.delete({ where: { id: pcatId } });
+  await prisma.contentPage.deleteMany({ where: { slug: { in: [PAGE_OK, PAGE_DRAFT] } } });
   await prisma.$disconnect();
 });
 
@@ -130,6 +139,21 @@ test.describe("US6 SEO(T035/T036,SC-309)", () => {
       expect(body, fixed).toContain(`<loc>${loc}</loc>`);
     }
 
+    // 已发布内容页(issue #101:此前只固定收录 4 个静态页,其余公开内容页漏收录)
+    for (const page of [
+      "/sitemap",
+      "/devlog",
+      "/hardcore-mode",
+      "/mount-guide",
+      "/hd-client",
+      "/client-extract",
+      "/login-troubleshoot",
+      "/patch-guide",
+      `/${PAGE_OK}`,
+    ]) {
+      expect(body, page).toContain(`<loc>${base}${page}</loc>`);
+    }
+
     expect(body).toContain(`<loc>${base}/post/${POST_OK}</loc>`);
     expect(body, "文章条目带 lastmod").toContain("<lastmod>");
     expect(body).toContain(`<loc>${base}/shop/${SKU_OK}</loc>`);
@@ -143,6 +167,7 @@ test.describe("US6 SEO(T035/T036,SC-309)", () => {
 
     expect(body).not.toContain(POST_DRAFT);
     expect(body).not.toContain(SKU_UNLISTED);
+    expect(body, "draft 内容页不收录").not.toContain(`/${PAGE_DRAFT}`);
     expect(body).not.toContain(`/forum/thread/${threadClosedId}`);
     for (const banned of ["/admin", "/account", "/api", "/cart", "/checkout"]) {
       expect(body, banned).not.toContain(`<loc>${base}${banned}`);

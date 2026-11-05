@@ -8,8 +8,8 @@ import {
 
 /**
  * T035 US6 sitemap 条目构建集成(契约 tools-and-seo §sitemap 口径,SC-309 增量半):
- * 条目数与库 count 对账(post/shop/board/thread 四域);draft 文章、draft 商品、
- * listed=0 商品、关闭主题、软删主题排除断言;固定路由 18 条恰好各一次。
+ * 条目数与库 count 对账(post/shop/board/thread/page 五域);draft 文章、draft 商品、
+ * listed=0 商品、关闭主题、软删主题排除断言;固定路由 13 条恰好各一次。
  */
 const RUN = Date.now().toString(36);
 const CAT_SLUG = `t35-acat-${RUN}`;
@@ -20,6 +20,8 @@ const POST_DRAFT = `t35-post-draft-${RUN}`;
 const SKU_OK = `t35-sku-ok-${RUN}`;
 const SKU_UNLISTED = `t35-sku-unlisted-${RUN}`;
 const SKU_DRAFT = `t35-sku-draft-${RUN}`;
+const PAGE_OK = `t35-page-ok-${RUN}`;
+const PAGE_DRAFT = `t35-page-draft-${RUN}`;
 
 let acatId: bigint;
 let pcatId: bigint;
@@ -54,6 +56,12 @@ beforeAll(async () => {
       { sku: SKU_DRAFT, slug: SKU_DRAFT, name: "T35 商品草稿", description: "", type: "service", status: "draft", listed: true, price: 1, categoryId: pcat.id },
     ],
   });
+  await prisma.contentPage.createMany({
+    data: [
+      { slug: PAGE_OK, title: "T35 已发布页", bodyMd: "x", status: "published" },
+      { slug: PAGE_DRAFT, title: "T35 草稿页", bodyMd: "x", status: "draft" },
+    ],
+  });
   const base = { boardId: board.id, authorName: "t35", lastPostAt: new Date() };
   threadOkId = (
     await prisma.forumThread.create({
@@ -77,6 +85,7 @@ afterAll(async () => {
   await prisma.articleCategory.delete({ where: { id: acatId } });
   await prisma.product.deleteMany({ where: { categoryId: pcatId } });
   await prisma.productCategory.delete({ where: { id: pcatId } });
+  await prisma.contentPage.deleteMany({ where: { slug: { in: [PAGE_OK, PAGE_DRAFT] } } });
 });
 
 describe("sitemap 条目构建(T035)", () => {
@@ -121,15 +130,37 @@ describe("sitemap 条目构建(T035)", () => {
     expect(post?.lastModified).toBeInstanceOf(Date);
   });
 
-  it("固定路由 18 条恰好各一次;禁扫路径不存在;主题上限常量=5000", async () => {
+  it("固定路由 13 条恰好各一次;禁扫路径不存在;主题上限常量=5000", async () => {
     const entries = await buildSitemapEntries();
     for (const fixed of SITEMAP_FIXED_PATHS) {
       expect(entries.filter((e) => e.path === fixed), `${fixed}`).toHaveLength(1);
     }
-    expect(SITEMAP_FIXED_PATHS).toHaveLength(18);
+    expect(SITEMAP_FIXED_PATHS).toHaveLength(13);
     expect(SITEMAP_THREAD_LIMIT).toBe(5000);
     expect(entries.some((e) => e.path.startsWith("/admin"))).toBe(false);
     expect(entries.some((e) => e.path.startsWith("/account"))).toBe(false);
     expect(entries.some((e) => e.path.startsWith("/api"))).toBe(false);
+  });
+
+  /**
+   * issue #101:内容页此前只固定收录 4 个静态页,其余已发布公开内容页
+   * (升格指南页等)首页可达却漏收录;口径改为由 content_page 已发布行推导。
+   */
+  it("内容页:已发布收录且与库 count 对账,draft 不收录,路径无重复", async () => {
+    const entries = await buildSitemapEntries();
+    const paths = entries.map((e) => e.path);
+    const publishedPages = await prisma.contentPage.count({ where: { status: "published" } });
+    const pageEntries = paths.filter(
+      (p) =>
+        !p.startsWith("/post/") &&
+        !p.startsWith("/shop/") &&
+        !p.startsWith("/forum/") &&
+        !SITEMAP_FIXED_PATHS.includes(p),
+    );
+
+    expect(pageEntries).toHaveLength(publishedPages);
+    expect(paths).toContain(`/${PAGE_OK}`);
+    expect(paths).not.toContain(`/${PAGE_DRAFT}`);
+    expect(new Set(paths).size).toBe(paths.length);
   });
 });
