@@ -61,7 +61,7 @@ test("轮播闭环:新建→首页可见→停用隐藏→删除", async ({ page
   const createBtn = page.getByRole("button", { name: "新建物料" });
   await expect(createBtn).toBeEnabled(); // hydration 同步点
   await createBtn.click();
-  await page.getByLabel("标题", { exact: true }).fill(TITLE_A);
+  await page.getByLabel("标题(可空=纯图无文案)").fill(TITLE_A);
   await page.getByPlaceholder("/images/… 或 https://…").fill("/images/legacy-missing.svg");
   await page.getByRole("button", { name: "创建" }).click();
   const cardA = page.getByTestId("banner-card").filter({ hasText: TITLE_A });
@@ -69,7 +69,7 @@ test("轮播闭环:新建→首页可见→停用隐藏→删除", async ({ page
 
   // 再建一张(启用):首页轮播出现两张+圆点
   await page.getByRole("button", { name: "新建物料" }).click();
-  await page.getByLabel("标题", { exact: true }).fill(TITLE_B);
+  await page.getByLabel("标题(可空=纯图无文案)").fill(TITLE_B);
   await page.getByPlaceholder("/images/… 或 https://…").fill("/images/legacy-missing.svg");
   await page.getByRole("button", { name: "创建" }).click();
   await expect(page.getByTestId("banner-card").filter({ hasText: TITLE_B })).toBeVisible();
@@ -245,4 +245,26 @@ test("轮播间隔:越界 422 呈现;配置 2 秒→首页按新间隔自动切�
     select: { value: true },
   });
   expect(row?.value).toBe("2");
+});
+
+test("纯图 banner:标题留空可保存,首页渲染图片无文字叠层(WP 原站首页顶部特色图形态)", async ({ page }) => {
+  await login(page, "m1admin", "adminpass123");
+  // 清扫历史失败运行遗留的空标题 banner(其存在会让轮播出现切换控件,与本断言无关)
+  await prisma.homeBanner.deleteMany({ where: { title: "", sort: 99 } });
+
+  const res = await page.request.post("/api/admin/banners", {
+    data: { title: "", imageUrl: "/images/legacy-missing.svg", enabled: true, sort: 99 },
+  });
+  expect(res.status()).toBe(200);
+  const bannerId = ((await res.json()) as { id: string }).id;
+
+  try {
+    await page.goto("/");
+    const carSection = page.locator('section[aria-label="首页轮播"]');
+    await expect(carSection.locator("img")).toBeVisible();
+    // 空标题 → 无文字叠层
+    await expect(carSection.locator("h2")).toHaveCount(0);
+  } finally {
+    await prisma.homeBanner.delete({ where: { id: BigInt(bannerId) } });
+  }
 });

@@ -51,17 +51,39 @@ test.describe("归档(T023 FR-209)", () => {
 });
 
 test.describe("文章详情(T024 FR-210/211)", () => {
-  test("TOC 锚点跳转+分类面包屑", async ({ page }) => {
+  test("目录:左侧吸顶目录列+锚点跳转+分类面包屑", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/post/seed-announcement-second");
     await expect(page.getByRole("heading", { name: "服务器开放公告" })).toBeVisible();
-    const toc = page.getByRole("navigation", { name: "目录" });
+    // xl+:目录在正文左侧 rail(吸顶),顶部回落块不渲染
+    const toc = page.getByTestId("article-toc-rail");
     await expect(toc.getByRole("link", { name: "开放安排" })).toBeVisible();
+    // 顶部回落块 xl 下仍在 DOM 但隐藏(display:none 不进无障碍树)
+    await expect(page.getByTestId("article-toc-top")).toBeHidden();
+    const { position, top } = await toc.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { position: s.position, top: s.top };
+    });
+    expect(position).toBe("sticky");
+    expect(top).toBe("96px");
+    // 目录列在正文面板左侧
+    const panel = page.getByTestId("content-panel").first();
+    expect((await toc.boundingBox())!.x).toBeLessThan((await panel.boundingBox())!.x);
+    // 条目逐行排列(垂直列表,非同行多列)
+    const links = toc.locator("a");
+    const ys = await links.evaluateAll((els) =>
+      els.map((el) => Math.round(el.getBoundingClientRect().y)),
+    );
+    expect(new Set(ys).size).toBe(ys.length);
+
     await toc.getByRole("link", { name: "开放安排" }).click();
     // rehype-slug v6 默认 user-content- 前缀
     expect(decodeURIComponent(new URL(page.url()).hash)).toBe(
       "#user-content-开放安排",
     );
-    await expect(page.getByRole("heading", { name: "开放安排" })).toBeVisible();
+    // scroll-mt:目标标题不被 88px 吸顶页头遮住
+    const heading = page.getByRole("heading", { name: "开放安排" });
+    expect((await heading.boundingBox())!.y).toBeGreaterThanOrEqual(88);
     // 分类面包屑可达归档(限定 article 内,避开侧栏同名归档链接)
     await page
       .locator("article")
@@ -71,8 +93,17 @@ test.describe("文章详情(T024 FR-210/211)", () => {
     await expect(page).toHaveURL(/\/announcements$/);
   });
 
-  test("views 原子 +1(无 JS 环境精确断言,SC-203 前台半)", async ({ browser }) => {
-    const nojs = await browser.newContext({ javaScriptEnabled: false });
+  test("右栏内置组件:在线人数/最新资讯并入侧栏注册表(2026-11-05 后台可配)", async ({ page }) => {
+    await page.goto("/post/seed-announcement-second");
+    const sidebar = page.getByTestId("site-sidebar");
+    // 在线人数卡(status.enabled 缺省=开)与最新资讯卡按默认范围(文章页)渲染
+    await expect(sidebar.getByTestId("sidebar-server-status")).toBeVisible();
+    await expect(sidebar.getByTestId("sidebar-latest-news")).toBeVisible();
+    // 公告类文章:右栏含站内信推送提示卡(文章详情私有,非页面级配置)
+    await expect(page.getByTestId("article-announcement-note")).toBeVisible();
+  });
+
+  test("views 原子 +1(无 JS 环境精确断言,SC-203 前台半)", async ({ browser }) => {    const nojs = await browser.newContext({ javaScriptEnabled: false });
     const page = await nojs.newPage();
     await page.goto("/post/seed-announcement-welcome");
     const before = await viewsText(page);
@@ -125,6 +156,21 @@ test.describe("静态页与兜底(T025 FR-210/R15)", () => {
   test("旧 /post/ 教程链接 308 跳静态页", async ({ page }) => {
     await page.goto("/post/硬核挑战模式一命模式");
     await expect(page).toHaveURL(/\/hardcore-mode$/);
+  });
+
+  test("网站地图页渲染分组链接(固定栏目+动态版块/分类)", async ({ page }) => {
+    await page.goto("/sitemap");
+    const groups = page.getByTestId("sitemap-groups");
+    await expect(groups).toBeVisible();
+    await expect(groups.getByRole("heading", { name: "主要栏目" })).toBeVisible();
+    await expect(
+      groups.getByRole("link", { name: "公告", exact: true }),
+    ).toHaveAttribute("href", "/announcements");
+    // 动态分组:论坛版块含种子版块链接,商城分类带 category 过滤参数
+    await expect(groups.getByRole("heading", { name: "论坛版块" })).toBeVisible();
+    await expect(groups.getByRole("heading", { name: "商城分类" })).toBeVisible();
+    await expect(groups.locator('a[href^="/forum/"]').first()).toBeVisible();
+    await expect(groups.locator('a[href^="/shop?category="]').first()).toBeVisible();
   });
 
   test("随机 slug 落 notFound(404)", async ({ page }) => {
@@ -216,6 +262,22 @@ test.describe("p02 设计稿壳(简介/教程/渐进/日志)", () => {
     await expect(crumb.getByText("使用教程")).toBeVisible();
   });
 
+  test("目录统一逻辑:静态页与文章页同款左侧目录列,无标题页不渲染", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/tutorial");
+    const toc = page.getByTestId("article-toc-rail");
+    // e2e 种子教程正文标题=下载三步(迁移库为注册~登录六步,同为 h2)
+    await expect(toc.getByRole("link", { name: /下载客户端/ })).toBeVisible();
+    await expect(page.getByTestId("article-toc-top")).toBeHidden();
+    await toc.getByRole("link", { name: /下载客户端/ }).click();
+    // 教程页下载区走旧站稳定锚点(sectionAnchors 覆写,菜单与外链共用)
+    expect(new URL(page.url()).hash).toBe("#client_download");
+    // 无 h2-h4 标题的页面(种子 sitemap 正文为空)不渲染目录列
+    await page.goto("/sitemap");
+    await expect(page.getByTestId("article-toc-rail")).toHaveCount(0);
+    await expect(page.getByTestId("article-toc-top")).toHaveCount(0);
+  });
+
   test("渐进页:源站同款左右交替时间轴", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/progression");
@@ -262,14 +324,14 @@ test.describe("p02 设计稿壳(简介/教程/渐进/日志)", () => {
     await expect(
       patchCard.getByRole("link", { name: "补丁下载 · patch-zhCN-5.MPQ" }),
     ).toHaveAttribute("href", "/tutorial#patch_download");
-    // 静态页右栏随滚动吸顶(与 ArticleAside 同款 lg:sticky lg:top-20)
+    // 静态页右栏随滚动吸顶(与 ArticleAside 同款 lg:sticky lg:top-24,88px 页头+间距)
     const aside = page.getByTestId("site-sidebar");
     const { position, top } = await aside.evaluate((el) => {
       const s = getComputedStyle(el);
       return { position: s.position, top: s.top };
     });
     expect(position).toBe("sticky");
-    expect(top).toBe("80px");
+    expect(top).toBe("96px");
   });
 
   test("开发日志页:Markdown 静态页,面包屑 首页 › 开发日志,全量不分页", async ({ page }) => {
@@ -310,6 +372,16 @@ test.describe("内容区底色(页面背景图为装饰层,文字不直压背景
       expect(bg).not.toBe("rgba(0, 0, 0, 0)");
     });
   }
+
+  // 2026-11-05 用户反馈:左侧目录列曾直铺全站背景图,须与正文面板同底
+  test("左侧目录列有自身底色面板", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/post/seed-announcement-second");
+    const toc = page.getByTestId("article-toc-rail");
+    await expect(toc).toBeVisible();
+    const bg = await toc.evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(bg).not.toBe("rgba(0, 0, 0, 0)");
+  });
 });
 
 test.describe("首页四区块(T027)", () => {
@@ -417,6 +489,11 @@ test.describe("首页四区块(T027)", () => {
       "href",
       "/hardcore-mode",
     );
+    // 注册方法指教程页(原站 ?page_id=2=使用教程,教程开头即注册步骤),非注册表单
+    await expect(quick.getByRole("link", { name: "注册方法" })).toHaveAttribute(
+      "href",
+      "/tutorial",
+    );
     const downloadHrefs = await quick
       .getByRole("link", { name: "下载", exact: true })
       .evaluateAll((els) => els.map((el) => el.getAttribute("href")));
@@ -460,10 +537,10 @@ test.describe("首页四区块(T027)", () => {
       .evaluate((el) => getComputedStyle(el).backgroundImage);
     expect(headerBg).toContain("background.jpg");
 
-    // 400×157 高倍源图,46px 显示不糊
+    // 800×313 生产原图(WP 原版 Logo 迁移),54px 显示不糊
     await expect(
       page.getByRole("banner").locator('img[alt="老克塔"]'),
-    ).toHaveAttribute("width", "400");
+    ).toHaveAttribute("width", "800");
   });
 
   test("版心对齐 lokta.cn:1920 下内容 1140px 居中,两侧露出页面背景", async ({ page }) => {
