@@ -88,7 +88,7 @@ export default async function AdminOrderDetailPage({
               <Td>
                 {item.name}
                 <span className="mt-0.5 block whitespace-nowrap text-xs text-[#6482a3]">
-                  /shop/{item.product.slug}
+                  /shop/{item.productSlug}
                 </span>
               </Td>
               <Td className="font-mono text-xs text-[#93b2ce]">{item.sku}</Td>
@@ -104,7 +104,7 @@ export default async function AdminOrderDetailPage({
                         : "muted"
                   }
                 >
-                  {DELIVERY_STATUS_LABEL[item.deliveryStatus] ?? item.deliveryStatus}
+                  {DELIVERY_STATUS_LABEL[item.deliveryStatus as keyof typeof DELIVERY_STATUS_LABEL] ?? item.deliveryStatus}
                 </Badge>
               </Td>
             </Tr>

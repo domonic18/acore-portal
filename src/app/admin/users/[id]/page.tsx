@@ -38,7 +38,7 @@ export default async function AdminUserDetailPage({
           {user.role}
         </Badge>
         <span className="text-sm font-medium text-[#e8c877]">
-          余额 {user.pointAccount?.balance ?? 0} 积分
+          余额 {user.balance} 积分
         </span>
         <Link
           href="/admin/users"
@@ -82,18 +82,18 @@ export default async function AdminUserDetailPage({
 
       <section className="flex flex-col gap-2">
         <h2 className="text-[14px] font-semibold text-[#dcebf7]">已获徽章</h2>
-        {user.badgeGrantsReceived.length === 0 ? (
+        {user.badges.length === 0 ? (
           <p className="text-sm text-[#6482a3]">暂无徽章。</p>
         ) : (
           <ul className="flex flex-wrap gap-2">
-            {user.badgeGrantsReceived.map((g) => (
+            {user.badges.map((g) => (
               <li
                 key={g.id}
                 className="rounded-full border border-[#e8c877]/30 bg-[#e8c877]/10 px-3 py-1 text-sm text-[#e8c877]"
               >
-                {g.badge.name}(Lv.{g.badge.level})
+                {g.name}(Lv.{g.level})
                 <span className="ml-2 text-xs text-[#6482a3]">
-                  {new Date(g.createdAt).toLocaleDateString("zh-CN")}
+                  {new Date(g.grantedAt).toLocaleDateString("zh-CN")}
                 </span>
               </li>
             ))}
@@ -120,7 +120,7 @@ export default async function AdminUserDetailPage({
               {user.recentTransactions.map((t) => (
                 <Tr key={t.id}>
                   <Td className="whitespace-nowrap text-[#dcebf7]">
-                    {POINT_TX_TYPE_LABEL[t.type] ?? t.type}
+                    {POINT_TX_TYPE_LABEL[t.type as keyof typeof POINT_TX_TYPE_LABEL] ?? t.type}
                   </Td>
                   <Td
                     className={`whitespace-nowrap font-mono ${

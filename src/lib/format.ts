@@ -54,3 +54,16 @@ export function formatDateTime(iso: string): string {
 export function displayUserName(u: { username: string | null; nickname?: string | null }): string {
   return u.nickname ? `${u.nickname} (${u.username})` : (u.username ?? "");
 }
+
+/**
+ * ISO 时间 → datetime-local 输入值(本地时区 YYYY-MM-DDTHH:mm);空/非法回 null。
+ * 独立于客户端组件模块:RSC 页面需直接调用(从 "use client" 模块导入非组件导出
+ * 只会得到客户端引用代理,服务端调用会抛 "is not a function")。
+ */
+export function isoToDateTimeInput(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}

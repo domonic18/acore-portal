@@ -8,6 +8,7 @@ import {
   batchSetProducts,
   deleteProduct,
   duplicateProduct,
+  getAdminProduct,
   listAdminProducts,
   saveProduct,
   setProductStatus,
@@ -545,5 +546,96 @@ describe("商品列表快速编辑 updateProductQuickEdit(2026-11-03)", () => {
     expect(
       await errCode(updateProductQuickEdit(987654321n, { price: 1 }, DEL_ACTOR)),
     ).toBe("NOT_FOUND");
+  });
+});
+
+describe("商品编辑保留促销窗口与精选(issue #72 回归,2026-11-05)", () => {
+  it("全量表单仅改名:saleStart/saleEnd/featured 读回装入后保持不变;显式清空仍生效", async () => {
+    const saleStart = new Date("2026-11-01T00:00:00Z");
+    const saleEnd = new Date("2026-12-01T00:00:00Z");
+    const sku = `itemsend_p72${RUN}`;
+    const { id } = await saveProduct(
+      baseInput({
+        sku,
+        slug: `${SLUG_PREFIX}keep`,
+        gameItemId: 19021,
+        salePrice: 80,
+        saleStart,
+        saleEnd,
+        featured: true,
+      }),
+    );
+
+    // 编辑页经 getAdminProduct DTO 读回真实三值(issue #78 串测:ISO 串可往返)
+    const loaded = await getAdminProduct(id);
+    expect(loaded?.saleStart).toBe(saleStart.toISOString());
+    expect(loaded?.saleEnd).toBe(saleEnd.toISOString());
+    expect(loaded?.featured).toBe(true);
+
+    // 模拟表单全量保存但仅改名称:三值随 DTO 装回提交 → 不被清空
+    await saveProduct(
+      baseInput({
+        id,
+        sku,
+        slug: `${SLUG_PREFIX}keep`,
+        gameItemId: 19021,
+        name: `改名商品 ${RUN}`,
+        salePrice: 80,
+        saleStart: new Date(loaded!.saleStart!),
+        saleEnd: new Date(loaded!.saleEnd!),
+        featured: loaded!.featured,
+      }),
+    );
+    const kept = await prisma.product.findUniqueOrThrow({
+      where: { id },
+      select: { name: true, saleStart: true, saleEnd: true, featured: true },
+    });
+    expect(kept.name).toBe(`改名商品 ${RUN}`);
+    expect(kept.saleStart?.toISOString()).toBe(saleStart.toISOString());
+    expect(kept.saleEnd?.toISOString()).toBe(saleEnd.toISOString());
+    expect(kept.featured).toBe(true);
+
+    // 显式清空促销与精选仍生效(区分「未提交」与「显式清空」由表单装入初值保证)
+    await saveProduct(
+      baseInput({
+        id,
+        sku,
+        slug: `${SLUG_PREFIX}keep`,
+        gameItemId: 19021,
+        salePrice: null,
+        saleStart: null,
+        saleEnd: null,
+        featured: false,
+      }),
+    );
+    const cleared = await prisma.product.findUniqueOrThrow({
+      where: { id },
+      select: { salePrice: true, saleStart: true, saleEnd: true, featured: true },
+    });
+    expect(cleared.salePrice).toBeNull();
+    expect(cleared.saleStart).toBeNull();
+    expect(cleared.saleEnd).toBeNull();
+    expect(cleared.featured).toBe(false);
+  });
+
+  it("getAdminProduct DTO:BigInt/日期序列化+图片归一+NOT_FOUND(issue #78)", async () => {
+    const { id } = await saveProduct(
+      baseInput({
+        sku: `itemsend_dto${RUN}`,
+        slug: `${SLUG_PREFIX}dto`,
+        gameItemId: 19021,
+        images: ["/a.png"],
+      }),
+    );
+    const dto = await getAdminProduct(id);
+    expect(dto?.id).toBe(id.toString());
+    expect(dto?.categoryId).toBe(categoryId.toString());
+    expect(dto?.categoryName).toBe(`M5P 商品 ${RUN}`);
+    expect(dto?.images).toEqual(["/a.png"]);
+    expect(dto?.saleStart).toBeNull();
+    expect(dto?.detailMd).toBe("");
+    // 页面 DTO 必须可直接 JSON 序列化(BigInt 会 throw)
+    expect(() => JSON.stringify(dto)).not.toThrow();
+    expect(await getAdminProduct(9_999_999n)).toBeNull();
   });
 });

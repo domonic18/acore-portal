@@ -71,12 +71,34 @@ export async function listAdminUsers(opts: {
   };
 }
 
-export async function getAdminUserDetail(id: bigint) {
+/** 用户详情页 DTO:BigInt/日期在 service 序列化,页面不做 ORM 适配(issue #78) */
+export type AdminUserDetail = {
+  id: string;
+  username: string;
+  nickname: string | null;
+  email: string;
+  role: string;
+  status: string;
+  wpUserId: number | null;
+  createdAt: string;
+  balance: number;
+  badges: { id: string; name: string; level: number; grantedAt: string }[];
+  recentTransactions: {
+    id: string;
+    type: string;
+    amount: number;
+    balanceAfter: number;
+    remark: string | null;
+    createdAt: string;
+  }[];
+};
+
+export async function getAdminUserDetail(id: bigint): Promise<AdminUserDetail | null> {
   const user = await prisma.user.findUnique({
     where: { id },
     include: {
       pointAccount: { select: { balance: true } },
-      badgeGrantsReceived: { include: { badge: true, pointTransaction: true } },
+      badgeGrantsReceived: { orderBy: { createdAt: "asc" }, include: { badge: true } },
     },
   });
   if (!user) return null;
@@ -85,5 +107,29 @@ export async function getAdminUserDetail(id: bigint) {
     orderBy: { id: "desc" },
     take: 10,
   });
-  return { ...user, recentTransactions: transactions };
+  return {
+    id: user.id.toString(),
+    username: user.username,
+    nickname: user.nickname,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+    wpUserId: user.wpUserId,
+    createdAt: user.createdAt.toISOString(),
+    balance: user.pointAccount?.balance ?? 0,
+    badges: user.badgeGrantsReceived.map((g) => ({
+      id: g.id.toString(),
+      name: g.badge.name,
+      level: g.badge.level,
+      grantedAt: g.createdAt.toISOString(),
+    })),
+    recentTransactions: transactions.map((t) => ({
+      id: t.id.toString(),
+      type: t.type,
+      amount: t.amount,
+      balanceAfter: t.balanceAfter,
+      remark: t.remark,
+      createdAt: t.createdAt.toISOString(),
+    })),
+  };
 }

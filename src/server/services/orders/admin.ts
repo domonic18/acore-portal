@@ -4,6 +4,7 @@ import { ORDER_ITEM_DELIVERY_STATUS, ORDER_STATUS, type OrderStatusValue } from 
 import { ADMIN_ORDER_PAGE_SIZE } from "@/constants/pagination";
 import { paginate } from "@/lib/pagination";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
+import { POINT_TX_TYPE } from "@/constants/points";
 import { writeAudit } from "@/server/services/shared/audit";
 import { creditLedger } from "@/server/services/shared/ledger";
 import { transitionOrder } from "@/server/services/shop/state-machine";
@@ -81,14 +82,58 @@ export async function listAdminOrders(opts: { status?: string; page?: number }):
   };
 }
 
-export async function getAdminOrderDetail(id: bigint) {
-  return prisma.order.findUnique({
+/** 订单详情页 DTO:BigInt/日期在 service 序列化,页面不做 ORM 适配(issue #78) */
+export type AdminOrderDetail = {
+  id: string;
+  orderNo: string;
+  status: string;
+  pointCost: number;
+  createdAt: string;
+  legacyWpOrderId: number | null;
+  user: { id: string; username: string; nickname: string | null; email: string };
+  items: {
+    id: string;
+    name: string;
+    sku: string;
+    unitPrice: number;
+    qty: number;
+    deliveryStatus: string;
+    productSlug: string;
+  }[];
+};
+
+export async function getAdminOrderDetail(id: bigint): Promise<AdminOrderDetail | null> {
+  const order = await prisma.order.findUnique({
     where: { id },
     include: {
       user: { select: { id: true, username: true, nickname: true, email: true } },
       items: { include: { product: { select: { slug: true } } } },
     },
   });
+  if (!order) return null;
+  return {
+    id: order.id.toString(),
+    orderNo: order.orderNo,
+    status: order.status,
+    pointCost: order.pointCost,
+    createdAt: order.createdAt.toISOString(),
+    legacyWpOrderId: order.legacyWpOrderId,
+    user: {
+      id: order.user.id.toString(),
+      username: order.user.username,
+      nickname: order.user.nickname,
+      email: order.user.email,
+    },
+    items: order.items.map((item) => ({
+      id: item.id.toString(),
+      name: item.name,
+      sku: item.sku,
+      unitPrice: item.unitPrice,
+      qty: item.qty,
+      deliveryStatus: item.deliveryStatus,
+      productSlug: item.product.slug,
+    })),
+  };
 }
 
 /** 仪表盘最新订单(只读,limit 1-20) */
@@ -265,7 +310,7 @@ export async function refundOrder(
     const after = await creditLedger(tx, {
       userId: order.userId,
       amount: order.pointCost,
-      type: "shop_payment",
+      type: POINT_TX_TYPE.SHOP_PAYMENT,
       remark: `订单退款 #${order.orderNo}`,
       refType: "order",
       refId: order.id,
