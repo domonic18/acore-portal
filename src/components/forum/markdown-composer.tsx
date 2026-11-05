@@ -25,7 +25,7 @@ export function MarkdownComposer({
   rows?: number;
 }) {
   const taRef = useRef<HTMLTextAreaElement>(null);
-  const [showPreview, setShowPreview] = useState(true);
+  const [showPreview, setShowPreview] = useState(false);
   const [previewHtml, setPreviewHtml] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");

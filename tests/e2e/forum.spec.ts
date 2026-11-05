@@ -480,6 +480,16 @@ test.describe("发帖回帖(#34 2026-11-04)", () => {
     expect(r.status()).toBe(401);
   });
 
+  test("发帖页实时预览默认关闭,需手动展开(#99)", async ({ page }) => {
+    await login(page, "legacyuser", "oldpass123");
+    await page.goto(`/forum/${POST_BOARD_SLUG}/new`);
+    await expect(page.getByTestId("forum-composer-preview")).toHaveCount(0);
+    await page.getByRole("button", { name: "实时预览" }).click();
+    await expect(page.getByTestId("forum-composer-preview")).toBeVisible();
+    await page.getByRole("button", { name: "收起预览" }).click();
+    await expect(page.getByTestId("forum-composer-preview")).toHaveCount(0);
+  });
+
   test("legacyuser 发主题全链路:表单→主题页(楼层1 Markdown 渲染)→版块列表可见", async ({
     page,
   }) => {
