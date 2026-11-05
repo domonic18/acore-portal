@@ -1,13 +1,11 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import {
-  PORTRAIT_DEFAULT,
-  portraitPath,
-  RACE_CLASSES,
-} from "@/constants/portraits";
+import { PORTRAIT_DEFAULT, raceFacePath } from "@/constants/portraits";
 import { getRandomPortraitUrl } from "@/server/services/shared/portrait";
 
 /**
- * T017 US1 随机头图(quickstart S1):组合映射正确/非法组合降级默认图/
+ * T017 US1 随机头图(quickstart S1):官方种族头像映射正确/非法取值降级默认图/
  * 抽样异常与超时降级/Redis 缓存 60s 命中不发查询。
  */
 
@@ -22,41 +20,45 @@ function fakeCache() {
   };
 }
 
-describe("portraitPath 组合映射(T017)", () => {
-  it("合法 race/class/gender → /portraits/{r}-{c}-{g}.svg", () => {
-    expect(portraitPath(1, 2, 0)).toBe("/portraits/1-2-0.svg");
-    expect(portraitPath(6, 11, 1)).toBe("/portraits/6-11-1.svg");
+describe("raceFacePath 官方头像映射(T017,2026-11-05 与我的角色页统一)", () => {
+  it("合法 race/gender → /assets/icons/race/ 官方图(按性别)", () => {
+    expect(raceFacePath(1, 0)).toBe(
+      "/assets/icons/race/Ui-charactercreate-races_human-male.png",
+    );
+    expect(raceFacePath(3, 1)).toBe(
+      "/assets/icons/race/Ui-charactercreate-races_dwarf-female.png",
+    );
+    expect(raceFacePath(10, 0)).toBe(
+      "/assets/icons/race/Ui-charactercreate-races_bloodelf-male.png",
+    );
   });
 
-  it("非法组合(60 时代不存在的职业/性别)返回 null", () => {
-    expect(portraitPath(1, 11, 0)).toBeNull(); // 人类无德鲁伊
-    expect(portraitPath(1, 1, 2)).toBeNull(); // 性别枚举仅 0/1
-    expect(portraitPath(99, 1, 0)).toBeNull(); // 未知种族
-    expect(portraitPath(1, 6, 0)).toBeNull(); // 职业枚举无 6
+  it("非法取值(未知种族/性别枚举仅 0/1)返回 null", () => {
+    expect(raceFacePath(99, 0)).toBeNull();
+    expect(raceFacePath(1, 2)).toBeNull();
   });
 
-  it("全组合枚举均能映射(素材集契约)", () => {
-    for (const [race, classes] of Object.entries(RACE_CLASSES)) {
-      for (const klass of classes) {
-        for (const gender of [0, 1]) {
-          expect(portraitPath(Number(race), klass, gender)).toBe(
-            `/portraits/${race}-${klass}-${gender}.svg`,
-          );
-        }
+  it("素材集契约:全种族×性别映射文件真实存在(移植自 acore-ranking)", () => {
+    for (const race of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) {
+      for (const gender of [0, 1]) {
+        const path = raceFacePath(race, gender);
+        expect(path, `race=${race} gender=${gender}`).toBeTruthy();
+        expect(existsSync(join(process.cwd(), "public", path!))).toBe(true);
       }
     }
   });
 });
 
 describe("getRandomPortraitUrl(T017)", () => {
-  it("抽样成功映射头像路径并写 60s 缓存", async () => {
+  it("抽样成功映射官方头像路径并写 60s 缓存", async () => {
     const cache = fakeCache();
     const url = await getRandomPortraitUrl({
-      query: async () => ({ race: 3, class: 2, gender: 1 }),
+      query: async () => ({ race: 3, gender: 1 }),
       cache,
     });
-    expect(url).toBe("/portraits/3-2-1.svg");
-    expect(cache.store.get("m3:portrait")).toBe("/portraits/3-2-1.svg");
+    const expected = "/assets/icons/race/Ui-charactercreate-races_dwarf-female.png";
+    expect(url).toBe(expected);
+    expect(cache.store.get("m3:portrait")).toBe(expected);
   });
 
   it("抽样抛错降级默认图且不抛出(FR-203)", async () => {
@@ -87,22 +89,23 @@ describe("getRandomPortraitUrl(T017)", () => {
 
   it("缓存命中不发查询", async () => {
     const cache = fakeCache();
-    cache.store.set("m3:portrait", "/portraits/8-3-0.svg");
+    const cached = "/assets/icons/race/Ui-charactercreate-races_orc-male.png";
+    cache.store.set("m3:portrait", cached);
     let queried = 0;
     const url = await getRandomPortraitUrl({
       query: async () => {
         queried += 1;
-        return { race: 1, class: 1, gender: 0 };
+        return { race: 1, gender: 0 };
       },
       cache,
     });
-    expect(url).toBe("/portraits/8-3-0.svg");
+    expect(url).toBe(cached);
     expect(queried).toBe(0);
   });
 
-  it("非法三元组(库数据畸形)降级默认图", async () => {
+  it("非法取值(库数据畸形)降级默认图", async () => {
     const url = await getRandomPortraitUrl({
-      query: async () => ({ race: 1, class: 11, gender: 0 }),
+      query: async () => ({ race: 99, gender: 0 }),
       cache: fakeCache(),
     });
     expect(url).toBe(PORTRAIT_DEFAULT);
