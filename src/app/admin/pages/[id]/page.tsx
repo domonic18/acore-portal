@@ -30,6 +30,7 @@ export default async function AdminPageEditPage({ params }: { params: { id: stri
           bodyMd: page.bodyMd,
           status: page.status,
           sortOrder: page.sortOrder,
+          tocEnabled: page.tocEnabled,
         }}
       />
     </div>

@@ -31,6 +31,7 @@ export async function getAdminPage(id: bigint) {
     bodyMd: row.bodyMd,
     status: row.status,
     sortOrder: row.sortOrder,
+    tocEnabled: row.tocEnabled,
   };
 }
 
@@ -53,6 +54,7 @@ export async function savePage(input: {
   bodyMd: string;
   status: ContentStatus;
   sortOrder?: number;
+  tocEnabled?: boolean | null;
   actorUserId: bigint;
 }): Promise<{ id: bigint }> {
   const slug = await resolvePageSlug(input.slug, input.id);
@@ -62,6 +64,7 @@ export async function savePage(input: {
     bodyMd: input.bodyMd,
     status: input.status,
     sortOrder: input.sortOrder ?? 0,
+    tocEnabled: input.tocEnabled ?? null,
   };
   if (input.id) {
     const hit = await prisma.contentPage.updateMany({

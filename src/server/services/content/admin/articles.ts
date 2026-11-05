@@ -78,6 +78,7 @@ export async function getAdminArticle(id: bigint) {
     categoryName: row.category.name,
     status: row.status,
     views: row.views,
+    tocEnabled: row.tocEnabled,
     publishedAt: row.publishedAt?.toISOString() ?? null,
     tags: row.tags.map((t) => ({ id: t.tag.id.toString(), name: t.tag.name, slug: t.tag.slug })),
   };
@@ -115,6 +116,7 @@ export async function saveArticle(input: {
   bodyMd: string;
   excerpt?: string | null;
   status: ContentStatus;
+  tocEnabled?: boolean | null;
   tagIds?: bigint[];
   actorUserId: bigint;
 }): Promise<{ id: bigint }> {
@@ -132,6 +134,7 @@ export async function saveArticle(input: {
     categoryId: input.categoryId,
     excerpt: input.excerpt ?? null,
     status: input.status,
+    tocEnabled: input.tocEnabled ?? null,
   };
 
   const result = await prisma.$transaction(async (tx) => {

@@ -69,7 +69,7 @@ export async function listArchiveArticles(opts: {
   return { items, total, page, pageSize };
 }
 
-/** 文章详情(FR-210):published 直达,draft/缺失 null */
+/** 文章详情(FR-210):published 直达,draft/缺失 null;tocEnabled 页面级目录开关(null=跟随全局) */
 export async function getArticleBySlug(slug: string) {
   return prisma.article.findFirst({
     where: { slug, status: "published" },
@@ -82,6 +82,7 @@ export async function getArticleBySlug(slug: string) {
       publishedAt: true,
       updatedAt: true,
       views: true,
+      tocEnabled: true,
       categoryId: true,
       category: { select: { name: true, slug: true } },
       tags: { select: { tag: { select: { name: true, slug: true } } } },

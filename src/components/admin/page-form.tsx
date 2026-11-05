@@ -17,12 +17,32 @@ export type PageFormValues = {
   bodyMd: string;
   status: string;
   sortOrder: number;
+  /** 页面级目录开关:null=跟随全局设置(系统设置→内容展示) */
+  tocEnabled: boolean | null;
 };
+
+/** 目录开关三态 select 值 ↔ nullable boolean */
+const TOC_OPTIONS = [
+  { value: "", label: "跟随全局设置" },
+  { value: "on", label: "显示目录" },
+  { value: "off", label: "关闭目录" },
+] as const;
+
+function tocToValue(v: boolean | null): string {
+  if (v === null) return "";
+  return v ? "on" : "off";
+}
+
+function valueToToc(v: string): boolean | null {
+  if (v === "on") return true;
+  if (v === "off") return false;
+  return null;
+}
 
 export function PageForm({ initial }: { initial?: PageFormValues }) {
   const router = useRouter();
   const [values, setValues] = useState<PageFormValues>(
-    initial ?? { slug: "", title: "", bodyMd: "", status: "draft", sortOrder: 0 },
+    initial ?? { slug: "", title: "", bodyMd: "", status: "draft", sortOrder: 0, tocEnabled: null },
   );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -103,6 +123,20 @@ export function PageForm({ initial }: { initial?: PageFormValues }) {
             <Select value={values.status} onChange={(e) => set("status", e.target.value)} className="w-auto">
               <option value="draft">草稿</option>
               <option value="published">发布</option>
+            </Select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[#93b2ce]">左侧目录</span>
+            <Select
+              value={tocToValue(values.tocEnabled)}
+              onChange={(e) => set("tocEnabled", valueToToc(e.target.value))}
+              className="w-auto"
+            >
+              {TOC_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </Select>
           </label>
           {error && (

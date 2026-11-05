@@ -44,6 +44,7 @@ export default async function AdminArticleEditPage({
           bodyMd: article.bodyMd,
           status: article.status,
           tagIds: article.tags.map((t) => t.id),
+          tocEnabled: article.tocEnabled,
         }}
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
         tags={tags.map((t) => ({ id: t.id, name: t.name }))}

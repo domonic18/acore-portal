@@ -382,6 +382,14 @@ test.describe("内容区底色(页面背景图为装饰层,文字不直压背景
     const bg = await toc.evaluate((el) => getComputedStyle(el).backgroundColor);
     expect(bg).not.toBe("rgba(0, 0, 0, 0)");
   });
+
+  // 页面级目录开关(2026-11-05):devlog 显式关闭,优先于全局设置(种子含多级标题,断言有区分度)
+  test("页面级目录开关优先于全局(devlog 显式关闭)", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/devlog");
+    await expect(page.getByRole("heading", { name: "开发日志", level: 1 })).toBeVisible();
+    await expect(page.getByTestId("article-toc-rail")).toHaveCount(0);
+  });
 });
 
 test.describe("首页四区块(T027)", () => {

@@ -48,9 +48,10 @@ export default async function PostPage({
     getConfig(),
   ]);
   const published = article.publishedAt ? formatDate(article.publishedAt) : null;
-  // 目录可见=后台开关(默认开)+ 正文确有 h2-h4 标题;任一不满足保持两栏
-  // (空目录列会错置栅格轨道),ArticleTocRail/Block 对空数组自身也不渲染
-  const showToc = config.content.tocEnabled && toc.length > 0;
+  // 目录可见=页面级开关(文章 tocEnabled,null=跟随全局 content.tocEnabled)+正文有
+  // h2-h4 标题;任一不满足保持两栏(空目录列会错置栅格轨道),
+  // ArticleTocRail/Block 对空数组自身也不渲染
+  const showToc = (article.tocEnabled ?? config.content.tocEnabled) && toc.length > 0;
   const gridCls = `grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]${
     showToc ? " xl:grid-cols-[200px_minmax(0,1fr)_320px]" : ""
   }`;

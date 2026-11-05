@@ -35,6 +35,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       bodyMd: parsed.data.bodyMd,
       status: parsed.data.status,
       sortOrder: parsed.data.sortOrder,
+      tocEnabled: parsed.data.tocEnabled,
       actorUserId: BigInt(guard.session.userId),
     });
     return apiOk({ id: id.toString() });

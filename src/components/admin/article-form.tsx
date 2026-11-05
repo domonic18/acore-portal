@@ -23,7 +23,27 @@ export type ArticleFormValues = {
   bodyMd: string;
   status: string;
   tagIds: string[];
+  /** 页面级目录开关:null=跟随全局设置(系统设置→内容展示) */
+  tocEnabled: boolean | null;
 };
+
+/** 目录开关三态 select 值 ↔ nullable boolean */
+const TOC_OPTIONS = [
+  { value: "", label: "跟随全局设置" },
+  { value: "on", label: "显示目录" },
+  { value: "off", label: "关闭目录" },
+] as const;
+
+function tocToValue(v: boolean | null): string {
+  if (v === null) return "";
+  return v ? "on" : "off";
+}
+
+function valueToToc(v: string): boolean | null {
+  if (v === "on") return true;
+  if (v === "off") return false;
+  return null;
+}
 
 export function ArticleForm({
   initial,
@@ -44,6 +64,7 @@ export function ArticleForm({
       bodyMd: "",
       status: "draft",
       tagIds: [],
+      tocEnabled: null,
     },
   );
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +99,7 @@ export function ArticleForm({
             excerpt: values.excerpt || null,
             bodyMd: values.bodyMd,
             status: values.status,
+            tocEnabled: values.tocEnabled,
             tagIds: values.tagIds.map(Number),
           }),
         },
@@ -172,6 +194,20 @@ export function ArticleForm({
               <option value="published">发布</option>
             </Select>
             <span className="text-xs text-[#6482a3]">首次发布将记录发布时间</span>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[#93b2ce]">左侧目录</span>
+            <Select
+              value={tocToValue(values.tocEnabled)}
+              onChange={(e) => set("tocEnabled", valueToToc(e.target.value))}
+              className="w-auto"
+            >
+              {TOC_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
           </label>
           {error && (
             <p role="alert" className="text-sm text-[#eda9a9]">
