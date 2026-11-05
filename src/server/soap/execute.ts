@@ -5,14 +5,12 @@ import { writeAudit } from "@/server/services/shared/audit";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import {
   isSoapCommandAllowed,
+  soapCommandMeta,
+  SOAP_STATUS,
   type SoapCommand,
-} from "@/constants/soap-commands";
-import { SOAP_STATUS } from "@/constants/soap";
-import { rawExecuteCommand } from "./client";
+} from "@/constants/soap";
+import { rawExecuteCommand, SoapOutcomeUnknownError } from "./client";
 
-const DEFAULT_TIMEOUT_MS = 5000;
-/** 契约规则3:幂等命令重试 ≤3 次,指数退避 1s/2s/4s(共 4 次尝试;schema 注释"≤3"按契约勘误为 ≤4) */
-const DEFAULT_RETRY_DELAYS_MS = [1000, 2000, 4000];
 const DIGEST_MAX = 500;
 /** 同幂等键撞上首个 pending 时的等待上限:等待对方终态后回放首次结果 */
 const DEDUPE_WAIT_TOTAL_MS = 30_000;
@@ -20,7 +18,14 @@ const DEDUPE_POLL_INTERVAL_MS = 250;
 
 export type SoapResult =
   | { status: "success"; output: string; durationMs: number; callId: number }
-  | { status: "failed"; error: string; attempts: number; callId: number };
+  | {
+      status: "failed";
+      error: string;
+      attempts: number;
+      callId: number;
+      /** unknown=结果未知(超时/响应不可解析):游戏端可能已执行,已门控禁止自动重发(issue #67) */
+      outcome?: "unknown";
+    };
 
 export type SoapExecuteOptions = {
   idempotencyKey: string;
@@ -91,6 +96,15 @@ function replayFirstResult(row: {
       callId: Number(row.id),
     };
   }
+  if (row.status === SOAP_STATUS.UNKNOWN) {
+    return {
+      status: "failed",
+      error: `结果未知(超时或响应不可解析),已禁止自动重发,待人工核对: ${row.lastError ?? ""}`,
+      attempts: row.attempts,
+      callId: Number(row.id),
+      outcome: "unknown",
+    };
+  }
   return {
     status: "failed",
     error:
@@ -111,29 +125,45 @@ export async function executeSoapCommand(
   if (!isSoapCommandAllowed(command)) {
     throw new Error(`SOAP 命令白名单外,已拒绝: ${command}`);
   }
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const meta = soapCommandMeta(command);
+  const timeoutMs = options.timeoutMs ?? meta.timeoutMs;
 
-  const own = await insertPendingCall(command, args, options);
+  let own = await insertPendingCall(command, args, options);
   if (!own) {
-    return replayFirstResult(await waitForFirstCall(options.idempotencyKey));
+    // 同键已有记录:success/pending/unknown → 回放首次结果(unknown 门控不重发);
+    // failed=确定性失败(游戏端未执行),删旧行后本进程重新占位执行,痕迹保留在 audit_log
+    const existing = await waitForFirstCall(options.idempotencyKey);
+    if (existing.status !== SOAP_STATUS.FAILED) {
+      return replayFirstResult(existing);
+    }
+    await prisma.soapCall.delete({ where: { id: existing.id } });
+    own = await insertPendingCall(command, args, options);
+    if (!own) {
+      // 并发对手也在删行重占位:等其终态回放
+      return replayFirstResult(await waitForFirstCall(options.idempotencyKey));
+    }
   }
 
   const retryDelays = options.idempotent
-    ? (options.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS)
+    ? (options.retryDelaysMs ?? [...meta.retryDelaysMs])
     : [];
   const totalAttempts = 1 + retryDelays.length;
   const startedAt = Date.now();
   let lastError = "";
+  let attemptsMade = 0;
+  let outcomeUnknown = false;
 
   for (let attempt = 1; attempt <= totalAttempts; attempt += 1) {
     const attemptStart = Date.now();
     let output = "";
     let ok = false;
+    attemptsMade = attempt;
     try {
       output = await rawExecuteCommand(assembleCommand(command, args), timeoutMs);
       ok = true;
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);
+      if (err instanceof SoapOutcomeUnknownError) outcomeUnknown = true;
     }
     const attemptMs = Date.now() - attemptStart;
 
@@ -166,6 +196,8 @@ export async function executeSoapCommand(
       });
       return { status: "success", output, durationMs, callId: Number(own.id) };
     }
+    // 结果未知:命令可能已在游戏端执行,立即中止自动重试(重发有重复副作用,issue #67)
+    if (outcomeUnknown) break;
     if (attempt < totalAttempts) {
       await sleep(retryDelays[attempt - 1] ?? 0);
     }
@@ -175,9 +207,9 @@ export async function executeSoapCommand(
   await prisma.soapCall.update({
     where: { id: own.id },
     data: {
-      status: SOAP_STATUS.FAILED,
+      status: outcomeUnknown ? SOAP_STATUS.UNKNOWN : SOAP_STATUS.FAILED,
       lastError: lastError.slice(0, DIGEST_MAX),
-      attempts: totalAttempts,
+      attempts: attemptsMade,
       durationMs,
       finishedAt: new Date(),
     },
@@ -185,7 +217,8 @@ export async function executeSoapCommand(
   return {
     status: "failed",
     error: lastError,
-    attempts: totalAttempts,
+    attempts: attemptsMade,
     callId: Number(own.id),
+    ...(outcomeUnknown ? { outcome: "unknown" as const } : {}),
   };
 }

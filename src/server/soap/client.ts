@@ -45,6 +45,17 @@ function textContent(raw: string): string {
   return cdata?.[1] ?? unescapeXml(raw.trim());
 }
 
+/**
+ * 结果未知(超时/响应不可解析):命令可能已在游戏端执行,重发有重复副作用风险。
+ * execute 层据此落 unknown 终态并中止自动重试,同键重投递只回放不重发(issue #67)。
+ */
+export class SoapOutcomeUnknownError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SoapOutcomeUnknownError";
+  }
+}
+
 /** 抛错语义:超时/连接/鉴权/HTTP 错误/Fault 均按失败处理,由 execute 决定重试与落库 */
 export async function rawExecuteCommand(
   command: string,
@@ -77,7 +88,7 @@ export async function rawExecuteCommand(
     });
   } catch (err) {
     if (err instanceof Error && err.name === "TimeoutError") {
-      throw new Error(`SOAP 请求超时(${timeoutMs}ms)`);
+      throw new SoapOutcomeUnknownError(`SOAP 请求超时(${timeoutMs}ms)`);
     }
     throw new Error(
       `SOAP 连接失败: ${err instanceof Error ? err.message : String(err)}`,
@@ -102,7 +113,8 @@ export async function rawExecuteCommand(
 
   const result = extractTag(bodyText, "result") ?? extractTag(bodyText, "return");
   if (result === null) {
-    throw new Error(`SOAP 响应无法解析: ${bodyText.slice(0, 200)}`);
+    // 有 HTTP 200 但取不到 result:命令可能已执行,按未知处理不自动重发
+    throw new SoapOutcomeUnknownError(`SOAP 响应无法解析: ${bodyText.slice(0, 200)}`);
   }
   return textContent(result);
 }

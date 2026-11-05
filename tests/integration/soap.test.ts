@@ -5,7 +5,7 @@ import { loadSystemConfig } from "../../src/lib/config";
 
 /**
  * T048 US6 SOAP 通道集成测试(quickstart S6,打 soap-mock):
- * 成功留痕 / 超时重试全留痕 / 同幂等键回放首次结果 / 白名单外拒绝不落库 / 非幂等失败不重试。
+ * 成功留痕 / 超时结果未知门控不重试(issue #67) / 同幂等键回放首次结果 / 白名单外拒绝不落库 / 非幂等失败不重试。
  * 测试结束恢复 mock mode=normal;数据按 key 前缀清理。
  */
 const KEY_PREFIX = `it-soap-${Date.now().toString(36)}`;
@@ -72,7 +72,7 @@ describe("US6 SOAP 通道(quickstart S6)", () => {
     expect(audits[0]?.payloadJson).toMatchObject({ attempt: 1, ok: true, key });
   });
 
-  test("超时 → 幂等重试 4 次全留痕 → failed", async () => {
+  test("超时 → 结果未知:落 unknown 终态不自动重试,同键重投递门控回放(issue #67)", async () => {
     const key = `${KEY_PREFIX}-timeout`;
     await setMockMode("timeout");
     const res = await executeSoapCommand(".server info", [], {
@@ -85,20 +85,33 @@ describe("US6 SOAP 通道(quickstart S6)", () => {
 
     expect(res.status).toBe("failed");
     if (res.status === "failed") {
-      expect(res.attempts).toBe(4);
+      expect(res.outcome).toBe("unknown");
+      expect(res.attempts).toBe(1); // 未知立即中止,即使幂等命令也不自动重试
       expect(res.error).toContain("超时");
     }
 
     const row = await prisma.soapCall.findUniqueOrThrow({ where: { idempotencyKey: key } });
-    expect(row.status).toBe("failed");
-    expect(row.attempts).toBe(4);
+    expect(row.status).toBe("unknown");
+    expect(row.attempts).toBe(1);
     expect(row.lastError).toContain("超时");
     expect(row.finishedAt).not.toBeNull();
 
     const audits = await auditRows(key);
-    expect(audits).toHaveLength(4);
-    expect(audits.map((a) => (a.payloadJson as { attempt: number }).attempt)).toEqual([1, 2, 3, 4]);
-    expect(audits.every((a) => (a.payloadJson as { ok: boolean }).ok === false)).toBe(true);
+    expect(audits).toHaveLength(1);
+
+    // mock 恢复后同键重投递:仍不重发,回放 unknown 门控结果
+    await setMockMode("normal");
+    const replay = await executeSoapCommand(".server info", [], {
+      idempotencyKey: key,
+      idempotent: true,
+      requestedBy: "integration",
+    });
+    expect(replay.status).toBe("failed");
+    if (replay.status === "failed") {
+      expect(replay.outcome).toBe("unknown");
+      expect(replay.error).toContain("禁止自动重发");
+    }
+    expect(await auditRows(key)).toHaveLength(1); // 无新执行痕迹
   }, 20_000);
 
   test("同幂等键重复投递 → 不重复执行,返回首次结果", async () => {

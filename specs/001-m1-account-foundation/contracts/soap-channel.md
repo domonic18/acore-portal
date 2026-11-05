@@ -12,7 +12,7 @@ type SoapResult =
   | { status: "failed"; error: string; attempts: number; callId: number };
 
 execute(
-  command: SoapCommand,            // 仅允许 constants/soap-commands.ts 白名单命令
+  command: SoapCommand,            // 仅允许 constants/soap.ts 注册表内命令
   args: string[],                  // Zod 校验后的参数
   options: {
     idempotencyKey: string;        // 调用方生成，全局唯一
@@ -23,7 +23,7 @@ execute(
 ): Promise<SoapResult>
 ```
 
-**命令白名单**（`src/constants/soap-commands.ts`，M1 仅只读验证）：
+**命令白名单**（`src/constants/soap.ts` 的 `SOAP_COMMAND_REGISTRY`，M1 仅只读验证）：
 
 | 命令 | 幂等 | M1 用途 |
 |------|------|---------|

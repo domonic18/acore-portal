@@ -23,7 +23,7 @@ interface DeliveryHandler {
 
 | SKU / 前缀 | 处理器 | 参数（params） | 服务端校验 | SOAP 命令（mock 先固化） |
 |---|---|---|---|---|
-| `itemsend_{id}` | ItemSendHandler | `characterGuid` | 角色归属 | `.send items {char} "{subject}" "{text}" {id}:{count}`;数量口径对齐 WP:`_stack` 后缀=一封 qty 个,无后缀=qty 封各 1 个(AC CreateItem 超栈静默钳制,非堆叠一封多件会少发);多封幂等键 `orderitem:{id}:{attempt}:m{i}`,重试按 requestedBy 计数补差额 |
+| `itemsend_{id}` | ItemSendHandler | `characterGuid` | 角色归属 | `.send items {char} "{subject}" "{text}" {id}:{count}`;数量口径对齐 WP:`_stack` 后缀=一封 qty 个,无后缀=qty 封各 1 个(AC CreateItem 超栈静默钳制,非堆叠一封多件会少发);多封幂等键 `orderitem:{id}:m{i}`,重试按 requestedBy 计数补差额 |
 | `item-restoration` | ItemRestoreHandler | `characterGuid` + `restoreItemEntry` | 归属+可恢复列表命中+**服务器在线**（precheck，FR-120） | `.send items`（恢复物品经 send mail 执行，与用户中心恢复同源） |
 | `char-change-race` | CharChangeRaceHandler | `characterGuid` | 归属 | `.character changerace {char}` |
 | `char-change-faction` | CharChangeFactionHandler | `characterGuid` | 归属 | `.character changefaction {char}` |
