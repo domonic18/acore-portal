@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, GripVertical, Plus } from "lucide-react";
 import { ForumBoardEditorFields } from "@/components/admin/forum-board-edit";
 import { NavIcon } from "@/components/admin/nav-icons";
 import { Button } from "@/components/ui/button";
 import { FOCUS_RING } from "@/components/ui/admin-tokens";
+import { useSortableList } from "@/components/admin/use-sortable-list";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 type Board = {
@@ -36,20 +37,21 @@ export function ForumBoardManager({ boards }: { boards: Board[] }) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [creating, setCreating] = useState(false);
   const [newBoard, setNewBoard] = useState<Draft>(EMPTY);
-  const [order, setOrder] = useState<string[]>(() => boards.map((b) => b.id));
-  const [dragId, setDragId] = useState<string | null>(null);
 
-  useEffect(() => {
-    setOrder((prev) => {
-      const ids = boards.map((b) => b.id);
-      const kept = prev.filter((id) => ids.includes(id));
-      const added = ids.filter((id) => !kept.includes(id));
-      return [...kept, ...added];
-    });
-  }, [boards]);
-
-  const byId = new Map(boards.map((b) => [b.id, b]));
-  const ordered = order.map((id) => byId.get(id)).filter((b): b is Board => Boolean(b));
+  // 排序流程(#79 抽共享 Hook):与轮播管理器同一套顺序/防重入/持久化语义
+  const { ordered, dragId, setDragId, reordering, moveBy, moveTo } = useSortableList<Board>({
+    items: boards,
+    enabled: !busy,
+    save: async (b, index) => {
+      await requestJson(`/api/admin/forum/boards/${b.id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: b.name, sort: index }),
+      });
+    },
+    onError: setError,
+    onPersisted: () => router.refresh(),
+  });
 
   async function send(method: string, path: string, body?: unknown) {
     setBusy(true);
@@ -68,46 +70,6 @@ export function ForumBoardManager({ boards }: { boards: Board[] }) {
     } finally {
       setBusy(false);
     }
-  }
-
-  async function persistOrder(next: string[]) {
-    if (busy) return;
-    setError(null);
-    try {
-      await Promise.all(
-        next.map((id, index) => {
-          const b = byId.get(id);
-          if (!b || b.sort === index) return Promise.resolve();
-          return requestJson(`/api/admin/forum/boards/${id}`, {
-            method: "PUT",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ name: b.name, sort: index }),
-          });
-        }),
-      );
-      setOrder(next);
-      router.refresh();
-    } catch (err) {
-      setError(errorMessage(err));
-    }
-  }
-
-  function moveLocal(id: string, delta: number) {
-    const index = order.indexOf(id);
-    const target = index + delta;
-    if (index < 0 || target < 0 || target >= order.length) return;
-    const next = [...order];
-    next.splice(index, 1);
-    next.splice(target, 0, id);
-    void persistOrder(next);
-  }
-
-  function handleDrop(targetId: string) {
-    if (!dragId || dragId === targetId) return;
-    const next = order.filter((id) => id !== dragId);
-    next.splice(order.indexOf(targetId), 0, dragId);
-    setDragId(null);
-    void persistOrder(next);
   }
 
   return (
@@ -190,10 +152,10 @@ export function ForumBoardManager({ boards }: { boards: Board[] }) {
           ) : (
             <div
               key={b.id}
-              draggable
+              draggable={!busy && !reordering}
               onDragStart={() => setDragId(b.id)}
               onDragOver={(e) => e.preventDefault()}
-              onDrop={() => handleDrop(b.id)}
+              onDrop={() => dragId && moveTo(dragId, b.id)}
               onDragEnd={() => setDragId(null)}
               className={`flex flex-col gap-2.5 rounded-xl border bg-[#13233a] px-4 py-3 transition sm:flex-row sm:items-center sm:gap-3.5 ${
                 dragId === b.id ? "border-[#6fb7e0] opacity-60" : "border-[#22385a] hover:border-[#35577f]"
@@ -232,8 +194,8 @@ export function ForumBoardManager({ boards }: { boards: Board[] }) {
                   variant="ghost"
                   size="sm"
                   aria-label={`上移「${b.name}」`}
-                  disabled={busy || index === 0}
-                  onClick={() => moveLocal(b.id, -1)}
+                  disabled={busy || index === 0 || reordering}
+                  onClick={() => moveBy(b.id, -1)}
                 >
                   <ChevronUp aria-hidden="true" className="h-3.5 w-3.5" />
                 </Button>
@@ -241,8 +203,8 @@ export function ForumBoardManager({ boards }: { boards: Board[] }) {
                   variant="ghost"
                   size="sm"
                   aria-label={`下移「${b.name}」`}
-                  disabled={busy || index === ordered.length - 1}
-                  onClick={() => moveLocal(b.id, 1)}
+                  disabled={busy || index === ordered.length - 1 || reordering}
+                  onClick={() => moveBy(b.id, 1)}
                 >
                   <ChevronDown aria-hidden="true" className="h-3.5 w-3.5" />
                 </Button>
@@ -278,6 +240,7 @@ export function ForumBoardManager({ boards }: { boards: Board[] }) {
         )}
       </div>
 
+      {(reordering || busy) && <p className="text-xs text-[#93b2ce]">处理中…</p>}
       {error && (
         <p role="alert" className="text-sm text-[#eda9a9]">
           {error}

@@ -1,52 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { requestJson } from "@/lib/api-client";
+import { useEffect, useState } from "react";
+import { useUnreadCount } from "@/lib/use-unread-count";
+import { UNREAD_TOAST_MS } from "@/constants/notification";
 
 /**
  * 站点页头未读徽标+弹泡(FR-310,契约 api-notification 弹泡口径):
- * mount 拉基线(不弹),此后 60s 轮询;count 增长才弹 toast(点击跳收件箱);
- * 轮询失败静默(不打扰);仅登录态渲染(header authed 分支)。
+ * 轮询取数在 useUnreadCount Hook(issue #85 展示层无 IO),本组件只负责渲染:
+ * count 增长才弹 toast(点击跳收件箱);仅登录态渲染(header authed 分支)。
  */
 export function UnreadBadge() {
-  const [count, setCount] = useState<number | null>(null);
+  const { count, delta } = useUnreadCount();
   const [toast, setToast] = useState<number | null>(null);
-  const lastRef = useRef<number | null>(null);
 
   useEffect(() => {
-    let alive = true;
-    const poll = async () => {
-      try {
-        const body = await requestJson<{ count: number }>(
-          "/api/account/notifications/unread",
-          { cache: "no-store" },
-        );
-        if (!alive) return;
-        const last = lastRef.current;
-        if (last !== null && body.count > last) {
-          setToast(body.count - last);
-        }
-        lastRef.current = body.count;
-        setCount(body.count);
-      } catch {
-        // 静默
-      }
-    };
-    void poll();
-    const timer = window.setInterval(() => void poll(), 60_000);
-    // 收件箱页已读操作后即时刷新(60s 轮询之外的旁路)
-    const onChanged = () => void poll();
-    window.addEventListener("ap:unread-changed", onChanged);
-    return () => {
-      alive = false;
-      window.clearInterval(timer);
-      window.removeEventListener("ap:unread-changed", onChanged);
-    };
-  }, []);
+    if (delta <= 0) return;
+    setToast(delta);
+  }, [delta]);
 
   useEffect(() => {
     if (toast === null) return;
-    const timer = window.setTimeout(() => setToast(null), 8_000);
+    const timer = window.setTimeout(() => setToast(null), UNREAD_TOAST_MS);
     return () => window.clearTimeout(timer);
   }, [toast]);
 

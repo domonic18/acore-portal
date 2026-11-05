@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { errorMessage, requestJson } from "@/lib/api-client";
+import { INVITATION_LIMITS } from "@/constants/invitation";
 
 /**
  * 邀请码批量生成 + 行内启停(api-admin;M1 表与状态机复用,注册侧消费仍后置)。
@@ -53,6 +54,8 @@ export function InvitationGenerateForm() {
           <Input
             value={prefix}
             onChange={(e) => setPrefix(e.target.value.toUpperCase())}
+            minLength={INVITATION_LIMITS.PREFIX_MIN}
+            maxLength={INVITATION_LIMITS.PREFIX_MAX}
             className="w-24"
           />
         </label>
@@ -60,19 +63,19 @@ export function InvitationGenerateForm() {
           <span className="text-[#93b2ce]">总长度</span>
           <Input
             type="number"
-            min={6}
-            max={32}
+            min={INVITATION_LIMITS.LENGTH_MIN}
+            max={INVITATION_LIMITS.LENGTH_MAX}
             value={length}
             onChange={(e) => setLength(e.target.value)}
             className="w-20"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-[#93b2ce]">数量(1-200)</span>
+          <span className="text-[#93b2ce]">数量({INVITATION_LIMITS.COUNT_MIN}-{INVITATION_LIMITS.COUNT_MAX})</span>
           <Input
             type="number"
-            min={1}
-            max={200}
+            min={INVITATION_LIMITS.COUNT_MIN}
+            max={INVITATION_LIMITS.COUNT_MAX}
             value={count}
             onChange={(e) => setCount(e.target.value)}
             className="w-24"
@@ -82,7 +85,8 @@ export function InvitationGenerateForm() {
           <span className="text-[#93b2ce]">每码可用次数</span>
           <Input
             type="number"
-            min={1}
+            min={INVITATION_LIMITS.MAX_USES_MIN}
+            max={INVITATION_LIMITS.MAX_USES_MAX}
             value={maxUses}
             onChange={(e) => setMaxUses(e.target.value)}
             className="w-24"

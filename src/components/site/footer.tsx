@@ -1,9 +1,17 @@
 import Link from "next/link";
-import { getConfig } from "@/lib/config";
 
-/** 全站页脚(M3 US1 T018,FR-204;2026-10 设计稿对齐):居中链接 + 版权行;备案号与英文版权声明后台可配,留空不渲染 */
-export async function SiteFooter() {
-  const { site } = await getConfig();
+/**
+ * 全站页脚(M3 US1 T018,FR-204;2026-10 设计稿对齐):居中链接 + 版权行;
+ * 备案号与英文版权声明后台可配,留空不渲染。
+ * 纯展示组件:备案号/版权文案由页面层经 getSiteFooterView() 取数后传入(组件无 IO,issue #85)。
+ */
+export function SiteFooter({
+  icp,
+  copyrightEn,
+}: {
+  icp: string | null;
+  copyrightEn: string | null;
+}) {
   return (
     <footer className="mt-12 border-t border-[#22385a] bg-[#0c1626]">
       <div className="container-site flex flex-col items-center gap-2.5 px-4 py-7 text-[13px] text-[#6482a3]">
@@ -26,7 +34,7 @@ export async function SiteFooter() {
         </div>
         <p>
           © {new Date().getFullYear()} 老克塔 LoktaCN · 怀旧公益项目(非营利)
-          {site.icp && (
+          {icp && (
             <>
               {" · "}
               <a
@@ -35,14 +43,14 @@ export async function SiteFooter() {
                 rel="noopener noreferrer"
                 className="hover:text-[#e8c877]"
               >
-                {site.icp}
+                {icp}
               </a>
             </>
           )}
         </p>
-        {site.copyrightEn && (
+        {copyrightEn && (
           <p className="max-w-3xl whitespace-pre-line text-center text-[11px] leading-5 text-[#4d6a8c]">
-            {site.copyrightEn}
+            {copyrightEn}
           </p>
         )}
       </div>
