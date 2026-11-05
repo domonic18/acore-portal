@@ -2,8 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { SITE_PAGE_TYPES } from "@/constants/content";
 import {
+  SIDEBAR_COMPONENT_KEYS,
+  SITE_PAGE_TYPES,
+  type SidebarComponentKey,
+  type SitePageType,
+} from "@/constants/content";
+import {
+  SIDEBAR_COMPONENT_META,
   SIDEBAR_LIMITS,
   SIDEBAR_PAGE_LABELS,
   type SidebarCardConfig,
@@ -15,22 +21,68 @@ import { Input } from "@/components/ui/input";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
- * 侧栏快捷卡编辑器(M4 通用化):整树本地编辑 → 一次 PUT /api/admin/sidebar。
- * 卡片/链接按数组顺序渲染;完全空白的链接行保存时自动忽略。
+ * 侧栏编辑器(M4 通用化):内置组件页面范围 + 快捷卡整树,一次 PUT /api/admin/sidebar。
+ * 卡片/链接按数组顺序渲染;完全空白的链接行保存时自动忽略;
+ * 内置组件清单来自代码注册表(不可增删),仅配置各页面范围(可全取消=全站隐藏)。
  */
 
 type DraftCard = SidebarCardConfig;
 type DraftLink = SidebarLinkConfig;
+type ComponentPages = Record<SidebarComponentKey, SitePageType[]>;
 
 function newKey() {
   return `custom-${Date.now().toString(36)}`;
 }
 
-export function SidebarManager({ cards: initial }: { cards: SidebarCardConfig[] }) {
+function PageChips({
+  idPrefix,
+  pages,
+  onToggle,
+}: {
+  idPrefix: string;
+  pages: SitePageType[];
+  onToggle: (page: SitePageType, on: boolean) => void;
+}) {
+  return (
+    <span className="flex flex-wrap items-center gap-2 text-xs text-[#93b2ce]">
+      页面范围
+      {SITE_PAGE_TYPES.map((page) => (
+        <label
+          key={page}
+          className={`inline-flex cursor-pointer items-center gap-1 whitespace-nowrap rounded-md border px-2 py-0.5 text-[12px] transition ${FOCUS_RING} ${
+            pages.includes(page)
+              ? "border-[#6fb7e0] bg-[#6fb7e0]/15 text-[#a8d9f5]"
+              : "border-[#22385a] bg-[#0b1526] text-[#93b2ce] hover:border-[#6fb7e0]/40"
+          }`}
+        >
+          <input
+            type="checkbox"
+            data-testid={`${idPrefix}-page-${page}`}
+            checked={pages.includes(page)}
+            onChange={(e) => onToggle(page, e.target.checked)}
+            className="sr-only"
+          />
+          {SIDEBAR_PAGE_LABELS[page]}
+        </label>
+      ))}
+    </span>
+  );
+}
+
+export function SidebarManager({
+  cards: initialCards,
+  components: initialComponents,
+}: {
+  cards: SidebarCardConfig[];
+  components: ComponentPages;
+}) {
   const router = useRouter();
   const [cards, setCards] = useState<DraftCard[]>(() =>
-    initial.map((card) => ({ ...card, links: card.links.map((link) => ({ ...link })) })),
+    initialCards.map((card) => ({ ...card, links: card.links.map((link) => ({ ...link })) })),
   );
+  const [components, setComponents] = useState<ComponentPages>(() => ({
+    ...initialComponents,
+  }));
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,6 +170,14 @@ export function SidebarManager({ cards: initial }: { cards: SidebarCardConfig[] 
     updateCard(index, { pages });
   }
 
+  function toggleComponentPage(key: SidebarComponentKey, page: SitePageType, on: boolean) {
+    setSaved(false);
+    setComponents((prev) => ({
+      ...prev,
+      [key]: on ? [...prev[key], page] : prev[key].filter((item) => item !== page),
+    }));
+  }
+
   function normalize(card: DraftCard): DraftCard {
     return {
       key: card.key,
@@ -142,7 +202,13 @@ export function SidebarManager({ cards: initial }: { cards: SidebarCardConfig[] 
       await requestJson("/api/admin/sidebar", {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ cards: cards.map(normalize) }),
+        body: JSON.stringify({
+          cards: cards.map(normalize),
+          components: SIDEBAR_COMPONENT_KEYS.map((key) => ({
+            key,
+            pages: components[key],
+          })),
+        }),
       });
       setSaved(true);
       router.refresh();
@@ -195,6 +261,35 @@ export function SidebarManager({ cards: initial }: { cards: SidebarCardConfig[] 
         </p>
       ) : null}
 
+      <section
+        data-testid="sidebar-components-section"
+        className="flex flex-col gap-3 rounded-xl border border-[#22385a] bg-[#13233a] p-4"
+      >
+        <div>
+          <h2 className="font-semibold text-[#dcebf7]">内置组件</h2>
+          <p className="text-xs text-[#6482a3]">
+            站点自带功能卡,选择在哪些页面展示(可全部取消=全站隐藏);顺序固定,内容由系统提供。
+          </p>
+        </div>
+        {SIDEBAR_COMPONENT_KEYS.map((key) => (
+          <div
+            key={key}
+            data-testid={`sidebar-comp-${key}`}
+            className="flex flex-wrap items-center gap-3 border-t border-[#1b2f4d] pt-3 first:border-t-0 first:pt-0"
+          >
+            <div className="w-40 shrink-0">
+              <span className="text-sm text-[#dcebf7]">{SIDEBAR_COMPONENT_META[key].label}</span>
+              <p className="text-xs text-[#6482a3]">{SIDEBAR_COMPONENT_META[key].description}</p>
+            </div>
+            <PageChips
+              idPrefix={`sidebar-comp-${key}`}
+              pages={components[key]}
+              onToggle={(page, on) => toggleComponentPage(key, page, on)}
+            />
+          </div>
+        ))}
+      </section>
+
       {cards.map((card, index) => (
         <div
           key={card.key}
@@ -223,28 +318,11 @@ export function SidebarManager({ cards: initial }: { cards: SidebarCardConfig[] 
                 className="w-64 py-1"
               />
             </label>
-            <span className="flex flex-wrap items-center gap-2 text-xs text-[#93b2ce]">
-              页面范围
-              {SITE_PAGE_TYPES.map((page) => (
-                <label
-                  key={page}
-                  className={`inline-flex cursor-pointer items-center gap-1 whitespace-nowrap rounded-md border px-2 py-0.5 text-[12px] transition ${FOCUS_RING} ${
-                    card.pages.includes(page)
-                      ? "border-[#6fb7e0] bg-[#6fb7e0]/15 text-[#a8d9f5]"
-                      : "border-[#22385a] bg-[#0b1526] text-[#93b2ce] hover:border-[#6fb7e0]/40"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    data-testid={`sidebar-card-${card.key}-page-${page}`}
-                    checked={card.pages.includes(page)}
-                    onChange={(e) => togglePage(index, page, e.target.checked)}
-                    className="sr-only"
-                  />
-                  {SIDEBAR_PAGE_LABELS[page]}
-                </label>
-              ))}
-            </span>
+            <PageChips
+              idPrefix={`sidebar-card-${card.key}`}
+              pages={card.pages}
+              onToggle={(page, on) => togglePage(index, page, on)}
+            />
             <span className="ml-auto flex gap-1">
               <Button
                 type="button"

@@ -1,23 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import {
-  getAdjacentArticles,
-  getArticleBySlug,
-  listLatestNews,
-} from "@/server/services/content/articles";
-import { getServerStatus } from "@/server/services/status/status";
+import { getAdjacentArticles, getArticleBySlug } from "@/server/services/content/articles";
 import { renderMarkdown } from "@/lib/markdown";
 import { formatDate } from "@/lib/format";
-import { getCdnHosts } from "@/lib/config";
+import { getCdnHosts, getConfig } from "@/lib/config";
 import { MARKDOWN_BODY_CLS, PROMOTED_GUIDE_MAP } from "@/constants/content";
 import { permanentRedirect } from "next/navigation";
 import { SiteSidebar } from "@/components/site/sidebar/site-sidebar";
 import { getSidebarView } from "@/server/services/sidebar/view";
 import { ContentPanel } from "@/components/site/content-panel";
-import { ArticleAside } from "@/components/content/article-aside";
+import { ArticleTocBlock, ArticleTocRail } from "@/components/content/article-toc";
 import { ViewCounter } from "@/components/content/view-counter";
 import { WowheadTooltips } from "@/components/content/wowhead-tooltips";
+import { AnnouncementNoteCard } from "./announcement-note-card";
 
 /**
  * 文章详情(T024,FR-210/211;2026-10 ardot p04 对齐):
@@ -45,18 +41,24 @@ export default async function PostPage({
   if (promoted) permanentRedirect(promoted);
   const article = await getArticleBySlug(slug);
   if (!article) notFound();
-  const [{ html, toc }, adjacent, latest, status, sidebar] = await Promise.all([
+  const [{ html, toc }, adjacent, sidebar, config] = await Promise.all([
     renderMarkdown(article.bodyMd, { cdnHosts: await getCdnHosts() }),
     getAdjacentArticles(article),
-    listLatestNews(5),
-    getServerStatus(),
     getSidebarView("article"),
+    getConfig(),
   ]);
   const published = article.publishedAt ? formatDate(article.publishedAt) : null;
+  // 目录可见=后台开关(默认开)+ 正文确有 h2-h4 标题;任一不满足保持两栏
+  // (空目录列会错置栅格轨道),ArticleTocRail/Block 对空数组自身也不渲染
+  const showToc = config.content.tocEnabled && toc.length > 0;
+  const gridCls = `grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]${
+    showToc ? " xl:grid-cols-[200px_minmax(0,1fr)_320px]" : ""
+  }`;
 
   return (
     <main className="container-site flex-1 py-6">
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className={gridCls}>
+        <ArticleTocRail items={showToc ? toc : []} />
         <ContentPanel className="min-w-0 p-5 lg:p-6">
           <article className="min-w-0">
             <nav aria-label="面包屑" className="mb-4 flex items-center gap-2 text-[13px]">
@@ -93,32 +95,7 @@ export default async function PostPage({
               </p>
             </header>
 
-            {toc.length > 0 && (
-              <nav
-                aria-label="目录"
-                className="mt-6 hidden rounded-xl border border-[#22385a] bg-[#0d1828] p-5 sm:block"
-              >
-                <p className="mb-3 flex items-center gap-2.5 text-[14px] font-semibold text-[#a8d9f5]">
-                  <span
-                    aria-hidden="true"
-                    className="h-[14px] w-[4px] shrink-0 rounded-full bg-[#5ea3cc]"
-                  />
-                  目录
-                </p>
-                <ul className="grid gap-1.5 sm:grid-cols-2">
-                  {toc.map((item) => (
-                    <li key={item.id}>
-                      <a
-                        href={`#${item.id}`}
-                        className="text-[13.5px] text-[#93b2ce] hover:text-[#6fb7e0]"
-                      >
-                        {item.text}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            )}
+            <ArticleTocBlock items={showToc ? toc : []} />
 
             <div
               className={MARKDOWN_BODY_CLS}
@@ -156,13 +133,11 @@ export default async function PostPage({
           </article>
         </ContentPanel>
 
+        {/* 右栏整列=SiteSidebar(在线人数/最新资讯/QQ 群/积分余额,后台按页面范围编排);
+            公告类文章追加站内信推送提示卡(文章详情私有,内容驱动非页面级配置) */}
         <div className="space-y-5">
-          <ArticleAside
-            latest={latest}
-            status={status}
-            isAnnouncement={article.category.slug === "announcements"}
-          />
-          <SiteSidebar pageType="article" {...sidebar} className="lg:w-auto" />
+          <SiteSidebar pageType="article" {...sidebar} sticky className="lg:w-auto" />
+          {article.category.slug === "announcements" && <AnnouncementNoteCard />}
         </div>
       </div>
 
