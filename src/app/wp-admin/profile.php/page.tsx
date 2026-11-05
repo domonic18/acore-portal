@@ -13,7 +13,8 @@ export const metadata: Metadata = { title: "功能已迁移 · 老克塔" };
 type LegacyPage = { label: string; href: string };
 
 const LEGACY_PAGES: Record<string, LegacyPage> = {
-  "acore-item-restore": { label: "物品恢复", href: "/account/item-restore" },
+  // 2026-11-05:物品恢复从用户中心迁至积分商店(服务类商品),旧入口改指商店
+  "acore-item-restore": { label: "物品恢复", href: "/shop" },
   "acore-raf": { label: "RAF 招募", href: "/account/raf" },
 };
 

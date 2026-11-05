@@ -139,7 +139,7 @@ export async function recalculateLedger(
   return { balance: sum, sum };
 }
 
-/** 侧栏积分余额组件读取(M3 US1);无账户视为 0 */
+/** 积分余额读取(页头头像下拉);无账户视为 0 */
 export async function getBalance(userId: bigint): Promise<number> {
   const account = await prisma.pointAccount.findUnique({
     where: { userId },

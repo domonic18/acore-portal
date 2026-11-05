@@ -3,7 +3,7 @@ import { PrismaClient } from "../../src/generated/business";
 
 /**
  * T043 US4 用户中心 E2E(quickstart S4 → SC-007):
- * legacyuser(3 角色)8 页逐一可达;角色页仅本人 3 角色;积分真实数据;订单友好空态;
+ * legacyuser(3 角色)6 页逐一可达;角色页仅本人 3 角色;积分真实数据;订单友好空态;
  * 越权 guid → 403 CHARACTER_NOT_OWNED + 审计 ownership_violation;未登录 → /login 引导;昵称修改。
  */
 const prisma = new PrismaClient();
@@ -13,10 +13,8 @@ const PAGES = [
   ["/account/characters", "我的角色"],
   ["/account/points", "积分"],
   ["/account/orders", "订单"],
-  ["/account/item-restore", "物品恢复"],
   ["/account/raf", "RAF 招募"],
   ["/account/settings", "账户设置"],
-  ["/account/address", "收货地址"],
 ] as const;
 
 /** 他人角色 fixture(account=2,LEGACYUSER 是 account=1)供越权 403 用 */
@@ -76,7 +74,7 @@ test.afterAll(async () => {
 });
 
 test.describe("US4 用户中心(quickstart S4)", () => {
-  test("8 页全部可达;角色页仅本人 3 角色;积分真实数据;订单空态", async ({
+  test("6 页全部可达;角色页仅本人 3 角色;积分真实数据;订单空态", async ({
     page,
   }) => {
     await login(page);
@@ -104,6 +102,27 @@ test.describe("US4 用户中心(quickstart S4)", () => {
     await expect(page.getByText("Notmine")).toHaveCount(0);
     expect(await page.locator("main ul > li").count()).toBe(3);
 
+    // 角色页:WoW 官方种族头像(按性别,移植自 acore-ranking 图标集)+ 种族/职业官方图标
+    await expect(page.locator('img[alt="Oldwarrior 头像"]')).toHaveAttribute(
+      "src",
+      "/assets/icons/race/Ui-charactercreate-races_human-male.png",
+    );
+    await expect(page.locator('img[alt="Oldmage 头像"]')).toHaveAttribute(
+      "src",
+      "/assets/icons/race/Ui-charactercreate-races_gnome-female.png",
+    );
+    await expect(page.locator('img[alt="Oldpriest 头像"]')).toHaveAttribute(
+      "src",
+      "/assets/icons/race/Ui-charactercreate-races_bloodelf-male.png",
+    );
+    for (const crest of ["人类", "盗贼", "侏儒", "法师", "血精灵", "牧师"]) {
+      await expect(page.getByRole("img", { name: crest })).toBeVisible();
+    }
+    // 文字不折行:角色行无横向溢出
+    for (const row of await page.locator("main ul > li").all()) {
+      expect(await row.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    }
+
     // 积分页:余额与流水为库内真实数据
     await page.goto("/account/points");
     await expect(page.getByText(String(SEEDED_BALANCE)).first()).toBeVisible();
@@ -114,19 +133,15 @@ test.describe("US4 用户中心(quickstart S4)", () => {
     await expect(page.getByText("暂无订单")).toBeVisible();
   });
 
-  test("物品恢复页:仅本人角色可选;列表只读展示", async ({ page }) => {
+  test("用户中心物品恢复/收货地址页已下线(2026-11-05);恢复 API 保留供商店服务商品", async ({
+    page,
+  }) => {
     await login(page);
-    await page.goto("/account/item-restore");
-    const select = page.getByLabel("选择角色");
-    await expect(select).toBeVisible();
-    // 下拉仅含本人 3 角色
-    const options = await select.locator("option").allTextContents();
-    expect(options).toHaveLength(3);
-    expect(options.join()).toContain("Oldwarrior");
-    expect(options.join()).not.toContain("Notmine");
-    // 首个角色自动加载恢复列表(Oldwarrior guid=10 → 2 件;T040 起有模板显名/缺模板回退)
-    await expect(page.getByText("测试坐骑·限量")).toBeVisible();
-    await expect(page.getByText("物品 #17182")).toBeVisible();
+    // 页面下线 → 404;恢复列表 API 仍在(商店装备恢复 SKU 依赖)
+    const page1 = await page.goto("/account/item-restore");
+    expect(page1?.status()).toBe(404);
+    const page2 = await page.goto("/account/address");
+    expect(page2?.status()).toBe(404);
   });
 
   test("越权 guid → 403 + 审计 ownership_violation;本人 guid 200", async ({
@@ -199,21 +214,17 @@ test.describe("US4 用户中心(quickstart S4)", () => {
     // 当前项下划线指示条渲染
     await expect(settingsTab.locator("span")).toBeVisible();
 
-    // 375px:9 项仍单行(横向滚动而非折成参差多行),且确实溢出可滚
+    // 375px:6 项仍单行(横向滚动而非折成参差多行)
     await page.setViewportSize({ width: 375, height: 812 });
     const rows = await nav.locator("a").evaluateAll((els) => [
       ...new Set(els.map((e) => Math.round(e.getBoundingClientRect().top))),
     ]);
     expect(rows).toHaveLength(1);
-    const scrollable = await nav
-      .locator("ul")
-      .evaluate((el) => el.scrollWidth > el.clientWidth);
-    expect(scrollable).toBe(true);
 
-    // 滚出视口的尾项仍可点(Playwright 自动滚入),点击后高亮随路由迁移
-    await nav.getByRole("link", { name: "收货地址" }).click();
-    await expect(page).toHaveURL(/\/account\/address$/);
-    await expect(nav.getByRole("link", { name: "收货地址" })).toHaveAttribute(
+    // 尾项仍可点(Playwright 自动滚入),点击后高亮随路由迁移
+    await nav.getByRole("link", { name: "RAF 招募" }).click();
+    await expect(page).toHaveURL(/\/account\/raf$/);
+    await expect(nav.getByRole("link", { name: "RAF 招募" })).toHaveAttribute(
       "aria-current",
       "page",
     );

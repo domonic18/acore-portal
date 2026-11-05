@@ -237,12 +237,10 @@ describe("内置组件页面范围(2026-11-05 后台可配)", () => {
     expect(pages["server-status"]).toEqual(["article"]);
     expect(pages["latest-news"]).toEqual(["article"]);
     expect(pages["qq-group"]).toEqual(["home", "article", "page"]);
-    expect(pages["points-balance"]).toEqual(["home", "article", "page"]);
     expect(await enabledSidebarComponents("article")).toEqual([
       "server-status",
       "latest-news",
       "qq-group",
-      "points-balance",
     ]);
     expect(await enabledSidebarComponents("forum")).toEqual([]);
   });
@@ -254,7 +252,6 @@ describe("内置组件页面范围(2026-11-05 后台可配)", () => {
         { key: "server-status", pages: ["home"] },
         { key: "latest-news", pages: [] },
         { key: "qq-group", pages: ["home", "page"] },
-        { key: "points-balance", pages: [] },
       ],
       { id: ADMIN_ID },
     );
@@ -283,7 +280,7 @@ describe("内置组件页面范围(2026-11-05 后台可配)", () => {
     [
       "pages 非法值",
       allComponents.map((c) =>
-        c.key === "points-balance" ? { ...c, pages: ["nope"] } : c,
+        c.key === "qq-group" ? { ...c, pages: ["nope"] } : c,
       ),
     ],
   ])("%s → 422 语义且零写入", async (_name, components) => {

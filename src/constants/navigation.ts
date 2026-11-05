@@ -15,17 +15,17 @@ export type SiteNavItem = {
   children?: readonly { label: string; href: string }[];
 };
 
-/** 用户中心导航(M1 八页+M4 通知,SC-007 全部可达;同时作为「我的账户」二级菜单) */
+/**
+ * 用户中心导航(2026-11-05 收敛:通知改页头铃铛提醒、物品恢复归商店服务、
+ * 收货地址暂下线;SC-007 各页仍直达可达;同时作为「我的账户」二级菜单)
+ */
 export const ACCOUNT_NAV = [
   { href: "/account/overview", label: "总览" },
   { href: "/account/characters", label: "我的角色" },
   { href: "/account/points", label: "积分" },
-  { href: "/account/notifications", label: "通知" },
   { href: "/account/orders", label: "订单" },
-  { href: "/account/item-restore", label: "物品恢复" },
   { href: "/account/raf", label: "RAF 招募" },
   { href: "/account/settings", label: "账户设置" },
-  { href: "/account/address", label: "收货地址" },
 ] as const;
 
 export const SITE_NAV: readonly SiteNavItem[] = [

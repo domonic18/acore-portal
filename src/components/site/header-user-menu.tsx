@@ -6,9 +6,15 @@ import { useEffect, useRef, useState } from "react";
 
 /**
  * 页头账户菜单(#84 从 header-client 拆出):头像按钮 + 下拉菜单 + 登出;
- * 点击外部/Esc 关闭菜单。
+ * 点击外部/Esc 关闭菜单。积分显示在菜单顶部(2026-11-05 从页头 chip 收敛至此)。
  */
-export function HeaderUserMenu({ portraitUrl }: { portraitUrl: string }) {
+export function HeaderUserMenu({
+  portraitUrl,
+  points,
+}: {
+  portraitUrl: string;
+  points: number;
+}) {
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -71,6 +77,13 @@ export function HeaderUserMenu({ portraitUrl }: { portraitUrl: string }) {
           data-testid="user-menu"
           className="absolute right-0 top-full z-50 mt-2 w-44 rounded-lg border border-[#35577f] bg-[#0d1a2e] py-1.5 shadow-xl shadow-black/40"
         >
+          <div
+            data-testid="menu-points"
+            className="flex items-center justify-between border-b border-[#22385a] px-4 py-2 text-sm"
+          >
+            <span className="text-[#93b2ce]">积分</span>
+            <span className="font-semibold text-[#e8c877]">{points}</span>
+          </div>
           <Link
             role="menuitem"
             href="/account/overview"

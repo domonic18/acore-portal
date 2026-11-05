@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 /**
  * T020 US1 全局框架(quickstart S1,SC-205):
  * 游客/登录双菜单互斥(FR-201)+多级结构(FR-202)+移动汉堡折叠(FR-205)+
- * 页脚链接(FR-204)+侧栏按类型渲染与积分余额组件登录态门槛(FR-206)。
+ * 页脚链接(FR-204)+侧栏按类型渲染(FR-206;积分余额组件 2026-11-05 下线,积分入头像下拉)。
  * 首页 2026-10 调整:站内搜索/公告动态/友情链接/日历归档/最近浏览全站下线,
  * 公告/商品/服务器状态(含当前阶段)移入首页右栏(区块断言在 content.spec)。
  * 导航 2026-10 与 ardot 设计稿 p01-s3 对齐:游客=首页/公告/数据库/论坛/资讯,
@@ -156,8 +156,11 @@ test.describe("登录菜单(FR-201)", () => {
     const nav = page.getByRole("navigation", { name: "主导航" });
     await expect(nav.getByText("积分商店", { exact: true })).toBeVisible();
     await expect(nav.getByText("我的账户", { exact: true })).toBeVisible();
-    // 登录态页头积分余额 chip(设计稿 LoginMenu)
-    await expect(page.getByTestId("header-points")).toContainText("积分");
+    // 登录态积分收敛到头像下拉(2026-11-05 页头 chip 下线)
+    await expect(page.getByTestId("header-points")).toHaveCount(0);
+    await page.getByTestId("user-menu-button").click();
+    await expect(page.getByTestId("menu-points")).toContainText("积分");
+    await page.keyboard.press("Escape");
     await nav.getByText("积分商店", { exact: true }).hover();
     await expect(nav.getByRole("link", { name: "购物车" })).toBeVisible();
     await expect(nav.getByRole("link", { name: "结账" })).toBeVisible();
@@ -169,14 +172,16 @@ test.describe("登录菜单(FR-201)", () => {
     await expect(page.getByRole("link", { name: "注 册" })).toHaveCount(0);
   });
 
-  test("登录态侧栏出现积分余额组件(FR-206)", async ({ page }) => {
+  test("积分余额组件全端下线;登录态积分在头像下拉(FR-206,2026-11-05)", async ({ page }) => {
     await login(page);
     await page.goto("/");
-    const sidebar = page.getByTestId("site-sidebar");
-    await expect(sidebar.getByTestId("sidebar-points-balance")).toBeVisible();
     await expect(
-      sidebar.getByTestId("sidebar-points-balance").getByRole("link"),
-    ).toHaveText("积分明细 →");
+      page.getByTestId("site-sidebar").getByTestId("sidebar-points-balance"),
+    ).toHaveCount(0);
+    await page.getByTestId("user-menu-button").click();
+    const menuPoints = page.getByTestId("menu-points");
+    await expect(menuPoints).toContainText("积分");
+    await expect(menuPoints.locator("span").last()).toHaveText(/^\d+$/);
   });
 
   test("侧栏 QQ 交流群卡:群号展示+点击复制加群指引(2026-11 用户反馈)", async ({ page }) => {

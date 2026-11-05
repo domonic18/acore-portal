@@ -70,7 +70,8 @@ test.describe("US7 旧路由兼容", () => {
 
   test("wp-admin 个人资料子页渲染提示页并给出新入口(规格 §14)", async ({ page }) => {
     for (const [pageKey, label, href] of [
-      ["acore-item-restore", "物品恢复", "/account/item-restore"],
+      // 物品恢复 2026-11-05 收敛到商店服务商品(用户中心页已下线,兼容入口改指商店)
+      ["acore-item-restore", "物品恢复", "/shop"],
       ["acore-raf", "RAF 招募", "/account/raf"],
     ] as const) {
       const res = await page.goto(`/wp-admin/profile.php?page=${pageKey}`);
