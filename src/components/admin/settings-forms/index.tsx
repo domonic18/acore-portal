@@ -2,6 +2,7 @@
 
 import type { SettingsView } from "@/lib/settings-types";
 import { AppearanceGroup } from "./appearance-group";
+import { ContentGroup } from "./content-group";
 import { NotifyGroup } from "./notify-group";
 import { SecurityGroup } from "./security-group";
 import { SiteGroup } from "./site-group";
@@ -22,6 +23,7 @@ export function SettingsForms({ view }: { view: SettingsView }) {
       <TurnstileGroup view={view.turnstile} />
       <SecurityGroup view={view.security} />
       <NotifyGroup view={view.notify} />
+      <ContentGroup view={view.content} />
       <SiteGroup view={view.site} />
       <AppearanceGroup view={view.appearance} />
       <UmamiGroup view={view.umami} />

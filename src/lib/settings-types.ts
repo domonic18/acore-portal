@@ -21,7 +21,8 @@ export type SettingsView = {
     loginLockSec: number;
   };
   notify: { pointEmailThreshold: number };
-  site: { icp: string; qqGroup: string };
+  content: { tocEnabled: boolean };
+  site: { icp: string; copyrightEn: string; qqGroup: string; qqGroupQr: string };
   appearance: {
     logoUrl: string;
     faviconUrl: string;

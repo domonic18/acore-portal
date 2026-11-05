@@ -31,9 +31,12 @@ export async function getSettingsView(): Promise<SettingsView> {
       loginLockSec: config.security.loginLockSec,
     },
     notify: { pointEmailThreshold: config.notify.pointEmailThreshold },
+    content: { tocEnabled: config.content.tocEnabled },
     site: {
       icp: config.site.icp,
+      copyrightEn: config.site.copyrightEn,
       qqGroup: config.site.qqGroup,
+      qqGroupQr: config.site.qqGroupQr,
     },
     appearance: {
       logoUrl: config.appearance.logoUrl,

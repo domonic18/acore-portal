@@ -53,9 +53,18 @@ const groupSchemas = {
   notify: z.object({
     pointEmailThreshold: z.coerce.number().int().min(0),
   }),
+  // 内容域:目录开关;optional=缺省保持现值(组级全量提交口径)
+  content: z.object({
+    tocEnabled: z.boolean().optional(),
+  }),
   site: z.object({
     icp: z.string().trim().max(64),
-    qqGroup: z.string().trim().regex(/^$|^\d{5,20}$/, "QQ 群号须为 5-20 位数字"),
+    // 可选=缺省保持现值(与 home 组口径);空串=显式清空(页脚不渲染)
+    copyrightEn: z.string().trim().max(1000).optional(),
+    // QQ 交流群:群号空=侧栏整卡隐藏;二维码地址空=卡内不渲染(留空隐藏语义同 icp)
+    qqGroup: z
+      .union([z.literal(""), z.string().trim().regex(/^\d{5,12}$/, "QQ 群号须为 5-12 位数字")]),
+    qqGroupQr: dlUrlSchema,
   }),
   // 站点外观:logo/favicon 留空=回落内置资源,背景留空=隐藏背景图
   appearance: z.object({
@@ -114,9 +123,12 @@ const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>> = {
     loginLockSec: "security.loginLockSec",
   },
   notify: { pointEmailThreshold: "notify.pointEmailThreshold" },
+  content: { tocEnabled: "content.tocEnabled" },
   site: {
     icp: "site.icp",
+    copyrightEn: "site.copyrightEn",
     qqGroup: "site.qqGroup",
+    qqGroupQr: "site.qqGroupQr",
   },
   appearance: {
     logoUrl: "appearance.logoUrl",
