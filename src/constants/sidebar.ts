@@ -49,7 +49,6 @@ export const SIDEBAR_COMPONENT_META: Record<
   "server-status": { label: "在线人数", description: "服务器在线/联盟部落分布" },
   "latest-news": { label: "最新资讯", description: "资讯分类最新 5 篇" },
   "qq-group": { label: "QQ 交流群", description: "群号+二维码扫码(群号在系统设置维护)" },
-  "points-balance": { label: "积分余额", description: "登录态显示(未登录不渲染)" },
 };
 
 /** 最新资讯卡条目(server-status/latest-news 注册表组件与取数服务共用) */

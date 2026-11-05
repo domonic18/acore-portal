@@ -9,7 +9,7 @@ import { HeaderUserMenu } from "@/components/site/header-user-menu";
 
 /**
  * 全站页头交互层(M3 US1 T018,R12;2026-10 ardot 设计稿 p01 对齐):
- * 深蓝页头 + 金色登录/注册 + 登录态积分 chip 与头像;
+ * 深蓝页头 + 金色登录/注册 + 登录态通知铃与头像(积分在头像下拉内,2026-11-05 收敛);
  * 桌面多级下拉 + 移动侧边抽屉(FR-205)。
  * 职责拆分(#84):导航见 header-nav、账户菜单见 header-user-menu,本文件只做外壳与编排。
  */
@@ -79,15 +79,7 @@ export function SiteHeaderClient({
             {authed ? (
               <>
                 <UnreadBadge />
-                <Link
-                  href="/account/points"
-                  data-testid="header-points"
-                  className="hidden items-center rounded-md border border-[#e8c877]/50 bg-[#e8c877]/10 px-2.5 py-1 text-sm font-semibold text-[#e8c877] hover:bg-[#e8c877]/20 sm:flex"
-                  title="积分明细"
-                >
-                  {points} 积分
-                </Link>
-                <HeaderUserMenu portraitUrl={portraitUrl} />
+                <HeaderUserMenu portraitUrl={portraitUrl} points={points} />
               </>
             ) : (
               <div className="flex items-center gap-3 text-[15px]">

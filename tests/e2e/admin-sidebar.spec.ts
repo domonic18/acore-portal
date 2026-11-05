@@ -140,10 +140,10 @@ test("内置组件页面范围可配:QQ 群卡关首页 → 首页消失,恢复�
   await login(page, "m1admin", "adminpass123");
   await page.goto("/admin/sidebar");
 
-  // 内置组件区:注册表 4 组件渲染,QQ 群默认含首页
+  // 内置组件区:注册表 3 组件渲染(积分余额卡 2026-11-05 下线),QQ 群默认含首页
   const section = page.getByTestId("sidebar-components-section");
   await expect(section).toBeVisible();
-  for (const key of ["server-status", "latest-news", "qq-group", "points-balance"]) {
+  for (const key of ["server-status", "latest-news", "qq-group"]) {
     await expect(page.getByTestId(`sidebar-comp-${key}`)).toBeVisible();
   }
   await expect(page.getByTestId("sidebar-comp-qq-group-page-home")).toBeChecked();

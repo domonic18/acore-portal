@@ -2,14 +2,12 @@ import type { ComponentType } from "react";
 import type { SidebarComponentKey } from "@/constants/content";
 import type { SidebarNewsItem } from "@/constants/sidebar";
 import type { ServerStatusResult } from "@/lib/status-types";
-import { PointsBalance } from "./points-balance";
 import { QqGroup } from "./qq-group";
 import { ServerStatusCard } from "./server-status-card";
 import { LatestNewsCard } from "./latest-news-card";
 
 /** 固定槽位入参:页面层取数后统一下发,组件保持无 IO(未启用组件的数据为 null/[]) */
 export type SidebarSlotProps = {
-  balance: number | null;
   qqGroup: string;
   qqGroupQr: string;
   status: ServerStatusResult | null;
@@ -25,5 +23,4 @@ export const SIDEBAR_COMPONENTS: Record<
   "server-status": ServerStatusCard,
   "latest-news": LatestNewsCard,
   "qq-group": QqGroup,
-  "points-balance": PointsBalance,
 };

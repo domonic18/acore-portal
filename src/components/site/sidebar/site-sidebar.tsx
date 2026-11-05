@@ -14,7 +14,6 @@ export function SiteSidebar({
   pageType,
   cards,
   components,
-  balance,
   qqGroup,
   qqGroupQr,
   status,
@@ -25,7 +24,6 @@ export function SiteSidebar({
   pageType: SitePageType;
   cards: SidebarCardConfig[];
   components: SidebarComponentKey[];
-  balance: number | null;
   qqGroup: string;
   qqGroupQr: string;
   status: ServerStatusResult | null;
@@ -48,7 +46,6 @@ export function SiteSidebar({
         return (
           <Component
             key={key}
-            balance={balance}
             qqGroup={qqGroup}
             qqGroupQr={qqGroupQr}
             status={status}

@@ -118,19 +118,19 @@ export type SitePageType = (typeof SITE_PAGE_TYPES)[number];
  * 侧栏固定组件注册键:代码内置组件,渲染顺序=数组顺序(数据卡在前,工具卡在后);
  * 每个组件在哪些页面类型出现由 sidebar_component 表后台配置
  * (行缺失回落 DEFAULT_COMPONENT_PAGES),组件本体不可增删(注册表=代码)。
+ * 2026-11-05 积分余额组件下线(积分显示收敛至页头头像下拉)。
  */
 export const SIDEBAR_COMPONENT_KEYS = [
   "server-status",
   "latest-news",
   "qq-group",
-  "points-balance",
 ] as const;
 
 export type SidebarComponentKey = (typeof SIDEBAR_COMPONENT_KEYS)[number];
 
 /**
  * 内置组件缺省页面范围(sidebar_component 行缺失时兜底),等价 2026-11-05 前写死行为:
- * QQ 群/积分余额随快捷卡页;在线人数/最新资讯为文章页右栏 ArticleAside 直出(已并入注册表)。
+ * QQ 群随快捷卡页;在线人数/最新资讯为文章页右栏 ArticleAside 直出(已并入注册表)。
  */
 export const DEFAULT_COMPONENT_PAGES: Record<
   SidebarComponentKey,
@@ -139,7 +139,6 @@ export const DEFAULT_COMPONENT_PAGES: Record<
   "server-status": ["article"],
   "latest-news": ["article"],
   "qq-group": ["home", "article", "page"],
-  "points-balance": ["home", "article", "page"],
 };
 
 /** 内容页右栏快捷入口(ardot p04 侧栏;链接落站内真实路由) */
@@ -152,11 +151,10 @@ export const ARCHIVE_ASIDE_LINKS = [
   { label: "网站地图", href: "/sitemap" },
 ] as const;
 
-/** 内容页右栏常用功能(ardot p04 侧栏) */
+/** 内容页右栏常用功能(ardot p04 侧栏;链接落站内真实路由) */
 export const ARCHIVE_COMMON_LINKS = [
   { label: "注册账号", href: "/register" },
   { label: "积分商店", href: "/shop" },
-  { label: "物品恢复", href: "/account/item-restore" },
   { label: "封号记录", href: "/banlist" },
   { label: "DKP 查询", href: "/dkp" },
 ] as const;

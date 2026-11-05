@@ -17,7 +17,7 @@ import { getSidebarView } from "@/server/services/sidebar/view";
 /**
  * 首页(2026-10 与 ardot 设计稿 p01 对齐):左栏=轮播+最近成就嵌入;
  * 右栏=快捷入口/服务器状态(含当前阶段)/最新公告 5/精选商品(featured 优先回退最新上架),
- * 尾部接侧栏(home 类型仅积分余额,登录态门槛)。
+ * 尾部接侧栏(home 类型仅 QQ 群卡;积分显示在页头头像下拉,2026-11-05 收敛)。
  * 轮播空物料整块隐藏,成就 iframe url 空=隐藏;/admin 改动即时生效。
  */
 
