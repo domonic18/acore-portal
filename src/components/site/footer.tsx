@@ -19,8 +19,8 @@ export function SiteFooter({
           <Link href="/agreement" className="hover:text-[#e8c877]">
             用户协议
           </Link>
-          <Link href="/convention" className="hover:text-[#e8c877]">
-            论坛公约
+          <Link href="/post/网站规范" className="hover:text-[#e8c877]">
+            规范要求
           </Link>
           <Link href="/about" className="hover:text-[#e8c877]">
             项目简介
