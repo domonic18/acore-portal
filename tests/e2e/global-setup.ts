@@ -60,6 +60,10 @@ const SECURITY_E2E: Record<string, string> = {
   "security.statusIpMaxPerMin": "10000",
   "security.statusGlobalMaxPerMin": "100000",
   "security.statusUnknownIpMaxPerMin": "100000",
+  // 阅读计数限速(PR-I):同篇重复上报须照常计入,否则前台 views 断言漂移
+  "security.artviewIpMaxPerMin": "10000",
+  "security.artviewArticleMax": "100",
+  "security.artviewArticleWindowSec": "600",
 };
 
 /** 播种路由映射与系统配置(幂等;pre-seed 与 globalSetup 共用) */

@@ -54,3 +54,16 @@ export const statusIpKey = (ip: string) => `rl:status:ip:${ip}`;
 
 /** 状态页全局限速(固定窗口):护住 worldserver 与 characters 库,不限单 IP 也能护住 */
 export const statusGlobalKey = () => `rl:status:global:${STATUS_WINDOW_SEC}s`;
+
+/** 分钟级固定窗口(秒):阅读计数按 IP 总闸共用 */
+export const ARTVIEW_IP_WINDOW_SEC = 60;
+
+/** 阅读计数按 IP 总闸(固定窗口):防单个 IP 对大量文章刷写(DB 放大) */
+export const artviewIpKey = (ip: string) => `rl:artview:ip:${ip}`;
+
+/**
+ * 阅读计数按 (IP, 文章) 窗口闸:同一 IP 对同一篇在窗口内只计一次,
+ * 防刷阅读量(同一篇文章反复刷新把计数刷高)。
+ */
+export const artviewArticleKey = (ip: string, slug: string) =>
+  `rl:artview:article:${ip}:${slug}`;

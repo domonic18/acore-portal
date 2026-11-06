@@ -47,6 +47,9 @@ export type SettingsView = {
     statusIpMaxPerMin: number;
     statusGlobalMaxPerMin: number;
     statusUnknownIpMaxPerMin: number;
+    artviewIpMaxPerMin: number;
+    artviewArticleMax: number;
+    artviewArticleWindowSec: number;
   };
   notify: { pointEmailThreshold: number };
   content: { tocEnabled: boolean };
