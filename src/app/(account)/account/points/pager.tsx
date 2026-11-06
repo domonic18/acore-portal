@@ -50,7 +50,7 @@ export function PointsPager({
     <div className="flex flex-col gap-3">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-[#22385a] text-left text-[#93b2ce]">
+          <tr className="border-b border-line text-left text-body">
             <th className="py-2">类型</th>
             <th className="py-2">变动</th>
             <th className="py-2">变动后余额</th>
@@ -61,21 +61,21 @@ export function PointsPager({
         <tbody>
           {txs.length === 0 ? (
             <tr>
-              <td colSpan={5} className="py-4 text-[#93b2ce]">
+              <td colSpan={5} className="py-4 text-body">
                 暂无积分流水。
               </td>
             </tr>
           ) : (
             txs.map((t) => (
-              <tr key={t.id} className="border-b border-[#16304f]">
+              <tr key={t.id} className="border-b border-line-row">
                 <td className="py-2">{POINT_TX_TYPE_LABEL[t.type as PointTxTypeValue] ?? t.type}</td>
                 <td className={`py-2 ${t.amount >= 0 ? "text-green-400" : "text-red-400"}`}>
                   {t.amount >= 0 ? "+" : ""}
                   {t.amount}
                 </td>
-                <td className="py-2 text-[#c7d5e6]">{t.balanceAfter}</td>
-                <td className="py-2 text-[#93b2ce]">{formatDateTime(t.createdAt)}</td>
-                <td className="py-2 text-[#93b2ce]">{t.remark ?? "—"}</td>
+                <td className="py-2 text-foreground">{t.balanceAfter}</td>
+                <td className="py-2 text-body">{formatDateTime(t.createdAt)}</td>
+                <td className="py-2 text-body">{t.remark ?? "—"}</td>
               </tr>
             ))
           )}
@@ -92,18 +92,18 @@ export function PointsPager({
             type="button"
             onClick={() => go(current - 1)}
             disabled={current <= 1 || loading}
-            className="rounded-md border border-[#22385a] px-3 py-1 disabled:opacity-40"
+            className="rounded-md border border-line px-3 py-1 disabled:opacity-40"
           >
             上一页
           </button>
-          <span className="text-[#93b2ce]">
+          <span className="text-body">
             第 {current} / {totalPages} 页
           </span>
           <button
             type="button"
             onClick={() => go(current + 1)}
             disabled={current >= totalPages || loading}
-            className="rounded-md border border-[#22385a] px-3 py-1 disabled:opacity-40"
+            className="rounded-md border border-line px-3 py-1 disabled:opacity-40"
           >
             下一页
           </button>

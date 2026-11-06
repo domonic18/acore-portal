@@ -12,7 +12,7 @@ import { raceFacePath } from "@/constants/portraits";
 /** 职业官方图标;未登记职业(60 年代无 DK)回退文字 */
 export function ClassIcon({ classId, size = 20 }: { classId: number; size?: number }) {
   if (![1, 2, 3, 4, 5, 7, 8, 9, 11].includes(classId)) {
-    return <span className="text-xs text-[#93b2ce]">{classLabel(classId)}</span>;
+    return <span className="text-xs text-body">{classLabel(classId)}</span>;
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element -- 静态官方图标集,非 next/image 优化对象
@@ -39,7 +39,7 @@ export function RaceIcon({
 }) {
   const src = raceFacePath(race, gender);
   if (!src) {
-    return <span className="text-xs text-[#93b2ce]">{raceName(race)}</span>;
+    return <span className="text-xs text-body">{raceName(race)}</span>;
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element -- 静态官方图标集,非 next/image 优化对象

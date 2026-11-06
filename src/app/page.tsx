@@ -103,16 +103,16 @@ export default async function HomePage() {
         </div>
 
         {/* 右栏首屏:快捷入口(对齐 lokta.cn 双行排版:金色组名独占一行,链接行在下) */}
-        <section className="w-full rounded-2xl border border-[#22385a] bg-[#13233a] px-5 py-5 lg:col-start-2 lg:row-start-1 lg:h-[486px]">
+        <section className="w-full rounded-2xl border border-line bg-panel px-5 py-5 lg:col-start-2 lg:row-start-1 lg:h-[486px]">
             <div className="flex h-full flex-col justify-between gap-2.5">
               {QUICK_LINKS.map((row) => (
                 <div key={row.title}>
-                  <p className="text-[15px] font-semibold leading-6 text-[#e8c877]">{row.title}</p>
+                  <p className="text-[15px] font-semibold leading-6 text-highlight">{row.title}</p>
                   <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1 text-[13px] leading-6">
                     {row.links.map((l, i) => (
                       <span key={l.label} className="whitespace-nowrap">
-                        {i > 0 && <span className="mx-1 text-[#3d5a80]">|</span>}
-                        <Link href={l.href} className="text-[#d7c48d] hover:text-[#f4e3b0] hover:underline">
+                        {i > 0 && <span className="mx-1 text-separator">|</span>}
+                        <Link href={l.href} className="text-highlight-soft hover:text-highlight-strong hover:underline">
                           {l.label}
                         </Link>
                       </span>
@@ -126,7 +126,7 @@ export default async function HomePage() {
         {/* 最近成就嵌入(US 首页配置):url 空=整块隐藏;高度/滚动条后台可配。
          * 高度在组件内再受 68vh 约束,存量 185vh 配置不再撑爆首屏 */}
         {config.home.achievementUrl && (
-          <section className="min-w-0 rounded-2xl border border-[#22385a] bg-[#13233a] p-5 lg:col-start-1 lg:row-start-2">
+          <section className="min-w-0 rounded-2xl border border-line bg-panel p-5 lg:col-start-1 lg:row-start-2">
             <SectionHeader
               title="最近成就事件"
               className="mb-4"
@@ -135,7 +135,7 @@ export default async function HomePage() {
                   href={config.home.achievementUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-[#6fb7e0]"
+                  className="hover:text-link"
                 >
                   新窗口打开 ↗
                 </a>
@@ -154,21 +154,21 @@ export default async function HomePage() {
           {/* enabled=false 时整卡隐藏(StatusCard 内部短路) */}
           <StatusCard initial={serverStatus} />
 
-          <section className="rounded-2xl border border-[#22385a] bg-[#13233a] p-5">
+          <section className="rounded-2xl border border-line bg-panel p-5">
             <SectionHeader title="最新公告" moreHref="/announcements" />
             {announcements.length === 0 ? (
-              <p className="text-sm text-[#6482a3]">暂无公告</p>
+              <p className="text-sm text-muted">暂无公告</p>
             ) : (
               <ul className="space-y-2.5 text-[15px]">
                 {announcements.map((a) => (
                   <li key={a.slug} className="flex items-baseline justify-between gap-3">
                     <Link
                       href={`/post/${encodeURIComponent(a.slug)}`}
-                      className="line-clamp-1 text-[#c7d5e6] hover:text-[#6fb7e0]"
+                      className="line-clamp-1 text-foreground hover:text-link"
                     >
                       {a.title}
                     </Link>
-                    <span className="shrink-0 text-xs text-[#6482a3]">
+                    <span className="shrink-0 text-xs text-muted">
                       {a.publishedAt && formatDate(a.publishedAt)}
                     </span>
                   </li>
@@ -177,10 +177,10 @@ export default async function HomePage() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-[#22385a] bg-[#13233a] p-5">
+          <section className="rounded-2xl border border-line bg-panel p-5">
             <SectionHeader title="精选商品" moreHref="/shop" moreLabel="积分商店 →" />
             {featuredProducts.length === 0 ? (
-              <p className="text-sm text-[#6482a3]">商品即将上架。</p>
+              <p className="text-sm text-muted">商品即将上架。</p>
             ) : (
               <HomeProductCarousel
                 products={featuredProducts}
@@ -192,21 +192,21 @@ export default async function HomePage() {
           {/* 当前阶段独立区块已下线(#64):服务器状态卡内含当前阶段 chip 且可点直达渐进锚点,双份冗余 */}
 
           {/* 论坛精华:填右侧留白(置顶优先,其次回复/浏览热度) */}
-          <section className="rounded-2xl border border-[#22385a] bg-[#13233a] p-5">
+          <section className="rounded-2xl border border-line bg-panel p-5">
             <SectionHeader title="论坛精华" moreHref="/forum" moreLabel="玩家论坛 →" />
             {forumHighlights.length === 0 ? (
-              <p className="text-sm text-[#6482a3]">论坛暂无主题。</p>
+              <p className="text-sm text-muted">论坛暂无主题。</p>
             ) : (
               <ul className="space-y-2.5 text-[15px]">
                 {forumHighlights.map((t) => (
                   <li key={t.id.toString()} className="flex items-baseline justify-between gap-3">
                     <Link
                       href={`/forum/thread/${t.id}`}
-                      className="line-clamp-1 text-[#c7d5e6] hover:text-[#6fb7e0]"
+                      className="line-clamp-1 text-foreground hover:text-link"
                     >
                       {t.title}
                     </Link>
-                    <span className="shrink-0 text-xs text-[#6482a3]">
+                    <span className="shrink-0 text-xs text-muted">
                       {t.board.name} · 回复 {t.replyCount}
                     </span>
                   </li>

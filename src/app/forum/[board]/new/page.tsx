@@ -18,17 +18,17 @@ export default async function NewThreadPage({
     return (
       <main className="container-site flex-1 py-5 lg:py-6">
         <ContentPanel className="mx-auto flex max-w-xl flex-col gap-3 p-6 text-sm">
-          <h1 className="text-lg font-bold text-[#dcebf7]">发新主题</h1>
-          <p className="text-[#93b2ce]">
+          <h1 className="text-lg font-bold text-heading">发新主题</h1>
+          <p className="text-body">
             发帖需登录。请先
             <Link
               href={`/login?next=${encodeURIComponent(`/forum/${params.board}/new`)}`}
-              className="mx-1 text-[#6fb7e0] hover:underline"
+              className="mx-1 text-link hover:underline"
             >
               登录
             </Link>
             或
-            <Link href="/register" className="mx-1 text-[#6fb7e0] hover:underline">
+            <Link href="/register" className="mx-1 text-link hover:underline">
               注册
             </Link>
             账号。
@@ -45,10 +45,10 @@ export default async function NewThreadPage({
     <main className="container-site flex-1 py-5 lg:py-6">
       <ContentPanel className="mx-auto flex max-w-3xl flex-col gap-4 p-5 lg:p-6">
         <div>
-          <h1 className="text-[22px] font-bold text-[#dcebf7]">发新主题</h1>
-          <p className="mt-1 text-[13px] text-[#6482a3]">
+          <h1 className="text-[22px] font-bold text-heading">发新主题</h1>
+          <p className="mt-1 text-[13px] text-muted">
             版块:{board.name}
-            <Link href={`/forum/${board.slug}`} className="ml-2 text-[#6fb7e0] hover:underline">
+            <Link href={`/forum/${board.slug}`} className="ml-2 text-link hover:underline">
               返回版块
             </Link>
           </p>

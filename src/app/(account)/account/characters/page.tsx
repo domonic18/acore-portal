@@ -29,7 +29,7 @@ export default async function CharactersPage() {
           {error}
         </p>
       ) : characters.length === 0 ? (
-        <p className="text-sm text-[#93b2ce]">
+        <p className="text-sm text-body">
           名下暂无游戏角色。创建角色后此处会自动展示。
         </p>
       ) : (
@@ -39,39 +39,39 @@ export default async function CharactersPage() {
             return (
               <li
                 key={c.guid}
-                className="flex items-center gap-3 rounded-lg border border-[#22385a] bg-[#0d1a2e]/40 px-3 py-2.5 whitespace-nowrap"
+                className="flex items-center gap-3 rounded-lg border border-line bg-panel-strong/40 px-3 py-2.5 whitespace-nowrap"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- 静态 SVG 占位集,非 next/image 优化对象 */}
                 <img
                   src={portrait}
                   alt={`${c.name} 头像`}
-                  className="h-12 w-12 shrink-0 rounded-lg ring-1 ring-[#c9a227]/40"
+                  className="h-12 w-12 shrink-0 rounded-lg ring-1 ring-highlight-deep/40"
                 />
                 <span
                   className="min-w-0 flex-1 truncate font-semibold"
-                  style={{ color: CLASS_COLORS[c.class] ?? "#e8eef7" }}
+                  style={{ color: CLASS_COLORS[c.class] ?? "var(--theme-foreground)" }}
                   title={c.name}
                 >
                   {c.name}
                 </span>
-                <span className="shrink-0 rounded bg-[#22385a] px-1.5 py-0.5 font-mono text-xs text-[#93b2ce]">
+                <span className="shrink-0 rounded bg-line px-1.5 py-0.5 font-mono text-xs text-body">
                   Lv{c.level}
                 </span>
-                <span className="ml-auto flex shrink-0 items-center gap-2 text-[#93b2ce]">
+                <span className="ml-auto flex shrink-0 items-center gap-2 text-body">
                   <RaceIcon race={c.race} gender={c.gender} />
                   <ClassIcon classId={c.class} />
-                  <span className="text-xs text-[#6482a3]" title={c.gender === 0 ? "男性" : "女性"}>
+                  <span className="text-xs text-muted" title={c.gender === 0 ? "男性" : "女性"}>
                     {c.gender === 0 ? "♂" : "♀"}
                   </span>
                 </span>
                 <span
                   className={`flex shrink-0 items-center gap-1.5 text-xs ${
-                    c.online ? "text-green-400" : "text-[#6482a3]"
+                    c.online ? "text-green-400" : "text-muted"
                   }`}
                 >
                   <span
                     aria-hidden
-                    className={`h-1.5 w-1.5 rounded-full ${c.online ? "bg-green-400" : "bg-[#6482a3]"}`}
+                    className={`h-1.5 w-1.5 rounded-full ${c.online ? "bg-green-400" : "bg-muted"}`}
                   />
                   {c.online ? "在线" : "离线"}
                 </span>

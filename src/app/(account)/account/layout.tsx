@@ -16,12 +16,12 @@ export default async function AccountLayout({
     <div className="container-site py-6">
       <div
         data-testid="account-shell"
-        className="overflow-hidden rounded-2xl border border-[#22385a] bg-[#0d1a2e]/95"
+        className="overflow-hidden rounded-2xl border border-line bg-panel-strong/95"
       >
-        <header className="border-b border-[#22385a] px-4 py-4 sm:px-6">
+        <header className="border-b border-line px-4 py-4 sm:px-6">
           <a
             href="/account/overview"
-            className="text-lg font-bold text-[#e8c877] hover:text-[#f4e3b0]"
+            className="text-lg font-bold text-highlight hover:text-highlight-strong"
           >
             老克塔 · 用户中心
           </a>

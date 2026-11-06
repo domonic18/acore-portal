@@ -38,25 +38,25 @@ export default async function ProgressionPage() {
           aria-label="面包屑"
           className="mb-3 flex flex-wrap items-center gap-2 text-[11px] lg:text-[13.5px]"
         >
-          <Link href="/announcements" className="text-[#6482a3] hover:text-[#6fb7e0]">
+          <Link href="/announcements" className="text-muted hover:text-link">
             公告
           </Link>
-          <span aria-hidden="true" className="text-[#6482a3]">
+          <span aria-hidden="true" className="text-muted">
             ›
           </span>
-          <span className="text-[#93b2ce]">渐进计划</span>
+          <span className="text-body">渐进计划</span>
         </nav>
 
-        <h1 className="text-[26px] font-bold leading-tight text-[#dcebf7] lg:text-[32px]">
+        <h1 className="text-[26px] font-bold leading-tight text-heading lg:text-[32px]">
           渐进计划
         </h1>
-        <p className="mt-2 text-[13px] leading-6 text-[#6482a3]">
+        <p className="mt-2 text-[13px] leading-6 text-muted">
           服务器的整体渐进计划参照{" "}
           <a
             href="https://www.chromiecraft.com/en/progression/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[#6fb7e0] hover:text-[#e8c877]"
+            className="text-link hover:text-highlight"
           >
             Azerothcore 开源社区
           </a>{" "}
@@ -65,37 +65,37 @@ export default async function ProgressionPage() {
 
         <section
           aria-label="阶段概览"
-          className="mt-5 rounded-xl border border-[#22385a] bg-[#13233a] px-5 py-4"
+          className="mt-5 rounded-xl border border-line bg-panel px-5 py-4"
         >
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-1.5">
-              <p className="text-[13.5px] text-[#93b2ce]">
+              <p className="text-[13.5px] text-body">
                 当前阶段：
                 {position.current ? (
                   <a
                     href={`#node-${position.current.id}`}
-                    className="font-semibold text-[#f08787] hover:underline"
+                    className="font-semibold text-danger hover:underline"
                   >
                     {position.current.title}
                   </a>
                 ) : (
-                  <span className="text-[#6482a3]">待定</span>
+                  <span className="text-muted">待定</span>
                 )}
               </p>
-              <p className="text-[13.5px] text-[#93b2ce]">
+              <p className="text-[13.5px] text-body">
                 下一阶段：
                 {position.next ? (
                   <a
                     href={`#node-${position.next.id}`}
-                    className="font-semibold text-[#e8c877] hover:underline"
+                    className="font-semibold text-highlight hover:underline"
                   >
                     {position.next.title}
                   </a>
                 ) : (
-                  <span className="text-[#6482a3]">暂无</span>
+                  <span className="text-muted">暂无</span>
                 )}
               </p>
-              <p className="text-[12px] text-[#6482a3]">
+              <p className="text-[12px] text-muted">
                 北京时间 UTC+8 · 与服务器时间自动校准
               </p>
             </div>
@@ -121,12 +121,12 @@ export default async function ProgressionPage() {
               dateLabel: formatPhaseDate(n.phaseDate),
               card: (
                 <article
-                  className={`rounded-xl border bg-[#13233a] shadow-[0_10px_40px_rgba(0,0,0,0.35)] ${
+                  className={`rounded-xl border bg-panel shadow-[0_10px_40px_rgba(0,0,0,0.35)] ${
                     isCurrent
-                      ? "border-[#e8c877]/60"
+                      ? "border-highlight/60"
                       : locked
-                        ? "border-[#2a4160]"
-                        : "border-[#35577f]"
+                        ? "border-line"
+                        : "border-line-strong"
                   }`}
                 >
                   <div className="p-4 lg:p-5">
@@ -140,46 +140,46 @@ export default async function ProgressionPage() {
                       />
                     )}
                     <div className="mt-3 flex flex-wrap items-center gap-2 lg:hidden">
-                      <span className="text-[12.5px] text-[#cfc8c8]">
+                      <span className="text-[12.5px] text-foreground">
                         {formatPhaseDate(n.phaseDate)}
                       </span>
                       {isCurrent && (
-                        <span className="rounded-full bg-[#e8c877]/12 px-2 py-0.5 text-[10.5px] text-[#e8c877]">
+                        <span className="rounded-full bg-highlight/12 px-2 py-0.5 text-[10.5px] text-highlight">
                           当前
                         </span>
                       )}
                       {isNext && (
-                        <span className="rounded-full bg-[#6fb7e0]/12 px-2 py-0.5 text-[10.5px] text-[#a8d9f5]">
+                        <span className="rounded-full bg-link/12 px-2 py-0.5 text-[10.5px] text-num">
                           下一阶段
                         </span>
                       )}
                       {locked && !isNext && (
-                        <span className="rounded-full bg-[#93b2ce]/12 px-2 py-0.5 text-[10.5px] text-[#93b2ce]">
+                        <span className="rounded-full bg-body/12 px-2 py-0.5 text-[10.5px] text-body">
                           未开放
                         </span>
                       )}
                     </div>
-                    <h2 className="text-[14.5px] font-bold leading-6 text-[#f3aa37] lg:text-[15px]">
+                    <h2 className="text-[14.5px] font-bold leading-6 text-highlight lg:text-[15px]">
                       {n.title}
                     </h2>
                     {n.bodyMd && (
-                      <p className="mt-1.5 whitespace-pre-line text-[13px] leading-6 text-[#93b2ce]">
+                      <p className="mt-1.5 whitespace-pre-line text-[13px] leading-6 text-body">
                         {n.bodyMd}
                       </p>
                     )}
                     <div className="mt-2 hidden flex-wrap items-center gap-2 lg:flex">
                       {isCurrent && (
-                        <span className="rounded-full bg-[#e8c877]/12 px-2 py-0.5 text-[10.5px] text-[#e8c877]">
+                        <span className="rounded-full bg-highlight/12 px-2 py-0.5 text-[10.5px] text-highlight">
                           当前阶段
                         </span>
                       )}
                       {isNext && (
-                        <span className="rounded-full bg-[#6fb7e0]/12 px-2 py-0.5 text-[10.5px] text-[#a8d9f5]">
+                        <span className="rounded-full bg-link/12 px-2 py-0.5 text-[10.5px] text-num">
                           下一阶段
                         </span>
                       )}
                       {locked && !isNext && (
-                        <span className="rounded-full bg-[#93b2ce]/12 px-2 py-0.5 text-[10.5px] text-[#93b2ce]">
+                        <span className="rounded-full bg-body/12 px-2 py-0.5 text-[10.5px] text-body">
                           未开放
                         </span>
                       )}
@@ -192,7 +192,7 @@ export default async function ProgressionPage() {
         />
 
         {nodes.length === 0 && (
-          <p className="mt-6 rounded-xl border border-[#22385a] bg-[#13233a] py-16 text-center text-sm text-[#6482a3]">
+          <p className="mt-6 rounded-xl border border-line bg-panel py-16 text-center text-sm text-muted">
             暂无阶段数据。
           </p>
         )}

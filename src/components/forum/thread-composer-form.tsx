@@ -41,7 +41,7 @@ export function ThreadComposerForm({ boardSlug }: { boardSlug: string }) {
       }}
     >
       <label className="flex flex-col gap-1 text-sm">
-        <span className="text-[#93b2ce]">标题(1-64 字)</span>
+        <span className="text-body">标题(1-64 字)</span>
         <Input
           value={title}
           maxLength={64}
@@ -50,11 +50,11 @@ export function ThreadComposerForm({ boardSlug }: { boardSlug: string }) {
         />
       </label>
       <div className="flex flex-col gap-1 text-sm">
-        <span className="text-[#93b2ce]">正文(Markdown,支持上传图片)</span>
+        <span className="text-body">正文(Markdown,支持上传图片)</span>
         <MarkdownComposer value={content} onChange={setContent} rows={12} />
       </div>
       {error && (
-        <p role="alert" className="text-sm text-[#eda9a9]">
+        <p role="alert" className="text-sm text-danger">
           {error}
         </p>
       )}
@@ -66,7 +66,7 @@ export function ThreadComposerForm({ boardSlug }: { boardSlug: string }) {
         >
           {busy ? "发布中…" : "发布主题"}
         </Button>
-        <span className="text-[11.5px] text-[#6482a3]">
+        <span className="text-[11.5px] text-muted">
           发布前请阅读论坛公约;先发后审,违规内容将被版主删除
         </span>
       </div>

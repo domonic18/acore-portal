@@ -75,7 +75,7 @@ function NicknameForm({ initial }: { initial: string }) {
           minLength={2}
           maxLength={64}
           placeholder="未设置"
-          className="rounded-md border border-[#22385a] bg-[#0d1828] px-3 py-2 text-[#dcebf7] placeholder:text-[#6482a3] focus:border-[#5ea3cc] focus:outline-none"
+          className="rounded-md border border-line bg-panel-inset px-3 py-2 text-heading placeholder:text-muted focus:border-accent focus:outline-none"
         />
       </label>
       {error && (
@@ -91,7 +91,7 @@ function NicknameForm({ initial }: { initial: string }) {
       <button
         type="submit"
         disabled={submitting}
-        className="self-start rounded-md bg-[#5ea3cc] px-4 py-2 text-sm font-medium text-[#0a1220] hover:bg-[#6fb7e0] disabled:opacity-50"
+        className="self-start rounded-md bg-accent px-4 py-2 text-sm font-medium text-page hover:bg-link disabled:opacity-50"
       >
         {submitting ? "保存中…" : "保存昵称"}
       </button>
@@ -142,7 +142,7 @@ function ChangePasswordForm() {
           onChange={(e) => setCurrent(e.target.value)}
           required
           autoComplete="current-password"
-          className="rounded-md border border-[#22385a] bg-[#0d1828] px-3 py-2 text-[#dcebf7] focus:border-[#5ea3cc] focus:outline-none"
+          className="rounded-md border border-line bg-panel-inset px-3 py-2 text-heading focus:border-accent focus:outline-none"
         />
       </label>
       <label className="flex flex-col gap-1 text-sm">
@@ -154,7 +154,7 @@ function ChangePasswordForm() {
           required
           minLength={8}
           autoComplete="new-password"
-          className="rounded-md border border-[#22385a] bg-[#0d1828] px-3 py-2 text-[#dcebf7] focus:border-[#5ea3cc] focus:outline-none"
+          className="rounded-md border border-line bg-panel-inset px-3 py-2 text-heading focus:border-accent focus:outline-none"
         />
       </label>
       {error && (
@@ -170,7 +170,7 @@ function ChangePasswordForm() {
       <button
         type="submit"
         disabled={submitting}
-        className="self-start rounded-md bg-[#5ea3cc] px-4 py-2 text-sm font-medium text-[#0a1220] hover:bg-[#6fb7e0] disabled:opacity-50"
+        className="self-start rounded-md bg-accent px-4 py-2 text-sm font-medium text-page hover:bg-link disabled:opacity-50"
       >
         {submitting ? "提交中…" : "修改密码"}
       </button>
@@ -215,7 +215,7 @@ function ChangeEmailForm() {
           onChange={(e) => setNewEmail(e.target.value)}
           required
           autoComplete="email"
-          className="rounded-md border border-[#22385a] bg-[#0d1828] px-3 py-2 text-[#dcebf7] focus:border-[#5ea3cc] focus:outline-none"
+          className="rounded-md border border-line bg-panel-inset px-3 py-2 text-heading focus:border-accent focus:outline-none"
         />
       </label>
       <label className="flex flex-col gap-1 text-sm">
@@ -226,7 +226,7 @@ function ChangeEmailForm() {
           onChange={(e) => setCurrent(e.target.value)}
           required
           autoComplete="current-password"
-          className="rounded-md border border-[#22385a] bg-[#0d1828] px-3 py-2 text-[#dcebf7] focus:border-[#5ea3cc] focus:outline-none"
+          className="rounded-md border border-line bg-panel-inset px-3 py-2 text-heading focus:border-accent focus:outline-none"
         />
       </label>
       {error && (
@@ -242,7 +242,7 @@ function ChangeEmailForm() {
       <button
         type="submit"
         disabled={submitting}
-        className="self-start rounded-md bg-[#5ea3cc] px-4 py-2 text-sm font-medium text-[#0a1220] hover:bg-[#6fb7e0] disabled:opacity-50"
+        className="self-start rounded-md bg-accent px-4 py-2 text-sm font-medium text-page hover:bg-link disabled:opacity-50"
       >
         {submitting ? "提交中…" : "发送确认邮件"}
       </button>
@@ -267,8 +267,8 @@ export function SettingsForms({
       </Suspense>
       <section className="flex flex-col gap-1 text-sm">
         <h2 className="text-lg font-semibold">账号资料</h2>
-        <span className="text-[#93b2ce]">用户名:{username}(不可修改)</span>
-        <span className="text-[#93b2ce]">当前邮箱:{email}</span>
+        <span className="text-body">用户名:{username}(不可修改)</span>
+        <span className="text-body">当前邮箱:{email}</span>
       </section>
       <NicknameForm initial={nickname} />
       <ChangePasswordForm />

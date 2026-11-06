@@ -22,7 +22,7 @@ export function ProgressionCountdown({ targetIso }: { targetIso: string | null }
     return (
       <p
         data-testid="progression-countdown"
-        className="text-[13px] text-[#8ad896]"
+        className="text-[13px] text-ok-text"
       >
         倒计时已经结束，对应阶段已开放
       </p>
@@ -45,10 +45,10 @@ export function ProgressionCountdown({ targetIso }: { targetIso: string | null }
     >
       {units.map((u) => (
         <div key={u.label} className="flex flex-col items-center gap-1.5">
-          <span className="flex h-[54px] w-[62px] items-center justify-center rounded-lg border border-[#22385a] bg-[#0a1220] text-[24px] font-semibold tabular-nums text-[#a8d9f5]">
+          <span className="flex h-[54px] w-[62px] items-center justify-center rounded-lg border border-line bg-page text-[24px] font-semibold tabular-nums text-num">
             {distance === null ? "--" : String(u.value).padStart(2, "0")}
           </span>
-          <span className="text-[10px] text-[#93b2ce]">{u.label}</span>
+          <span className="text-[10px] text-body">{u.label}</span>
         </div>
       ))}
     </div>

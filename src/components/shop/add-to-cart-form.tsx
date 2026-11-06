@@ -89,11 +89,11 @@ export function AddToCartForm({
 
   if (isGuest) {
     return (
-      <div className="flex flex-col gap-2 rounded-md border border-[#22385a] p-4">
-        <p className="text-sm text-[#c7d5e6]">登录后选择角色购买。</p>
+      <div className="flex flex-col gap-2 rounded-md border border-line p-4">
+        <p className="text-sm text-foreground">登录后选择角色购买。</p>
         <Link
           href={loginHref}
-          className="w-fit rounded-md bg-[#5ea3cc] px-4 py-2 text-sm font-medium text-[#0a1220] hover:bg-[#6fb7e0]"
+          className="w-fit rounded-md bg-accent px-4 py-2 text-sm font-medium text-page hover:bg-link"
         >
           去登录
         </Link>
@@ -151,20 +151,20 @@ export function AddToCartForm({
       )}
       {needRestore && (
         <fieldset className="flex flex-col gap-1 text-sm">
-          <legend className="text-[#c7d5e6]">选择恢复物品</legend>
+          <legend className="text-foreground">选择恢复物品</legend>
           {restoreDegraded ? (
             <span className="text-amber-400">恢复物品列表暂不可用,请稍后重试。</span>
           ) : restorable === null ? (
-            <span className="text-[#6482a3]">请先选择角色。</span>
+            <span className="text-muted">请先选择角色。</span>
           ) : restorable.length === 0 ? (
-            <span className="text-[#6482a3]">该角色暂无可恢复物品。</span>
+            <span className="text-muted">该角色暂无可恢复物品。</span>
           ) : (
-            <div className="flex flex-col gap-1 rounded-md border border-[#22385a] bg-[#0d1828] p-2">
+            <div className="flex flex-col gap-1 rounded-md border border-line bg-panel-inset p-2">
               {restorable.map((it) => (
                 <label
                   key={it.entry}
                   className={`flex items-center gap-2 rounded px-2 py-1.5 ${
-                    it.restorable ? "cursor-pointer hover:bg-[#13233a]" : "opacity-50"
+                    it.restorable ? "cursor-pointer hover:bg-panel" : "opacity-50"
                   }`}
                 >
                   <input
@@ -174,16 +174,18 @@ export function AddToCartForm({
                     checked={restoreEntry === String(it.entry)}
                     onChange={(e) => setRestoreEntry(e.target.value)}
                     disabled={busy || !it.restorable}
-                    className="accent-[#5ea3cc]"
+                    className="accent-accent"
                   />
                   <span aria-hidden className="text-base leading-none">⚔</span>
                   <span
                     className="font-medium"
-                    style={{ color: ITEM_QUALITY_COLOR[it.quality ?? 1] ?? "#ffffff" }}
+                    style={{
+                      color: ITEM_QUALITY_COLOR[it.quality ?? 1] ?? "var(--theme-foreground)",
+                    }}
                   >
                     {it.name ?? `物品 #${it.entry}`}
                   </span>
-                  {!it.restorable && <span className="text-xs text-[#6482a3]">(数据缺失,暂不可恢复)</span>}
+                  {!it.restorable && <span className="text-xs text-muted">(数据缺失,暂不可恢复)</span>}
                 </label>
               ))}
             </div>
@@ -192,32 +194,32 @@ export function AddToCartForm({
       )}
       {fields.includes("unlockName") && (
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-[#c7d5e6]">目标名字</span>
+          <span className="text-foreground">目标名字</span>
           <input
             value={unlockName}
             onChange={(e) => setUnlockName(e.target.value)}
             disabled={busy}
-            className="rounded-md border border-[#22385a] bg-[#0d1828] px-3 py-2 text-[#dcebf7] focus:border-[#5ea3cc] focus:outline-none"
+            className="rounded-md border border-line bg-panel-inset px-3 py-2 text-heading focus:border-accent focus:outline-none"
           />
         </label>
       )}
       <div className="flex items-center gap-3">
         <label className="flex items-center gap-2 text-sm">
-          <span className="text-[#c7d5e6]">数量</span>
+          <span className="text-foreground">数量</span>
           <input
             type="number"
             min={1}
             value={qty}
             onChange={(e) => setQty(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
             disabled={busy}
-            className="w-20 rounded-md border border-[#22385a] bg-[#0d1828] px-3 py-2 text-[#dcebf7] focus:border-[#5ea3cc] focus:outline-none"
+            className="w-20 rounded-md border border-line bg-panel-inset px-3 py-2 text-heading focus:border-accent focus:outline-none"
           />
         </label>
         <button
           type="button"
           onClick={submit}
           disabled={!canSubmit || soldOut}
-          className="rounded-md bg-[#5ea3cc] px-6 py-2 font-semibold text-[#0a1220] hover:bg-[#6fb7e0] disabled:opacity-50"
+          className="rounded-md bg-accent px-6 py-2 font-semibold text-page hover:bg-link disabled:opacity-50"
         >
           {soldOut ? "已售罄" : busy ? "加入中…" : cooldown ? "已加入 ✓" : "加入购物车"}
         </button>

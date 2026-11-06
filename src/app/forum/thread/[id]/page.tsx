@@ -68,33 +68,33 @@ export default async function ForumThreadPage({
           aria-label="面包屑"
           className="mb-3 flex flex-wrap items-center gap-2 text-[11px] lg:text-[13.5px]"
         >
-          <Link href="/forum" className="text-[#6482a3] hover:text-[#6fb7e0]">
+          <Link href="/forum" className="text-muted hover:text-link">
             论坛
           </Link>
-          <span aria-hidden="true" className="text-[#6482a3]">
+          <span aria-hidden="true" className="text-muted">
             /
           </span>
           <Link
             href={`/forum/${thread.board.slug}`}
-            className="text-[#6482a3] hover:text-[#6fb7e0]"
+            className="text-muted hover:text-link"
           >
             {thread.board.name}
           </Link>
-          <span aria-hidden="true" className="text-[#6482a3]">
+          <span aria-hidden="true" className="text-muted">
             /
           </span>
-          <span className="line-clamp-1 text-[#93b2ce]">{thread.title}</span>
+          <span className="line-clamp-1 text-body">{thread.title}</span>
         </nav>
 
-        <header className="mb-4 border-b border-[#22385a] pb-4">
+        <header className="mb-4 border-b border-line pb-4">
           <div className="flex flex-wrap items-center gap-2.5">
             {thread.pinned && <PinnedBadge />}
             <ThreadStatusBadge statusLabel={thread.statusLabel} closedAt={thread.closedAt} />
-            <h1 className="text-xl font-bold leading-8 text-[#dcebf7] lg:text-[24px]">
+            <h1 className="text-xl font-bold leading-8 text-heading lg:text-[24px]">
               {thread.title}
             </h1>
           </div>
-          <p className="mt-2 text-[12px] text-[#6482a3] lg:text-[13px]">
+          <p className="mt-2 text-[12px] text-muted lg:text-[13px]">
             {thread.authorName} · {formatDateTimeShort(thread.createdAt)} · {thread.replyCount} 回复
             · {thread.viewCount} 查看 · {thread.board.name}
             {thread.closedAt && " · 已关闭"}
@@ -120,31 +120,31 @@ export default async function ForumThreadPage({
             return (
               <article
                 key={p.id.toString()}
-                className="rounded-xl border border-[#22385a] bg-[#13233a] p-4 lg:p-5"
+                className="rounded-xl border border-line bg-panel p-4 lg:p-5"
               >
                 <div className="flex gap-3 lg:gap-4">
                   <span
                     aria-hidden="true"
                     className={`grid h-[40px] w-[40px] shrink-0 place-items-center rounded-lg text-base lg:h-[46px] lg:w-[46px] lg:text-lg ${
-                      privileged ? "bg-[#e8c877]/12 text-[#e8c877]" : "bg-[#0d1828] text-[#a8d9f5]"
+                      privileged ? "bg-highlight/12 text-highlight" : "bg-panel-inset text-num"
                     }`}
                   >
                     {p.authorName.slice(0, 1)}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-[#22385a] pb-2.5">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-line pb-2.5">
                       <div className="flex flex-wrap items-baseline gap-2">
                         <span
                           className={`text-[14px] font-semibold ${
-                            privileged ? "text-[#e8c877]" : "text-[#dcebf7]"
+                            privileged ? "text-highlight" : "text-heading"
                           }`}
                         >
                           {p.authorName}
                         </span>
-                        <span className="text-[11.5px] text-[#6482a3]">{ROLE_LABEL[role]}</span>
+                        <span className="text-[11.5px] text-muted">{ROLE_LABEL[role]}</span>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 text-[12px] text-[#6482a3]">
-                        <span className="text-[#93b2ce]">
+                      <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted">
+                        <span className="text-body">
                           {p.floor === 1 ? "楼主" : `${p.floor} 楼`}
                         </span>
                         {canModerate && p.floor !== 1 && (
@@ -167,8 +167,8 @@ export default async function ForumThreadPage({
         </section>
 
         {thread.closedAt ? (
-          <div className="mt-4 overflow-hidden rounded-xl border border-[#22385a] bg-[#13233a]">
-            <p className="px-5 py-4 text-[13px] leading-6 text-[#6482a3]">
+          <div className="mt-4 overflow-hidden rounded-xl border border-line bg-panel">
+            <p className="px-5 py-4 text-[13px] leading-6 text-muted">
               主题已关闭,不再接受回帖;如需反馈请发新主题或前往客服群。
             </p>
             <ForumPagination
@@ -182,11 +182,11 @@ export default async function ForumThreadPage({
         ) : session ? (
           <ReplyForm threadId={thread.id.toString()} lastPageHref={href(totalPages)} />
         ) : (
-          <div className="mt-4 overflow-hidden rounded-xl border border-[#22385a] bg-[#13233a]">
-            <p className="border-t border-[#22385a] px-5 py-4 text-[13px] leading-6 text-[#6482a3]">
+          <div className="mt-4 overflow-hidden rounded-xl border border-line bg-panel">
+            <p className="border-t border-line px-5 py-4 text-[13px] leading-6 text-muted">
               <Link
                 href={`/login?next=${encodeURIComponent(`/forum/thread/${thread.id}`)}`}
-                className="mr-1 text-[#6fb7e0] hover:underline"
+                className="mr-1 text-link hover:underline"
               >
                 登录
               </Link>

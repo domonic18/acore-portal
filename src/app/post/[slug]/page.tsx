@@ -63,31 +63,31 @@ export default async function PostPage({
         <ContentPanel className="min-w-0 p-5 lg:p-6">
           <article className="min-w-0">
             <nav aria-label="面包屑" className="mb-4 flex items-center gap-2 text-[13px]">
-              <Link href="/" className="text-[#6482a3] hover:text-[#6fb7e0]">
+              <Link href="/" className="text-muted hover:text-link">
                 首页
               </Link>
-              <span aria-hidden="true" className="text-[#6482a3]">
+              <span aria-hidden="true" className="text-muted">
                 ›
               </span>
               <Link
                 href={`/${article.category.slug}`}
-                className="text-[#93b2ce] hover:text-[#6fb7e0]"
+                className="text-body hover:text-link"
               >
                 {article.category.name}
               </Link>
             </nav>
 
-            <header className="border-b border-[#22385a] pb-5">
-              <h1 className="text-[32px] font-bold leading-[1.35] text-[#dcebf7]">
+            <header className="border-b border-line pb-5">
+              <h1 className="text-[32px] font-bold leading-[1.35] text-heading">
                 {article.title}
               </h1>
-              <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13.5px] text-[#6482a3]">
+              <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13.5px] text-muted">
                 {published && <span>{published}</span>}
                 <span>{article.views} 次阅读</span>
                 {article.tags.length > 0 && (
                   <span className="flex flex-wrap gap-2">
                     {article.tags.map((t) => (
-                      <span key={t.tag.slug} className="text-[#6eb7df]">
+                      <span key={t.tag.slug} className="text-link">
                         #{t.tag.name}
                       </span>
                     ))}
@@ -104,14 +104,14 @@ export default async function PostPage({
             />
 
             {(adjacent.prev || adjacent.next) && (
-              <footer className="mt-10 grid gap-3 border-t border-[#22385a] pt-5 sm:grid-cols-2">
+              <footer className="mt-10 grid gap-3 border-t border-line pt-5 sm:grid-cols-2">
                 {adjacent.prev ? (
                   <Link
                     href={`/post/${encodeURIComponent(adjacent.prev.slug)}`}
-                    className="group rounded-xl border border-[#22385a] bg-[#13233a] px-4 py-3"
+                    className="group rounded-xl border border-line bg-panel px-4 py-3"
                   >
-                    <span className="text-[12px] text-[#6482a3]">← 上一篇</span>
-                    <span className="mt-1 line-clamp-1 block text-[13.5px] text-[#93b2ce] group-hover:text-[#6fb7e0]">
+                    <span className="text-[12px] text-muted">← 上一篇</span>
+                    <span className="mt-1 line-clamp-1 block text-[13.5px] text-body group-hover:text-link">
                       {adjacent.prev.title}
                     </span>
                   </Link>
@@ -121,10 +121,10 @@ export default async function PostPage({
                 {adjacent.next && (
                   <Link
                     href={`/post/${encodeURIComponent(adjacent.next.slug)}`}
-                    className="group rounded-xl border border-[#22385a] bg-[#13233a] px-4 py-3 sm:text-right"
+                    className="group rounded-xl border border-line bg-panel px-4 py-3 sm:text-right"
                   >
-                    <span className="text-[12px] text-[#6482a3]">下一篇 →</span>
-                    <span className="mt-1 line-clamp-1 block text-[13.5px] text-[#93b2ce] group-hover:text-[#6fb7e0]">
+                    <span className="text-[12px] text-muted">下一篇 →</span>
+                    <span className="mt-1 line-clamp-1 block text-[13.5px] text-body group-hover:text-link">
                       {adjacent.next.title}
                     </span>
                   </Link>

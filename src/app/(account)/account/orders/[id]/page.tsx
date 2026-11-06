@@ -14,7 +14,7 @@ import { OrderStatusPoll } from "@/components/shop/order-status-poll";
  */
 
 const DELIVERY_BADGE: Record<string, string> = {
-  pending: "bg-[#22385a] text-[#c7d5e6]",
+  pending: "bg-line text-foreground",
   delivered: "bg-green-950 text-green-400",
   failed: "bg-red-950 text-red-400",
 };
@@ -40,22 +40,22 @@ export default async function OrderDetailPage({
 
   return (
     <main className="flex flex-col gap-4">
-      <header className="flex flex-wrap items-center gap-3 border-b border-[#22385a] pb-3">
+      <header className="flex flex-wrap items-center gap-3 border-b border-line pb-3">
         <h1 className="text-2xl font-bold">订单详情</h1>
-        <span className="font-mono text-sm text-[#93b2ce]">{order.orderNo}</span>
+        <span className="font-mono text-sm text-body">{order.orderNo}</span>
         <OrderStatusPoll status={order.status} />
       </header>
 
-      <section className="flex flex-wrap items-center gap-4 rounded-md border border-[#22385a] p-4 text-sm">
-        <span className="rounded bg-[#22385a] px-2 py-0.5 text-xs text-[#c7d5e6]">
+      <section className="flex flex-wrap items-center gap-4 rounded-md border border-line p-4 text-sm">
+        <span className="rounded bg-line px-2 py-0.5 text-xs text-foreground">
           {ORDER_STATUS_LABEL[order.status] ?? order.status}
         </span>
         <span>
           支付:<span className="font-semibold text-amber-400">{order.pointCost} 积分</span>
         </span>
-        <span className="text-[#6482a3]">下单:{new Date(order.createdAt).toLocaleString("zh-CN")}</span>
+        <span className="text-muted">下单:{new Date(order.createdAt).toLocaleString("zh-CN")}</span>
         {order.completedAt && (
-          <span className="text-[#6482a3]">
+          <span className="text-muted">
             完成:{new Date(order.completedAt).toLocaleString("zh-CN")}
           </span>
         )}
@@ -66,11 +66,11 @@ export default async function OrderDetailPage({
 
       <ul className="flex flex-col gap-3">
         {order.items.map((item) => (
-          <li key={item.id} className="flex flex-wrap items-center gap-4 rounded-md border border-[#22385a] p-4">
+          <li key={item.id} className="flex flex-wrap items-center gap-4 rounded-md border border-line p-4">
             <div className="flex min-w-48 flex-1 flex-col gap-1">
               <span className="font-semibold">{item.name}</span>
-              <span className="font-mono text-xs text-[#6482a3]">{item.sku}</span>
-              <span className="text-xs text-[#93b2ce]">
+              <span className="font-mono text-xs text-muted">{item.sku}</span>
+              <span className="text-xs text-body">
                 {Object.entries((item.params ?? {}) as Record<string, unknown>)
                   .map(([k, v]) => fmtParam(v))
                   .join(" · ")}
@@ -80,11 +80,11 @@ export default async function OrderDetailPage({
               <span>
                 {item.unitPrice} × {item.qty}
               </span>
-              <span className={`rounded px-2 py-0.5 text-xs ${DELIVERY_BADGE[item.deliveryStatus] ?? "bg-[#22385a]"}`}>
+              <span className={`rounded px-2 py-0.5 text-xs ${DELIVERY_BADGE[item.deliveryStatus] ?? "bg-line"}`}>
                 {DELIVERY_STATUS_LABEL[item.deliveryStatus] ?? item.deliveryStatus}
               </span>
               {item.deliveredAt && (
-                <span className="text-xs text-[#6482a3]">
+                <span className="text-xs text-muted">
                   {new Date(item.deliveredAt).toLocaleString("zh-CN")}
                 </span>
               )}
@@ -93,7 +93,7 @@ export default async function OrderDetailPage({
         ))}
       </ul>
 
-      <Link href="/account/orders" className="text-sm text-[#c7d5e6] hover:text-white">
+      <Link href="/account/orders" className="text-sm text-foreground hover:text-white">
         ← 返回订单列表
       </Link>
     </main>

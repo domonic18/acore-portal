@@ -41,11 +41,11 @@ export default async function CartPage() {
     return (
       <main className="container-site flex flex-1 items-center justify-center py-10">
         <ContentPanel className="flex w-full max-w-xl flex-col items-center gap-4 p-8 text-center">
-          <h1 className="text-2xl font-bold text-[#dcebf7]">购物车</h1>
-          <p className="text-[#93b2ce]">登录后查看你的购物车。</p>
+          <h1 className="text-2xl font-bold text-heading">购物车</h1>
+          <p className="text-body">登录后查看你的购物车。</p>
           <Link
             href="/login?next=/cart"
-            className="rounded-md bg-[#5ea3cc] px-4 py-2 font-medium text-[#0a1220] hover:bg-[#6fb7e0]"
+            className="rounded-md bg-accent px-4 py-2 font-medium text-page hover:bg-link"
           >
             去登录
           </Link>
@@ -65,17 +65,17 @@ export default async function CartPage() {
   return (
     <main className="container-site flex-1 py-6">
       <ContentPanel className="p-5 lg:p-6">
-        <header className="flex items-center justify-between border-b border-[#22385a] pb-3">
-          <h1 className="text-2xl font-bold text-[#dcebf7]">购物车</h1>
-          <Link href="/shop" className="text-sm text-[#6482a3] hover:text-[#6fb7e0]">
+        <header className="flex items-center justify-between border-b border-line pb-3">
+          <h1 className="text-2xl font-bold text-heading">购物车</h1>
+          <Link href="/shop" className="text-sm text-muted hover:text-link">
             继续购物
           </Link>
         </header>
 
         {lines.length === 0 ? (
-          <p className="py-16 text-center text-[#93b2ce]">
+          <p className="py-16 text-center text-body">
             购物车还是空的,去
-            <Link href="/shop" className="mx-1 text-[#6fb7e0] underline">
+            <Link href="/shop" className="mx-1 text-link underline">
               商城
             </Link>
             逛逛吧。
@@ -87,18 +87,18 @@ export default async function CartPage() {
                 <CartRow key={line.id} line={line} guidNames={guidNames} />
               ))}
             </ul>
-            <footer className="mt-4 flex flex-col items-end gap-3 border-t border-[#22385a] pt-4">
-              <p className="text-lg text-[#93b2ce]">
-                合计:<span className="font-bold text-[#e8c877]">{total}</span>
+            <footer className="mt-4 flex flex-col items-end gap-3 border-t border-line pt-4">
+              <p className="text-lg text-body">
+                合计:<span className="font-bold text-highlight">{total}</span>
               </p>
               {blocked && (
-                <p className="text-sm text-[#e8c877]">
+                <p className="text-sm text-highlight">
                   购物车中存在售罄或已下架商品,结算时将无法提交。
                 </p>
               )}
               <Link
                 href="/checkout"
-                className="rounded-md bg-[#5ea3cc] px-6 py-2 font-semibold text-[#0a1220] hover:bg-[#6fb7e0]"
+                className="rounded-md bg-accent px-6 py-2 font-semibold text-page hover:bg-link"
               >
                 去结算
               </Link>
@@ -115,32 +115,32 @@ function CartRow({ line, guidNames }: { line: CartLine; guidNames: Map<number, s
     .map(([k, v]) => paramDisplay(k, v, guidNames))
     .join(" · ");
   return (
-    <li className="flex flex-wrap items-center gap-4 rounded-lg border border-[#22385a] bg-[#13233a] p-4">
+    <li className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-panel p-4">
       <div
         aria-hidden
-        className="flex h-16 w-16 items-center justify-center rounded bg-gradient-to-br from-[#0d1828] to-[#13233a] text-2xl"
+        className="flex h-16 w-16 items-center justify-center rounded bg-gradient-to-br from-panel-inset to-panel text-2xl"
       >
         {line.sku.startsWith(ITEMSEND_SKU_PREFIX) ? "⚔" : "🛠"}
       </div>
       <div className="flex min-w-48 flex-1 flex-col gap-1">
         <Link
           href={`/shop/${line.slug}`}
-          className="font-semibold text-[#dcebf7] hover:text-[#6fb7e0]"
+          className="font-semibold text-heading hover:text-link"
         >
           {line.name}
         </Link>
-        <span className="text-xs text-[#6482a3]">{params}</span>
+        <span className="text-xs text-muted">{params}</span>
         <span className="flex gap-2 text-xs">
           {line.onSale && <span className="text-red-400">促销中</span>}
           {line.soldOut && <span className="text-red-400">已售罄</span>}
-          {!line.published && <span className="text-[#e8c877]">已下架</span>}
+          {!line.published && <span className="text-highlight">已下架</span>}
         </span>
       </div>
-      <div className="flex flex-col items-end text-sm text-[#93b2ce]">
-        <span className={line.onSale ? "font-semibold text-[#e8c877]" : ""}>
+      <div className="flex flex-col items-end text-sm text-body">
+        <span className={line.onSale ? "font-semibold text-highlight" : ""}>
           {line.unitPrice} × {line.qty}
         </span>
-        <span className="text-[#6482a3]">小计 {line.subtotal}</span>
+        <span className="text-muted">小计 {line.subtotal}</span>
       </div>
       <CartLineControls itemId={line.id} qty={line.qty} soldOut={line.soldOut} />
     </li>
