@@ -112,7 +112,7 @@ jobs:
       - name: 生产构建
         run: pnpm build
       - name: 播种(配置/路由映射/阈值;配置是进程内快照,须在启动前落库)
-        run: tsx tests/e2e/pre-seed.ts
+        run: pnpm exec tsx tests/e2e/pre-seed.ts
         env:
           E2E_TURNSTILE: ${{ matrix.turnstile }}
       - name: 启动应用并等待就绪
