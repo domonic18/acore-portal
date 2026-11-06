@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState } from "react";
 import type { SiteNavItem } from "@/constants/navigation";
 import { UnreadBadge } from "@/components/site/unread-badge";
 import { HeaderDesktopNav, HeaderMobileNav } from "@/components/site/header-nav";
@@ -12,6 +12,7 @@ import { HeaderUserMenu } from "@/components/site/header-user-menu";
  * 深蓝页头 + 金色登录/注册 + 登录态通知铃与头像(积分在头像下拉内,2026-11-05 收敛);
  * 桌面多级下拉 + 移动侧边抽屉(FR-205)。
  * 职责拆分(#84):导航见 header-nav、账户菜单见 header-user-menu,本文件只做外壳与编排。
+ * 页头背景图与配色由 .site-header 类 + <html> 上的主题变量驱动(2026-11-06 主题系统)。
  */
 export function SiteHeaderClient({
   items,
@@ -20,7 +21,6 @@ export function SiteHeaderClient({
   isAdmin,
   points,
   logoUrl,
-  headerBackgroundUrl,
 }: {
   items: readonly SiteNavItem[];
   portraitUrl: string;
@@ -28,18 +28,8 @@ export function SiteHeaderClient({
   isAdmin: boolean;
   points: number;
   logoUrl: string;
-  headerBackgroundUrl: string;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  // 页头背景图(后台可配):轻蒙层保导航可读同时透出原站场景图
-  // (WP 原站页头无蒙层直出背景画,100px 高;0.6 对齐其观感)
-  const headerStyle: CSSProperties | undefined = headerBackgroundUrl
-    ? {
-        backgroundImage: `linear-gradient(rgba(16, 32, 53, 0.6), rgba(16, 32, 53, 0.6)), url("${headerBackgroundUrl}")`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }
-    : undefined;
 
   // #55:移动菜单展开时锁定底层页面滚动,滚动只发生在抽屉面板内;Esc 关抽屉
   useEffect(() => {
@@ -58,10 +48,7 @@ export function SiteHeaderClient({
 
   return (
     <>
-      <header
-        className="sticky top-0 z-40 border-b border-[#35577f] bg-[#102035]/95 backdrop-blur"
-        style={headerStyle}
-      >
+      <header className="site-header sticky top-0 z-40 border-b border-line-strong">
         <div className="container-site flex h-16 items-center gap-8 lg:h-[88px]">
           <Link href="/" className="shrink-0" aria-label="老克塔首页">
             {/* 800×313 生产原图(WP 原版 Logo 迁移),54px 显示高倍屏不糊 */}
@@ -89,11 +76,11 @@ export function SiteHeaderClient({
               </>
             ) : (
               <div className="flex items-center gap-3 text-[15px]">
-                <Link href="/login" className="text-[#e8c877] hover:text-[#f5dc9a]">
+                <Link href="/login" className="text-highlight hover:text-highlight-strong">
                   登 录
                 </Link>
-                <span className="text-[#6482a3]">|</span>
-                <Link href="/register" className="text-[#e8c877] hover:text-[#f5dc9a]">
+                <span className="text-muted">|</span>
+                <Link href="/register" className="text-highlight hover:text-highlight-strong">
                   注 册
                 </Link>
               </div>
@@ -106,7 +93,7 @@ export function SiteHeaderClient({
               aria-expanded={mobileOpen}
               data-testid="mobile-menu-button"
               onClick={() => setMobileOpen((v) => !v)}
-              className="rounded-md border border-[#35577f] p-2 text-[#93b2ce] hover:text-[#6fb7e0] lg:hidden"
+              className="rounded-md border border-line-strong p-2 text-body hover:text-link lg:hidden"
             >
               <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
                 {mobileOpen ? (

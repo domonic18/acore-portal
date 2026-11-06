@@ -1,10 +1,15 @@
 import "server-only";
-import { z } from "zod";
 import { buildConfigFromRows, getConfig, reloadSystemConfig } from "@/lib/config";
 import { prisma } from "@/lib/db/business";
 import { getTransporter } from "@/lib/mail";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/shared/audit";
+import {
+  groupKeys,
+  groupSchemas,
+  isSettingsGroup,
+  sensitiveFields,
+} from "@/server/services/settings/schemas";
 
 /**
  * 设置保存与测试发信(T030;api-admin-m4 契约):
@@ -17,153 +22,6 @@ import { writeAudit } from "@/server/services/shared/audit";
 export type SaveSettingsResult =
   | { ok: true }
   | { ok: false; code: "VALIDATION_FAILED" | "TURNSTILE_KEYS_REQUIRED"; message: string };
-
-/** 各组 zod:敏感字段(password/secretKey/apiPassword)optional——空/缺省语义在下方 keep 逻辑处理 */
-const dlUrlSchema = z.union([
-  z.literal(""),
-  z
-    .string()
-    .trim()
-    .refine(
-      (v) =>
-        (v.startsWith("/") || /^https?:\/\//.test(v)) &&
-        !/[\s"'()\\]/.test(v),
-      "链接须为站内路径或 http(s) 地址",
-    ),
-]);
-
-const groupSchemas = {
-  smtp: z.object({
-    host: z.string().min(1, "host 必填"),
-    port: z.coerce.number().int().positive(),
-    user: z.string().default(""),
-    password: z.string().optional(),
-    from: z.string().email(),
-  }),
-  turnstile: z.object({
-    enabled: z.boolean(),
-    siteKey: z.string().default(""),
-    secretKey: z.string().optional(),
-  }),
-  security: z.object({
-    loginMaxFails: z.coerce.number().int().positive(),
-    loginWindowSec: z.coerce.number().int().positive(),
-    loginLockSec: z.coerce.number().int().positive(),
-  }),
-  notify: z.object({
-    pointEmailThreshold: z.coerce.number().int().min(0),
-  }),
-  // 内容域:目录开关;optional=缺省保持现值(组级全量提交口径)
-  content: z.object({
-    tocEnabled: z.boolean().optional(),
-  }),
-  site: z.object({
-    icp: z.string().trim().max(64),
-    // 可选=缺省保持现值(与 home 组口径);空串=显式清空(页脚不渲染)
-    copyrightEn: z.string().trim().max(1000).optional(),
-    // QQ 交流群:群号空=侧栏整卡隐藏;二维码地址空=卡内不渲染(留空隐藏语义同 icp)
-    qqGroup: z
-      .union([z.literal(""), z.string().trim().regex(/^\d{5,12}$/, "QQ 群号须为 5-12 位数字")]),
-    qqGroupQr: dlUrlSchema,
-    // 加群链接(issue #95):https 链接;空=群号回落点击复制;缺省=保持现值
-    qqGroupJoinUrl: z
-      .union([
-        z.literal(""),
-        z.string().trim().url().refine((v) => /^https?:\/\//.test(v), "加群链接须为 http(s) 地址"),
-      ])
-      .optional(),
-  }),
-  // 站点外观:logo/favicon 留空=回落内置资源,背景留空=隐藏背景图
-  appearance: z.object({
-    logoUrl: dlUrlSchema,
-    faviconUrl: dlUrlSchema,
-    headerBackgroundUrl: dlUrlSchema,
-    pageBackgroundUrl: dlUrlSchema,
-  }),
-  // home 组成就字段 optional:轮播设置表单单独提交(缺省字段=保持现值,见序列化 keep 分支)
-  home: z.object({
-    achievementUrl: z
-      .union([
-        z.literal(""),
-        z.string().trim().url().refine((v) => /^https:\/\//.test(v), "成就页地址须为 https 链接"),
-      ])
-      .optional(),
-    achievementHeight: z
-      .string()
-      .trim()
-      .regex(/^\d+(px|vh|rem|%)$/, "高度格式如 185vh / 600px")
-      .optional(),
-    achievementScrolling: z.boolean().optional(),
-    carouselIntervalSec: z.coerce
-      .number()
-      .int()
-      .min(1, "轮播间隔须为 1-60 秒")
-      .max(60, "轮播间隔须为 1-60 秒")
-      .optional(),
-  }),
-  umami: z.object({
-    scriptUrl: z.string().url(),
-    websiteId: z.string().min(1),
-    apiUrl: z.string().url(),
-    apiUsername: z.string().min(1),
-    apiPassword: z.string().optional(),
-  }),
-} as const;
-
-/** 字段 → system_config 键;sensitive 键空输入=保持原值 */
-const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>> = {
-  smtp: {
-    host: "smtp.host",
-    port: "smtp.port",
-    user: "smtp.user",
-    password: "smtp.password",
-    from: "smtp.from",
-  },
-  turnstile: {
-    enabled: "turnstile.enabled",
-    siteKey: "turnstile.siteKey",
-    secretKey: "turnstile.secretKey",
-  },
-  security: {
-    loginMaxFails: "security.loginMaxFails",
-    loginWindowSec: "security.loginWindowSec",
-    loginLockSec: "security.loginLockSec",
-  },
-  notify: { pointEmailThreshold: "notify.pointEmailThreshold" },
-  content: { tocEnabled: "content.tocEnabled" },
-  site: {
-    icp: "site.icp",
-    copyrightEn: "site.copyrightEn",
-    qqGroup: "site.qqGroup",
-    qqGroupQr: "site.qqGroupQr",
-    qqGroupJoinUrl: "site.qqGroupJoinUrl",
-  },
-  appearance: {
-    logoUrl: "appearance.logoUrl",
-    faviconUrl: "appearance.faviconUrl",
-    headerBackgroundUrl: "appearance.headerBackgroundUrl",
-    pageBackgroundUrl: "appearance.pageBackgroundUrl",
-  },
-  home: {
-    achievementUrl: "home.achievementUrl",
-    achievementHeight: "home.achievementHeight",
-    achievementScrolling: "home.achievementScrolling",
-    carouselIntervalSec: "home.carouselIntervalSec",
-  },
-  umami: {
-    scriptUrl: "umami.scriptUrl",
-    websiteId: "umami.websiteId",
-    apiUrl: "umami.apiUrl",
-    apiUsername: "umami.apiUsername",
-    apiPassword: "umami.apiPassword",
-  },
-};
-
-const sensitiveFields = new Set(["password", "secretKey", "apiPassword"]);
-
-function isSettingsGroup(group: string): group is keyof typeof groupSchemas {
-  return group in groupSchemas;
-}
 
 export async function saveSettingsGroup(
   group: string,

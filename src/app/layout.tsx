@@ -4,26 +4,32 @@ import { SiteFooter } from "@/components/site/footer";
 import { HideOnAdmin } from "@/components/site/chrome-gate";
 import { SiteHeaderClient } from "@/components/site/header-client";
 import { getSiteFooterView, getSiteHeaderView } from "@/server/services/site/chrome";
+import { getActiveTheme } from "@/server/services/site/theme";
 import { getConfig } from "@/lib/config";
 import "@/styles/globals.css";
 
-/** 配置不可用(build 期预渲染/库未就绪)时的外观兜底,与 configSchema 默认值一致 */
-const DEFAULT_APPEARANCE = {
-  logoUrl: "/logo.png",
-  faviconUrl: "/favicon-32.png",
-  headerBackgroundUrl: "/background.jpg",
-  pageBackgroundUrl: "/background.jpg",
-};
+/** 配置不可用(build 期预渲染/库未就绪)时的 favicon 兜底,与 configSchema 默认值一致 */
+const DEFAULT_FAVICON = "/favicon-32.png";
+
+/**
+ * 背景图层:暗色遮罩压在场景图之上保证正文可读;
+ * 遮罩色取主题变量(--theme-*-overlay),故换主题时遮罩随之切换。
+ * 背景图地址空=纯色底(background-image:none)。
+ */
+function backgroundLayer(overlayVar: string, url: string): string {
+  if (!url) return "none";
+  return `linear-gradient(${overlayVar}, ${overlayVar}), url("${url}")`;
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   const favicon = await getConfig()
     .then((c) => c.appearance.faviconUrl)
-    .catch(() => DEFAULT_APPEARANCE.faviconUrl);
+    .catch(() => DEFAULT_FAVICON);
   return {
     title: "老克塔 · AzerothCore 怀旧社区",
     description: "魔兽世界 60 年代怀旧服社区门户(怀旧公益项目)",
     icons: {
-      icon: favicon || DEFAULT_APPEARANCE.faviconUrl,
+      icon: favicon || DEFAULT_FAVICON,
       apple: "/apple-touch-icon.png",
     },
   };
@@ -36,27 +42,32 @@ export default async function RootLayout({
 }) {
   // FR-312:umami 组存在才注入 tracking script;build 期(假 DATABASE_URL
   // 预渲染 /_not-found 等)取不到配置时静默跳过,不阻塞渲染
-  const [config, header, footer] = await Promise.all([
+  const [config, header, footer, theme] = await Promise.all([
     getConfig().catch(() => null),
     getSiteHeaderView(),
     getSiteFooterView(),
+    getActiveTheme(),
   ]);
   const umami = config?.umami;
-  const appearance = config?.appearance ?? DEFAULT_APPEARANCE;
-  // 页面背景图:暗色叠层压在场景图之上,保证正文可读;留空=纯色底
-  const pageBackground = appearance.pageBackgroundUrl
-    ? {
-        backgroundImage: `linear-gradient(rgba(10, 18, 32, 0.6), rgba(10, 18, 32, 0.6)), url("${appearance.pageBackgroundUrl}")`,
-        backgroundSize: "cover",
-        backgroundPosition: "center top",
-        backgroundAttachment: "fixed",
-        backgroundRepeat: "no-repeat",
-      }
-    : undefined;
+  // 主题变量挂在 <html>:CSS 自定义属性沿 DOM 继承,页头/内容面板无需逐层传参
+  const themeStyle = {
+    "--theme-page-background": backgroundLayer(
+      "var(--theme-page-overlay)",
+      theme.assets.pageBackgroundUrl,
+    ),
+    "--theme-header-background": backgroundLayer(
+      "var(--theme-header-overlay)",
+      theme.assets.headerBackgroundUrl,
+    ),
+    "--theme-panel-background": backgroundLayer(
+      "var(--theme-panel-overlay)",
+      theme.assets.panelBackgroundUrl,
+    ),
+  } as React.CSSProperties;
 
   return (
-    <html lang="zh-CN">
-      <body className="flex min-h-screen flex-col antialiased" style={pageBackground}>
+    <html lang="zh-CN" data-theme={theme.id} style={themeStyle}>
+      <body className="flex min-h-screen flex-col antialiased">
         <HideOnAdmin>
           <SiteHeaderClient {...header} />
         </HideOnAdmin>

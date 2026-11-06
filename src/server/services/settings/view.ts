@@ -1,6 +1,7 @@
 import "server-only";
 import { getConfig } from "@/lib/config";
 import type { SettingsView } from "@/lib/settings-types";
+import { THEME_IDS, isThemeId, DEFAULT_THEME } from "@/constants/theme";
 
 /**
  * 设置视图(T030;api-admin-m4 契约):按组返回,敏感字段只回掩码态布尔
@@ -44,6 +45,19 @@ export async function getSettingsView(): Promise<SettingsView> {
       faviconUrl: config.appearance.faviconUrl,
       headerBackgroundUrl: config.appearance.headerBackgroundUrl,
       pageBackgroundUrl: config.appearance.pageBackgroundUrl,
+    },
+    theme: {
+      active: isThemeId(config.theme.active) ? config.theme.active : DEFAULT_THEME,
+      assets: Object.fromEntries(
+        THEME_IDS.map((id) => [
+          id,
+          {
+            headerBackgroundUrl: config.theme[`${id}.headerBackgroundUrl`],
+            pageBackgroundUrl: config.theme[`${id}.pageBackgroundUrl`],
+            panelBackgroundUrl: config.theme[`${id}.panelBackgroundUrl`],
+          },
+        ]),
+      ) as SettingsView["theme"]["assets"],
     },
     umami: config.umami
       ? {
