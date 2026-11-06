@@ -4,6 +4,11 @@
  * → 游戏四库断言 fail-fast(连接串来自配置);
  * SOAP 未开仅 degraded 警告,不阻塞启动(worldserver 可能后开)。
  * 自检通过后非阻塞触发一次发货恢复扫描(issue #66:重启前结账后驱动丢失的 paid 单不靠 cron 兜底)。
+ *
+ * 约束:Next 14 会为 instrumentation 额外编译一份 edge 产物,本文件的
+ * 传递依赖图内不得出现 node-only 包(ioredis/mysql2/node:*)——否则 edge 编译
+ * 报 "Can't resolve 'stream'",dev/build 双双失败。
+ * 守卫:tests/unit/instrumentation-graph.test.ts。
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;

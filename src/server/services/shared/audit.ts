@@ -1,7 +1,14 @@
 import "server-only";
 import { prisma } from "@/lib/db";
-import { setLockIfAbsent } from "@/lib/redis/rate-limit";
 import type { AuditCategoryValue } from "@/constants/audit";
+
+/**
+ * 本模块只许依赖 prisma——它可达启动钩子链
+ * (instrumentation.ts → services/shop/delivery.ts → shared/audit.ts),
+ * 而 Next 14 会为 instrumentation 额外编译一份 edge 产物,
+ * 任何 node-only 依赖(ioredis/mysql2/node:*)都会让 edge 编译失败。
+ * 需要 Redis 的去重写入见 shared/audit-dedup.ts。
+ */
 
 export type AuditEntry = {
   category: AuditCategoryValue;
@@ -25,25 +32,4 @@ export async function writeAudit(entry: AuditEntry): Promise<void> {
       ip: entry.ip ?? null,
     },
   });
-}
-
-/**
- * 去重审计写入(防写放大):同一 dedupKey 在 windowSec 内只落一行。
- * 攻击洪峰下计数照常推进,审计表不被刷屏;返回是否真的写了。
- * Redis 不可用时降级为直接写(宁可多写不可丢事件)。
- */
-export async function writeAuditOnce(
-  entry: AuditEntry,
-  dedupKey: string,
-  windowSec: number,
-): Promise<boolean> {
-  let acquired: boolean;
-  try {
-    acquired = await setLockIfAbsent(dedupKey, windowSec);
-  } catch {
-    acquired = true;
-  }
-  if (!acquired) return false;
-  await writeAudit(entry);
-  return true;
 }
