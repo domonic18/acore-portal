@@ -4,6 +4,7 @@ import { z } from "zod";
 import { apiError, parseBody } from "@/server/http";
 import { activateAccount } from "@/server/services/auth/register";
 import { setSessionCookies } from "@/lib/auth/cookies";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 /** 契约:激活即登录(200 + 登录态 Cookie);422 TOKEN_INVALID_OR_EXPIRED / WEAK_PASSWORD */
 const schema = z.object({
@@ -14,9 +15,7 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, schema);
   if (!parsed.ok) return parsed.response;
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    req.headers.get("x-real-ip");
+  const ip = await getClientIp(req);
 
   const outcome = await activateAccount({
     tokenPlain: parsed.data.token,

@@ -4,6 +4,7 @@ import { apiError, apiOk } from "@/server/http";
 import { getApiSession } from "@/server/session-guard";
 import { GameDbError } from "@/server/services/shared/game-identity";
 import { getRestorableItems } from "@/server/services/account/restore-items";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 /**
  * 契约:200 {items}/401 未登录/403 CHARACTER_NOT_OWNED+审计/503 GAME_DB_UNAVAILABLE。
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
     const result = await getRestorableItems({
       userId: BigInt(session.userId),
       guid,
-      ip: req.headers.get("x-forwarded-for"),
+      ip: await getClientIp(req),
     });
     if (!result.ok) {
       return result.reason === "USER_NOT_FOUND"

@@ -10,6 +10,7 @@ import { writeAudit } from "@/server/services/shared/audit";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { TURNSTILE_ERROR } from "@/constants/turnstile";
 import { verifyTurnstile } from "@/lib/turnstile";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 const loginSchema = z.object({
   username: z.string().min(1).max(32),
@@ -27,8 +28,7 @@ export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, loginSchema);
   if (!parsed.ok) return parsed.response;
   const { username, password, remember, turnstileToken } = parsed.data;
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip");
+  const ip = await getClientIp(req);
 
   // ① 前置锁检查:锁期内不验 Turnstile/凭据,直接 429
   const lock = await assertNotLocked(username);

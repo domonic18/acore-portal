@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiError, apiOk, parseBody } from "@/server/http";
 import { requireApiAdmin } from "@/server/session-guard";
 import { grantBadge } from "@/server/services/users-admin/admin";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 const schema = z.object({
   badgeId: z.coerce.number().int().positive(),
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     userId: BigInt(userId),
     badgeId: BigInt(parsed.data.badgeId),
     operatorId: BigInt(guard.session.userId),
-    ip: req.headers.get("x-forwarded-for"),
+    ip: await getClientIp(req),
   });
   if (!outcome.ok) {
     const status = outcome.reason === "duplicate" ? 409 : 404;

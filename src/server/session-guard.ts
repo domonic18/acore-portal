@@ -2,14 +2,11 @@ import "server-only";
 import type { NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import {
-  getSessionFromToken,
-  type SessionPayload,
-  type SessionRole,
-} from "@/lib/auth/session";
+import { getSessionFromToken, type SessionPayload, type SessionRole } from "@/lib/auth/session";
 import { SESSION } from "@/constants/session";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/shared/audit";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 /**
  * RSC 深校验守卫(middleware 浅校验之外的吊销态兜底,FR-014):
@@ -58,7 +55,7 @@ export async function getApiAdminSession(req: NextRequest): Promise<SessionPaylo
         action: AUDIT_ACTION.ADMIN_ACCESS_VIOLATION,
         actorUserId: BigInt(session.userId),
         payload: { role: session.role, surface: "api", path: new URL(req.url).pathname },
-        ip: req.headers.get("x-forwarded-for"),
+        ip: await getClientIp(req),
       });
     }
     return null;
@@ -99,7 +96,7 @@ export async function requireApiModerator(req: NextRequest): Promise<ApiModerato
       action: AUDIT_ACTION.FORUM_MODERATION_VIOLATION,
       actorUserId: BigInt(session.userId),
       payload: { role: session.role, surface: "api", path: new URL(req.url).pathname },
-      ip: req.headers.get("x-forwarded-for"),
+      ip: await getClientIp(req),
     });
     return { ok: false, status: 403, code: "FORBIDDEN", message: "需要版主权限。" };
   }

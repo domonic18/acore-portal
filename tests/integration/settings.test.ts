@@ -266,7 +266,12 @@ describe("saveSettingsGroup(T029)", () => {
     );
     await saveGroup("notify", { pointEmailThreshold: 120 }, { id: ADMIN_ID });
     const config = await getConfig();
-    expect(config.security).toEqual({ loginMaxFails: 7, loginWindowSec: 600, loginLockSec: 300 });
+    expect(config.security).toEqual({
+      loginMaxFails: 7,
+      loginWindowSec: 600,
+      loginLockSec: 300,
+      trustedProxyHops: 1,
+    });
     expect(config.notify.pointEmailThreshold).toBe(120);
   });
 });

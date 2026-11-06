@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiError, apiOk, parseBody } from "@/server/http";
 import { hitRateLimit } from "@/lib/redis/rate-limit";
 import { normalizePagePath, recordPageView } from "@/server/services/stats/page-view";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 /**
  * 页面访问上报(自建流量统计,替代 umami):匿名公开路由。
@@ -24,10 +25,7 @@ export async function POST(req: NextRequest) {
     return apiError(422, "VALIDATION_ERROR", "参数错误:path");
   }
 
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    req.headers.get("x-real-ip") ??
-    null;
+  const ip = await getClientIp(req);
   if (ip) {
     const limited = await hitRateLimit(`rl:pview:${ip}`, {
       windowSec: RATE_WINDOW_SEC,

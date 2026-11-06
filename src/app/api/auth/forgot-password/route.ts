@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { parseBody } from "@/server/http";
 import { requestPasswordReset } from "@/server/services/auth/password";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 const schema = z.object({ email: z.string().email() });
 
@@ -13,7 +14,7 @@ const schema = z.object({ email: z.string().email() });
 export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, schema);
   if (!parsed.ok) return parsed.response;
-  const ip = req.headers.get("x-forwarded-for");
+  const ip = await getClientIp(req);
   await requestPasswordReset(parsed.data.email, { ip });
   return NextResponse.json(
     { message: "若该邮箱已注册,重置邮件将很快送达,请查收(含垃圾箱)。" },

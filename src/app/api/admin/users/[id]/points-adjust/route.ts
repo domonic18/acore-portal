@@ -3,9 +3,13 @@ import { z } from "zod";
 import { apiError, apiOk, parseBody } from "@/server/http";
 import { requireApiAdmin } from "@/server/session-guard";
 import { adjustPoints } from "@/server/services/points/adjust";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 const schema = z.object({
-  amount: z.number().int().refine((v) => v !== 0, "金额不能为 0"),
+  amount: z
+    .number()
+    .int()
+    .refine((v) => v !== 0, "金额不能为 0"),
   reason: z.string().trim().min(2).max(255),
 });
 
@@ -24,7 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     amount: parsed.data.amount,
     reason: parsed.data.reason,
     operatorId: BigInt(guard.session.userId),
-    ip: req.headers.get("x-forwarded-for"),
+    ip: await getClientIp(req),
   });
   if (!outcome.ok) {
     if (outcome.reason === "insufficient_balance") {

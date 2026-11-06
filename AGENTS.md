@@ -90,7 +90,7 @@ src/
 ├── app/         # App Router：路由/页面/Route Handlers(API)，薄层，业务下沉 server/
 ├── server/      # 服务端业务：services/(业务编排,含 services/shop/handlers/ 服务类商品处理器;M3 域 content/progression/forum/status/media/home) soap/(游戏命令层)
 ├── components/  # React 组件（展示层，禁止直连数据库）
-├── lib/         # 基础设施：db/(prisma clients×5) redis/ auth/(phpass+session) mail/ captcha/
+├── lib/         # 基础设施：db/(prisma clients×5) redis/ auth/(phpass+session) mail/ captcha/ net/(客户端 IP 解析纯函数)
 ├── constants/   # 全局枚举与常量（订单状态/积分类型/SKU 前缀/SOAP 命令名），被所有层引用
 └── styles/
 scripts/         # 宿主机侧脚本,按用途分子域

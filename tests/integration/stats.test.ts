@@ -22,8 +22,11 @@ import { notFoundDayKey } from "@/server/services/stats/not-found";
 const RUN = Date.now().toString(36);
 const BASE = BigInt(`95${(Number.parseInt(RUN, 36) % 100000).toString().padStart(5, "0")}`);
 const UID = BASE; // 守卫三角色与看板 fixture 共用一个 uid
-const RL_IP = `ntip-${RUN}`;
-const PV_IP = `pvip-${RUN}`;
+// 客户端 IP 走 XFF 右起 1 跳解析(PR-A),必须是合法 IP 才不会被判为不可判定;
+// 第三段按文件错开,避免与并行跑的其它集成文件撞同一个限流桶
+const IP_OCTET = Number.parseInt(RUN, 36) % 254;
+const RL_IP = `203.1.${IP_OCTET}.10`;
+const PV_IP = `203.1.${IP_OCTET}.20`;
 const TRACKED_FIELDS: string[] = [];
 
 /** 日键单一来源:service 收口(issue #74),测试不再自行拼键 */
@@ -117,7 +120,11 @@ afterAll(async () => {
     await redis.hdel(todayKey(), ...TRACKED_FIELDS);
   }
   await redis.del(`rl:404:${RL_IP}`);
-  await redis.del(`rl:pview:${PV_IP}`, `rl:pview:${PV_IP}-uv`, `rl:pview:${PV_IP}-uv-other`);
+  await redis.del(
+    `rl:pview:${PV_IP}`,
+    `rl:pview:203.1.${IP_OCTET}.30`,
+    `rl:pview:203.1.${IP_OCTET}.31`,
+  );
 
   await prisma.pageViewEvent.deleteMany({ where: { path: { startsWith: `/pv-${RUN}` } } });
   await prisma.article.deleteMany({ where: { slug: { startsWith: `st-${RUN}` } } });
@@ -184,9 +191,7 @@ describe("M4 US4 404 采集 /api/track/not-found(T025)", () => {
     }
     const blocked = await trackNotFound(trackReq(`/nt-${RUN}/rl/over`, RL_IP));
     expect(blocked.status).toBe(429);
-    expect(((await blocked.json()) as { error: { code: string } }).error.code).toBe(
-      "RATE_LIMITED",
-    );
+    expect(((await blocked.json()) as { error: { code: string } }).error.code).toBe("RATE_LIMITED");
   });
 });
 
@@ -214,7 +219,7 @@ describe("M4 US4 页面访问采集 /api/track/pageview(替代 umami)", () => {
 
   it("同 IP 同日同访客:同 IP 两次上报 UV 只 +1;换 IP 则 UV +1", async () => {
     const path = `/pv-${RUN}/uv`;
-    const ip = `${PV_IP}-uv`;
+    const ip = `203.1.${IP_OCTET}.30`;
     const before = await getDashboard();
 
     await trackPageView(pvReq(path, ip));
@@ -223,7 +228,7 @@ describe("M4 US4 页面访问采集 /api/track/pageview(替代 umami)", () => {
     expect(mid.pageView.uv - before.pageView.uv).toBe(1);
     expect(mid.pageView.pv - before.pageView.pv).toBe(2);
 
-    await trackPageView(pvReq(path, `${ip}-other`));
+    await trackPageView(pvReq(path, `203.1.${IP_OCTET}.31`));
     const after = await getDashboard();
     expect(after.pageView.uv - mid.pageView.uv).toBe(1);
     expect(after.pageView.pv - mid.pageView.pv).toBe(1);
@@ -320,4 +325,3 @@ describe("M4 US4 GET /api/admin/stats(T026 契约 api-admin-m4)", () => {
     );
   });
 });
-

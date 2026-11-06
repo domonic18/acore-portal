@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { apiError, apiOk } from "@/server/http";
 import { requireApiAdmin } from "@/server/session-guard";
 import { OrderAdminError, redeliverOrder } from "@/server/services/orders/admin";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 /** 人工补发(FR-129):仅 delivery_failed;幂等键=order_item.id,重复补发不重复发货 */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const { items } = await redeliverOrder(
       BigInt(id),
       BigInt(guard.session.userId),
-      req.headers.get("x-forwarded-for"),
+      await getClientIp(req),
     );
     return apiOk({
       results: items.map((i) => ({ orderItemId: i.id, deliveryStatus: i.deliveryStatus })),
