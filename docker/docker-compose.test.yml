@@ -1,4 +1,6 @@
 # 测试环境: Mac Mini 常驻栈,公网入口 dev.17aitech.com(frpc → 宿主 9000 → web 容器)
+# ⚠️ 测试栈,严禁用于生产:mailpit/soap-mock 是测试替身,initdb 会灌入种子账号(m1admin/adminpass123)
+#    生产栈见 docker/docker-compose.prod.yml(独立文件,不含上述容器)
 # 与 dev 栈(3307/6381/3000)和生产快照数据完全隔离;DB/缓存/邮件 UI 只绑 127.0.0.1
 # 数据落 workspace/mysql-test、workspace/redis-test(重置=删目录重建)
 # worldserver/authserver 二期接入:SOAP 暂指栈内 mock,boot 自检 degraded 不阻塞

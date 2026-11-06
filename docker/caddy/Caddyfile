@@ -1,0 +1,23 @@
+# 生产反代(Caddy 2):自动签发/续期 Let's Encrypt 证书,SITE_DOMAIN 与 ACME_EMAIL 由 compose 注入
+# 注意:证书与 ACME 账号落在 workspace/caddy-data,caddy 容器重建不丢(丢了会触发签发频率限制)
+{
+	email {$ACME_EMAIL}
+}
+
+{$SITE_DOMAIN} {
+	encode zstd gzip
+
+	# 反代到 web 容器;Range 头默认透传(视频拖动进度条依赖)
+	reverse_proxy web:3000
+
+	# 上传体积不在此设限:媒体库的体积闸门在应用层(图/PDF 10MB、视频 50MB),
+	# 网关再限会先于应用层拒绝,错误提示也拿不到中文文案
+
+	log {
+		output stdout
+		format console
+	}
+
+	# 全站 HTTPS 稳定后再开 HSTS(带 includeSubDomains 时子域名未全量 https 会锁死)
+	# header Strict-Transport-Security "max-age=31536000"
+}
