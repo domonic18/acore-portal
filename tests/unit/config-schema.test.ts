@@ -36,6 +36,16 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
       loginMaxConcurrent: 4,
       loginQueueWaitMs: 1500,
       loginUnknownIpMaxPerMin: 600,
+      registerIpMaxPerHour: 10,
+      pwresetIpMaxPerHour: 20,
+      emailChangeIpMaxPerHour: 20,
+      unknownIpMaxPerHour: 6000,
+      statusIpMaxPerMin: 30,
+      statusGlobalMaxPerMin: 120,
+      statusUnknownIpMaxPerMin: 600,
+      artviewIpMaxPerMin: 60,
+      artviewArticleMax: 1,
+      artviewArticleWindowSec: 600,
     });
     expect(c.notify).toEqual({ pointEmailThreshold: 0 });
     expect(c.turnstile).toEqual({
@@ -70,6 +80,16 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
       loginMaxConcurrent: 4,
       loginQueueWaitMs: 1500,
       loginUnknownIpMaxPerMin: 600,
+      registerIpMaxPerHour: 10,
+      pwresetIpMaxPerHour: 20,
+      emailChangeIpMaxPerHour: 20,
+      unknownIpMaxPerHour: 6000,
+      statusIpMaxPerMin: 30,
+      statusGlobalMaxPerMin: 120,
+      statusUnknownIpMaxPerMin: 600,
+      artviewIpMaxPerMin: 60,
+      artviewArticleMax: 1,
+      artviewArticleWindowSec: 600,
     });
     expect(c.notify.pointEmailThreshold).toBe(50);
   });

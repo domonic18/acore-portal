@@ -4,11 +4,8 @@ import { loadSystemConfig } from "@/lib/config";
 import { redis } from "@/lib/redis";
 import { getCharactersDb } from "@/lib/db/characters";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import {
-  getServerStatus,
-  saveStatusConfig,
-  todayPeakKey,
-} from "@/server/services/status/status";
+import { getServerStatus, todayPeakKey } from "@/server/services/status/status";
+import { saveStatusConfig } from "@/server/services/status/config";
 
 /**
  * T042 集成测试(US6 服务器状态;quickstart S6):
