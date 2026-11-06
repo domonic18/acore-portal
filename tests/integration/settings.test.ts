@@ -29,6 +29,25 @@ const SECURITY_KEYS = [
   "security.loginMaxFails",
   "security.loginWindowSec",
   "security.loginLockSec",
+  "security.trustedProxyHops",
+  "security.loginIpSoftFails",
+  "security.loginIpMaxFails",
+  "security.loginIpLockSec",
+  "security.loginSoftLockSec",
+  "security.loginGlobalMaxPerMin",
+  "security.loginMaxConcurrent",
+  "security.loginQueueWaitMs",
+  "security.loginUnknownIpMaxPerMin",
+  "security.registerIpMaxPerHour",
+  "security.pwresetIpMaxPerHour",
+  "security.emailChangeIpMaxPerHour",
+  "security.unknownIpMaxPerHour",
+  "security.statusIpMaxPerMin",
+  "security.statusGlobalMaxPerMin",
+  "security.statusUnknownIpMaxPerMin",
+  "security.artviewIpMaxPerMin",
+  "security.artviewArticleMax",
+  "security.artviewArticleWindowSec",
 ];
 const NOTIFY_KEYS = ["notify.pointEmailThreshold"];
 const SITE_KEYS = [
@@ -259,9 +278,33 @@ describe("saveSettingsGroup(T029)", () => {
   });
 
   it("security/notify 组保存 → reloadSystemConfig 热生效(getConfig 反映新值)", async () => {
+    // 全量提交:16 键显式落库,断言不依赖库里既有值(E2E 预置会改写这些行)
     await saveGroup(
       "security",
-      { loginMaxFails: 7, loginWindowSec: 600, loginLockSec: 300 },
+      {
+        loginMaxFails: 7,
+        loginWindowSec: 600,
+        loginLockSec: 300,
+        trustedProxyHops: 1,
+        loginIpSoftFails: 20,
+        loginIpMaxFails: 50,
+        loginIpLockSec: 900,
+        loginSoftLockSec: 2,
+        loginGlobalMaxPerMin: 60,
+        loginMaxConcurrent: 4,
+        loginQueueWaitMs: 1500,
+        loginUnknownIpMaxPerMin: 600,
+        registerIpMaxPerHour: 10,
+        pwresetIpMaxPerHour: 20,
+        emailChangeIpMaxPerHour: 20,
+        unknownIpMaxPerHour: 6000,
+        statusIpMaxPerMin: 30,
+        statusGlobalMaxPerMin: 120,
+        statusUnknownIpMaxPerMin: 600,
+        artviewIpMaxPerMin: 60,
+        artviewArticleMax: 1,
+        artviewArticleWindowSec: 600,
+      },
       { id: ADMIN_ID },
     );
     await saveGroup("notify", { pointEmailThreshold: 120 }, { id: ADMIN_ID });
@@ -271,8 +314,33 @@ describe("saveSettingsGroup(T029)", () => {
       loginWindowSec: 600,
       loginLockSec: 300,
       trustedProxyHops: 1,
+      loginIpSoftFails: 20,
+      loginIpMaxFails: 50,
+      loginIpLockSec: 900,
+      loginSoftLockSec: 2,
+      loginGlobalMaxPerMin: 60,
+      loginMaxConcurrent: 4,
+      loginQueueWaitMs: 1500,
+      loginUnknownIpMaxPerMin: 600,
+      registerIpMaxPerHour: 10,
+      pwresetIpMaxPerHour: 20,
+      emailChangeIpMaxPerHour: 20,
+      unknownIpMaxPerHour: 6000,
+      statusIpMaxPerMin: 30,
+      statusGlobalMaxPerMin: 120,
+      statusUnknownIpMaxPerMin: 600,
+      artviewIpMaxPerMin: 60,
+      artviewArticleMax: 1,
+      artviewArticleWindowSec: 600,
     });
     expect(config.notify.pointEmailThreshold).toBe(120);
+  });
+
+  it("security 组部分提交:未带的字段保持现值(组级全量提交口径)", async () => {
+    await saveGroup("security", { loginIpMaxFails: 80 }, { id: ADMIN_ID });
+    const config = await getConfig();
+    expect(config.security.loginIpMaxFails).toBe(80);
+    expect(config.security.loginMaxFails).toBe(7);
   });
 });
 

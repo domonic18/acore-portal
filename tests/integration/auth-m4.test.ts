@@ -8,8 +8,16 @@ import { reloadSystemConfig } from "@/lib/config";
 import { AUDIT_ACTION } from "@/constants/audit";
 import { PASSWORD_ALGO } from "@/constants/password";
 import { hashWpBcrypt } from "@/lib/auth/wp-bcrypt";
-import { loginFailIpKey, loginFailKey, loginLockKey } from "@/constants/security";
-import { auditUnknownUserKey } from "@/server/services/auth/login-guard";
+import {
+  loginFailIpKey,
+  loginFailKey,
+  loginGlobalKey,
+  loginIpLockKey,
+  loginLockKey,
+  loginSoftLockKey,
+} from "@/constants/security";
+import { auditIpSuspiciousKey, auditUnknownUserKey } from "@/server/services/auth/login-guard";
+import { acquireHashSlot } from "@/server/services/auth/hash-semaphore";
 import { POST as loginPost } from "@/app/api/auth/login/route";
 import { POST as registerPost } from "@/app/api/auth/register/route";
 
@@ -24,8 +32,25 @@ import { POST as registerPost } from "@/app/api/auth/register/route";
  */
 const RUN = Date.now().toString(36);
 const PASSWORD = "GuardPass123";
-const MAX_FAILS = 5; // 默认 security.loginMaxFails(测试库无 security 行)
+const MAX_FAILS = 5;
 const TS_KEYS = ["turnstile.enabled", "turnstile.siteKey", "turnstile.secretKey"];
+/**
+ * 本文件断言的阈值全部**显式钉住**,不依赖库里现值——
+ * 开发库会被 E2E 预置/运维调参改动(如 loginIpMaxFails 被放宽到 5000),
+ * 那样断言会静默失真。用完原样还原。
+ */
+const PINNED_SECURITY: Record<string, string> = {
+  "security.loginMaxFails": String(MAX_FAILS),
+  "security.loginWindowSec": "900",
+  "security.loginLockSec": "900",
+  "security.trustedProxyHops": "1",
+  "security.loginIpSoftFails": "20",
+  "security.loginIpMaxFails": "50",
+  "security.loginIpLockSec": "900",
+  "security.loginSoftLockSec": "2",
+  // 本文件登录路由调用数超默认 60 次/分,测试期放宽
+  "security.loginGlobalMaxPerMin": "100000",
+};
 const GHOST = `t_${RUN}_au_ghost`;
 const createdUsers: string[] = [];
 const redisKeys: string[] = [];
@@ -39,7 +64,7 @@ async function makeUser(suffix: number, password: string) {
     data: {
       username,
       email: `${username}@test.local`,
-      passwordHash: hashWpBcrypt(password),
+      passwordHash: await hashWpBcrypt(password),
       passwordAlgo: PASSWORD_ALGO.BCRYPT_WP,
     },
     select: { id: true, username: true },
@@ -82,21 +107,43 @@ async function enableTurnstile() {
   await reloadSystemConfig();
 }
 
+let securityBackup: { key: string; value: string }[] = [];
+
 beforeAll(async () => {
   await prisma.$queryRaw`SELECT 1`;
   await redis.ping();
   // 关态基线:turnstile 行持久跨文件,先清(组内开态测试结束也会还原)
   await prisma.systemConfig.deleteMany({ where: { key: { in: TS_KEYS } } });
+  // 阈值钉住:先快照,再强制写入本文件断言所依赖的值
+  securityBackup = await prisma.systemConfig.findMany({
+    where: { key: { in: Object.keys(PINNED_SECURITY) } },
+    select: { key: true, value: true },
+  });
+  for (const [key, value] of Object.entries(PINNED_SECURITY)) {
+    await prisma.systemConfig.upsert({
+      where: { key },
+      create: { key, value },
+      update: { value },
+    });
+  }
+  await redis.del(loginGlobalKey());
   await reloadSystemConfig();
 });
 
 afterAll(async () => {
   await prisma.systemConfig.deleteMany({ where: { key: { in: TS_KEYS } } });
+  // 还原阈值:原缺失的键删除(回落代码默认值),原存在的键写回
+  await prisma.systemConfig.deleteMany({
+    where: { key: { in: Object.keys(PINNED_SECURITY) } },
+  });
+  if (securityBackup.length > 0) {
+    await prisma.systemConfig.createMany({ data: securityBackup });
+  }
   await reloadSystemConfig();
   for (const username of createdUsers) {
     await prisma.user.deleteMany({ where: { username } });
   }
-  await clearKeys(redisKeys);
+  await clearKeys([...redisKeys, loginGlobalKey()]);
   vi.unstubAllGlobals();
   await prisma.$disconnect();
   await redis.quit();
@@ -115,16 +162,18 @@ describe("M4 US2 登录防滥用——Turnstile 关态(T009)", () => {
     vi.unstubAllGlobals();
   });
 
-  it("登录成功清账:失败计数(用户名/IP)与锁全清", async () => {
+  it("登录成功清账:用户名维计数与锁全清;IP 维计数保留(防交替洗白)", async () => {
     const { username, password } = await makeUser(1, PASSWORD);
     const i = ip(11);
     redisKeys.push(loginFailIpKey(i));
     await seedFails(username, 3);
+    await redis.set(loginFailIpKey(i), "3", "EX", 900);
     const res = await login({ username, password }, i);
     expect(res.status).toBe(200);
     expect(((await res.json()) as { user: { username: string } }).user.username).toBe(username);
     expect(await redis.get(loginFailKey(username))).toBeNull();
-    expect(await redis.get(loginFailIpKey(i))).toBeNull();
+    // IP 维是攻击源画像:一次成功不洗白——否则「失败刷号 + 成功清零」可绕过 IP 锁
+    expect(await redis.get(loginFailIpKey(i))).toBe("3");
     expect((await checkLock(loginLockKey(username))).locked).toBe(false);
   });
 
@@ -372,6 +421,105 @@ describe("2026-11-06 撞库加固——限流失败关闭(PR-B)", () => {
 
     expect(res.status).toBe(503);
     expect((await errBody(res)).error.code).toBe("AUTH_UNAVAILABLE");
+  });
+});
+
+describe("2026-11-06 撞库加固——IP 维解耦 + 哈希背压(PR-C)", () => {
+  it("IP 硬阈越阈:只锁攻击源 IP,被攻击账号不受牵连(F2 回归)", async () => {
+    const { username } = await makeUser(40, PASSWORD);
+    const i = ip(60);
+    redisKeys.push(loginFailIpKey(i), loginIpLockKey(i), auditIpSuspiciousKey(i));
+
+    // 预置到硬阈(loginIpMaxFails=50),本次失败即越阈
+    await redis.set(loginFailIpKey(i), "50", "EX", 900);
+    const res = await login({ username, password: "wrong" }, i);
+    expect(res.status).toBe(429);
+    expect((await errBody(res)).error.code).toBe("RATE_LIMITED");
+
+    // 锁的是攻击源 IP
+    expect((await checkLock(loginIpLockKey(i))).locked).toBe(true);
+    // 受害账号不被牵连(旧缺陷:IP 计数越阈锁的是被攻击的用户名 → 批量锁号武器)
+    expect((await checkLock(loginLockKey(username))).locked).toBe(false);
+
+    const rows = await prisma.auditLog.findMany({
+      where: { action: AUDIT_ACTION.LOGIN_IP_SUSPICIOUS },
+      orderBy: { id: "desc" },
+      take: 20,
+    });
+    const row = rows.find((r) => (r.payloadJson as Record<string, unknown>).ip === i);
+    expect(row).toBeDefined();
+    expect((row!.payloadJson as Record<string, unknown>).locked).toBe(true);
+    expect(row!.ip).toBe(i);
+  });
+
+  it("IP 锁期内:该 IP 全部登录 429 RATE_LIMITED,且不触达凭据校验", async () => {
+    const { username } = await makeUser(41, PASSWORD);
+    const i = ip(60); // 沿用上一用例的 IP(锁仍在)
+    const res = await login({ username, password: PASSWORD }, i);
+    expect(res.status).toBe(429);
+    expect((await errBody(res)).error.code).toBe("RATE_LIMITED");
+    // 账号维不受牵连,且锁期内不跑哈希 → 不计失败
+    expect((await checkLock(loginLockKey(username))).locked).toBe(false);
+    expect(await redis.get(loginFailKey(username))).toBeNull();
+  });
+
+  it("IP 软阈越阈:降速不拒绝(401)+ 软锁键 + 审计 locked:false", async () => {
+    const { username } = await makeUser(42, PASSWORD);
+    const i = ip(61);
+    redisKeys.push(loginFailIpKey(i), loginSoftLockKey(i), auditIpSuspiciousKey(i));
+
+    // 预置到软阈(loginIpSoftFails=20),本次失败即越软阈
+    await redis.set(loginFailIpKey(i), "20", "EX", 900);
+    const res = await login({ username, password: "wrong" }, i);
+    expect(res.status).toBe(401);
+    expect((await errBody(res)).error.code).toBe("INVALID_CREDENTIALS");
+    expect((await checkLock(loginSoftLockKey(i))).locked).toBe(true);
+
+    const rows = await prisma.auditLog.findMany({
+      where: { action: AUDIT_ACTION.LOGIN_IP_SUSPICIOUS },
+      orderBy: { id: "desc" },
+      take: 20,
+    });
+    const row = rows.find((r) => (r.payloadJson as Record<string, unknown>).ip === i);
+    expect(row).toBeDefined();
+    expect((row!.payloadJson as Record<string, unknown>).locked).toBe(false);
+  });
+
+  it("全局哈希预算耗尽 → 429 SERVER_BUSY,且不跑哈希(不计失败)", async () => {
+    const { username } = await makeUser(43, PASSWORD);
+    const i = ip(62);
+    redisKeys.push(loginFailIpKey(i));
+
+    await redis.set(loginGlobalKey(), String(Number(PINNED_SECURITY["security.loginGlobalMaxPerMin"]) + 1), "EX", 60);
+    const res = await login({ username, password: "wrong" }, i);
+    await redis.del(loginGlobalKey());
+
+    expect(res.status).toBe(429);
+    expect((await errBody(res)).error.code).toBe("SERVER_BUSY");
+    // 预算耗尽直接拒:未跑哈希 → 不计凭据失败
+    expect(await redis.get(loginFailKey(username))).toBeNull();
+  });
+
+  it("并发闸排满 → 排队超时 429 SERVER_BUSY,且不跑哈希", async () => {
+    const { username } = await makeUser(44, PASSWORD);
+    const i = ip(63);
+    redisKeys.push(loginFailIpKey(i));
+
+    // 占满默认并发上限(loginMaxConcurrent=4)
+    const slots = [];
+    for (let n = 0; n < 4; n += 1) {
+      const s = await acquireHashSlot(4, 100);
+      expect(s.ok).toBe(true);
+      if (s.ok) slots.push(s.slot);
+    }
+    try {
+      const res = await login({ username, password: "wrong" }, i);
+      expect(res.status).toBe(429);
+      expect((await errBody(res)).error.code).toBe("SERVER_BUSY");
+      expect(await redis.get(loginFailKey(username))).toBeNull();
+    } finally {
+      for (const slot of slots) slot.release();
+    }
   });
 });
 
