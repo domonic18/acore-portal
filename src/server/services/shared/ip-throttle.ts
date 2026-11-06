@@ -4,8 +4,8 @@ import { hitRateLimit, RateLimitUnavailableError } from "@/lib/redis/rate-limit"
 import { UNKNOWN_CLIENT_IP } from "@/lib/net/client-ip";
 
 /**
- * 未鉴权端点的按 IP 限速(2026-11-06 撞库加固 PR-G):
- * 注册 / 找回密码 / 换邮箱确认都是「无凭证 + 会打 DB」的入口,
+ * 未鉴权端点的按 IP 限速(2026-11-06 撞库加固 PR-G/PR-H):
+ * 注册 / 找回密码 / 换邮箱确认 / 公开状态页都是「无凭证 + 会打 DB/SOAP」的入口,
  * 攻击者可用它们放大查询量并做邮箱轰炸。
  *
  * 与登录域(IP 维锁)的区别:这里不锁任何账号,只按来源 IP 计数——
@@ -35,11 +35,16 @@ export async function throttleByClientIp(input: {
   /** IP 可判定时的阈值 */
   max: number;
   windowSec: number;
+  /**
+   * IP 不可判定时的阈值(缺省=security.unknownIpMaxPerHour)。
+   * 窗口不同的端点(如状态页按分钟)须显式给同量纲的值,否则兜底桶会宽到形同不限。
+   */
+  unknownMax?: number;
 }): Promise<IpThrottleResult> {
   const { security } = await getConfig();
   const known = typeof input.ip === "string" && input.ip.length > 0;
   const bucket = input.ip ?? UNKNOWN_CLIENT_IP;
-  const max = known ? input.max : security.unknownIpMaxPerHour;
+  const max = known ? input.max : (input.unknownMax ?? security.unknownIpMaxPerHour);
   try {
     const result = await hitRateLimit(input.keyFor(bucket), {
       windowSec: input.windowSec,

@@ -45,3 +45,12 @@ export const pwresetIpKey = (ip: string) => `rl:pwreset:ip:${ip}`;
 
 /** 邮箱变更确认按 IP 限速(token 即凭证,不要求登录态) */
 export const emailChangeIpKey = (ip: string) => `rl:emailchange:ip:${ip}`;
+
+/** 分钟级固定窗口(秒):状态页限速共用(前台状态卡 30s 轮询,窗口须短于轮询周期的数倍) */
+export const STATUS_WINDOW_SEC = 60;
+
+/** 状态页按 IP 限速(固定窗口)——公开无鉴权端点,防 SOAP/DB 放大 */
+export const statusIpKey = (ip: string) => `rl:status:ip:${ip}`;
+
+/** 状态页全局限速(固定窗口):护住 worldserver 与 characters 库,不限单 IP 也能护住 */
+export const statusGlobalKey = () => `rl:status:global:${STATUS_WINDOW_SEC}s`;

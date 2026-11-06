@@ -29,6 +29,9 @@ const FIELDS = [
   ["pwresetIpMaxPerHour", "找回密码按 IP 限速(次/小时)"],
   ["emailChangeIpMaxPerHour", "换邮箱确认按 IP 限速(次/小时)"],
   ["unknownIpMaxPerHour", "未知 IP 兜底桶(次/小时)"],
+  ["statusIpMaxPerMin", "状态页按 IP 限速(次/分)"],
+  ["statusGlobalMaxPerMin", "状态页全局限速(次/分)"],
+  ["statusUnknownIpMaxPerMin", "状态页未知 IP 兜底桶(次/分)"],
 ] as const;
 
 export function SecurityGroup({ view }: { view: SettingsView["security"] }) {

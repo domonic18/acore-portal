@@ -44,6 +44,9 @@ export type SettingsView = {
     pwresetIpMaxPerHour: number;
     emailChangeIpMaxPerHour: number;
     unknownIpMaxPerHour: number;
+    statusIpMaxPerMin: number;
+    statusGlobalMaxPerMin: number;
+    statusUnknownIpMaxPerMin: number;
   };
   notify: { pointEmailThreshold: number };
   content: { tocEnabled: boolean };
