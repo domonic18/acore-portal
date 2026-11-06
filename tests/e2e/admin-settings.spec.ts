@@ -13,7 +13,7 @@ import { PrismaClient } from "../../src/generated/business";
 const prisma = new PrismaClient();
 const SMTP_KEYS = ["smtp.host", "smtp.port", "smtp.user", "smtp.password", "smtp.from"];
 const SECURITY_KEYS = ["security.loginMaxFails", "security.loginWindowSec", "security.loginLockSec"];
-const SITE_KEYS = ["site.icp", "site.copyrightEn", "site.qqGroup", "site.qqGroupQr"];
+const SITE_KEYS = ["site.icp", "site.copyrightEn", "site.qqGroup", "site.qqGroupQr", "site.qqGroupJoinUrl"];
 const CONTENT_KEYS = ["content.tocEnabled"];
 const APPEARANCE_KEYS = [
   "appearance.logoUrl",
@@ -153,6 +153,7 @@ test.describe.serial("admin 设置页", () => {
     await page.getByTestId("settings-field-site-copyrightEn").fill("E2E copyright line.");
     await page.getByTestId("settings-field-site-qqGroup").fill("88888888");
     await page.getByTestId("settings-field-site-qqGroupQr").fill("/favicon-192.png");
+    await page.getByTestId("settings-field-site-qqGroupJoinUrl").fill("https://qm.qq.com/q/e2ejoinkey");
     await page.getByTestId("settings-save-site").click();
     await expect(page.getByTestId("settings-result-site")).toContainText("已保存");
     await page.goto("/");
@@ -168,6 +169,11 @@ test.describe.serial("admin 设置页", () => {
     await expect(qqCard.getByTestId("sidebar-qq-group-qr")).toHaveAttribute(
       "src",
       "/favicon-192.png",
+    );
+    // 加群链接即时生效:群号渲染为超链接直达加群页(issue #95)
+    await expect(qqCard.getByTestId("sidebar-qq-group-join")).toHaveAttribute(
+      "href",
+      "https://qm.qq.com/q/e2ejoinkey",
     );
   });
 

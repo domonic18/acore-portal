@@ -65,6 +65,13 @@ const groupSchemas = {
     qqGroup: z
       .union([z.literal(""), z.string().trim().regex(/^\d{5,12}$/, "QQ 群号须为 5-12 位数字")]),
     qqGroupQr: dlUrlSchema,
+    // 加群链接(issue #95):https 链接;空=群号回落点击复制;缺省=保持现值
+    qqGroupJoinUrl: z
+      .union([
+        z.literal(""),
+        z.string().trim().url().refine((v) => /^https?:\/\//.test(v), "加群链接须为 http(s) 地址"),
+      ])
+      .optional(),
   }),
   // 站点外观:logo/favicon 留空=回落内置资源,背景留空=隐藏背景图
   appearance: z.object({
@@ -129,6 +136,7 @@ const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>> = {
     copyrightEn: "site.copyrightEn",
     qqGroup: "site.qqGroup",
     qqGroupQr: "site.qqGroupQr",
+    qqGroupJoinUrl: "site.qqGroupJoinUrl",
   },
   appearance: {
     logoUrl: "appearance.logoUrl",

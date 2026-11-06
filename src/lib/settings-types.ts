@@ -22,7 +22,7 @@ export type SettingsView = {
   };
   notify: { pointEmailThreshold: number };
   content: { tocEnabled: boolean };
-  site: { icp: string; copyrightEn: string; qqGroup: string; qqGroupQr: string };
+  site: { icp: string; copyrightEn: string; qqGroup: string; qqGroupQr: string; qqGroupJoinUrl: string };
   appearance: {
     logoUrl: string;
     faviconUrl: string;

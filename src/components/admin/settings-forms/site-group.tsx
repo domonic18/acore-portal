@@ -9,6 +9,7 @@ export function SiteGroup({ view }: { view: SettingsView["site"] }) {
   const [copyrightEn, setCopyrightEn] = useState(view.copyrightEn);
   const [qqGroup, setQqGroup] = useState(view.qqGroup);
   const [qqGroupQr, setQqGroupQr] = useState(view.qqGroupQr);
+  const [qqGroupJoinUrl, setQqGroupJoinUrl] = useState(view.qqGroupJoinUrl);
   const { busy, saved, error, save } = useGroupSave();
 
   return (
@@ -40,12 +41,19 @@ export function SiteGroup({ view }: { view: SettingsView["site"] }) {
         onChange={setQqGroupQr}
         placeholder="/uploads/qq-qr.png(留空不显示二维码)"
       />
+      <TextRow
+        label="加群链接"
+        testid="settings-field-site-qqGroupJoinUrl"
+        value={qqGroupJoinUrl}
+        onChange={setQqGroupJoinUrl}
+        placeholder="https://qm.qq.com/q/…(留空=群号点击改为复制)"
+      />
       <SaveBar
         group="site"
         busy={busy}
         saved={saved}
         error={error}
-        onSave={() => save("site", { icp, copyrightEn, qqGroup, qqGroupQr })}
+        onSave={() => save("site", { icp, copyrightEn, qqGroup, qqGroupQr, qqGroupJoinUrl })}
       />
     </GroupSection>
   );

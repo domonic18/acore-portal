@@ -26,7 +26,7 @@ const SMTP_KEYS = ["smtp.host", "smtp.port", "smtp.user", "smtp.password", "smtp
 const TURNSTILE_KEYS = ["turnstile.enabled", "turnstile.siteKey", "turnstile.secretKey"];
 const SECURITY_KEYS = ["security.loginMaxFails", "security.loginWindowSec", "security.loginLockSec"];
 const NOTIFY_KEYS = ["notify.pointEmailThreshold"];
-const SITE_KEYS = ["site.icp", "site.copyrightEn", "site.qqGroup", "site.qqGroupQr"];
+const SITE_KEYS = ["site.icp", "site.copyrightEn", "site.qqGroup", "site.qqGroupQr", "site.qqGroupJoinUrl"];
 const UMAMI_KEYS = [
   "umami.scriptUrl",
   "umami.websiteId",
@@ -269,6 +269,8 @@ describe("site 组(CRUD 对齐审计)", () => {
       qqGroup: "184670219",
       // 默认=WP 原版页脚二维码素材迁移的 public/qq-group-qr.png
       qqGroupQr: "/qq-group-qr.png",
+      // 默认=WP 原站群号加群短链(issue #95 恢复原站点行为)
+      qqGroupJoinUrl: "https://qm.qq.com/q/hz9TWpqU2A",
     });
     const view = await getSettingsView();
     expect(view.site).toEqual(config.site);
@@ -283,10 +285,11 @@ describe("site 组(CRUD 对齐审计)", () => {
     expect(result).toEqual({ ok: true });
     expect((await getConfig()).site).toEqual({
       icp: "京ICP备E2E000001号",
-      // copyrightEn 缺省=保持(无行则回落默认),不进 diff
+      // copyrightEn 缺省=保持(无行则回落默认),不进 diff;qqGroupJoinUrl 同缺省=回落默认
       copyrightEn: DEFAULT_SITE_COPYRIGHT_EN,
       qqGroup: "10086100",
       qqGroupQr: "/uploads/qq-qr.png",
+      qqGroupJoinUrl: "https://qm.qq.com/q/hz9TWpqU2A",
     });
     const audit = await latestAudit(AUDIT_ACTION.SETTINGS_CHANGED);
     expect((audit!.payloadJson as { group?: string }).group).toBe("site");
@@ -310,11 +313,13 @@ describe("site 组(CRUD 对齐审计)", () => {
     expect((await getConfig()).site.copyrightEn).toBe("");
     await saveGroup(
       "site",
-      { icp: "京ICP备E2E000001号", qqGroup: "", qqGroupQr: "" },
+      { icp: "京ICP备E2E000001号", qqGroup: "", qqGroupQr: "", qqGroupJoinUrl: "" },
       { id: ADMIN_ID },
     );
     expect((await getConfig()).site.qqGroup).toBe("");
     expect((await getConfig()).site.qqGroupQr).toBe("");
+    // 加群链接空串=显式清空(群号回落点击复制)
+    expect((await getConfig()).site.qqGroupJoinUrl).toBe("");
   });
 
   it("site 组:icp 超长/QQ 群号非数字/二维码非法地址 422 零写入", async () => {
@@ -336,9 +341,16 @@ describe("site 组(CRUD 对齐审计)", () => {
       { id: ADMIN_ID },
     );
     expect(badQr).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
+    const badJoin = await saveGroup(
+      "site",
+      { icp: "京ICP备E2E000001号", qqGroup: "10086100", qqGroupQr: "", qqGroupJoinUrl: "javascript:alert(1)" },
+      { id: ADMIN_ID },
+    );
+    expect(badJoin).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
     expect((await getConfig()).site.icp).toBe("京ICP备E2E000001号");
     expect((await getConfig()).site.qqGroup).toBe("");
     expect((await getConfig()).site.qqGroupQr).toBe("");
+    expect((await getConfig()).site.qqGroupJoinUrl).toBe("");
   });
 });
 
