@@ -98,7 +98,7 @@ export function MarkdownComposer({
     <div className="flex flex-col gap-2" data-testid="forum-composer">
       <div className="flex flex-wrap items-center gap-2">
         <label
-          className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#22385a] bg-[#13233a] px-3 py-1.5 text-xs text-[#93b2ce] transition hover:border-[#6fb7e0]/50 hover:text-[#dcebf7] ${FOCUS_RING} ${
+          className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-line bg-panel px-3 py-1.5 text-xs text-body transition hover:border-link/50 hover:text-heading ${FOCUS_RING} ${
             uploading ? "opacity-60" : ""
           }`}
         >
@@ -121,8 +121,8 @@ export function MarkdownComposer({
           onClick={() => setShowPreview((v) => !v)}
           className={`ml-auto inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition ${FOCUS_RING} ${
             showPreview
-              ? "border-[#6fb7e0]/50 bg-[#6fb7e0]/10 font-semibold text-[#a8d9f5]"
-              : "border-[#22385a] bg-[#13233a] text-[#93b2ce] hover:border-[#6fb7e0]/50 hover:text-[#dcebf7]"
+              ? "border-link/50 bg-link/10 font-semibold text-num"
+              : "border-line bg-panel text-body hover:border-link/50 hover:text-heading"
           }`}
         >
           {showPreview ? (
@@ -139,7 +139,7 @@ export function MarkdownComposer({
         </button>
       </div>
       {error && (
-        <p role="alert" className="text-xs text-[#eda9a9]">
+        <p role="alert" className="text-xs text-danger">
           {error}
         </p>
       )}
@@ -150,11 +150,11 @@ export function MarkdownComposer({
           onChange={(e) => onChange(e.target.value.slice(0, MAX_CONTENT))}
           rows={rows}
           placeholder={placeholder}
-          className="w-full rounded-lg border border-[#22385a] bg-[#0d1828] p-3 font-mono text-sm leading-6 text-[#dcebf7] placeholder:text-[#6482a3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60"
+          className="w-full rounded-lg border border-line bg-panel-inset p-3 font-mono text-sm leading-6 text-heading placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link/60"
         />
         {showPreview && (
           <div
-            className="max-h-[480px] min-h-[10rem] overflow-y-auto rounded-lg border border-[#22385a] bg-[#0d1828] p-4"
+            className="max-h-[480px] min-h-[10rem] overflow-y-auto rounded-lg border border-line bg-panel-inset p-4"
             data-testid="forum-composer-preview"
           >
             {previewHtml ? (
@@ -163,7 +163,7 @@ export function MarkdownComposer({
                 dangerouslySetInnerHTML={{ __html: previewHtml }}
               />
             ) : (
-              <p className="text-xs text-[#6482a3]">
+              <p className="text-xs text-muted">
                 {value.trim() === "" ? "左侧输入 Markdown 后此处实时预览" : "预览生成中…"}
               </p>
             )}

@@ -38,9 +38,9 @@ function ResetForm() {
 
   if (!token) {
     return (
-      <p className="text-sm text-[#93b2ce]" role="alert">
+      <p className="text-sm text-body" role="alert">
         链接缺少凭证,请从邮件中重新打开,或{" "}
-        <a href="/forgot-password" className="text-[#6fb7e0] hover:underline">
+        <a href="/forgot-password" className="text-link hover:underline">
           重新申请找回
         </a>
         。
@@ -54,7 +54,7 @@ function ResetForm() {
         <p role="status">密码已重置,请使用新密码登录。所有旧登录已失效。</p>
         <a
           href="/login"
-          className="rounded-md bg-[#5ea3cc] px-4 py-2 text-center font-medium text-[#0a1220] hover:bg-[#6fb7e0]"
+          className="rounded-md bg-accent px-4 py-2 text-center font-medium text-page hover:bg-link"
         >
           去登录
         </a>
@@ -73,7 +73,7 @@ function ResetForm() {
           required
           minLength={8}
           autoComplete="new-password"
-          className="rounded-md border border-[#22385a] bg-[#0d1828] px-3 py-2 text-[#dcebf7] focus:border-[#5ea3cc] focus:outline-none"
+          className="rounded-md border border-line bg-panel-inset px-3 py-2 text-heading focus:border-accent focus:outline-none"
         />
       </label>
       <label className="flex flex-col gap-1 text-sm">
@@ -85,7 +85,7 @@ function ResetForm() {
           required
           minLength={8}
           autoComplete="new-password"
-          className="rounded-md border border-[#22385a] bg-[#0d1828] px-3 py-2 text-[#dcebf7] focus:border-[#5ea3cc] focus:outline-none"
+          className="rounded-md border border-line bg-panel-inset px-3 py-2 text-heading focus:border-accent focus:outline-none"
         />
       </label>
       {error && (
@@ -96,7 +96,7 @@ function ResetForm() {
       <button
         type="submit"
         disabled={submitting}
-        className="rounded-md bg-[#5ea3cc] px-4 py-2 font-medium text-[#0a1220] hover:bg-[#6fb7e0] disabled:opacity-50"
+        className="rounded-md bg-accent px-4 py-2 font-medium text-page hover:bg-link disabled:opacity-50"
       >
         {submitting ? "提交中…" : "设置新密码"}
       </button>
@@ -109,7 +109,7 @@ export default function ResetPasswordPage() {
     <main className="flex min-h-screen items-center justify-center p-6 lg:p-8">
       <ContentPanel className="w-full max-w-md p-7 lg:p-8">
         <div className="flex w-full flex-col gap-4">
-          <h1 className="text-2xl font-bold text-[#dcebf7]">设置新密码</h1>
+          <h1 className="text-2xl font-bold text-heading">设置新密码</h1>
           <Suspense fallback={null}>
             <ResetForm />
           </Suspense>

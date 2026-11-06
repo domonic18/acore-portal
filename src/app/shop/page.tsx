@@ -99,7 +99,7 @@ export default async function ShopPage({
               <li key={p.id}>
                 <Link
                   href={`/shop/${p.slug}`}
-                  className="flex flex-col gap-2 rounded-md border border-[#22385a] p-3 transition-colors hover:border-[#6fb7e0]"
+                  className="flex flex-col gap-2 rounded-md border border-line p-3 transition-colors hover:border-link"
                 >
                   {p.image ? (
                     // eslint-disable-next-line @next/next/no-img-element

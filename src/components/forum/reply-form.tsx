@@ -47,21 +47,21 @@ export function ReplyForm({
 
   return (
     <form
-      className="flex flex-col gap-3 border-t border-[#22385a] px-5 py-4"
+      className="flex flex-col gap-3 border-t border-line px-5 py-4"
       onSubmit={(e) => {
         e.preventDefault();
         if (content.trim().length >= 2) void submit();
       }}
     >
-      <h2 className="text-[14px] font-semibold text-[#dcebf7]">发表回复</h2>
+      <h2 className="text-[14px] font-semibold text-heading">发表回复</h2>
       <MarkdownComposer value={content} onChange={setContent} placeholder="支持 Markdown 语法,文明发言…" rows={6} />
       {error && (
-        <p role="alert" className="text-xs text-[#eda9a9]">
+        <p role="alert" className="text-xs text-danger">
           {error}
         </p>
       )}
       {okFloor !== null && !error && (
-        <p role="status" className="text-xs text-[#6ee7b7]">
+        <p role="status" className="text-xs text-ok-bright">
           回帖成功,已发布到第 {okFloor} 楼。
         </p>
       )}
@@ -73,9 +73,9 @@ export function ReplyForm({
         >
           {busy ? "发布中…" : "回复"}
         </Button>
-        <span className="text-[11.5px] text-[#6482a3]">
+        <span className="text-[11.5px] text-muted">
           发表前请阅读
-          <Link href="/convention" className="mx-1 text-[#6fb7e0] hover:underline">
+          <Link href="/convention" className="mx-1 text-link hover:underline">
             论坛公约
           </Link>
           ,违规内容将被删除

@@ -5,12 +5,12 @@ import { ContentAsideCard } from "@/components/content/aside-card";
 export function AnnouncementNoteCard() {
   return (
     <ContentAsideCard title="公告通知" testId="article-announcement-note">
-      <p className="text-[13px] leading-6 text-[#93b2ce]">
+      <p className="text-[13px] leading-6 text-body">
         公告发布后自动推送至站内信,可在通知中心查看。
       </p>
       <Link
         href="/account/notifications"
-        className="mt-2 inline-block text-[12px] text-[#6482a3] hover:text-[#6fb7e0]"
+        className="mt-2 inline-block text-[12px] text-muted hover:text-link"
       >
         查看通知中心 →
       </Link>

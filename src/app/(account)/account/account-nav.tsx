@@ -22,7 +22,7 @@ export function AccountNav() {
   return (
     <nav aria-label="用户中心导航" data-testid="account-nav" className="relative">
       <ul
-        className="flex snap-x gap-1 overflow-x-auto border-b border-[#22385a] px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:px-3"
+        className="flex snap-x gap-1 overflow-x-auto border-b border-line px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:px-3"
       >
         {ACCOUNT_NAV.map((item) => {
           const active =
@@ -34,14 +34,14 @@ export function AccountNav() {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={`relative flex whitespace-nowrap px-3 py-2.5 text-sm transition-colors ${
-                  active ? "text-[#6fb7e0]" : "text-[#93b2ce] hover:text-[#a8d9f5]"
+                  active ? "text-link" : "text-body hover:text-num"
                 }`}
               >
                 {item.label}
                 {active && (
                   <span
                     aria-hidden
-                    className="absolute inset-x-2.5 bottom-0 h-0.5 rounded-full bg-[#6fb7e0]"
+                    className="absolute inset-x-2.5 bottom-0 h-0.5 rounded-full bg-link"
                   />
                 )}
               </Link>
@@ -52,7 +52,7 @@ export function AccountNav() {
       {/* 右缘渐隐提示可横向滚动;桌面一行放得下时隐藏 */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-[#0d1a2e] to-transparent lg:hidden"
+        className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-panel-strong to-transparent lg:hidden"
       />
     </nav>
   );

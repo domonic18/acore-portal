@@ -25,7 +25,7 @@ export function PostActions({ threadId, postId }: { threadId: string; postId: st
     <button
       type="button"
       onClick={() => void remove()}
-      className="rounded text-[11.5px] text-[#6482a3] underline-offset-2 hover:text-[#eda9a9] hover:underline"
+      className="rounded text-[11.5px] text-muted underline-offset-2 hover:text-danger hover:underline"
     >
       删除楼层
     </button>

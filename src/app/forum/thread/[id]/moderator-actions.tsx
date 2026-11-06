@@ -57,13 +57,13 @@ export function ModeratorActions({
     "rounded-lg border px-2.5 py-1.5 text-[12px] disabled:opacity-50 disabled:cursor-not-allowed";
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#22385a] bg-[#1b2f4c] px-3.5 py-2.5 text-xs">
-      <span className="font-medium text-[#6482a3]">版主操作：</span>
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface-alt px-3.5 py-2.5 text-xs">
+      <span className="font-medium text-muted">版主操作：</span>
       <button
         type="button"
         disabled={busy}
         onClick={() => act("/pin", "POST", { pinned: !pinned })}
-        className={`${btn} border-[#5d4a1e] text-[#e6d8a8] hover:bg-[#5d4a1e]/30`}
+        className={`${btn} border-warn-bg text-highlight-soft hover:bg-warn-bg/30`}
       >
         {pinned ? "取消置顶" : "置顶"}
       </button>
@@ -71,17 +71,17 @@ export function ModeratorActions({
         type="button"
         disabled={busy}
         onClick={() => act("/close", "POST", { closed: !closed })}
-        className={`${btn} border-[#5d553a] text-[#d9cd9a] hover:bg-[#5d553a]/30`}
+        className={`${btn} border-warn-line text-highlight-soft hover:bg-warn-line/30`}
       >
         {closed ? "重开主题" : "关闭主题"}
       </button>
-      <label className="flex items-center gap-1 text-[#8fa0b8]">
+      <label className="flex items-center gap-1 text-muted">
         状态标签
         <select
           disabled={busy || closed}
           value={closed ? "closed" : statusLabel}
           onChange={(e) => act("/label", "POST", { label: e.target.value })}
-          className="rounded border border-[#3a4a63] bg-[#101827] px-1 py-1 text-[#c7d2e0]"
+          className="rounded border border-line-strong bg-panel-inset px-1 py-1 text-foreground"
         >
           {closed ? (
             <option value="closed">{THREAD_STATUS_LABEL.closed}</option>
@@ -98,11 +98,11 @@ export function ModeratorActions({
         type="button"
         disabled={busy}
         onClick={remove}
-        className={`${btn} ml-auto border-[#5d3a3a] text-[#d99a9a] hover:bg-[#5d3a3a]/30`}
+        className={`${btn} ml-auto border-danger/30 text-danger-soft hover:bg-danger/10`}
       >
         删除
       </button>
-      {error && <span className="w-full text-[#d99a9a]">{error}</span>}
+      {error && <span className="w-full text-danger-soft">{error}</span>}
     </div>
   );
 }
