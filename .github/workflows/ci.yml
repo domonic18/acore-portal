@@ -1,0 +1,129 @@
+# CI:质量门禁(check)+ 生产构建(build)+ 集成测试(integration)
+#
+# 档位说明:
+#   check       —— lint + typecheck + 单元测试(快,每个 PR 必跑)
+#   build       —— next build。**独立成 job 是因为它是独立故障域**:
+#                  Next 14 会为 instrumentation 额外编译一份 edge 产物,启动链上
+#                  出现 node-only 包(ioredis/mysql2/node:*)时 edge 编译报
+#                  "Can't resolve 'stream'",dev 与 build 双双失败——这类故障
+#                  lint/typecheck/单测全都发现不了(PR-0 曾因此静默炸掉整个 E2E)。
+#   integration —— 集成测试(认证/限速/订单/看板等真库用例)。
+#                  需 MySQL + Redis 服务容器;游戏四库结构复用 dev 栈同一份 initdb
+#                  脚本,CI 不另造 schema/账号口径(scripts/ci/provision.sh)。
+#
+# E2E 单独成档(.github/workflows/e2e.yml):需浏览器与邮件替身,耗时与 flake 面
+# 都与上面三档不同量级,拆开便于按需停用而不拖累 PR 反馈。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DATABASE_URL: mysql://acore_portal:acore_portal@127.0.0.1:3306/acore_portal
+  REDIS_URL: redis://127.0.0.1:6379/0
+  # 单测经 redis 模块触发 env 格式校验(fail-fast,只验存在性不连库),给合规哑元即可
+  SESSION_SECRET: ci-only-dummy-secret-value-0001
+  MYSQL_ROOT_PASSWORD: root
+  CI_MYSQL_PORT: "3306"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 生成 Prisma 客户端(typecheck 依赖 src/generated)
+        run: pnpm db:generate
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm exec vitest run tests/unit
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 生成 Prisma 客户端
+        run: pnpm db:generate
+      # 构建期不连库:instrumentation 在 phase-production-build 直接返回,
+      # 页面全部动态渲染(ƒ)→ 无静态化期 DB 访问
+      - name: next build(含 edge 产物编译)
+        run: pnpm build
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: acore_portal
+          MYSQL_USER: acore_portal
+          MYSQL_PASSWORD: acore_portal
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 生成 Prisma 客户端
+        run: pnpm db:generate
+      - name: 游戏四库结构与账号
+        run: bash scripts/ci/provision.sh game
+        env:
+          MYSQL_CID: ${{ job.services.mysql.id }}
+      - name: 业务库迁移
+        run: pnpm db:deploy
+      - name: system_config 基线
+        run: bash scripts/ci/provision.sh config
+        env:
+          MYSQL_CID: ${{ job.services.mysql.id }}
+      - name: 开发种子
+        run: pnpm db:seed
+      - name: 启动 SOAP mock(发货管线集成用例依赖)
+        run: |
+          SOAP_MOCK_PORT=17878 node scripts/dev/soap-mock.mjs > /tmp/soap-mock.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:17878/__mode > /dev/null; then echo "soap-mock 就绪"; exit 0; fi
+            sleep 1
+          done
+          echo "soap-mock 未就绪"; cat /tmp/soap-mock.log; exit 1
+      - name: 集成测试
+        run: pnpm exec vitest run tests/integration
