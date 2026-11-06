@@ -1,21 +1,20 @@
 import "server-only";
-import { prisma } from "@/lib/db";
+import { randomUUID } from "node:crypto";
 import { redis } from "@/lib/redis";
 import { maxCounter } from "@/lib/redis/counters";
+import { releaseLockIfOwner, setLockIfAbsent } from "@/lib/redis/rate-limit";
 import {
-  PROGRESSION_CURRENT_NODE_KEY,
-  STATUS_CONFIG_KEYS,
   STATUS_PROBE_TIMEOUT_MS,
+  STATUS_PROBE_WAIT_INTERVAL_MS,
+  STATUS_PROBE_WAIT_MS,
   STATUS_REDIS_KEYS,
 } from "@/constants/status";
-import { getConfig, reloadSystemConfig } from "@/lib/config";
+import { getConfig } from "@/lib/config";
 import { getCharactersDb } from "@/lib/db/characters";
 import type { ServerStatusPayload, ServerStatusResult } from "@/lib/status-types";
 import { rawExecuteCommand } from "@/server/soap/client";
 import { parseServerInfo } from "@/server/services/status/parse";
 import { resolveProgressionPosition } from "@/server/services/progression/progression";
-import { writeAudit } from "@/server/services/shared/audit";
-import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { ALLIANCE_RACES, HORDE_RACES } from "@/constants/characters";
 
 /**
@@ -26,6 +25,9 @@ import { ALLIANCE_RACES, HORDE_RACES } from "@/constants/characters";
  * 峰值日键 status:peak:{yyyyMMdd} 仅探针成功 max 更新,TTL 48h。
  * 探针失败→回退消费一次的上次成功快照+degraded(「数据延迟」;消费后不陈旧长挂);
  * 无回退位(冷启动/持续故障)→数字字段 null(SC-208,宁显式空不给陈旧)。
+ *
+ * 单飞(2026-11-06 撞库加固 PR-H):缓存未命中时只放一个探针出去,
+ * 其余请求轮询等快照落缓存(F9:并发缓存未命中 → 并发 SOAP 打世界服)。
  */
 
 const PROBE_CACHE_KEY = STATUS_REDIS_KEYS.probe;
@@ -34,6 +36,8 @@ const PROBE_LASTOK_KEY = STATUS_REDIS_KEYS.probeLastok;
 const PROBE_TTL_SECONDS = STATUS_REDIS_KEYS.probeTtlSeconds;
 const PROBE_TIMEOUT_MS = STATUS_PROBE_TIMEOUT_MS;
 const PEAK_TTL_SECONDS = STATUS_REDIS_KEYS.peakTtlSeconds;
+const PROBE_LOCK_KEY = STATUS_REDIS_KEYS.probeLock;
+const PROBE_LOCK_TTL_SECONDS = STATUS_REDIS_KEYS.probeLockTtlSeconds;
 
 export type { ServerStatusPayload, ServerStatusResult };
 
@@ -56,6 +60,10 @@ type ProbeSnapshot = {
   charTotal: number | null;
   todayNewChars: number | null;
   todayPeak: number | null;
+  /** 当前阶段标题(随快照缓存;指针变更时由后台作废快照) */
+  stageTitle: string | null;
+  /** 当前阶段节点 id(字符串化:BigInt 不可 JSON 序列化) */
+  stageNodeId: string | null;
   cachedAt: string;
 };
 
@@ -114,6 +122,8 @@ async function runProbe(): Promise<ProbeSnapshot> {
       charTotal: null,
       todayNewChars: null,
       todayPeak: null,
+      stageTitle: null,
+      stageNodeId: null,
       cachedAt,
     };
   }
@@ -130,15 +140,13 @@ async function runProbe(): Promise<ProbeSnapshot> {
     charTotal: stats.charTotal,
     todayNewChars: stats.todayNewChars,
     todayPeak,
+    stageTitle: null,
+    stageNodeId: null,
     cachedAt,
   };
 }
 
-function toPayload(
-  snap: ProbeSnapshot,
-  current: { id: bigint; title: string } | null,
-  maintenanceMode: boolean,
-): ServerStatusPayload {
+function toPayload(snap: ProbeSnapshot, maintenanceMode: boolean): ServerStatusPayload {
   return {
     enabled: true,
     degraded: !snap.ok,
@@ -151,11 +159,77 @@ function toPayload(
     todayPeak: snap.todayPeak,
     charTotal: snap.charTotal,
     todayNewChars: snap.todayNewChars,
-    currentStage: current?.title ?? null,
-    currentStageNodeId: current ? Number(current.id) : null,
+    currentStage: snap.stageTitle ?? null,
+    currentStageNodeId: snap.stageNodeId ? Number(snap.stageNodeId) : null,
     maintenanceMode,
     updatedAt: snap.cachedAt,
   };
+}
+
+/** 当前阶段指针(与探针成败无关:SOAP 挂了也不该丢阶段名) */
+async function resolveStagePointer(): Promise<{ title: string | null; nodeId: string | null }> {
+  try {
+    const { current } = await resolveProgressionPosition();
+    return {
+      title: current?.title ?? null,
+      nodeId: current ? current.id.toString() : null,
+    };
+  } catch {
+    return { title: null, nodeId: null };
+  }
+}
+
+/**
+ * 产出一次探针快照并写入缓存(25s)+ 上次成功存档(48h)。
+ * 降级回退:探针失败且有存档 → 消费一次存档并标 ok=false(数据延迟,不长挂陈旧)。
+ */
+async function produceSnapshot(): Promise<ProbeSnapshot> {
+  let snap = await runProbe();
+  if (snap.ok) {
+    await redis.set(PROBE_LASTOK_KEY, JSON.stringify(snap), "EX", PEAK_TTL_SECONDS);
+  } else {
+    const lastok = await redis.get(PROBE_LASTOK_KEY);
+    if (lastok) {
+      await redis.del(PROBE_LASTOK_KEY);
+      snap = { ...(JSON.parse(lastok) as ProbeSnapshot), ok: false };
+    }
+  }
+  const stage = await resolveStagePointer();
+  snap = { ...snap, stageTitle: stage.title, stageNodeId: stage.nodeId };
+  await redis.set(PROBE_CACHE_KEY, JSON.stringify(snap), "EX", PROBE_TTL_SECONDS);
+  return snap;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * 单飞取快照:缓存命中直返;未命中时抢 status:probe:lock——
+ * 抢到者探针并写缓存;未抢到者轮询等缓存出现(持锁者通常 1s 内写完),
+ * 等不到(持锁者超时挂死)则自己探一次,宁可多探也不给空响应。
+ */
+async function getOrProbeSnapshot(): Promise<ProbeSnapshot> {
+  const cached = await redis.get(PROBE_CACHE_KEY);
+  if (cached) return JSON.parse(cached) as ProbeSnapshot;
+
+  const owner = randomUUID();
+  const acquired = await setLockIfAbsent(PROBE_LOCK_KEY, PROBE_LOCK_TTL_SECONDS, owner);
+  if (acquired) {
+    try {
+      return await produceSnapshot();
+    } finally {
+      await releaseLockIfOwner(PROBE_LOCK_KEY, owner);
+    }
+  }
+
+  const deadline = Date.now() + STATUS_PROBE_WAIT_MS;
+  while (Date.now() < deadline) {
+    await sleep(STATUS_PROBE_WAIT_INTERVAL_MS);
+    const fresh = await redis.get(PROBE_CACHE_KEY);
+    if (fresh) return JSON.parse(fresh) as ProbeSnapshot;
+  }
+  return produceSnapshot();
 }
 
 /** /api/status 聚合入口:enabled=false 短路;缓存命中(含降级态)直返 */
@@ -163,117 +237,6 @@ export async function getServerStatus(): Promise<ServerStatusResult> {
   const config = await getConfig();
   if (!config.status.enabled) return { enabled: false };
 
-  const cached = await redis.get(PROBE_CACHE_KEY);
-  let snap: ProbeSnapshot;
-  if (cached) {
-    snap = JSON.parse(cached) as ProbeSnapshot;
-  } else {
-    snap = await runProbe();
-    if (snap.ok) {
-      await redis.set(PROBE_LASTOK_KEY, JSON.stringify(snap), "EX", PEAK_TTL_SECONDS);
-    } else {
-      const lastok = await redis.get(PROBE_LASTOK_KEY);
-      if (lastok) {
-        await redis.del(PROBE_LASTOK_KEY);
-        snap = { ...(JSON.parse(lastok) as ProbeSnapshot), ok: false };
-      }
-    }
-    await redis.set(PROBE_CACHE_KEY, JSON.stringify(snap), "EX", PROBE_TTL_SECONDS);
-  }
-
-  const position = await resolveProgressionPosition();
-  return toPayload(snap, position.current, config.status.maintenanceMode);
-}
-
-export type StatusConfigInput = {
-  enabled?: boolean;
-  maintenanceMode?: boolean;
-  currentNodeId?: bigint;
-};
-
-export type SaveStatusConfigResult = { pointerInvalid: boolean };
-
-/** 后台表单初值:原始指针(system_config 存储值,不经运行期回退) */
-export async function getRawStatusConfig(): Promise<{
-  enabled: boolean;
-  maintenanceMode: boolean;
-  currentNodeId: string | null;
-}> {
-  const [config, pointer] = await Promise.all([
-    getConfig(),
-    prisma.systemConfig.findUnique({
-      where: { key: PROGRESSION_CURRENT_NODE_KEY },
-      select: { value: true },
-    }),
-  ]);
-  return {
-    enabled: config.status.enabled,
-    maintenanceMode: config.status.maintenanceMode,
-    currentNodeId: pointer?.value ?? null,
-  };
-}
-
-/**
- * 人工三键写入(T045;quickstart S6.5):PUT 后 reloadSystemConfig 即时生效,
- * 审计 status_config_change 前后值;指针失效仍落库(运行期回退末位 open)+告警位。
- */
-export async function saveStatusConfig(
-  input: StatusConfigInput,
-  actor: { id: bigint },
-): Promise<SaveStatusConfigResult> {
-  const KEYS = {
-    enabled: STATUS_CONFIG_KEYS.enabled,
-    maintenanceMode: STATUS_CONFIG_KEYS.maintenanceMode,
-    currentNodeId: PROGRESSION_CURRENT_NODE_KEY,
-  } as const;
-
-  const before: Record<string, string | null> = {};
-  const after: Record<string, string | null> = {};
-  const updates: { key: string; value: string }[] = [];
-
-  let pointerInvalid = false;
-  if (input.currentNodeId !== undefined) {
-    const node = await prisma.progressionNode.findUnique({
-      where: { id: input.currentNodeId },
-      select: { id: true },
-    });
-    pointerInvalid = node === null;
-  }
-
-  const pairs: [string, string | undefined][] = [
-    [KEYS.enabled, input.enabled === undefined ? undefined : String(input.enabled)],
-    [
-      KEYS.maintenanceMode,
-      input.maintenanceMode === undefined ? undefined : String(input.maintenanceMode),
-    ],
-    [
-      KEYS.currentNodeId,
-      input.currentNodeId === undefined ? undefined : input.currentNodeId.toString(),
-    ],
-  ];
-  for (const [key, value] of pairs) {
-    if (value === undefined) continue;
-    const prior = await prisma.systemConfig.findUnique({ where: { key } });
-    before[key] = prior?.value ?? null;
-    after[key] = value;
-    updates.push({ key, value });
-  }
-
-  await prisma.$transaction(
-    updates.map((u) =>
-      prisma.systemConfig.upsert({
-        where: { key: u.key },
-        create: { key: u.key, value: u.value },
-        update: { value: u.value },
-      }),
-    ),
-  );
-  await reloadSystemConfig();
-  await writeAudit({
-    category: AUDIT_CATEGORY.ADMIN,
-    action: AUDIT_ACTION.STATUS_CONFIG_CHANGE,
-    actorUserId: actor.id,
-    payload: { before, after, ...(pointerInvalid ? { pointerInvalid: true } : {}) },
-  });
-  return { pointerInvalid };
+  const snap = await getOrProbeSnapshot();
+  return toPayload(snap, config.status.maintenanceMode);
 }

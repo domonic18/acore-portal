@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "../../src/generated/business";
+import { reloadServerConfig } from "./helpers/config-reload";
 
 /**
  * M4 US5 系统设置 E2E(T032,quickstart S5.1-S5.3 简版自动化,主链路在集成层):
@@ -40,6 +41,8 @@ let siteBackup: { key: string; value: string }[] = [];
 let contentBackup: { key: string; value: string }[] = [];
 let appearanceBackup: { key: string; value: string }[] = [];
 let themeBackup: { key: string; value: string }[] = [];
+// admin 会话 access token:还原库后用于触发服务端 config 快照重载
+let adminToken = "";
 
 async function login(page: Page, username: string, password: string) {
   await page.goto("/login");
@@ -47,6 +50,10 @@ async function login(page: Page, username: string, password: string) {
   await page.getByLabel("密码", { exact: true }).fill(password);
   await page.getByRole("button", { name: "登录" }).click();
   await expect(page).toHaveURL(/\/account\/overview$/);
+  if (username === "m1admin") {
+    const cookies = await page.context().cookies();
+    adminToken = cookies.find((c) => c.name === "ap_access")?.value ?? "";
+  }
 }
 
 test.beforeAll(async () => {
@@ -101,6 +108,11 @@ test.afterAll(async () => {
   ];
   if (restore.length > 0) {
     await prisma.systemConfig.createMany({ data: restore });
+  }
+  // 库已还原,但服务端 config 是进程级快照(只随 reloadSystemConfig 更新)——
+  // 不重载则 E2E 写入的值仍留在进程里,污染后续用例的页脚/主题断言
+  if (adminToken) {
+    await reloadServerConfig(adminToken);
   }
   await prisma.$disconnect();
 });
