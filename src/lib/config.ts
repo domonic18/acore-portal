@@ -66,12 +66,16 @@ const configSchema = z.object({
     enabled: z.boolean(),
     maintenanceMode: z.boolean(),
   }),
-  // Turnstile 人机校验(M4 US2):组恒存在(键缺省=关闭直通);
-  // enabled=true 但双密钥缺失 → 不抛错(整站不再 500),置 misconfigured:
+  // 腾讯云验证码人机校验(2026-11-07 替换 Turnstile):组恒存在(键缺省=关闭直通);
+  // enabled=true 但四件套缺失 → 不抛错(整站不再 500),置 misconfigured:
   // 是否真正生效由校验层判定(登录端点失败关闭),后台设置页出红色告警
-  turnstile: z.object({
+  // appId=CaptchaAppId / appSecret=AppSecretKey(验证码控制台「验证管理」→基础配置);
+  // secretId/secretKey=腾讯云 API 密钥(访问管理),仅用于 DescribeCaptchaResult 的云API 3.0 签名
+  captcha: z.object({
     enabled: z.boolean().default(false),
-    siteKey: z.string().default(""),
+    appId: z.string().default(""),
+    appSecret: z.string().default(""),
+    secretId: z.string().default(""),
     secretKey: z.string().default(""),
     misconfigured: z.boolean().default(false),
   }),
@@ -216,17 +220,21 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       enabled: flat[STATUS_CONFIG_KEYS.enabled] !== "false",
       maintenanceMode: flat[STATUS_CONFIG_KEYS.maintenanceMode] === "true",
     },
-    turnstile: (() => {
-      const enabled = flat["turnstile.enabled"] === "true";
-      const siteKey = flat["turnstile.siteKey"] ?? "";
-      const secretKey = flat["turnstile.secretKey"] ?? "";
-      // 启用但密钥缺失:不抛错(整站不 500),标 misconfigured;
+    captcha: (() => {
+      const enabled = flat["captcha.enabled"] === "true";
+      const appId = flat["captcha.appId"] ?? "";
+      const appSecret = flat["captcha.appSecret"] ?? "";
+      const secretId = flat["captcha.secretId"] ?? "";
+      const secretKey = flat["captcha.secretKey"] ?? "";
+      // 启用但配置缺失:不抛错(整站不 500),标 misconfigured;
       // 实际生效与否由校验层判定,后台设置页出红色告警
       return {
         enabled,
-        siteKey,
+        appId,
+        appSecret,
+        secretId,
         secretKey,
-        misconfigured: enabled && (!siteKey || !secretKey),
+        misconfigured: enabled && (!appId || !appSecret || !secretId || !secretKey),
       };
     })(),
     security: {

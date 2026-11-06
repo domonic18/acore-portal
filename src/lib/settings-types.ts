@@ -20,11 +20,17 @@ export type SettingsView = {
     from: string;
     passwordConfigured: boolean;
   };
-  turnstile: {
+  captcha: {
     enabled: boolean;
-    siteKey: string | null;
+    /** CaptchaAppId(前端用,可回显) */
+    appId: string | null;
+    /** 腾讯云 API 密钥 ID(签名用,可回显) */
+    secretId: string | null;
+    /** AppSecretKey(服务端票据校验用,只写不读) */
+    appSecretConfigured: boolean;
+    /** 腾讯云 API 密钥(只写不读) */
     secretKeyConfigured: boolean;
-    /** 已启用但双密钥缺失:实际未生效,登录端点失败关闭 */
+    /** 已启用但配置缺失:实际未生效,登录端点失败关闭 */
     misconfigured: boolean;
   };
   security: {

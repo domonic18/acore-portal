@@ -2,21 +2,21 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import TurnstileWidget from "@/components/auth/turnstile-widget";
+import CaptchaWidget from "@/components/auth/captcha-widget";
 import { errorMessage, requestJson } from "@/lib/api-client";
 import { safeNextPath } from "@/lib/safe-redirect";
 
 export default function LoginForm({
-  turnstileEnabled,
-  turnstileSiteKey,
+  captchaEnabled,
+  captchaAppId,
 }: {
-  turnstileEnabled: boolean;
-  turnstileSiteKey: string;
+  captchaEnabled: boolean;
+  captchaAppId: string;
 }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState("");
+  const [captcha, setCaptcha] = useState({ ticket: "", randstr: "" });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const searchParams = useSearchParams();
@@ -26,14 +26,20 @@ export default function LoginForm({
     setError(null);
     setSubmitting(true);
     try {
-      if (turnstileEnabled && !turnstileToken) {
+      if (captchaEnabled && !captcha.ticket) {
         setError("请先完成人机验证。");
         return;
       }
       await requestJson("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username, password, remember, turnstileToken }),
+        body: JSON.stringify({
+          username,
+          password,
+          remember,
+          captchaTicket: captcha.ticket,
+          captchaRandstr: captcha.randstr,
+        }),
       });
       window.location.href = safeNextPath(searchParams.get("next"));
     } catch (err) {
@@ -64,6 +70,7 @@ export default function LoginForm({
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
+          maxLength={256}
           autoComplete="current-password"
           className="rounded-md border border-line bg-panel-inset px-3 py-2 text-heading focus:border-accent focus:outline-none"
         />
@@ -76,10 +83,10 @@ export default function LoginForm({
         />
         记住登录(30 天)
       </label>
-      {turnstileEnabled && (
-        <TurnstileWidget
-          siteKey={turnstileSiteKey}
-          onToken={setTurnstileToken}
+      {captchaEnabled && (
+        <CaptchaWidget
+          appId={captchaAppId}
+          onVerify={(ticket, randstr) => setCaptcha({ ticket, randstr })}
         />
       )}
       {error && (
@@ -89,7 +96,7 @@ export default function LoginForm({
       )}
       <button
         type="submit"
-        disabled={submitting || (turnstileEnabled && !turnstileToken)}
+        disabled={submitting || (captchaEnabled && !captcha.ticket)}
         className="rounded-md bg-accent px-4 py-2 font-medium text-page hover:bg-link disabled:opacity-50"
       >
         {submitting ? "登录中…" : "登录"}

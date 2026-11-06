@@ -9,7 +9,7 @@ import { errorMessage, requestJson } from "@/lib/api-client";
 
 export type GroupName =
   | "smtp"
-  | "turnstile"
+  | "captcha"
   | "security"
   | "notify"
   | "content"

@@ -31,7 +31,7 @@ export const auditIpSuspiciousKey = (ip: string) => `rl:audit:ipsusp:${ip}`;
 
 export type LockCheck = { locked: true; retryAfterSec: number } | { locked: false };
 
-/** 账号锁前置检查:锁期内不验 Turnstile、不碰凭据,调用方直接 429 */
+/** 账号锁前置检查:锁期内不验人机票据、不碰凭据,调用方直接 429 */
 export async function assertNotLocked(username: string): Promise<LockCheck> {
   const state = await checkLock(loginLockKey(username));
   return state.locked ? { locked: true, retryAfterSec: state.retryAfterSec } : { locked: false };

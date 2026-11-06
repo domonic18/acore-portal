@@ -1,20 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import TurnstileWidget from "@/components/auth/turnstile-widget";
+import CaptchaWidget from "@/components/auth/captcha-widget";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 /** 注册页无密码输入(FR-005):激活链接设密 */
 export default function RegisterForm({
-  turnstileEnabled,
-  turnstileSiteKey,
+  captchaEnabled,
+  captchaAppId,
 }: {
-  turnstileEnabled: boolean;
-  turnstileSiteKey: string;
+  captchaEnabled: boolean;
+  captchaAppId: string;
 }) {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
-  const [turnstileToken, setTurnstileToken] = useState("");
+  const [captcha, setCaptcha] = useState({ ticket: "", randstr: "" });
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -24,14 +24,19 @@ export default function RegisterForm({
     setError(null);
     setSubmitting(true);
     try {
-      if (turnstileEnabled && !turnstileToken) {
+      if (captchaEnabled && !captcha.ticket) {
         setError("请先完成人机验证。");
         return;
       }
       await requestJson("/api/auth/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username, email, turnstileToken }),
+        body: JSON.stringify({
+          username,
+          email,
+          captchaTicket: captcha.ticket,
+          captchaRandstr: captcha.randstr,
+        }),
       });
       setSent(true);
     } catch (err) {
@@ -78,10 +83,10 @@ export default function RegisterForm({
               className="rounded-md border border-line bg-panel-inset px-3 py-2 text-heading focus:border-accent focus:outline-none"
             />
           </label>
-          {turnstileEnabled && (
-            <TurnstileWidget
-              siteKey={turnstileSiteKey}
-              onToken={setTurnstileToken}
+          {captchaEnabled && (
+            <CaptchaWidget
+              appId={captchaAppId}
+              onVerify={(ticket, randstr) => setCaptcha({ ticket, randstr })}
             />
           )}
           {error && (
@@ -91,7 +96,7 @@ export default function RegisterForm({
           )}
           <button
             type="submit"
-            disabled={submitting || (turnstileEnabled && !turnstileToken)}
+            disabled={submitting || (captchaEnabled && !captcha.ticket)}
             className="rounded-md bg-accent px-4 py-2 font-medium text-page hover:bg-link disabled:opacity-50"
           >
             {submitting ? "提交中…" : "发送激活邮件"}

@@ -30,9 +30,11 @@ export const groupSchemas = {
     password: z.string().optional(),
     from: z.string().email(),
   }),
-  turnstile: z.object({
+  captcha: z.object({
     enabled: z.boolean(),
-    siteKey: z.string().default(""),
+    appId: z.string().default(""),
+    appSecret: z.string().optional(),
+    secretId: z.string().default(""),
     secretKey: z.string().optional(),
   }),
   // 登录防滥用域(2026-11-06 撞库加固):阈值全部 optional=缺省保持现值,
@@ -133,10 +135,12 @@ export const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>
     password: "smtp.password",
     from: "smtp.from",
   },
-  turnstile: {
-    enabled: "turnstile.enabled",
-    siteKey: "turnstile.siteKey",
-    secretKey: "turnstile.secretKey",
+  captcha: {
+    enabled: "captcha.enabled",
+    appId: "captcha.appId",
+    appSecret: "captcha.appSecret",
+    secretId: "captcha.secretId",
+    secretKey: "captcha.secretKey",
   },
   security: {
     loginMaxFails: "security.loginMaxFails",
@@ -194,7 +198,7 @@ export const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>
   },
 };
 /** 敏感字段:空串输入=保持原值(不落库、不覆盖) */
-export const sensitiveFields = new Set(["password", "secretKey", "apiPassword"]);
+export const sensitiveFields = new Set(["password", "secretKey", "apiPassword", "appSecret"]);
 
 export function isSettingsGroup(group: string): group is keyof typeof groupSchemas {
   return group in groupSchemas;
