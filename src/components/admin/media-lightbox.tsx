@@ -62,6 +62,7 @@ export function MediaLightbox({
 
   if (!current) return null;
   const asset = current;
+  const isVideo = asset.mimeType.startsWith("video/");
 
   async function copyUrl() {
     try {
@@ -102,14 +103,16 @@ export function MediaLightbox({
           {asset.category}
         </span>
         <span className="ml-auto flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setZoomed((v) => !v)}
-            title={zoomed ? "适应窗口" : "原始尺寸 1:1"}
-            className={`rounded-lg border border-white/20 p-1.5 text-white/80 hover:bg-white/10 ${FOCUS_RING}`}
-          >
-            {zoomed ? <Minimize2 aria-hidden="true" className="h-4 w-4" /> : <Maximize2 aria-hidden="true" className="h-4 w-4" />}
-          </button>
+          {!isVideo && (
+            <button
+              type="button"
+              onClick={() => setZoomed((v) => !v)}
+              title={zoomed ? "适应窗口" : "原始尺寸 1:1"}
+              className={`rounded-lg border border-white/20 p-1.5 text-white/80 hover:bg-white/10 ${FOCUS_RING}`}
+            >
+              {zoomed ? <Minimize2 aria-hidden="true" className="h-4 w-4" /> : <Maximize2 aria-hidden="true" className="h-4 w-4" />}
+            </button>
+          )}
           <button
             type="button"
             onClick={copyUrl}
@@ -148,19 +151,28 @@ export function MediaLightbox({
       </header>
 
       <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={asset.url}
-          alt={asset.originalName}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setZoomed((v) => !v);
-          }}
-          className={
-            zoomed
-              ? "max-w-none cursor-zoom-out"
-              : "max-h-full max-w-full cursor-zoom-in object-contain"
-          }
-        />
+        {isVideo ? (
+          <video
+            src={asset.url}
+            controls
+            preload="metadata"
+            className="max-h-full max-w-full"
+          />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={asset.url}
+            alt={asset.originalName}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setZoomed((v) => !v);
+            }}
+            className={
+              zoomed
+                ? "max-w-none cursor-zoom-out"
+                : "max-h-full max-w-full cursor-zoom-in object-contain"
+            }
+          />
+        )}
         {items.length > 1 && (
           <>
             <button
@@ -187,7 +199,7 @@ export function MediaLightbox({
       </div>
 
       <footer className="flex items-center gap-3 border-t border-white/10 px-4 py-2 text-xs text-white/50">
-        <span>← → 切换 · Esc 关闭 · 点击图片切换 1:1</span>
+        <span>← → 切换 · Esc 关闭{isVideo ? "" : " · 点击图片切换 1:1"}</span>
         {copied && <span className="text-[#6ee7b7]">URL 已复制</span>}
         {error && <span className="text-[#eda9a9]">{error}</span>}
       </footer>

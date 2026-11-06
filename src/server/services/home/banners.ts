@@ -18,6 +18,8 @@ export class BannerAdminError extends Error {
 export type BannerInput = {
   title: string;
   imageUrl: string;
+  /** 视频地址:undefined=保持现值(排序/启停 payload 不带),空串=清空 */
+  videoUrl?: string | null;
   linkUrl: string;
   sort: number;
   enabled: boolean;
@@ -28,7 +30,7 @@ export async function listActiveBanners() {
   return prisma.homeBanner.findMany({
     where: { enabled: true },
     orderBy: [{ sort: "asc" }, { id: "asc" }],
-    select: { id: true, title: true, imageUrl: true, linkUrl: true },
+    select: { id: true, title: true, imageUrl: true, videoUrl: true, linkUrl: true },
   });
 }
 
@@ -41,6 +43,7 @@ export async function listAllBanners() {
     id: r.id.toString(),
     title: r.title,
     imageUrl: r.imageUrl,
+    videoUrl: r.videoUrl,
     linkUrl: r.linkUrl,
     sort: r.sort,
     enabled: r.enabled,
@@ -57,7 +60,10 @@ function auditPayload(id: bigint, input: BannerInput) {
 }
 
 export async function createBanner(input: BannerInput, actorId: bigint): Promise<bigint> {
-  const created = await prisma.homeBanner.create({ data: input, select: { id: true } });
+  const created = await prisma.homeBanner.create({
+    data: { ...input, videoUrl: input.videoUrl || null },
+    select: { id: true },
+  });
   await writeAudit({
     category: AUDIT_CATEGORY.CONTENT,
     action: AUDIT_ACTION.HOME_BANNER_SAVED,
@@ -72,7 +78,18 @@ export async function updateBanner(
   input: BannerInput,
   actorId: bigint,
 ): Promise<void> {
-  const hit = await prisma.homeBanner.updateMany({ where: { id }, data: input });
+  const hit = await prisma.homeBanner.updateMany({
+    where: { id },
+    // videoUrl 缺省=保持现值(排序/启停开关的 payload 不带该字段)
+    data: {
+      title: input.title,
+      imageUrl: input.imageUrl,
+      linkUrl: input.linkUrl,
+      sort: input.sort,
+      enabled: input.enabled,
+      ...(input.videoUrl !== undefined ? { videoUrl: input.videoUrl || null } : {}),
+    },
+  });
   if (hit.count === 0) throw new BannerAdminError("NOT_FOUND", "轮播物料不存在。");
   await writeAudit({
     category: AUDIT_CATEGORY.CONTENT,

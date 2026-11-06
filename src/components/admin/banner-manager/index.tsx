@@ -72,6 +72,7 @@ export function BannerManager({ banners }: { banners: Banner[] }) {
     return {
       title: d.title,
       imageUrl: d.imageUrl,
+      videoUrl: d.videoUrl.trim(),
       linkUrl: d.linkUrl.trim(),
       sort: Number(d.sort) || 0,
       enabled: d.enabled,
@@ -180,9 +181,18 @@ export function BannerManager({ banners }: { banners: Banner[] }) {
                   <span className="absolute left-3 top-2.5 max-w-[70%] truncate text-[15px] font-semibold text-white drop-shadow">
                     {b.title || "未命名"}
                   </span>
-                  {!b.enabled && (
-                    <span className="absolute right-3 top-2.5 rounded-full border border-white/30 bg-black/50 px-2 py-0.5 text-[11px] text-white/80">
-                      已停用
+                  {(b.videoUrl || !b.enabled) && (
+                    <span className="absolute right-3 top-2.5 flex items-center gap-1.5">
+                      {b.videoUrl && (
+                        <span className="rounded-full border border-white/30 bg-black/50 px-2 py-0.5 text-[11px] text-white/80">
+                          视频
+                        </span>
+                      )}
+                      {!b.enabled && (
+                        <span className="rounded-full border border-white/30 bg-black/50 px-2 py-0.5 text-[11px] text-white/80">
+                          已停用
+                        </span>
+                      )}
                     </span>
                   )}
                   <span
@@ -216,6 +226,7 @@ export function BannerManager({ banners }: { banners: Banner[] }) {
                         setDraft({
                           title: b.title,
                           imageUrl: b.imageUrl,
+                          videoUrl: b.videoUrl ?? "",
                           linkUrl: b.linkUrl,
                           sort: String(b.sort),
                           enabled: b.enabled,

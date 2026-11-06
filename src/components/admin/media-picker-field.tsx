@@ -14,17 +14,22 @@ export function MediaPickerField({
   onChange,
   disabled,
   placeholder = "/images/… 或 https://…",
+  kind = "image",
 }: {
   value: string;
   onChange: (url: string) => void;
   disabled?: boolean;
   placeholder?: string;
+  /** 图片位只列 image/*,视频位只列 video/*(2026-11-06 轮播视频) */
+  kind?: "image" | "video";
 }) {
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+  const isVideo = kind === "video";
+  const accept = isVideo ? "video/mp4,video/webm" : "image/*";
 
   return (
     <div className="flex flex-col gap-1">
@@ -42,7 +47,7 @@ export function MediaPickerField({
           disabled={disabled}
           onClick={() => setOpen((v) => !v)}
         >
-          {open ? "收起媒体库" : "从媒体库选图"}
+          {open ? "收起媒体库" : isVideo ? "从媒体库选视频" : "从媒体库选图"}
         </Button>
       </div>
       {open && (
@@ -51,7 +56,7 @@ export function MediaPickerField({
             <input
               ref={fileRef}
               type="file"
-              accept="image/*"
+              accept={accept}
               multiple
               disabled={uploading || disabled}
               onChange={async (e) => {
@@ -81,6 +86,7 @@ export function MediaPickerField({
           </div>
           <MediaAssetList
             refreshKey={refreshKey}
+            kind={kind}
             onPick={(asset) => {
               onChange(asset.url);
               setOpen(false);

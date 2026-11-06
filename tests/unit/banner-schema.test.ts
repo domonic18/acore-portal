@@ -40,4 +40,27 @@ describe("bannerSchema 链接规则(新建/更新一致,issue #73)", () => {
     expect(bannerSchema.safeParse({ ...base, imageUrl: "http://cdn.x/a.png" }).success).toBe(false);
     expect(bannerSchema.safeParse({ ...base, imageUrl: "" }).success).toBe(false);
   });
+
+  /**
+   * 轮播视频地址(2026-11-06):缺省必须解析为 undefined 而非空串——
+   * 拖拽排序/启停开关的 payload 不带该字段,一旦解析成 "" 就会把已配视频静默清空。
+   */
+  describe("bannerSchema videoUrl(轮播视频)", () => {
+    const base = { title: "t", imageUrl: "/images/a.png", linkUrl: "" };
+
+    it("缺省 → undefined(保持现值语义),非空串", () => {
+      expect(bannerSchema.parse(base).videoUrl).toBeUndefined();
+    });
+
+    it.each([
+      { videoUrl: "", ok: true, desc: "空串=显式清空" },
+      { videoUrl: "/uploads/media/20261106/a.mp4", ok: true, desc: "站内路径" },
+      { videoUrl: "https://cdn.example.com/a.mp4", ok: true, desc: "https 外链" },
+      { videoUrl: "http://cdn.example.com/a.mp4", ok: false, desc: "http 拒绝" },
+      { videoUrl: "javascript:alert(1)", ok: false, desc: "js 伪协议拒绝" },
+      { videoUrl: "example.com/a.mp4", ok: false, desc: "无协议裸域名拒绝" },
+    ])("$desc:videoUrl=$videoUrl → $ok", ({ videoUrl, ok }) => {
+      expect(bannerSchema.safeParse({ ...base, videoUrl }).success).toBe(ok);
+    });
+  });
 });

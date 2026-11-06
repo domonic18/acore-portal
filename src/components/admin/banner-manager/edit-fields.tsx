@@ -36,6 +36,16 @@ export function BannerEditorFields({
         图片(媒体库选图/上传,即时预览)
         <MediaPickerField value={draft.imageUrl} onChange={(url) => setDraft((p) => ({ ...p, imageUrl: url }))} disabled={disabled} />
       </span>
+      <span className="flex flex-col gap-1 text-xs text-[#93b2ce] sm:col-span-2">
+        视频(可选,媒体库选视频;填了就静音循环播放,图片退为封面)
+        <MediaPickerField
+          value={draft.videoUrl}
+          onChange={(url) => setDraft((p) => ({ ...p, videoUrl: url }))}
+          disabled={disabled}
+          kind="video"
+          placeholder="/uploads/… 或 https://…"
+        />
+      </span>
       <label className="flex items-center gap-2 text-xs text-[#93b2ce]">
         启用
         <Switch checked={draft.enabled} onChange={(v) => setDraft((p) => ({ ...p, enabled: v }))} ariaLabel="启用轮播物料" />

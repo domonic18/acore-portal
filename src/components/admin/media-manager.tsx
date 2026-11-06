@@ -24,7 +24,9 @@ export function MediaManager() {
     setError(null);
     try {
       const items = await uploadMediaFiles(files, category);
-      setMessage(`已上传 ${items.length} 个文件到「${category}」。`);
+      // 视频由服务端按 mime 强制落「视频」分类,回显实际落库分类而非所选
+      const actual = items[0]?.category ?? category;
+      setMessage(`已上传 ${items.length} 个文件到「${actual}」。`);
       setRefreshKey((k) => k + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "上传失败");
@@ -50,8 +52,8 @@ export function MediaManager() {
             </span>
           )}
           <p className="max-w-xs text-xs leading-5 text-[#6482a3]">
-            图片与 PDF(单文件 ≤10MB);同内容文件只存一份(按内容哈希幂等)。
-            删除后正文引用位置会变成死链,请先确认。
+            图片与 PDF(单文件 ≤10MB)、视频 mp4/webm(单文件 ≤50MB);
+            同内容文件只存一份(按内容哈希幂等)。删除后正文引用位置会变成死链,请先确认。
           </p>
         </div>
       </div>

@@ -2,7 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { MEDIA_DEFAULT_CATEGORY } from "@/constants/media";
+import { MEDIA_CATEGORY_VIDEO, MEDIA_DEFAULT_CATEGORY } from "@/constants/media";
 import { MEDIA_PAGE_SIZE } from "@/constants/pagination";
 import { paginate } from "@/lib/pagination";
 import {
@@ -19,12 +19,21 @@ import { CosNotConfiguredError, getCosClient } from "@/lib/cos/client";
 
 /**
  * 媒体库最小集(R13/FR-217,api-admin-m3 媒体节):
- * 白名单 image/*+pdf,单文件 ≤10MB;cosKey=media/{yyyyMMdd}/{sha256}{ext} 按 hash
- * 幂等(同内容复用资产行,零重复上传);COS 已配置→cdnBase+cosKey,未配置→本地
- * workspace/uploads 回退(开发/测试无对象存储仍可上传);删除按 url 分流。
+ * 白名单 image/*+pdf+video/mp4|webm,图片/PDF 单文件 ≤10MB、视频 ≤50MB;
+ * cosKey=media/{yyyyMMdd}/{sha256}{ext} 按 hash 幂等(同内容复用资产行,零重复上传);
+ * COS 已配置→cdnBase+cosKey,未配置→本地 workspace/uploads 回退(开发/测试无对象存储仍可上传);
+ * 删除按 url 分流。
  */
 
 export const MEDIA_MAX_BYTES = 10 * 1024 * 1024;
+/** 视频上限 50MB(应用层闸门;公网测试栈 nginx 需另配 client_max_body_size) */
+export const MEDIA_VIDEO_MAX_BYTES = 50 * 1024 * 1024;
+
+const VIDEO_MIMES = new Set(["video/mp4", "video/webm"]);
+
+function isVideoMime(mime: string): boolean {
+  return mime.startsWith("video/");
+}
 
 export class MediaError extends Error {
   constructor(
@@ -70,13 +79,32 @@ function normalizeCategory(raw: string | undefined): string {
 }
 
 function isAllowedMime(mime: string): boolean {
-  return mime.startsWith("image/") || mime === "application/pdf";
+  return mime.startsWith("image/") || mime === "application/pdf" || VIDEO_MIMES.has(mime);
+}
+
+/** 单文件体积上限:视频走视频档(图文 10MB / 视频 50MB) */
+function maxBytesFor(mime: string): number {
+  return isVideoMime(mime) ? MEDIA_VIDEO_MAX_BYTES : MEDIA_MAX_BYTES;
+}
+
+/**
+ * 落库分类:视频一律归「视频」——分类名此前只是 UI 约定(前端传什么存什么),
+ * 不强制则视频会散落进「其他」,等于没有专门分类。
+ */
+function resolveCategory(raw: string | undefined, mime: string): string {
+  if (isVideoMime(mime)) return MEDIA_CATEGORY_VIDEO;
+  return normalizeCategory(raw);
 }
 
 function safeExt(name: string, mime: string): string {
   const raw = name.includes(".") ? name.slice(name.lastIndexOf(".")) : "";
   if (/^\.[a-z0-9]{1,8}$/i.test(raw)) return raw.toLowerCase();
-  return mime === "application/pdf" ? ".pdf" : ".bin";
+  if (mime === "application/pdf") return ".pdf";
+  // 视频兜底扩展名必须与 mime 对应:本地回退按扩展名还原 content-type,
+  // 错扩展名 + nosniff 会让浏览器直接拒绝播放
+  if (mime === "video/mp4") return ".mp4";
+  if (mime === "video/webm") return ".webm";
+  return ".bin";
 }
 
 function dateSegment(d = new Date()): string {
@@ -94,8 +122,10 @@ export async function uploadMediaAssets(
     if (!isAllowedMime(f.mimeType)) {
       throw new MediaError("TYPE_REJECTED", `不支持的文件类型:${f.mimeType || "未知"}`);
     }
-    if (f.bytes.byteLength > MEDIA_MAX_BYTES) {
-      throw new MediaError("TOO_LARGE", `单文件不得超过 10MB:${f.name}`);
+    const limit = maxBytesFor(f.mimeType);
+    if (f.bytes.byteLength > limit) {
+      const limitMb = Math.round(limit / 1024 / 1024);
+      throw new MediaError("TOO_LARGE", `单文件不得超过 ${limitMb}MB:${f.name}`);
     }
   }
   const storage = await resolveStorage();
@@ -138,7 +168,7 @@ export async function uploadMediaAssets(
         cosKey,
         url,
         originalName: f.name,
-        category: normalizeCategory(f.category),
+        category: resolveCategory(f.category, f.mimeType),
         sizeBytes: f.bytes.byteLength,
         mimeType: f.mimeType,
         uploadedBy: uploaderId,
@@ -173,6 +203,8 @@ export async function listMediaAssets(opts: {
   page?: number;
   q?: string;
   category?: string;
+  /** 按 mime 前缀过滤:图片位只列 image/*,视频位只列 video/* */
+  mimeKind?: "image" | "video";
 }): Promise<{
   items: Array<MediaAssetDto & { createdAt: string }>;
   page: number;
@@ -186,6 +218,9 @@ export async function listMediaAssets(opts: {
   const where = {
     ...(opts.q ? { originalName: { contains: opts.q } } : {}),
     ...(category ? { category } : {}),
+    ...(opts.mimeKind
+      ? { mimeType: { startsWith: opts.mimeKind === "video" ? "video/" : "image/" } }
+      : {}),
   };
   const total = await prisma.mediaAsset.count({ where });
   const { totalPages, skip, take } = paginate(total, page, MEDIA_PAGE_SIZE);

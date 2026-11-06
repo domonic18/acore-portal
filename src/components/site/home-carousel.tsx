@@ -9,15 +9,20 @@ import { useEffect, useState } from "react";
  * (悬停即静默停转,前台无从得知曾被误读为"不轮播"),手动切换走箭头/圆点。
  * 单张静态展示,空物料整块隐藏(父级短路);初始固定第 0 张,水合后才开定时器。
  * imageUrl 留空=纯文字形态(WP 原站资讯轮播复刻:深底居中标题,整卡可点)。
+ *
+ * 视频物料(2026-11-06):配了 videoUrl 即静音自动播放+循环,imageUrl 作封面;
+ * 视频加载失败(坏地址/格式不支持)回退渲染封面图,按 banner id 记账,
+ * 同一张再转回来不重复重试。
  */
 export function HomeCarousel({
   banners,
   intervalMs,
 }: {
-  banners: { id: string; title: string; imageUrl: string; linkUrl: string }[];
+  banners: { id: string; title: string; imageUrl: string; videoUrl: string | null; linkUrl: string }[];
   intervalMs: number;
 }) {
   const [index, setIndex] = useState(0);
+  const [videoFailed, setVideoFailed] = useState<ReadonlySet<string>>(() => new Set());
   const count = banners.length;
 
   useEffect(() => {
@@ -28,13 +33,44 @@ export function HomeCarousel({
 
   if (count === 0) return null;
   const current = banners[Math.min(index, count - 1)]!;
+  const hasVideo = Boolean(current.videoUrl) && !videoFailed.has(current.id);
+
+  /* 左下标题叠层(标题留空=纯图形态,WP 原站首页顶部特色图无文案) */
+  const titleOverlay = current.title ? (
+    <div className="pointer-events-none absolute bottom-0 left-0 max-w-[85%] rounded-tr-2xl bg-scrim/85 px-3 py-2.5 lg:px-5 lg:py-4">
+      <h2 className="text-[15px] font-bold leading-snug text-white sm:text-xl lg:text-[28px]">
+        {current.title}
+      </h2>
+    </div>
+  ) : null;
 
   return (
     <section
       aria-label="首页轮播"
       className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-line-strong bg-panel lg:aspect-auto lg:h-full"
     >
-      {current.imageUrl ? (
+      {hasVideo ? (
+        <>
+          <a href={current.linkUrl || undefined} className="block h-full" draggable={false}>
+            {/* 静音自动播放是浏览器硬前提(有声自动播放一律被拦截);
+                playsInline 防 iOS 强制全屏;pointer-events-none 让 <a> 独占点击 */}
+            <video
+              src={current.videoUrl ?? undefined}
+              poster={current.imageUrl || undefined}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              onError={() =>
+                setVideoFailed((prev) => new Set(prev).add(current.id))
+              }
+              className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+            />
+          </a>
+          {titleOverlay}
+        </>
+      ) : current.imageUrl ? (
         <>
           <a href={current.linkUrl || undefined} className="block h-full" draggable={false}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -45,15 +81,7 @@ export function HomeCarousel({
               draggable={false}
             />
           </a>
-
-          {/* 左下标题叠层(标题留空=纯图形态,WP 原站首页顶部特色图无文案) */}
-          {current.title && (
-            <div className="pointer-events-none absolute bottom-0 left-0 max-w-[85%] rounded-tr-2xl bg-scrim/85 px-3 py-2.5 lg:px-5 lg:py-4">
-              <h2 className="text-[15px] font-bold leading-snug text-white sm:text-xl lg:text-[28px]">
-                {current.title}
-              </h2>
-            </div>
-          )}
+          {titleOverlay}
         </>
       ) : current.linkUrl ? (
         <a

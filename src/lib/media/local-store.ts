@@ -19,6 +19,9 @@ export const MIME_BY_EXT: Record<string, string> = {
   ".avif": "image/avif",
   ".svg": "image/svg+xml",
   ".pdf": "application/pdf",
+  // 视频:本地回退按扩展名还原 content-type,错类型 + nosniff 会被浏览器拒绝播放
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
 };
 
 export const LOCAL_MEDIA_URL_PREFIX = "/uploads/";

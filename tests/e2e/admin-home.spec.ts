@@ -268,3 +268,101 @@ test("纯图 banner:标题留空可保存,首页渲染图片无文字叠层(WP �
     await prisma.homeBanner.delete({ where: { id: BigInt(bannerId) } });
   }
 });
+
+/**
+ * 轮播视频(2026-11-06):媒体库上传视频(服务端按 mime 落「视频」分类)→ 物料配
+ * videoUrl → 首页静音循环播放(imageUrl 作封面/poster);视频解码失败回退封面图。
+ * 上传内容为非真实视频字节:只打通「上传→分类→落库→content-type」链路,
+ * 渲染断言靠拦截 mp4 请求使其挂起(解码失败会立即触发 error → 组件回退封面图)。
+ */
+test("轮播视频:上传入「视频」分类→首页静音循环播放,解码失败回退封面图", async ({ page }) => {
+  test.setTimeout(90_000);
+  await login(page, "m1admin", "adminpass123");
+  const title = `e2ebanner${RUN}-vid`;
+
+  const upload = await page.request.post("/api/admin/media", {
+    multipart: {
+      files: {
+        name: `clip-${RUN}.mp4`,
+        mimeType: "video/mp4",
+        buffer: Buffer.from(`fake-mp4-bytes-${RUN}`),
+      },
+    },
+  });
+  expect(upload.status()).toBe(201);
+  const uploaded = (
+    (await upload.json()) as {
+      items: { id: string; url: string; category: string; cosKey: string }[];
+    }
+  ).items[0]!;
+  // 服务端按 mime 强制落「视频」分类(不靠前端传分类名)
+  expect(uploaded.category).toBe("视频");
+  expect(uploaded.cosKey.endsWith(".mp4")).toBe(true);
+
+  // 本地回退按扩展名还原 content-type:错类型 + nosniff = 浏览器直接拒播
+  if (uploaded.url.startsWith("/uploads/")) {
+    const asset = await page.request.get(uploaded.url);
+    expect(asset.status()).toBe(200);
+    expect(asset.headers()["content-type"]).toContain("video/mp4");
+  }
+
+  const created = await page.request.post("/api/admin/banners", {
+    data: {
+      title,
+      imageUrl: "/images/legacy-missing.svg",
+      videoUrl: uploaded.url,
+      enabled: true,
+      sort: 0,
+    },
+  });
+  expect(created.status()).toBe(200);
+  const bannerId = ((await created.json()) as { id: string }).id;
+
+  try {
+    // 拦截 mp4 请求使其挂起:保持 <video> 挂载,便于断言播放属性
+    await page.route("**/*.mp4", () => {});
+    await page.goto("/");
+    const carSection = page.locator('section[aria-label="首页轮播"]');
+    const videoState = () =>
+      page.evaluate(() => {
+        const v = document.querySelector<HTMLVideoElement>(
+          'section[aria-label="首页轮播"] video',
+        );
+        if (!v) return null;
+        return {
+          muted: v.muted,
+          loop: v.loop,
+          autoplay: v.autoplay,
+          playsInline: v.playsInline,
+          poster: v.getAttribute("poster"),
+          src: v.getAttribute("src"),
+        };
+      });
+    await expect
+      .poll(videoState, { timeout: 20_000, intervals: [200, 500] })
+      .toMatchObject({
+        muted: true,
+        loop: true,
+        autoplay: true,
+        playsInline: true,
+        poster: "/images/legacy-missing.svg",
+        src: uploaded.url,
+      });
+
+    // 视频解码失败(内容非真实视频)→ 回退渲染封面图
+    await page.unroute("**/*.mp4");
+    await page.goto("/");
+    await expect
+      .poll(async () => carSection.locator(`img[alt="${title}"]`).count(), {
+        timeout: 20_000,
+        intervals: [200, 500],
+      })
+      .toBeGreaterThan(0);
+  } finally {
+    await page.unroute("**/*.mp4").catch(() => {});
+    await prisma.homeBanner.delete({ where: { id: BigInt(bannerId) } });
+    // 删除媒体资产:连带清掉本地文件(走接口,保证本地存储与行一起收)
+    await page.request.delete(`/api/admin/media/${uploaded.id}`).catch(() => {});
+    await prisma.mediaAsset.deleteMany({ where: { id: BigInt(uploaded.id) } });
+  }
+});

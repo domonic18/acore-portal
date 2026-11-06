@@ -89,6 +89,7 @@ export default async function HomePage() {
     id: b.id.toString(),
     title: b.title,
     imageUrl: b.imageUrl,
+    videoUrl: b.videoUrl,
     linkUrl: b.linkUrl,
   }));
 

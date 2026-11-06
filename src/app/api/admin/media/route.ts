@@ -22,10 +22,13 @@ export async function GET(req: NextRequest) {
   if (!guard.ok) return apiError(guard.status, guard.code, guard.message);
   const sp = new URL(req.url).searchParams;
   const page = Number(sp.get("page") ?? "1");
+  const category = sp.get("category") ?? undefined;
+  const kind = sp.get("kind");
   const result = await listMediaAssets({
     page: Number.isInteger(page) && page > 0 ? page : 1,
     q: sp.get("q") ?? undefined,
-    category: sp.get("category") ?? undefined,
+    category,
+    mimeKind: kind === "image" || kind === "video" ? kind : undefined,
   });
   return apiOk(result);
 }
