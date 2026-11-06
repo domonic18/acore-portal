@@ -1,0 +1,116 @@
+# 生产栈:与 dev/test 完全分离的独立 compose——目标「一台机器快速起站」,且绝不夹带测试专用容器
+# 用法: cp .env.prod.example .env.prod(填真实值)
+#       → docker compose --env-file .env.prod -f docker/docker-compose.prod.yml up -d
+#       (--env-file 必须带:compose 的变量插值取自 env 文件,不是 env_file 段)
+#
+# 【刻意排除的测试专用件】(与 dev/test 的差异,勿照抄回填):
+#   mailpit      —— 测试专用收信匣;生产接真实 SMTP(system_config 的 smtp.host/port/user/password,后台改)
+#   soap-mock    —— 测试专用 SOAP 模拟;生产 soap.url 指向真实 worldserver 的 SOAP 端点(system_config)
+#   initdb 挂载  —— scripts/dev/initdb 含游戏库 fixture 与种子账号(m1admin/adminpass123),
+#                    生产**绝不挂载**:真实库结构由 prisma migrate deploy 建,账号走真实注册
+#   umami        —— 自托管统计,非站点必需;按需单独起(见 docs/plan/development-plan.md)
+#   dev/test 的宿主机端口与卷 —— 生产走标准端口(仅 80/443 对外)与独立卷 workspace/*-prod
+#
+# 业务通道配置(SMTP/SOAP/COS/站点地址/统计)一律存业务库 system_config,部署后进后台「设置」改,
+# 不进本文件(宪法 v1.0.2:env 仅存引导级凭据)。
+name: acore-portal-prod
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  mysql:
+    image: mysql:8.4
+    # 生产开 binlog:备份/时间点恢复的前提(dev/test 特意 --skip-log-bin 防数据目录膨胀)
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    # 不发布端口:只在 compose 网络内可达,应用走 mysql:3306。
+    # 双重理由——①最小暴露面;②上线切换期旧 WP 栈的 MySQL 占着宿主机 3306,发布必然端口冲突。
+    # 备份与运维改走容器内执行: docker compose -f docker/docker-compose.prod.yml exec -T mysql mysqldump ...
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?生产必填,见 .env.prod.example}
+      MYSQL_DATABASE: acore_portal
+      MYSQL_USER: acore_portal
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?生产必填,见 .env.prod.example}
+    volumes:
+      - ../workspace/mysql-prod:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    # 同 mysql:不发布端口,仅容器网络内可达(避开旧 WP 栈占用的 6379)
+    volumes:
+      - ../workspace/redis-prod:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    logging: *logging
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/web/Dockerfile
+    env_file:
+      - ../.env.prod
+    environment:
+      TZ: Asia/Shanghai # 404 日键/邮件模板按北京日期切;DB 时间戳走驱动会话转换不受影响
+    ports:
+      - "127.0.0.1:3000:3000" # 运维直连排查口(不经 TLS);公网入口只有 caddy
+    volumes:
+      # 无 COS 时的媒体本地上传回退(COS 已配则此目录只兜底)
+      - ../workspace/uploads:/app/workspace/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+
+  # 一次性迁移服务(profiles=migrate,默认不起):与 web 同网络直连 mysql:3306。
+  # 生产不发布 DB 端口,迁移靠它在容器网络内完成——宿主机无需装 node/pnpm,也无需暴露数据库。
+  # 用法: docker compose --env-file .env.prod -f docker/docker-compose.prod.yml --profile migrate run --rm migrate
+  migrate:
+    image: node:22-slim
+    profiles: ["migrate"]
+    working_dir: /app
+    # prisma CLI 是 devDependency,生产镜像里没有(见 docker/web/Dockerfile 的 --prod 瘦身);
+    # 这里用 npx 按版本拉取,与 package.json 锁定的 6.19.3 保持一致(改版本须同步)
+    command: npx --yes prisma@6.19.3 migrate deploy --schema prisma/schema-business/schema.prisma
+    volumes:
+      - ../prisma/schema-business:/app/prisma/schema-business:ro
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?生产必填,如 lokta.cn}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@lokta.cn} # Let's Encrypt 到期提醒邮箱
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../workspace/caddy-data:/data # 证书与 ACME 账号,必须持久化(否则每次重建重签)
+      - ../workspace/caddy-config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+    logging: *logging
