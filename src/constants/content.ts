@@ -47,15 +47,32 @@ export const RESERVED_SLUGS: readonly string[] = [
   "wp-admin",
 ];
 
-/** 核心静态页 slug(US3:generateStaticParams 预渲染集) */
-export const CORE_PAGE_SLUGS = [
+/**
+ * 核心静态页 slug(US3:generateStaticParams 预渲染集)
+ * 这几个 slug 被页头/页脚/快捷入口/网站地图等代码引用,删除或改别名会让站内
+ * 固定链接 404,故后台禁止删除与改别名(issue #94)。
+ */
+export const CORE_PAGE_SLUGS: readonly string[] = [
   "about",
   "tutorial",
   "agreement",
   "convention",
   "sitemap",
   "devlog",
-] as const;
+];
+
+/**
+ * 正文由代码生成的静态页(issue #94):/sitemap 的链接分组按栏目/论坛版块/商城
+ * 分类实时生成(content_page.body_md 只是可选导语),后台编辑器若只暴露
+ * body_md 会出现「编辑器空、前台有」的割裂,故这类页在后台展示生成结果预览。
+ */
+export const SYSTEM_GENERATED_PAGE_SLUGS: readonly string[] = ["sitemap"];
+
+/** 网站地图分组(前台 /sitemap 与后台预览共用;链接标签 + 站内路径) */
+export type SiteMapGroup = {
+  name: string;
+  links: { label: string; href: string }[];
+};
 
 /**
  * 教程内容升格映射(2026-11-03):快捷操作类指南从「文章」升格为「静态页」,

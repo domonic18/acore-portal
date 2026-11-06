@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { CORE_PAGE_SLUGS, MARKDOWN_TYPOGRAPHY_CLS, TUTORIAL_ANCHOR_ALIASES } from "@/constants/content";
+import { CORE_PAGE_SLUGS, MARKDOWN_TYPOGRAPHY_CLS, SYSTEM_GENERATED_PAGE_SLUGS, TUTORIAL_ANCHOR_ALIASES } from "@/constants/content";
 import { getPublishedPage } from "@/server/services/content/pages";
 import { resolveProgressionPosition } from "@/server/services/progression/progression";
 import { getSiteMapPageView } from "@/server/services/seo/sitemap";
@@ -12,7 +12,7 @@ import { SiteSidebar } from "@/components/site/sidebar/site-sidebar";
 import { getSidebarView } from "@/server/services/sidebar/view";
 import { ContentPanel } from "@/components/site/content-panel";
 import { ArticleTocBlock, ArticleTocRail } from "@/components/content/article-toc";
-import { SiteMapSection } from "./site-map-section";
+import { SiteMapSection } from "@/components/content/site-map-section";
 
 /**
  * 静态页根级兜底(T025,FR-210/R15):/{slug} 未被具名路由命中时落到这里;
@@ -68,7 +68,9 @@ export default async function ContentStaticPage({
         params.slug === "tutorial" ? TUTORIAL_ANCHOR_ALIASES : undefined,
     }),
     params.slug === "about" ? resolveProgressionPosition() : Promise.resolve(null),
-    params.slug === "sitemap" ? getSiteMapPageView() : Promise.resolve(null),
+    SYSTEM_GENERATED_PAGE_SLUGS.includes(params.slug)
+      ? getSiteMapPageView()
+      : Promise.resolve(null),
     getSidebarView("page"),
     getConfig(),
   ]);

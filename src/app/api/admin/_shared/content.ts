@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { apiError } from "@/server/http";
+import { SYSTEM_GENERATED_PAGE_SLUGS } from "@/constants/content";
 import { ContentAdminError } from "@/server/services/content/admin";
 
 /** 内容后台入参 Zod 与错误映射(路由私有共享;Next 路由文件仅可导出 HTTP 方法) */
@@ -16,19 +17,30 @@ export const articleSchema = z.object({
   tagIds: z.array(z.coerce.number().int().positive()).max(20).optional(),
 });
 
-export const pageSchema = z.object({
-  id: z.coerce.number().int().positive().optional(),
-  slug: z
-    .string()
-    .min(1)
-    .max(64)
-    .regex(/^[a-z0-9-]+$/, "别名仅允许小写字母/数字/连字符"),
-  title: z.string().min(1).max(255),
-  bodyMd: z.string().min(1),
-  status: z.enum(["draft", "published"]),
-  sortOrder: z.coerce.number().int().min(0).max(9999).optional(),
-  tocEnabled: z.boolean().nullable().optional(),
-});
+export const pageSchema = z
+  .object({
+    id: z.coerce.number().int().positive().optional(),
+    slug: z
+      .string()
+      .min(1)
+      .max(64)
+      .regex(/^[a-z0-9-]+$/, "别名仅允许小写字母/数字/连字符"),
+    title: z.string().min(1).max(255),
+    bodyMd: z.string(),
+    status: z.enum(["draft", "published"]),
+    sortOrder: z.coerce.number().int().min(0).max(9999).optional(),
+    tocEnabled: z.boolean().nullable().optional(),
+  })
+  .superRefine((value, ctx) => {
+    // 系统生成页(/sitemap)正文为空合法:可见内容由 getSiteMapPageView() 生成
+    if (!value.bodyMd && !SYSTEM_GENERATED_PAGE_SLUGS.includes(value.slug)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["bodyMd"],
+        message: "正文不能为空。",
+      });
+    }
+  });
 
 export const categorySchema = z.object({
   id: z.coerce.number().int().positive().optional(),

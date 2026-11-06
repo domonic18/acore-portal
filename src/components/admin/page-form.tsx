@@ -39,7 +39,17 @@ function valueToToc(v: string): boolean | null {
   return null;
 }
 
-export function PageForm({ initial }: { initial?: PageFormValues }) {
+export function PageForm({
+  initial,
+  lockedSlug = false,
+  systemGenerated = false,
+}: {
+  initial?: PageFormValues;
+  /** 核心静态页:别名被站内固定链接引用,锁定不可改(issue #94) */
+  lockedSlug?: boolean;
+  /** 系统生成页(/sitemap):正文只是可选导语,可见内容由代码生成 */
+  systemGenerated?: boolean;
+}) {
   const router = useRouter();
   const [values, setValues] = useState<PageFormValues>(
     initial ?? { slug: "", title: "", bodyMd: "", status: "draft", sortOrder: 0, tocEnabled: null },
@@ -79,8 +89,15 @@ export function PageForm({ initial }: { initial?: PageFormValues }) {
             <Input value={values.title} onChange={(e) => set("title", e.target.value)} />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[#93b2ce]">别名 slug(根级 /{"{slug}"} 路由;系统保留字会被拒绝)</span>
-            <Input value={values.slug} onChange={(e) => set("slug", e.target.value)} />
+            <span className="text-[#93b2ce]">
+              别名 slug(根级 /{"{slug}"} 路由;系统保留字会被拒绝)
+              {lockedSlug && <span className="ml-1 text-[#6482a3]">核心静态页,别名不可更改</span>}
+            </span>
+            <Input
+              value={values.slug}
+              onChange={(e) => set("slug", e.target.value)}
+              disabled={lockedSlug}
+            />
           </label>
           <label className="flex flex-col gap-1">
             <span className="text-[#93b2ce]">排序(网站地图用)</span>
@@ -95,8 +112,13 @@ export function PageForm({ initial }: { initial?: PageFormValues }) {
       </Card>
 
       <Card>
-        <CardHeader title="正文(Markdown)" />
+        <CardHeader title={systemGenerated ? "页面导语(Markdown)·可选" : "正文(Markdown)"} />
         <CardBody>
+          {systemGenerated && (
+            <p className="mb-3 text-[13px] leading-6 text-[#93b2ce]">
+              可选:显示在链接分组上方的介绍文字。留空则前台只显示自动生成的链接。
+            </p>
+          )}
           <MarkdownEditor value={values.bodyMd} onChange={(v) => set("bodyMd", v)} />
         </CardBody>
       </Card>
