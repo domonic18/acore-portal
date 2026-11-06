@@ -7,6 +7,7 @@ import { setSessionCookies } from "@/lib/auth/cookies";
 import { loginWithPassword } from "@/server/services/auth/login";
 import { assertNotLocked, clearOnSuccess, recordFailure } from "@/server/services/auth/login-guard";
 import { writeAudit } from "@/server/services/shared/audit";
+import { RateLimitUnavailableError } from "@/lib/redis/rate-limit";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { TURNSTILE_ERROR } from "@/constants/turnstile";
 import { verifyTurnstile } from "@/lib/turnstile";
@@ -30,56 +31,64 @@ export async function POST(req: NextRequest) {
   const { username, password, remember, turnstileToken } = parsed.data;
   const ip = await getClientIp(req);
 
-  // ① 前置锁检查:锁期内不验 Turnstile/凭据,直接 429
-  const lock = await assertNotLocked(username);
-  if (lock.locked) {
-    return apiError(429, "LOGIN_LOCKED", RATE_LIMIT_429, {
-      retryAfterSec: lock.retryAfterSec,
-    });
-  }
-
-  // ② Turnstile siteverify:失败 422,不计失败次数
-  const turnstile = await verifyTurnstile(turnstileToken, ip ?? undefined);
-  if (!turnstile.ok) {
-    if (turnstile.errors?.includes("not-configured")) {
-      // 运维误配(已启用但密钥缺失):失败关闭,站点其余部分不受影响
-      return apiError(422, TURNSTILE_ERROR.UNAVAILABLE.code, TURNSTILE_ERROR.UNAVAILABLE.message);
-    }
-    return apiError(422, TURNSTILE_ERROR.FAILED.code, TURNSTILE_ERROR.FAILED.message);
-  }
-
-  const outcome = await loginWithPassword(username, password, { ip });
-  if (!outcome.ok) {
-    // ③ 失败计数:越过阈值 → 显式锁+审计(LOGIN_LOCKED),本次即 429
-    const gate = await recordFailure(username, ip);
-    if (gate.exceeded) {
-      return apiError(429, "RATE_LIMITED", RATE_LIMIT_429, {
-        retryAfterSec: gate.retryAfterSec,
+  try {
+    // ① 前置锁检查:锁期内不验 Turnstile/凭据,直接 429
+    const lock = await assertNotLocked(username);
+    if (lock.locked) {
+      return apiError(429, "LOGIN_LOCKED", RATE_LIMIT_429, {
+        retryAfterSec: lock.retryAfterSec,
       });
     }
-    // 真实原因仅审计可见(login 服务已写);对外一律统一模糊文案
-    return apiError(401, "INVALID_CREDENTIALS", UNIFIED_401);
+
+    // ② Turnstile siteverify:失败 422,不计失败次数
+    const turnstile = await verifyTurnstile(turnstileToken, ip ?? undefined);
+    if (!turnstile.ok) {
+      if (turnstile.errors?.includes("not-configured")) {
+        // 运维误配(已启用但密钥缺失):失败关闭,站点其余部分不受影响
+        return apiError(422, TURNSTILE_ERROR.UNAVAILABLE.code, TURNSTILE_ERROR.UNAVAILABLE.message);
+      }
+      return apiError(422, TURNSTILE_ERROR.FAILED.code, TURNSTILE_ERROR.FAILED.message);
+    }
+
+    const outcome = await loginWithPassword(username, password, { ip });
+    if (!outcome.ok) {
+      // ③ 失败计数:越过阈值 → 显式锁+审计(LOGIN_LOCKED),本次即 429
+      const gate = await recordFailure(username, ip);
+      if (gate.exceeded) {
+        return apiError(429, "RATE_LIMITED", RATE_LIMIT_429, {
+          retryAfterSec: gate.retryAfterSec,
+        });
+      }
+      // 真实原因仅审计可见(login 服务已写);对外一律统一模糊文案
+      return apiError(401, "INVALID_CREDENTIALS", UNIFIED_401);
+    }
+
+    // ④ 成功清账(失败计数与锁全清)
+    await clearOnSuccess(username, ip);
+
+    // ⑤ 成功审计(2026-11-06 撞库加固):凭据有效即记,用于界定被攻陷账号
+    await writeAudit({
+      category: AUDIT_CATEGORY.SECURITY,
+      action: AUDIT_ACTION.LOGIN_SUCCESS,
+      actorUserId: outcome.user.id,
+      payload: { username: outcome.user.username, upgraded: outcome.upgraded },
+      ip,
+    });
+
+    const { accessToken } = await createSession(outcome.user.id, outcome.user.role);
+    const refreshToken = remember ? (await issueRefreshToken(outcome.user.id)).token : undefined;
+
+    const res = NextResponse.json({
+      user: { username: outcome.user.username, role: outcome.user.role },
+      upgraded: outcome.upgraded,
+    });
+    setSessionCookies(res, { accessToken, refreshToken });
+    return res;
+  } catch (err) {
+    // Redis 故障:锁/计数不可用 → 失败关闭(503),既不静默放行也不 500
+    if (err instanceof RateLimitUnavailableError) {
+      return apiError(503, "AUTH_UNAVAILABLE", "登录服务暂时不可用,请稍后再试。");
+    }
+    throw err;
   }
-
-  // ④ 成功清账(失败计数与锁全清)
-  await clearOnSuccess(username, ip);
-
-  // ⑤ 成功审计(2026-11-06 撞库加固):凭据有效即记,用于界定被攻陷账号
-  await writeAudit({
-    category: AUDIT_CATEGORY.SECURITY,
-    action: AUDIT_ACTION.LOGIN_SUCCESS,
-    actorUserId: outcome.user.id,
-    payload: { username: outcome.user.username, upgraded: outcome.upgraded },
-    ip,
-  });
-
-  const { accessToken } = await createSession(outcome.user.id, outcome.user.role);
-  const refreshToken = remember ? (await issueRefreshToken(outcome.user.id)).token : undefined;
-
-  const res = NextResponse.json({
-    user: { username: outcome.user.username, role: outcome.user.role },
-    upgraded: outcome.upgraded,
-  });
-  setSessionCookies(res, { accessToken, refreshToken });
-  return res;
 }

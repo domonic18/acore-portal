@@ -27,6 +27,9 @@ export async function assertNotLocked(username: string): Promise<LockCheck> {
  * 防 frp 共享出口 IP 误锁他人)。越过阈值 → 显式锁+审计(LOGIN_LOCKED,
  * 只记用户名/ip/计数,无凭据字段,宪法 VI);当前次由调用方按 429 应答。
  * 计数按请求呈现的用户名统计(含不存在用户),防枚举探测。
+ *
+ * 计数走 failOpen:false——Redis 故障时抛 RateLimitUnavailableError,
+ * 由路由回 503;绝不能「故障即放行」,那等于限流被静默绕过。
  */
 export async function recordFailure(
   username: string,
@@ -36,11 +39,13 @@ export async function recordFailure(
   const userDim = await hitRateLimit(loginFailKey(username), {
     windowSec: security.loginWindowSec,
     max: security.loginMaxFails,
+    failOpen: false,
   });
   const ipDim = ip
     ? await hitRateLimit(loginFailIpKey(ip), {
         windowSec: security.loginWindowSec,
         max: security.loginMaxFails,
+        failOpen: false,
       })
     : null;
   const exceeded = !userDim.allowed || ipDim?.allowed === false;
@@ -62,9 +67,17 @@ export async function recordFailure(
   return { exceeded: false, retryAfterSec: 0 };
 }
 
-/** 登录成功清账:失败计数(用户名/IP)与锁全清 */
+/**
+ * 登录成功清账:失败计数(用户名/IP)与锁全清。
+ * 清账是尽力而为——Redis 故障时不能让已成功的登录反过来报 500,
+ * 残留计数至多让用户下次失败时多等一个窗口。
+ */
 export async function clearOnSuccess(username: string, ip?: string | null): Promise<void> {
   const keys = [loginFailKey(username), loginLockKey(username)];
   if (ip) keys.push(loginFailIpKey(ip));
-  await clearKeys(keys);
+  try {
+    await clearKeys(keys);
+  } catch {
+    // 忽略:清账失败不影响本次登录结果
+  }
 }

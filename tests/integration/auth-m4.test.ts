@@ -344,6 +344,37 @@ describe("2026-11-06 撞库加固——审计补齐(PR-0)", () => {
   });
 });
 
+describe("2026-11-06 撞库加固——限流失败关闭(PR-B)", () => {
+  it("Redis 故障(计数原语)→ 登录 503 AUTH_UNAVAILABLE,非 500 亦非静默放行", async () => {
+    const { username } = await makeUser(30, PASSWORD);
+    const i = ip(50);
+    redisKeys.push(loginFailIpKey(i));
+
+    // 故障点:限流计数原语(redis.eval)不可用
+    vi.spyOn(redis, "eval").mockRejectedValue(new Error("redis down"));
+    const res = await login({ username, password: "wrong" }, i);
+    vi.restoreAllMocks();
+
+    expect(res.status).toBe(503);
+    expect((await errBody(res)).error.code).toBe("AUTH_UNAVAILABLE");
+    // 失败关闭:计数不可用时不落锁(避免半状态),也不把失败当成功放行
+    expect((await checkLock(loginLockKey(username))).locked).toBe(false);
+  });
+
+  it("Redis 故障(锁检查)→ 登录 503 AUTH_UNAVAILABLE,不触达凭据校验", async () => {
+    const { username } = await makeUser(31, PASSWORD);
+    const i = ip(51);
+    redisKeys.push(loginFailIpKey(i));
+
+    vi.spyOn(redis, "ttl").mockRejectedValue(new Error("redis down"));
+    const res = await login({ username, password: PASSWORD }, i);
+    vi.restoreAllMocks();
+
+    expect(res.status).toBe(503);
+    expect((await errBody(res)).error.code).toBe("AUTH_UNAVAILABLE");
+  });
+});
+
 describe("M4 US2 登录防滥用——Turnstile 开态(T009/T011)", () => {
   it("开+无 token → 422 TURNSTILE_FAILED:不出网、不计失败", async () => {
     await enableTurnstile();
