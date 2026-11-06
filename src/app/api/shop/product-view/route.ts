@@ -5,6 +5,7 @@ import { apiError, apiOk, parseBody } from "@/server/http";
 import { redis } from "@/lib/redis";
 import { hitRateLimit } from "@/lib/redis/rate-limit";
 import { recordProductView } from "@/server/services/shared/conversion";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 /**
  * 商品浏览上报(转化漏斗第一环):匿名公开路由,仿 404 采集
@@ -19,10 +20,7 @@ export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, bodySchema);
   if (!parsed.ok) return parsed.response;
 
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    req.headers.get("x-real-ip") ??
-    null;
+  const ip = await getClientIp(req);
   if (ip) {
     const limited = await hitRateLimit(`rl:pview:${ip}`, {
       windowSec: RATE_WINDOW_SEC,

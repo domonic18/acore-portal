@@ -1,14 +1,14 @@
 import "server-only";
 import { prisma } from "@/lib/db";
+import { getConfig } from "@/lib/config";
 import { verifyPhpass } from "@/lib/auth/phpass";
 import { hashWpBcrypt, verifyWpBcrypt } from "@/lib/auth/wp-bcrypt";
-import {
-  PASSWORD_ALGO,
-  PHPASS_PREFIX,
-  WP_BCRYPT_PREFIX,
-} from "@/constants/password";
+import { PASSWORD_ALGO, PHPASS_PREFIX, WP_BCRYPT_PREFIX } from "@/constants/password";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
+import { auditUnknownUserKey } from "@/server/services/auth/login-guard";
+import { burnTiming } from "@/server/services/auth/dummy-hash";
 import { writeAudit } from "@/server/services/shared/audit";
+import { writeAuditOnce } from "@/server/services/shared/audit-dedup";
 
 export type LoginUser = {
   id: bigint;
@@ -22,10 +22,7 @@ export type LoginOutcome =
   | { ok: false; failReason: "bad_password" | "banned" | "corrupt_hash" };
 
 /** 按哈希前缀分派校验(research R2:前缀是自描述权威,upgrade 判定不看 cost) */
-function verifyByHashPrefix(
-  storedHash: string,
-  password: string,
-): boolean | null {
+async function verifyByHashPrefix(storedHash: string, password: string): Promise<boolean | null> {
   if (storedHash.startsWith(WP_BCRYPT_PREFIX)) {
     return verifyWpBcrypt(password, storedHash);
   }
@@ -59,8 +56,27 @@ export async function loginWithPassword(
     },
   });
 
-  if (!user) return { ok: false, failReason: "bad_password" };
+  if (!user) {
+    // 用户名不存在:补一次等成本假校验,否则「快响应」= 免费用户名清单
+    await burnTiming(password);
+    // 用户名不存在:记未知用户名失败(去重防写放大),但 HTTP 响应与「密码错误」完全一致
+    const { security } = await getConfig();
+    await writeAuditOnce(
+      {
+        category: AUDIT_CATEGORY.SECURITY,
+        action: AUDIT_ACTION.LOGIN_FAILED_UNKNOWN,
+        actorUserId: null,
+        payload: { username },
+        ip: ctx.ip,
+      },
+      auditUnknownUserKey(username, ctx.ip ?? "unknown"),
+      security.loginWindowSec,
+    );
+    return { ok: false, failReason: "bad_password" };
+  }
   if (user.status === "banned") {
+    // 封禁账号同样不能比密码错误更快——否则封禁名单也是信道
+    await burnTiming(password);
     await writeAudit({
       category: AUDIT_CATEGORY.SECURITY,
       action: AUDIT_ACTION.LOGIN_FAILED,
@@ -72,9 +88,11 @@ export async function loginWithPassword(
   }
 
   let storedHash = user.passwordHash;
-  let verified = verifyByHashPrefix(storedHash, password);
+  let verified = await verifyByHashPrefix(storedHash, password);
 
   if (verified === null) {
+    // 未知格式:同样补等成本假校验,不给出「比密码错误更快」的旁路
+    await burnTiming(password);
     await writeAudit({
       category: AUDIT_CATEGORY.SECURITY,
       action: AUDIT_ACTION.LOGIN_FAILED,
@@ -93,11 +111,14 @@ export async function loginWithPassword(
     });
     if (fresh && fresh.passwordHash !== storedHash) {
       storedHash = fresh.passwordHash;
-      verified = verifyByHashPrefix(storedHash, password);
+      verified = await verifyByHashPrefix(storedHash, password);
     }
   }
 
   if (!verified) {
+    // `$P$` 存量用户的失败路径只跑了 8k 轮 MD5(约 10ms),比 bcrypt 快一个量级——
+    // 「存量账号=快响应」同样是信道,补一次等成本假校验拉平。
+    if (storedHash.startsWith(PHPASS_PREFIX)) await burnTiming(password);
     await writeAudit({
       category: AUDIT_CATEGORY.SECURITY,
       action: AUDIT_ACTION.LOGIN_FAILED,
@@ -111,7 +132,7 @@ export async function loginWithPassword(
   // 透明升级(仅 $P$):乐观锁 WHERE 旧哈希,并发下仅一方生效,其余方自然跳过
   let upgraded = false;
   if (storedHash.startsWith(PHPASS_PREFIX)) {
-    const newHash = hashWpBcrypt(password);
+    const newHash = await hashWpBcrypt(password);
     const result = await prisma.user.updateMany({
       where: { id: user.id, passwordHash: storedHash },
       data: { passwordHash: newHash, passwordAlgo: PASSWORD_ALGO.BCRYPT_WP },

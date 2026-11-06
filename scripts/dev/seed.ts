@@ -23,7 +23,7 @@ async function upsertUser(input: {
   const passwordHash =
     input.algo === "phpass"
       ? hashPhpass(input.password)
-      : hashWpBcrypt(input.password);
+      : await hashWpBcrypt(input.password);
   return prisma.user.upsert({
     where: { username: input.username },
     update: {}, // 已存在则不动(保留可能的升级后状态)
@@ -229,16 +229,18 @@ async function seedContent() {
       create: { ...p, status: "published" },
     });
   }
-  // 开发日志是单页 Markdown(旧站 page 378 导入);create-only,重跑 seed 不覆盖存量日志
+  // 开发日志是单页 Markdown(旧站 page 378 导入);正文 create-only,重跑 seed 不覆盖存量日志。
+  // tocEnabled=false:页面级目录显式关闭(页面级优先于全局 content.tocEnabled,content E2E 断言用)
   await prisma.contentPage.upsert({
     where: { slug: "devlog" },
-    update: {},
+    update: { tocEnabled: false },
     create: {
       slug: "devlog",
       title: "开发日志",
       bodyMd:
         "# 开发日志\n\n## 2099-01-05 开发日志\n\n> 1、核心玩法框架完成\n> \n> 2、副本进度同步上线\n\n## 2099-01-02 开发日志\n\n> 1、账号迁移完成\n> \n> 2、积分系统对账通过",
       status: "published",
+      tocEnabled: false,
     },
   });
   // 归档分页 fixture:11 篇种子公告(10/页 → 第 1 页 10 篇,第 2 页 3 篇)

@@ -1,6 +1,13 @@
 import "server-only";
 import { prisma } from "@/lib/db";
+import { getConfig } from "@/lib/config";
 import { ARCHIVE_PAGE_SIZE } from "@/constants/pagination";
+import {
+  ARTVIEW_IP_WINDOW_SEC,
+  artviewArticleKey,
+  artviewIpKey,
+} from "@/constants/security";
+import { throttleByClientIp } from "@/server/services/shared/ip-throttle";
 
 /**
  * 内容查询层(M3 US3 T022 前台全量):
@@ -138,4 +145,53 @@ export async function incrementArticleViews(slug: string): Promise<number | null
     select: { views: true },
   });
   return row?.views ?? null;
+}
+
+/** 已发布文章的当前阅读数(只读):限速未放行时照常回数字,前台只看到数字不变 */
+async function getPublishedArticleViews(slug: string): Promise<number | null> {
+  const row = await prisma.article.findUnique({
+    where: { slug },
+    select: { views: true, status: true },
+  });
+  if (!row || row.status !== "published") return null;
+  return row.views;
+}
+
+/**
+ * 阅读计数上报(2026-11-06 撞库加固 PR-I,F10):限速后计入。
+ *
+ * 两道闸:
+ * - **每 IP 总闸**(次/分):防单个 IP 对海量文章刷写(DB 放大);
+ * - **每 (IP, 文章) 窗口闸**:同一 IP 对同一篇在窗口内只计一次(防刷阅读量)。
+ *
+ * 顺序讲究:
+ * - 每 IP 总闸先走 → 伪造 slug 的洪水也计入这个预算,不会不限速地打 DB 读;
+ * - 先读文章再打 (IP, 文章) 桶键 → 桶键基数 = 真实文章数,
+ *   否则伪造 slug 会按 (IP, slug) 无限造 Redis 键,挤掉会话键。
+ *
+ * 越阈或 Redis 不可用时**不计入,但照常返回当前阅读数**——
+ * 阅读量是展示指标而非安全边界,不能因限速把前台打挂。
+ */
+export async function recordArticleView(
+  slug: string,
+  ip: string | null,
+): Promise<number | null> {
+  const { security } = await getConfig();
+  const ipGate = await throttleByClientIp({
+    ip,
+    keyFor: artviewIpKey,
+    max: security.artviewIpMaxPerMin,
+    windowSec: ARTVIEW_IP_WINDOW_SEC,
+  });
+  const current = await getPublishedArticleViews(slug);
+  if (current === null) return null;
+  if (!ipGate.allowed) return current;
+  const articleGate = await throttleByClientIp({
+    ip,
+    keyFor: (bucket) => artviewArticleKey(bucket, slug),
+    max: security.artviewArticleMax,
+    windowSec: security.artviewArticleWindowSec,
+  });
+  if (!articleGate.allowed) return current;
+  return incrementArticleViews(slug);
 }

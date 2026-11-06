@@ -24,15 +24,42 @@ export type SettingsView = {
     enabled: boolean;
     siteKey: string | null;
     secretKeyConfigured: boolean;
+    /** 已启用但双密钥缺失:实际未生效,登录端点失败关闭 */
+    misconfigured: boolean;
   };
   security: {
     loginMaxFails: number;
     loginWindowSec: number;
     loginLockSec: number;
+    trustedProxyHops: number;
+    loginIpSoftFails: number;
+    loginIpMaxFails: number;
+    loginIpLockSec: number;
+    loginSoftLockSec: number;
+    loginGlobalMaxPerMin: number;
+    loginMaxConcurrent: number;
+    loginQueueWaitMs: number;
+    loginUnknownIpMaxPerMin: number;
+    registerIpMaxPerHour: number;
+    pwresetIpMaxPerHour: number;
+    emailChangeIpMaxPerHour: number;
+    unknownIpMaxPerHour: number;
+    statusIpMaxPerMin: number;
+    statusGlobalMaxPerMin: number;
+    statusUnknownIpMaxPerMin: number;
+    artviewIpMaxPerMin: number;
+    artviewArticleMax: number;
+    artviewArticleWindowSec: number;
   };
   notify: { pointEmailThreshold: number };
   content: { tocEnabled: boolean };
-  site: { icp: string; copyrightEn: string; qqGroup: string; qqGroupQr: string; qqGroupJoinUrl: string };
+  site: {
+    icp: string;
+    copyrightEn: string;
+    qqGroup: string;
+    qqGroupQr: string;
+    qqGroupJoinUrl: string;
+  };
   appearance: {
     logoUrl: string;
     faviconUrl: string;

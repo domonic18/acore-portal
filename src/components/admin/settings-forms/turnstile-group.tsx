@@ -23,7 +23,21 @@ export function TurnstileGroup({ view }: { view: SettingsView["turnstile"] }) {
         checked={enabled}
         onChange={setEnabled}
       />
-      <TextRow label="Site Key" testid="settings-field-turnstile-siteKey" value={siteKey} onChange={setSiteKey} />
+      {view.misconfigured && (
+        <p
+          role="alert"
+          data-testid="settings-warn-turnstile-misconfigured"
+          className="rounded border border-[#5a2b2b] bg-[#2a1414] px-3 py-2 text-sm text-[#eda9a9]"
+        >
+          人机验证已启用但密钥缺失,当前实际未生效(登录端点已失败关闭)。
+        </p>
+      )}
+      <TextRow
+        label="Site Key"
+        testid="settings-field-turnstile-siteKey"
+        value={siteKey}
+        onChange={setSiteKey}
+      />
       <label className="flex flex-col gap-1 text-sm md:flex-row md:items-center md:gap-3">
         <span className="w-56 shrink-0 text-[#93b2ce]">Secret Key</span>
         <SecretInput

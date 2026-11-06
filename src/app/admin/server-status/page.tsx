@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/server/session-guard";
-import { getRawStatusConfig, getServerStatus } from "@/server/services/status/status";
+import { getServerStatus } from "@/server/services/status/status";
+import { getRawStatusConfig } from "@/server/services/status/config";
 import { listProgressionTimeline } from "@/server/services/progression/progression";
 import { ServerStatusConfigForm } from "@/components/admin/server-status-config";
 

@@ -21,8 +21,6 @@ import {
   GameSyncError,
   restoreGameCredential,
   revokeEverything,
-  validateNewPassword,
-  verifySitePassword,
   withPasswordLock,
   writeGamePassword,
   writeSitePassword,
@@ -30,6 +28,7 @@ import {
   type PasswordChangeOutcome,
   type SiteUser,
 } from "./shared";
+import { validateNewPassword, verifySitePassword } from "./policy";
 
 // ===== 登录态改密 =====
 
@@ -50,10 +49,12 @@ export async function changePassword(input: {
     },
   });
   if (!user || user.status === "banned") return { ok: false, reason: "banned" };
-  if (!verifySitePassword(user.passwordHash, input.currentPassword)) {
+  if (!(await verifySitePassword(user.passwordHash, input.currentPassword))) {
     return { ok: false, reason: "bad_current" };
   }
-  const policy = validateNewPassword(input.newPassword, user.username);
+  const policy = await validateNewPassword(input.newPassword, user.username, {
+    previousHash: user.passwordHash,
+  });
   if (!policy.ok) {
     return { ok: false, reason: "weak_password", message: policy.message };
   }
@@ -124,7 +125,7 @@ export async function requestEmailChange(input: {
     select: { id: true, username: true, email: true, passwordHash: true },
   });
   if (!user) return { ok: false, reason: "bad_current" };
-  if (!verifySitePassword(user.passwordHash, input.currentPassword)) {
+  if (!(await verifySitePassword(user.passwordHash, input.currentPassword))) {
     return { ok: false, reason: "bad_current" };
   }
   const newEmail = input.newEmailRaw.trim().toLowerCase();

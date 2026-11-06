@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiError, apiOk, parseBody } from "@/server/http";
 import { hitRateLimit } from "@/lib/redis/rate-limit";
 import { recordNotFound } from "@/server/services/stats/not-found";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 /**
  * 404 采集上报(US4 T025,FR-312/research R8):匿名公开路由。
@@ -25,10 +26,7 @@ export async function POST(req: NextRequest) {
   }
   const path = raw.slice(0, 256);
 
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    req.headers.get("x-real-ip") ??
-    null;
+  const ip = await getClientIp(req);
   if (ip) {
     const limited = await hitRateLimit(`rl:404:${ip}`, {
       windowSec: RATE_WINDOW_SEC,

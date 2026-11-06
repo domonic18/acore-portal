@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { apiError, apiOk } from "@/server/http";
 import { requireApiAdmin } from "@/server/session-guard";
 import { OrderAdminError, resolveMigrationReview } from "@/server/services/orders/admin";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 /** D3 复核落定(T062;data-model §2.9):{ approve, note? } → completed/cancelled + 审计 */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -11,9 +12,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!Number.isInteger(id) || id <= 0) {
     return apiError(404, "NOT_FOUND", "复核项不存在。");
   }
-  const body = (await req.json().catch(() => null)) as
-    | { approve?: unknown; note?: unknown }
-    | null;
+  const body = (await req.json().catch(() => null)) as { approve?: unknown; note?: unknown } | null;
   if (typeof body?.approve !== "boolean") {
     return apiError(422, "APPROVE_REQUIRED", "approve 必须为布尔值。");
   }
@@ -25,7 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       BigInt(id),
       { approve: body.approve, note: typeof body.note === "string" ? body.note : undefined },
       BigInt(guard.session.userId),
-      req.headers.get("x-forwarded-for"),
+      await getClientIp(req),
     );
     return apiOk({ resolved: true });
   } catch (err) {

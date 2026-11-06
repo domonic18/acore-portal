@@ -25,9 +25,38 @@ const ADMIN_ID = 3n;
 
 const SMTP_KEYS = ["smtp.host", "smtp.port", "smtp.user", "smtp.password", "smtp.from"];
 const TURNSTILE_KEYS = ["turnstile.enabled", "turnstile.siteKey", "turnstile.secretKey"];
-const SECURITY_KEYS = ["security.loginMaxFails", "security.loginWindowSec", "security.loginLockSec"];
+const SECURITY_KEYS = [
+  "security.loginMaxFails",
+  "security.loginWindowSec",
+  "security.loginLockSec",
+  "security.trustedProxyHops",
+  "security.loginIpSoftFails",
+  "security.loginIpMaxFails",
+  "security.loginIpLockSec",
+  "security.loginSoftLockSec",
+  "security.loginGlobalMaxPerMin",
+  "security.loginMaxConcurrent",
+  "security.loginQueueWaitMs",
+  "security.loginUnknownIpMaxPerMin",
+  "security.registerIpMaxPerHour",
+  "security.pwresetIpMaxPerHour",
+  "security.emailChangeIpMaxPerHour",
+  "security.unknownIpMaxPerHour",
+  "security.statusIpMaxPerMin",
+  "security.statusGlobalMaxPerMin",
+  "security.statusUnknownIpMaxPerMin",
+  "security.artviewIpMaxPerMin",
+  "security.artviewArticleMax",
+  "security.artviewArticleWindowSec",
+];
 const NOTIFY_KEYS = ["notify.pointEmailThreshold"];
-const SITE_KEYS = ["site.icp", "site.copyrightEn", "site.qqGroup", "site.qqGroupQr", "site.qqGroupJoinUrl"];
+const SITE_KEYS = [
+  "site.icp",
+  "site.copyrightEn",
+  "site.qqGroup",
+  "site.qqGroupQr",
+  "site.qqGroupJoinUrl",
+];
 const HOME_KEYS = [
   "home.achievementUrl",
   "home.achievementHeight",
@@ -116,7 +145,11 @@ describe("getSettingsView(T029)", () => {
     });
     const view = await getSettingsView();
     expect(view.smtp.passwordConfigured).toBe(true);
-    expect(view.turnstile).toMatchObject({ enabled: true, siteKey: "site-x", secretKeyConfigured: true });
+    expect(view.turnstile).toMatchObject({
+      enabled: true,
+      siteKey: "site-x",
+      secretKeyConfigured: true,
+    });
     const dumped = JSON.stringify(view);
     expect(dumped).not.toContain("plain-secret-pw");
     expect(dumped).not.toContain("turn-plain-secret");
@@ -125,7 +158,21 @@ describe("getSettingsView(T029)", () => {
   it("未配置:turnstile 走关闭态", async () => {
     await delKeys(TURNSTILE_KEYS);
     const view = await getSettingsView();
-    expect(view.turnstile).toEqual({ enabled: false, siteKey: null, secretKeyConfigured: false });
+    expect(view.turnstile).toEqual({
+      enabled: false,
+      siteKey: null,
+      secretKeyConfigured: false,
+      misconfigured: false,
+    });
+  });
+
+  it("启用但密钥缺失:标 misconfigured(后台出告警,登录端点失败关闭)", async () => {
+    await setKeys({
+      "turnstile.enabled": "true",
+      "turnstile.siteKey": "site-x",
+    });
+    const view = await getSettingsView();
+    expect(view.turnstile.misconfigured).toBe(true);
   });
 });
 
@@ -133,7 +180,13 @@ describe("saveSettingsGroup(T029)", () => {
   it("smtp 全量保存:覆写+审计 SETTINGS_CHANGED 只落键名不落值", async () => {
     const result = await saveGroup(
       "smtp",
-      { host: "smtp2.test.local", port: 587, user: "u2", password: "brand-new-pw", from: "ops@lokta.local" },
+      {
+        host: "smtp2.test.local",
+        port: 587,
+        user: "u2",
+        password: "brand-new-pw",
+        from: "ops@lokta.local",
+      },
       { id: ADMIN_ID },
     );
     expect(result).toEqual({ ok: true });
@@ -148,7 +201,11 @@ describe("saveSettingsGroup(T029)", () => {
 
     const audit = await latestAudit(AUDIT_ACTION.SETTINGS_CHANGED);
     expect(audit).not.toBeNull();
-    const payload = audit!.payloadJson as { group?: string; diff?: Record<string, string>; sensitive?: string[] };
+    const payload = audit!.payloadJson as {
+      group?: string;
+      diff?: Record<string, string>;
+      sensitive?: string[];
+    };
     expect(payload.group).toBe("smtp");
     expect(Object.keys(payload.diff ?? {}).sort()).toEqual([...SMTP_KEYS].sort());
     expect(payload.sensitive).toContain("smtp.password");
@@ -168,9 +225,9 @@ describe("saveSettingsGroup(T029)", () => {
     });
     expect(row?.value).toBe("brand-new-pw");
     const audit = await latestAudit(AUDIT_ACTION.SETTINGS_CHANGED);
-    expect(Object.keys((audit!.payloadJson as { diff: Record<string, string> }).diff).sort()).toEqual(
-      ["smtp.host", "smtp.from", "smtp.port", "smtp.user"].sort(),
-    );
+    expect(
+      Object.keys((audit!.payloadJson as { diff: Record<string, string> }).diff).sort(),
+    ).toEqual(["smtp.host", "smtp.from", "smtp.port", "smtp.user"].sort());
   });
 
   it("非法组名 422 VALIDATION_FAILED", async () => {
@@ -208,22 +265,83 @@ describe("saveSettingsGroup(T029)", () => {
       { id: ADMIN_ID },
     );
     expect((await getConfig()).turnstile).toMatchObject({ enabled: true, siteKey: "sk-1" });
-    await saveGroup("turnstile", { enabled: true, siteKey: "sk-2", secretKey: "" }, { id: ADMIN_ID });
-    expect((await getConfig()).turnstile).toMatchObject({ enabled: true, siteKey: "sk-2", secretKey: "sec-1" });
+    await saveGroup(
+      "turnstile",
+      { enabled: true, siteKey: "sk-2", secretKey: "" },
+      { id: ADMIN_ID },
+    );
+    expect((await getConfig()).turnstile).toMatchObject({
+      enabled: true,
+      siteKey: "sk-2",
+      secretKey: "sec-1",
+    });
   });
 
   it("security/notify 组保存 → reloadSystemConfig 热生效(getConfig 反映新值)", async () => {
+    // 全量提交:16 键显式落库,断言不依赖库里既有值(E2E 预置会改写这些行)
     await saveGroup(
       "security",
-      { loginMaxFails: 7, loginWindowSec: 600, loginLockSec: 300 },
+      {
+        loginMaxFails: 7,
+        loginWindowSec: 600,
+        loginLockSec: 300,
+        trustedProxyHops: 1,
+        loginIpSoftFails: 20,
+        loginIpMaxFails: 50,
+        loginIpLockSec: 900,
+        loginSoftLockSec: 2,
+        loginGlobalMaxPerMin: 60,
+        loginMaxConcurrent: 4,
+        loginQueueWaitMs: 1500,
+        loginUnknownIpMaxPerMin: 600,
+        registerIpMaxPerHour: 10,
+        pwresetIpMaxPerHour: 20,
+        emailChangeIpMaxPerHour: 20,
+        unknownIpMaxPerHour: 6000,
+        statusIpMaxPerMin: 30,
+        statusGlobalMaxPerMin: 120,
+        statusUnknownIpMaxPerMin: 600,
+        artviewIpMaxPerMin: 60,
+        artviewArticleMax: 1,
+        artviewArticleWindowSec: 600,
+      },
       { id: ADMIN_ID },
     );
     await saveGroup("notify", { pointEmailThreshold: 120 }, { id: ADMIN_ID });
     const config = await getConfig();
-    expect(config.security).toEqual({ loginMaxFails: 7, loginWindowSec: 600, loginLockSec: 300 });
+    expect(config.security).toEqual({
+      loginMaxFails: 7,
+      loginWindowSec: 600,
+      loginLockSec: 300,
+      trustedProxyHops: 1,
+      loginIpSoftFails: 20,
+      loginIpMaxFails: 50,
+      loginIpLockSec: 900,
+      loginSoftLockSec: 2,
+      loginGlobalMaxPerMin: 60,
+      loginMaxConcurrent: 4,
+      loginQueueWaitMs: 1500,
+      loginUnknownIpMaxPerMin: 600,
+      registerIpMaxPerHour: 10,
+      pwresetIpMaxPerHour: 20,
+      emailChangeIpMaxPerHour: 20,
+      unknownIpMaxPerHour: 6000,
+      statusIpMaxPerMin: 30,
+      statusGlobalMaxPerMin: 120,
+      statusUnknownIpMaxPerMin: 600,
+      artviewIpMaxPerMin: 60,
+      artviewArticleMax: 1,
+      artviewArticleWindowSec: 600,
+    });
     expect(config.notify.pointEmailThreshold).toBe(120);
   });
 
+  it("security 组部分提交:未带的字段保持现值(组级全量提交口径)", async () => {
+    await saveGroup("security", { loginIpMaxFails: 80 }, { id: ADMIN_ID });
+    const config = await getConfig();
+    expect(config.security.loginIpMaxFails).toBe(80);
+    expect(config.security.loginMaxFails).toBe(7);
+  });
 });
 
 describe("site 组(CRUD 对齐审计)", () => {
@@ -260,21 +378,31 @@ describe("site 组(CRUD 对齐审计)", () => {
     });
     const audit = await latestAudit(AUDIT_ACTION.SETTINGS_CHANGED);
     expect((audit!.payloadJson as { group?: string }).group).toBe("site");
-    expect(Object.keys((audit!.payloadJson as { diff: Record<string, string> }).diff).sort()).toEqual(
-      ["site.icp", "site.qqGroup", "site.qqGroupQr"].sort(),
-    );
+    expect(
+      Object.keys((audit!.payloadJson as { diff: Record<string, string> }).diff).sort(),
+    ).toEqual(["site.icp", "site.qqGroup", "site.qqGroupQr"].sort());
     expect(JSON.stringify(audit!.payloadJson)).not.toContain("京ICP备E2E000001号");
     // copyrightEn 覆写与显式清空(空串=页脚隐藏英文声明);
     // qqGroup 空串=侧栏隐藏 QQ 卡,qqGroupQr 空串=卡内不渲染二维码
     await saveGroup(
       "site",
-      { icp: "京ICP备E2E000001号", copyrightEn: "Custom EN line.", qqGroup: "10086100", qqGroupQr: "/uploads/qq-qr.png" },
+      {
+        icp: "京ICP备E2E000001号",
+        copyrightEn: "Custom EN line.",
+        qqGroup: "10086100",
+        qqGroupQr: "/uploads/qq-qr.png",
+      },
       { id: ADMIN_ID },
     );
     expect((await getConfig()).site.copyrightEn).toBe("Custom EN line.");
     await saveGroup(
       "site",
-      { icp: "京ICP备E2E000001号", copyrightEn: "", qqGroup: "10086100", qqGroupQr: "/uploads/qq-qr.png" },
+      {
+        icp: "京ICP备E2E000001号",
+        copyrightEn: "",
+        qqGroup: "10086100",
+        qqGroupQr: "/uploads/qq-qr.png",
+      },
       { id: ADMIN_ID },
     );
     expect((await getConfig()).site.copyrightEn).toBe("");
@@ -310,7 +438,12 @@ describe("site 组(CRUD 对齐审计)", () => {
     expect(badQr).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
     const badJoin = await saveGroup(
       "site",
-      { icp: "京ICP备E2E000001号", qqGroup: "10086100", qqGroupQr: "", qqGroupJoinUrl: "javascript:alert(1)" },
+      {
+        icp: "京ICP备E2E000001号",
+        qqGroup: "10086100",
+        qqGroupQr: "",
+        qqGroupJoinUrl: "javascript:alert(1)",
+      },
       { id: ADMIN_ID },
     );
     expect(badJoin).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
@@ -353,9 +486,9 @@ describe("home 组(轮播间隔+成就嵌入)", () => {
     });
     const audit = await latestAudit(AUDIT_ACTION.SETTINGS_CHANGED);
     expect((audit!.payloadJson as { group?: string }).group).toBe("home");
-    expect(Object.keys((audit!.payloadJson as { diff: Record<string, string> }).diff)).toEqual(
-      ["home.carouselIntervalSec"],
-    );
+    expect(Object.keys((audit!.payloadJson as { diff: Record<string, string> }).diff)).toEqual([
+      "home.carouselIntervalSec",
+    ]);
   });
 
   it("轮播间隔越界(0/61/2.5)422 零写入", async () => {

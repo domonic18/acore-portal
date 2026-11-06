@@ -19,14 +19,21 @@ export type IssuedToken = { plain: string; expiresAt: Date };
 
 export async function issueUserToken(
   db: Db,
-  input: { userId: bigint; type: TokenTypeValue; payload?: string },
+  input: {
+    userId: bigint;
+    type: TokenTypeValue;
+    payload?: string;
+    /** 覆盖默认有效期(运维强制改密等长窗口场景) */
+    ttlSec?: number;
+  },
 ): Promise<IssuedToken> {
   // 再签作废:同 user+type 旧 token 全部删除(R11)
   await db.userToken.deleteMany({
     where: { userId: input.userId, type: input.type },
   });
   const plain = crypto.randomBytes(32).toString("base64url");
-  const expiresAt = new Date(Date.now() + TOKEN_TTL_SECONDS[input.type] * 1000);
+  const ttl = input.ttlSec ?? TOKEN_TTL_SECONDS[input.type];
+  const expiresAt = new Date(Date.now() + ttl * 1000);
   await db.userToken.create({
     data: {
       userId: input.userId,
@@ -64,10 +71,7 @@ export async function consumeUserToken(
 }
 
 /** 仅查询不消费(重置流程需先取用户再做游戏端写入) */
-export async function findLiveUserToken(
-  db: Db,
-  input: { type: TokenTypeValue; plain: string },
-) {
+export async function findLiveUserToken(db: Db, input: { type: TokenTypeValue; plain: string }) {
   const row = await db.userToken.findFirst({
     where: { tokenHash: sha256Hex(input.plain) },
   });

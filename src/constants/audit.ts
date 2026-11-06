@@ -67,6 +67,14 @@ export const AUDIT_ACTION = {
   FORUM_POST_DELETED: "forum_post_deleted",
   /** M4 防滥用:连续失败达阈值触发锁定(category=security;payload 无密码,只记用户名/ip/计数) */
   LOGIN_LOCKED: "login_locked",
+  /** 2026-11-06 撞库加固:登录成功(category=security;actorUserId 为登录者,payload 记 username/是否透明升级) */
+  LOGIN_SUCCESS: "login_success",
+  /** 2026-11-06 撞库加固:用户名不存在时的失败(category=security;actorUserId=null,payload 记 username) */
+  LOGIN_FAILED_UNKNOWN: "login_failed_unknown",
+  /** 2026-11-06 撞库加固:单 IP 失败数越软阈(category=security;payload 记 ip/计数) */
+  LOGIN_IP_SUSPICIOUS: "login_ip_suspicious",
+  /** 2026-11-06 撞库加固:安全告警(category=security;payload 记 kind/ip/count/window) */
+  SECURITY_ALERT: "security_alert",
   /** M4 系统设置保存(category=admin;只落组名/键名/掩码 diff,任何值不落审计) */
   SETTINGS_CHANGED: "settings_changed",
   /** M4 设置页测试发信(category=admin;记 to) */
@@ -89,3 +97,19 @@ export const AUDIT_ACTION = {
 } as const;
 
 export type AuditActionValue = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];
+
+/**
+ * 审计动作展示标签(后台安全看板用)。
+ * 只覆盖安全域高频动作,未列出的回退显示原始 action 值。
+ */
+export const AUDIT_ACTION_LABEL: Record<string, string> = {
+  [AUDIT_ACTION.LOGIN_FAILED]: "登录失败",
+  [AUDIT_ACTION.LOGIN_FAILED_UNKNOWN]: "登录失败(账号不存在)",
+  [AUDIT_ACTION.LOGIN_SUCCESS]: "登录成功",
+  [AUDIT_ACTION.LOGIN_LOCKED]: "账号锁定",
+  [AUDIT_ACTION.LOGIN_IP_SUSPICIOUS]: "来源 IP 可疑",
+  [AUDIT_ACTION.SECURITY_ALERT]: "安全告警",
+  [AUDIT_ACTION.ADMIN_ACCESS_VIOLATION]: "越权访问后台",
+  [AUDIT_ACTION.PASSWORD_RESET]: "密码重置",
+  [AUDIT_ACTION.PASSWORD_CHANGED]: "密码修改",
+};

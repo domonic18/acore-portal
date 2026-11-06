@@ -15,7 +15,8 @@ import { POST as productViewRoute } from "@/app/api/shop/product-view/route";
  */
 const RUN = Date.now().toString(36);
 const SLUG = `cv-${RUN}`;
-const RL_IP = `cvip-${RUN}`;
+// 客户端 IP 走 XFF 右起 1 跳解析(PR-A),须为合法 IP;第三段与其它集成文件错开
+const RL_IP = `203.2.${Number.parseInt(RUN, 36) % 254}.10`;
 
 function viewReq(productId: number | string, ip?: string): NextRequest {
   const headers = new Headers({ "content-type": "application/json" });
@@ -122,9 +123,7 @@ describe("转化漏斗 getConversionFunnel", () => {
       );
     }
     if (funnel.addCart > 0) {
-      expect(funnel.cartToOrder).toBe(
-        Number(((funnel.order / funnel.addCart) * 100).toFixed(1)),
-      );
+      expect(funnel.cartToOrder).toBe(Number(((funnel.order / funnel.addCart) * 100).toFixed(1)));
     }
   });
 });
@@ -157,8 +156,6 @@ describe("浏览上报路由 POST /api/shop/product-view", () => {
     }
     const blocked = await productViewRoute(viewReq(productId.toString(), RL_IP));
     expect(blocked.status).toBe(429);
-    expect(((await blocked.json()) as { error: { code: string } }).error.code).toBe(
-      "RATE_LIMITED",
-    );
+    expect(((await blocked.json()) as { error: { code: string } }).error.code).toBe("RATE_LIMITED");
   });
 });

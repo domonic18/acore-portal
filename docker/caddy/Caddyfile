@@ -12,12 +12,26 @@
 
 	# 上传体积不在此设限:媒体库的体积闸门在应用层(图/PDF 10MB、视频 50MB),
 	# 网关再限会先于应用层拒绝,错误提示也拿不到中文文案
+	# 但认证类接口的正文极小(用户名/密码/令牌),单独收一道闸门(2026-11-06 撞库加固)
+	@authpath path /api/auth/* /api/account/*
+	request_body @authpath {
+		max_size 32KB
+	}
+
+	# 安全响应头(2026-11-06 撞库加固)
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
 
 	log {
 		output stdout
 		format console
 	}
 
-	# 全站 HTTPS 稳定后再开 HSTS(带 includeSubDomains 时子域名未全量 https 会锁死)
-	# header Strict-Transport-Security "max-age=31536000"
+	# HSTS 注释说明:全站 HTTPS 稳定后再开 includeSubDomains
+	# (带 includeSubDomains 时子域名未全量 https 会锁死)
 }

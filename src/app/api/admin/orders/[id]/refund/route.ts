@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { apiError, apiOk } from "@/server/http";
 import { requireApiAdmin } from "@/server/session-guard";
 import { OrderAdminError, refundOrder } from "@/server/services/orders/admin";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 /** 退款(FR-129):paid/delivery_failed/completed → 积分回补+库存回补+refunded+审计 */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const { balanceAfter } = await refundOrder(
       BigInt(id),
       BigInt(guard.session.userId),
-      req.headers.get("x-forwarded-for"),
+      await getClientIp(req),
     );
     return apiOk({ balanceAfter });
   } catch (err) {
