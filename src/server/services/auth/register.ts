@@ -4,7 +4,6 @@ import { prisma } from "@/lib/db";
 import { authDb } from "@/lib/db/auth";
 import { getConfig } from "@/lib/config";
 import { srp6MakeRegistrationData } from "@/lib/auth/game-hash";
-import { hashWpBcrypt } from "@/lib/auth/wp-bcrypt";
 import { PASSWORD_ALGO, PENDING_HASH_PREFIX } from "@/constants/password";
 import { TOKEN_TYPE } from "@/constants/token";
 import { MAIL_TEMPLATE } from "@/constants/mail";
@@ -16,8 +15,14 @@ import { creditLedger } from "@/server/services/shared/ledger";
 import { getEarnAmount } from "@/server/services/points/rules";
 import { issueUserToken, findLiveUserToken } from "@/server/services/shared/user-token";
 import {
+  auditDualWriteFailed,
+  auditDualWriteRecovered,
+  restoreGameCredential,
+  type GameCredential,
   withPasswordLock,
   validateNewPassword,
+  writeGamePassword,
+  writeSitePassword,
 } from "@/server/services/auth/password";
 import { createSession } from "@/lib/auth/session";
 import { isUniqueViolation } from "@/server/http";
@@ -231,13 +236,10 @@ export async function activateAccount(input: {
       });
       if (claimed.count === 0) return { ok: false, reason: "invalid_token" };
 
+      let accountId: number;
+      let previous: GameCredential;
       try {
-        const account = await authDb.findByUsername(user.username);
-        if (!account) throw new Error("game_account_missing");
-        await authDb.updateAccountCredential(
-          account.id,
-          srp6MakeRegistrationData(user.username, input.password),
-        );
+        ({ accountId, previous } = await writeGamePassword(user.username, input.password));
       } catch {
         await prisma.userToken.update({
           where: { id: row.id },
@@ -253,13 +255,22 @@ export async function activateAccount(input: {
         return { ok: false, reason: "game_db_unavailable" };
       }
 
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          passwordHash: hashWpBcrypt(input.password),
-          passwordAlgo: PASSWORD_ALGO.BCRYPT_WP,
-        },
-      });
+      try {
+        await writeSitePassword(user.id, input.password);
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : "site_write_failed";
+        try {
+          await restoreGameCredential(accountId, previous);
+          await prisma.userToken.update({ where: { id: row.id }, data: { usedAt: null } });
+          await auditDualWriteFailed(user.id, `site_write_failed:${reason}`, input.ip);
+          await auditDualWriteRecovered(user.id, "game_rollback_and_token_released", input.ip);
+        } catch (rollbackErr) {
+          const rollbackReason = rollbackErr instanceof Error ? rollbackErr.message : "unknown";
+          await auditDualWriteFailed(user.id, `rollback_failed:${rollbackReason}`, input.ip);
+        }
+        return { ok: false, reason: "game_db_unavailable" };
+      }
+
       await writeAudit({
         category: AUDIT_CATEGORY.SECURITY,
         action: AUDIT_ACTION.ACCOUNT_ACTIVATED,

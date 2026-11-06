@@ -9,6 +9,7 @@ import { AUDIT_ACTION } from "@/constants/audit";
 import { redis } from "@/lib/redis";
 import { getSessionFromToken } from "@/lib/auth/session";
 import { registerAccount, activateAccount, resendActivation } from "@/server/services/auth/register";
+import * as passwordShared from "@/server/services/auth/password/shared";
 import { recalculateLedger } from "@/server/services/shared/ledger";
 import { loginWithPassword } from "@/server/services/auth/login";
 
@@ -254,11 +255,59 @@ describe("US2 激活设密(T029)", () => {
     const retried = await activateAccount({ tokenPlain: token, password: "Late12345" });
     expect(retried.ok).toBe(true);
   });
+
+  it("激活时游戏端成功后站点失败→token 释放+游戏回滚+同一链接可重试", async () => {
+    const input = await makeRegisterInput(8);
+    createdUsers.push(input.username);
+    await registerAccount(input);
+    const token = await latestActivateToken(input.email);
+    const beforeGame = await authDb.findByUsername(input.username);
+
+    const updateSpy = vi
+      .spyOn(passwordShared, "writeSitePassword")
+      .mockRejectedValueOnce(new Error("mock: site db down"));
+    const failed = await activateAccount({ tokenPlain: token, password: "Split12345" });
+    expect(failed).toEqual({ ok: false, reason: "game_db_unavailable" });
+    updateSpy.mockRestore();
+
+    // token 已释放
+    const tokenRow = await prisma.userToken.findFirstOrThrow({
+      where: { user: { username: input.username }, type: "activate" },
+    });
+    expect(tokenRow.usedAt).toBeNull();
+
+    // 游戏端回滚,占位仍不可登录
+    expect(beforeGame).not.toBeNull();
+    const afterGame = await authDb.findByUsername(input.username);
+    expect(
+      afterGame &&
+        Buffer.compare(Buffer.from(afterGame.salt), Buffer.from(beforeGame!.salt)) === 0 &&
+        Buffer.compare(Buffer.from(afterGame.verifier), Buffer.from(beforeGame!.verifier)) === 0,
+    ).toBe(true);
+    const user = await prisma.user.findUniqueOrThrow({ where: { username: input.username } });
+    expect(user.passwordHash.startsWith(PENDING_HASH_PREFIX)).toBe(true);
+    expect((await loginWithPassword(input.username, "Split12345")).ok).toBe(false);
+
+    const failedAudit = await prisma.auditLog.findFirst({
+      where: { actorUserId: user.id, action: AUDIT_ACTION.PASSWORD_DUAL_WRITE_FAILED },
+    });
+    expect(failedAudit).not.toBeNull();
+    expect((failedAudit?.payloadJson as { reason?: string }).reason).toMatch(/^site_write_failed:/);
+
+    const recoveredAudit = await prisma.auditLog.findFirst({
+      where: { actorUserId: user.id, action: AUDIT_ACTION.PASSWORD_DUAL_WRITE_RECOVERED },
+    });
+    expect(recoveredAudit).not.toBeNull();
+
+    // 同一链接重试成功
+    const retried = await activateAccount({ tokenPlain: token, password: "Split12345" });
+    expect(retried.ok).toBe(true);
+  });
 });
 
 describe("US2 激活邮件重发(T030)", () => {
   it("重发作废旧 token,新 token 可激活;限速生效", async () => {
-    const input = await makeRegisterInput(8);
+    const input = await makeRegisterInput(9);
     createdUsers.push(input.username);
     await registerAccount(input);
     const oldToken = await latestActivateToken(input.email);
