@@ -220,7 +220,7 @@ describe("US2 激活设密(T029)", () => {
     }
 
     const user = await prisma.user.findUniqueOrThrow({ where: { username: input.username } });
-    expect(verifyWpBcrypt("Actpass123", user.passwordHash)).toBe(true);
+    expect(await verifyWpBcrypt("Actpass123", user.passwordHash)).toBe(true);
     expect(user.passwordHash.startsWith("$wp$")).toBe(true);
     const game = await authDb.findByUsername(input.username);
     expect(

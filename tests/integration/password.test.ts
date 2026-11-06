@@ -60,7 +60,7 @@ async function makeUser(input: { withGame?: boolean } = {}) {
     data: {
       username,
       email,
-      passwordHash: hashWpBcrypt("oldpass456"),
+      passwordHash: await hashWpBcrypt("oldpass456"),
       passwordAlgo: PASSWORD_ALGO.BCRYPT_WP,
     },
   });
@@ -128,7 +128,7 @@ describe("US3 改密双写(quickstart S3)", () => {
       where: { id: u.id },
       select: { passwordHash: true, passwordAlgo: true },
     });
-    expect(verifyWpBcrypt("Newpass123", site.passwordHash)).toBe(true);
+    expect(await verifyWpBcrypt("Newpass123", site.passwordHash)).toBe(true);
     expect(site.passwordAlgo).toBe(PASSWORD_ALGO.BCRYPT_WP);
 
     const game = await authDb.findByUsername(u.username);

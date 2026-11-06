@@ -85,7 +85,7 @@ test.beforeAll(async () => {
     data: {
       username: USERNAME,
       email: EMAIL,
-      passwordHash: hashWpBcrypt(OLD_PASS),
+      passwordHash: await hashWpBcrypt(OLD_PASS),
       passwordAlgo: PASSWORD_ALGO.BCRYPT_WP,
     },
   });

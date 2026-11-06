@@ -32,11 +32,25 @@ import { POST as registerPost } from "@/app/api/auth/register/route";
  */
 const RUN = Date.now().toString(36);
 const PASSWORD = "GuardPass123";
-const MAX_FAILS = 5; // 默认 security.loginMaxFails(测试库无 security 行)
+const MAX_FAILS = 5;
 const TS_KEYS = ["turnstile.enabled", "turnstile.siteKey", "turnstile.secretKey"];
-/** 全局哈希预算键(PR-C):本文件用例数已超默认 60 次/分,测试期放宽,用完还原 */
-const BUDGET_KEY = "security.loginGlobalMaxPerMin";
-const BUDGET_TEST_VALUE = "100000";
+/**
+ * 本文件断言的阈值全部**显式钉住**,不依赖库里现值——
+ * 开发库会被 E2E 预置/运维调参改动(如 loginIpMaxFails 被放宽到 5000),
+ * 那样断言会静默失真。用完原样还原。
+ */
+const PINNED_SECURITY: Record<string, string> = {
+  "security.loginMaxFails": String(MAX_FAILS),
+  "security.loginWindowSec": "900",
+  "security.loginLockSec": "900",
+  "security.trustedProxyHops": "1",
+  "security.loginIpSoftFails": "20",
+  "security.loginIpMaxFails": "50",
+  "security.loginIpLockSec": "900",
+  "security.loginSoftLockSec": "2",
+  // 本文件登录路由调用数超默认 60 次/分,测试期放宽
+  "security.loginGlobalMaxPerMin": "100000",
+};
 const GHOST = `t_${RUN}_au_ghost`;
 const createdUsers: string[] = [];
 const redisKeys: string[] = [];
@@ -50,7 +64,7 @@ async function makeUser(suffix: number, password: string) {
     data: {
       username,
       email: `${username}@test.local`,
-      passwordHash: hashWpBcrypt(password),
+      passwordHash: await hashWpBcrypt(password),
       passwordAlgo: PASSWORD_ALGO.BCRYPT_WP,
     },
     select: { id: true, username: true },
@@ -93,39 +107,37 @@ async function enableTurnstile() {
   await reloadSystemConfig();
 }
 
-let budgetBackup: string | null = null;
+let securityBackup: { key: string; value: string }[] = [];
 
 beforeAll(async () => {
   await prisma.$queryRaw`SELECT 1`;
   await redis.ping();
   // 关态基线:turnstile 行持久跨文件,先清(组内开态测试结束也会还原)
   await prisma.systemConfig.deleteMany({ where: { key: { in: TS_KEYS } } });
-  // 全局哈希预算放宽(本文件登录路由调用数超默认 60 次/分),用完还原
-  budgetBackup =
-    (
-      await prisma.systemConfig.findUnique({
-        where: { key: BUDGET_KEY },
-        select: { value: true },
-      })
-    )?.value ?? null;
-  await prisma.systemConfig.upsert({
-    where: { key: BUDGET_KEY },
-    create: { key: BUDGET_KEY, value: BUDGET_TEST_VALUE },
-    update: { value: BUDGET_TEST_VALUE },
+  // 阈值钉住:先快照,再强制写入本文件断言所依赖的值
+  securityBackup = await prisma.systemConfig.findMany({
+    where: { key: { in: Object.keys(PINNED_SECURITY) } },
+    select: { key: true, value: true },
   });
+  for (const [key, value] of Object.entries(PINNED_SECURITY)) {
+    await prisma.systemConfig.upsert({
+      where: { key },
+      create: { key, value },
+      update: { value },
+    });
+  }
   await redis.del(loginGlobalKey());
   await reloadSystemConfig();
 });
 
 afterAll(async () => {
   await prisma.systemConfig.deleteMany({ where: { key: { in: TS_KEYS } } });
-  await prisma.systemConfig.deleteMany({ where: { key: BUDGET_KEY } });
-  if (budgetBackup !== null) {
-    await prisma.systemConfig.upsert({
-      where: { key: BUDGET_KEY },
-      create: { key: BUDGET_KEY, value: budgetBackup },
-      update: { value: budgetBackup },
-    });
+  // 还原阈值:原缺失的键删除(回落代码默认值),原存在的键写回
+  await prisma.systemConfig.deleteMany({
+    where: { key: { in: Object.keys(PINNED_SECURITY) } },
+  });
+  if (securityBackup.length > 0) {
+    await prisma.systemConfig.createMany({ data: securityBackup });
   }
   await reloadSystemConfig();
   for (const username of createdUsers) {
@@ -478,7 +490,7 @@ describe("2026-11-06 撞库加固——IP 维解耦 + 哈希背压(PR-C)", () =>
     const i = ip(62);
     redisKeys.push(loginFailIpKey(i));
 
-    await redis.set(loginGlobalKey(), String(Number(BUDGET_TEST_VALUE) + 1), "EX", 60);
+    await redis.set(loginGlobalKey(), String(Number(PINNED_SECURITY["security.loginGlobalMaxPerMin"]) + 1), "EX", 60);
     const res = await login({ username, password: "wrong" }, i);
     await redis.del(loginGlobalKey());
 

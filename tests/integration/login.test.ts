@@ -22,7 +22,7 @@ async function makeUser(input: {
   const passwordHash =
     input.algo === "phpass"
       ? hashPhpass("oldpass123")
-      : hashWpBcrypt("oldpass456");
+      : await hashWpBcrypt("oldpass456");
   const user = await prisma.user.create({
     data: {
       username,
