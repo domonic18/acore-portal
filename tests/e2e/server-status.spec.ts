@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import Redis from "ioredis";
+import { resolveE2ERedisUrl } from "./redis-url";
 
 /**
  * T046 E2E(US6/S6,SC-208 渲染半):状态卡正常渲染(mock 样例字段+种子阶段)/
@@ -10,7 +11,7 @@ import Redis from "ioredis";
  */
 // dev compose 的 soap-mock 宿主端口 17878(7878 让位真机 worldserver)
 const MOCK_BASE = process.env.SOAP_MOCK_URL ?? "http://localhost:17878";
-const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6381/0");
+const redis = new Redis(resolveE2ERedisUrl());
 
 async function setMockMode(mode: "normal" | "failure") {
   await fetch(`${MOCK_BASE}/__mode?mode=${mode}`);

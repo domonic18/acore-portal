@@ -2,6 +2,10 @@
 -- 由 docker-entrypoint-initdb.d 在数据目录首次创建时执行
 -- 结构依据 AzerothCore 标准 schema(与生产 acore_auth/acore_characters 一致的 M1 触碰面)
 
+-- SET NAMES utf8mb4 必留:initdb 与裸 mysql 客户端的 character_set_client 默认
+-- latin1,种子里的多字节字面量(如物品名「测试坐骑·限量」)会被二次编码存成乱码。
+SET NAMES utf8mb4;
+
 -- ===== 数据库 =====
 CREATE DATABASE IF NOT EXISTS acore_auth DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 CREATE DATABASE IF NOT EXISTS acore_characters DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;

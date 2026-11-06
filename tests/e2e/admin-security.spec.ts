@@ -1,8 +1,8 @@
-import fs from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import Redis from "ioredis";
 import { PrismaClient } from "../../src/generated/business";
 import { SECURITY_ALERT_KIND, securityAlertKey } from "../../src/constants/security";
+import { resolveE2ERedisUrl } from "./redis-url";
 
 /**
  * 后台安全看板 E2E(2026-11-06 撞库加固 PR-J):
@@ -16,10 +16,7 @@ import { SECURITY_ALERT_KIND, securityAlertKey } from "../../src/constants/secur
  */
 const prisma = new PrismaClient();
 const RUN = Date.now().toString(36);
-const redisUrl =
-  fs.readFileSync(".env", "utf8").match(/^REDIS_URL=(.+)$/m)?.[1]?.trim() ??
-  "redis://localhost:6381/0";
-const redis = new Redis(redisUrl);
+const redis = new Redis(resolveE2ERedisUrl());
 
 const ATTACK_IP = `203.0.${parseInt(RUN, 36) % 254}.71`;
 /** 失败总次数(撞库:同一 IP 反复打) */

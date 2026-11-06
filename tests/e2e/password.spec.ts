@@ -4,6 +4,7 @@ import { sha256Hex, srp6MakeRegistrationData } from "../../src/lib/auth/game-has
 import { hashWpBcrypt } from "../../src/lib/auth/wp-bcrypt";
 import { PASSWORD_ALGO } from "../../src/constants/password";
 import { getAuthClient, getPrisma } from "./helpers/game-db";
+import { resolveE2ERedisUrl } from "./redis-url";
 
 /**
  * T038 US3 密码 E2E(quickstart S3):
@@ -17,7 +18,7 @@ const EMAIL = `${USERNAME}@test.local`;
 const OLD_PASS = "oldpass456";
 
 const prisma = getPrisma();
-const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6381/0");
+const redis = new Redis(resolveE2ERedisUrl());
 
 async function clearResetGate(email: string) {
   const base = `rl:pwreset:${sha256Hex(email).slice(0, 24)}`;
