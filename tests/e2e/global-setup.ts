@@ -47,6 +47,11 @@ const SECURITY_E2E: Record<string, string> = {
   "security.loginIpSoftFails": "1000",
   "security.loginIpMaxFails": "5000",
   "security.loginUnknownIpMaxPerMin": "100000",
+  // 未鉴权端点的按 IP 限速(PR-G):E2E 全部请求落「未知 IP」共享桶,须放宽
+  "security.registerIpMaxPerHour": "1000",
+  "security.pwresetIpMaxPerHour": "1000",
+  "security.emailChangeIpMaxPerHour": "1000",
+  "security.unknownIpMaxPerHour": "100000",
 };
 
 export default async function globalSetup() {

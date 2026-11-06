@@ -38,7 +38,13 @@ INSERT INTO acore_portal.system_config (`key`, `value`, `updated_at`) VALUES
   ('security.loginGlobalMaxPerMin', '60', NOW()),
   ('security.loginMaxConcurrent', '4', NOW()),
   ('security.loginQueueWaitMs', '1500', NOW()),
-  ('security.loginUnknownIpMaxPerMin', '600', NOW())
+  ('security.loginUnknownIpMaxPerMin', '600', NOW()),
+  -- 未鉴权端点按 IP 限速(2026-11-06 撞库加固 PR-G):窗口 1 小时
+  ('security.registerIpMaxPerHour', '10', NOW()),
+  ('security.pwresetIpMaxPerHour', '20', NOW()),
+  ('security.emailChangeIpMaxPerHour', '20', NOW()),
+  -- 未知 IP 共享兜底桶:IP 不可判定时所有请求并成一个桶,须留足余量
+  ('security.unknownIpMaxPerHour', '6000', NOW())
 ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW();
 
 -- 容器内栈(测试环境)参考取值(compose 服务名互访;真实凭据不入库不入 git):

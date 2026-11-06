@@ -33,3 +33,15 @@ export const LOGIN_UNKNOWN_IP_WINDOW_SEC = 60;
 
 /** 全局哈希预算计数(固定窗口):限制全站真实哈希次数,兜住 CPU 背压 */
 export const loginGlobalKey = () => `rl:login:global:${LOGIN_GLOBAL_WINDOW_SEC}s`;
+
+/** 小时级固定窗口(秒):注册/找回/换邮箱按 IP 限速共用 */
+export const IP_HOURLY_WINDOW_SEC = 3600;
+
+/** 注册按 IP 限速(固定窗口)——未鉴权端点,防 DB 放大 */
+export const registerIpKey = (ip: string) => `rl:register:ip:${ip}`;
+
+/** 找回密码按 IP 限速:申请与提交重置**共用一个桶**(同一流程的两段) */
+export const pwresetIpKey = (ip: string) => `rl:pwreset:ip:${ip}`;
+
+/** 邮箱变更确认按 IP 限速(token 即凭证,不要求登录态) */
+export const emailChangeIpKey = (ip: string) => `rl:emailchange:ip:${ip}`;

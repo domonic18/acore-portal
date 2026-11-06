@@ -9,13 +9,15 @@
 注册受理（无密码，FR-005）。成功后激活邮件入 outbox。
 
 - **Request**: `{ invitation_code: string, username: string, email: string }`
-- **校验顺序**（实时、不依赖后台刷新）：邀请码状态机（FR-001/002）→ 用户名格式与 `@`（FR-003）→ 用户名/邮箱两侧占用（FR-004）
+- **校验顺序**（实时、不依赖后台刷新）：**按 IP 限速（2026-11-06 加固：Redis 固定窗口 1 小时，阈值 `security.registerIpMaxPerHour` 默认 10；排在 body 解析与 Turnstile 之前，畸形请求体同样计数）** → 邀请码状态机（FR-001/002）→ 用户名格式与 `@`（FR-003）→ 用户名/邮箱两侧占用（FR-004）
 - **Response 202**: `{ message }`（受理成功，提示查收邮件；**不区分**"邮箱已存在"以外的信息侧漏场景）
 - **Errors**:
   - `422 INVALID_INVITATION_CODE`（附原因：expired / disabled / finish / not_found）
   - `422 USERNAME_TAKEN` / `EMAIL_TAKEN`（任一侧占用同码）
   - `422 VALIDATION_ERROR`（格式问题）
   - `409 USERNAME_CONFLICT`（并发撞号唯一索引兜底，FR-009）
+  - `429 RATE_LIMITED`（按 IP 超限；附 `retryAfterSec`）
+  - `503 AUTH_UNAVAILABLE`（Redis 不可用 → 失败关闭，限流不得静默失效）
   - `503 GAME_DB_UNAVAILABLE`（游戏库不可用，整体失败，不产生半成品——spec 边缘场景 1）
 - **副作用**（跨库事务）：invitation_code 消费 + use 行 + user 行（`password_algo` 待设，占位激活前不可登录）+ acore_auth.account 创建 + 注册奖励流水/余额 + activate token + outbox 邮件。任一失败整体回滚。
 
@@ -50,13 +52,14 @@
 - **Request**: `{ email: string }`
 - **Response 202**: `{ message }`（**恒定响应**，不泄露邮箱是否存在——FR-013 同源）
 - **副作用**: 存在则建 `password_reset` token（30min）+ outbox；不存在仅审计
-- **频率限制**: 同邮箱 ≥60s 间隔、≤5 次/天（Redis 计数）
+- **频率限制**: 同邮箱 ≥60s 间隔、≤5 次/天（Redis 计数）；**按 IP 限速**（2026-11-06 加固：固定窗口 1 小时，阈值 `security.pwresetIpMaxPerHour` 默认 20）→ 超限 `429 RATE_LIMITED`（附 `retryAfterSec`），Redis 不可用 → `503 AUTH_UNAVAILABLE`（失败关闭）
 
 ## POST /api/auth/reset-password
 
 - **Request**: `{ token: string, password: string }`
-- **校验**: token 一次性 30min + 密码复杂度
+- **校验**: **按 IP 限速**（2026-11-06 加固：与 forgot-password **共用同一个桶**——申请与提交是同一流程的两段，分开计数等于把预算翻倍；阈值 `security.pwresetIpMaxPerHour` 默认 20）→ token 一次性 30min + 密码复杂度
 - **Response 200**: `{ message }`
+- **Errors**: `429 RATE_LIMITED`（附 `retryAfterSec`）、`503 AUTH_UNAVAILABLE`（Redis 不可用 → 失败关闭）
 - **副作用**: **双写** `$wp$` bcrypt + 游戏端 sha_pass_hash（FR-014）；吊销全部既有会话；token 消费；审计 `password_reset`
 - **双写失败语义**: 游戏端写失败 → 变更不标记完成，user 侧留待重试状态 + 审计告警（进可见重试，禁止单边成功——FR-014）；站点侧新哈希仅在实际双写成功后生效
 
@@ -72,3 +75,4 @@
 - **Request**: `{ new_email: string, current_password: string }`
 - **Response 202**: 验证邮件入 outbox（发往新邮箱）
 - **副作用**: `email_change` token（payload=新邮箱）；点击邮件链接 → `POST /api/account/confirm-email { token }` 生效（FR-021）；占用查重在 confirm 时刻再验一次
+- **confirm-email 限速**: 该端点以 token 为凭证、**不要求登录态**，故按 IP 限速（2026-11-06 加固：固定窗口 1 小时，阈值 `security.emailChangeIpMaxPerHour` 默认 20）→ 超限 `429 RATE_LIMITED`，Redis 不可用 → `503 AUTH_UNAVAILABLE`；占用查重的 `409 EMAIL_TAKEN` 语义不变（需有效令牌才可能触发，非通用枚举口）
