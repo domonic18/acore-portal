@@ -3,8 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { apiError, parseBody } from "@/server/http";
 import { registerAccount } from "@/server/services/auth/register";
-import { TURNSTILE_ERROR } from "@/constants/turnstile";
-import { verifyTurnstile } from "@/lib/turnstile";
+import { CAPTCHA_ERROR } from "@/constants/captcha";
+import { verifyCaptcha } from "@/lib/captcha/tencent";
 import { getClientIp } from "@/server/services/shared/client-ip";
 import { throttleByClientIp } from "@/server/services/shared/ip-throttle";
 import { getConfig } from "@/lib/config";
@@ -19,7 +19,8 @@ const schema = z.object({
   username: z.string().min(1).max(64),
   email: z.string().email(),
   invitation_code: z.string().optional(),
-  turnstileToken: z.string().max(2048).optional().default(""),
+  captchaTicket: z.string().max(2048).optional().default(""),
+  captchaRandstr: z.string().max(256).optional().default(""),
 });
 
 /** 按 IP 限速命中(未鉴权端点,防 DB 放大);422/409 占用语义不变(按用户决策保留契约) */
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
   const ip = await getClientIp(req);
   const { security } = await getConfig();
 
-  // 按 IP 限速:排在 body 解析与 Turnstile 之前——Redis 计数最便宜,
+  // 按 IP 限速:排在 body 解析与人机校验之前——Redis 计数最便宜,
   // 且畸形请求体同样计入,否则洪水可绕开计数(每次请求都要打 4~5 次 DB 查询)
   const gate = await throttleByClientIp({
     ip,
@@ -50,14 +51,18 @@ export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, schema);
   if (!parsed.ok) return parsed.response;
 
-  // Turnstile 预检(仅拦机器人;注册无凭据猜测面,不做失败计数/锁定)
-  const turnstile = await verifyTurnstile(parsed.data.turnstileToken, ip ?? undefined);
-  if (!turnstile.ok) {
-    if (turnstile.errors?.includes("not-configured")) {
-      // 运维误配(已启用但密钥缺失):失败关闭,站点其余部分不受影响
-      return apiError(422, TURNSTILE_ERROR.UNAVAILABLE.code, TURNSTILE_ERROR.UNAVAILABLE.message);
+  // 人机校验预检(仅拦机器人;注册无凭据猜测面,不做失败计数/锁定)
+  const captcha = await verifyCaptcha(
+    parsed.data.captchaTicket,
+    parsed.data.captchaRandstr,
+    ip ?? undefined
+  );
+  if (!captcha.ok) {
+    if (captcha.errors?.includes("not-configured")) {
+      // 运维误配(已启用但配置缺失):失败关闭,站点其余部分不受影响
+      return apiError(422, CAPTCHA_ERROR.UNAVAILABLE.code, CAPTCHA_ERROR.UNAVAILABLE.message);
     }
-    return apiError(422, TURNSTILE_ERROR.FAILED.code, TURNSTILE_ERROR.FAILED.message);
+    return apiError(422, CAPTCHA_ERROR.FAILED.code, CAPTCHA_ERROR.FAILED.message);
   }
 
   const outcome = await registerAccount(parsed.data, { ip });

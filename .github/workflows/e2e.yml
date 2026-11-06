@@ -5,8 +5,9 @@
 #
 # 两档并行跑(matrix):
 #   off —— 关态基线(无人机验证)
-#   on  —— 开态档(Turnstile 官方测试密钥:widget 自动通过 / siteverify 恒真)
-#          与本地 `pnpm test:e2e:turnstile` 同量级
+#   on  —— 开态档(人机校验已启用:控件渲染 + 无票据一律 422;
+#          腾讯云验证码无官方测试密钥,真票据通过路径需真密钥联调,故本档只跑专项)
+#          与本地 `pnpm test:e2e:captcha` 同量级
 #
 # 关键口径:
 # - 用 `next start` 跑**生产构建**,不用 `next dev`:dev 按需编译的首请求尖峰
@@ -47,9 +48,9 @@ jobs:
       matrix:
         include:
           - mode: off
-            turnstile: "0"
+            captcha: "0"
           - mode: on
-            turnstile: "1"
+            captcha: "1"
     services:
       mysql:
         image: mysql:8.4
@@ -114,7 +115,7 @@ jobs:
       - name: 播种(配置/路由映射/阈值;配置是进程内快照,须在启动前落库)
         run: pnpm exec tsx tests/e2e/pre-seed.ts
         env:
-          E2E_TURNSTILE: ${{ matrix.turnstile }}
+          E2E_CAPTCHA: ${{ matrix.captcha }}
       - name: 启动应用并等待就绪
         run: |
           nohup pnpm start > /tmp/app.log 2>&1 &
@@ -126,7 +127,7 @@ jobs:
       - name: 跑 E2E
         run: pnpm exec playwright test
         env:
-          E2E_TURNSTILE: ${{ matrix.turnstile }}
+          E2E_CAPTCHA: ${{ matrix.captcha }}
       - name: 失败时收集应用日志
         if: failure()
         run: tail -100 /tmp/app.log || true

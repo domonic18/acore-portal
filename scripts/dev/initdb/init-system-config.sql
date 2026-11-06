@@ -57,7 +57,10 @@ INSERT INTO acore_portal.system_config (`key`, `value`, `updated_at`) VALUES
   -- 阅读计数限速(2026-11-06 撞库加固 PR-I):每次上报都写 DB,窗口 10 分钟
   ('security.artviewIpMaxPerMin', '60', NOW()),
   ('security.artviewArticleMax', '1', NOW()),
-  ('security.artviewArticleWindowSec', '600', NOW())
+  ('security.artviewArticleWindowSec', '600', NOW()),
+  -- 人机校验(2026-11-07 换腾讯云验证码):默认关闭直通;
+  -- appSecret/secretKey 是凭据,一律不入库不入 git,只在后台设置页填(只写不读)
+  ('captcha.enabled', 'false', NOW())
 ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW();
 
 -- 容器内栈(测试环境)参考取值(compose 服务名互访;真实凭据不入库不入 git):

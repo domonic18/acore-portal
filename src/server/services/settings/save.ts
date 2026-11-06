@@ -21,7 +21,7 @@ import {
 
 export type SaveSettingsResult =
   | { ok: true }
-  | { ok: false; code: "VALIDATION_FAILED" | "TURNSTILE_KEYS_REQUIRED"; message: string };
+  | { ok: false; code: "VALIDATION_FAILED" | "CAPTCHA_KEYS_REQUIRED"; message: string };
 
 export async function saveSettingsGroup(
   group: string,
@@ -67,15 +67,19 @@ export async function saveSettingsGroup(
     }
   }
 
-  // turnstile 组合校验(enabled=true 必须有双密钥,保持语义含原值)先行给出命名错误码
-  if (group === "turnstile") {
-    const siteKey = next["turnstile.siteKey"];
-    const secretKey = next["turnstile.secretKey"];
-    if (next["turnstile.enabled"] === "true" && (!siteKey || !secretKey)) {
+  // captcha 组合校验(enabled=true 必须四件套齐全,保持语义含原值)先行给出命名错误码
+  if (group === "captcha") {
+    const required = [
+      next["captcha.appId"],
+      next["captcha.appSecret"],
+      next["captcha.secretId"],
+      next["captcha.secretKey"],
+    ];
+    if (next["captcha.enabled"] === "true" && required.some((v) => !v)) {
       return {
         ok: false,
-        code: "TURNSTILE_KEYS_REQUIRED",
-        message: "enabled=true 时 siteKey/secretKey 必填",
+        code: "CAPTCHA_KEYS_REQUIRED",
+        message: "enabled=true 时 appId/appSecret/secretId/secretKey 必填",
       };
     }
   }

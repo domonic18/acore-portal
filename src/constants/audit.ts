@@ -75,6 +75,8 @@ export const AUDIT_ACTION = {
   LOGIN_IP_SUSPICIOUS: "login_ip_suspicious",
   /** 2026-11-06 撞库加固:安全告警(category=security;payload 记 kind/ip/count/window) */
   SECURITY_ALERT: "security_alert",
+  /** 2026-11-07 腾讯云验证码:票据校验降级放行(category=security;第三方不可达,载荷仅记原因码) */
+  CAPTCHA_DEGRADED: "captcha_degraded",
   /** M4 系统设置保存(category=admin;只落组名/键名/掩码 diff,任何值不落审计) */
   SETTINGS_CHANGED: "settings_changed",
   /** M4 设置页测试发信(category=admin;记 to) */
@@ -109,6 +111,7 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   [AUDIT_ACTION.LOGIN_LOCKED]: "账号锁定",
   [AUDIT_ACTION.LOGIN_IP_SUSPICIOUS]: "来源 IP 可疑",
   [AUDIT_ACTION.SECURITY_ALERT]: "安全告警",
+  [AUDIT_ACTION.CAPTCHA_DEGRADED]: "人机校验降级放行",
   [AUDIT_ACTION.ADMIN_ACCESS_VIOLATION]: "越权访问后台",
   [AUDIT_ACTION.PASSWORD_RESET]: "密码重置",
   [AUDIT_ACTION.PASSWORD_CHANGED]: "密码修改",

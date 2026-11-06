@@ -19,15 +19,16 @@ import { getConfig } from "@/lib/config";
 import { UNKNOWN_CLIENT_IP } from "@/lib/net/client-ip";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { loginGlobalKey, LOGIN_GLOBAL_WINDOW_SEC } from "@/constants/security";
-import { TURNSTILE_ERROR } from "@/constants/turnstile";
-import { verifyTurnstile } from "@/lib/turnstile";
+import { CAPTCHA_ERROR } from "@/constants/captcha";
+import { verifyCaptcha } from "@/lib/captcha/tencent";
 import { getClientIp } from "@/server/services/shared/client-ip";
 
 const loginSchema = z.object({
   username: z.string().min(1).max(32),
   password: z.string().min(1).max(256),
   remember: z.boolean().optional().default(false),
-  turnstileToken: z.string().max(2048).optional().default(""),
+  captchaTicket: z.string().max(2048).optional().default(""),
+  captchaRandstr: z.string().max(256).optional().default(""),
 });
 
 /** 统一 401 模糊文案(不泄露账号存在性与失败细节,FR-013);附找回引导 */
@@ -40,7 +41,7 @@ const SERVER_BUSY_429 = "登录服务繁忙,请稍后再试。";
 export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, loginSchema);
   if (!parsed.ok) return parsed.response;
-  const { username, password, remember, turnstileToken } = parsed.data;
+  const { username, password, remember, captchaTicket, captchaRandstr } = parsed.data;
   const ip = await getClientIp(req);
 
   try {
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ② 账号锁前置:锁期内不验 Turnstile/凭据,直接 429
+    // ② 账号锁前置:锁期内不验人机校验/凭据,直接 429
     const lock = await assertNotLocked(username);
     if (lock.locked) {
       return apiError(429, "LOGIN_LOCKED", RATE_LIMIT_429, {
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
     if (ip) await waitForIpSoftLock(ip);
 
     // ④ 全局哈希预算前瞻(只读计数):额度耗尽直接 429,免去后续开销。
-    // 计数在真正跑哈希前才自增——否则被 Turnstile 拦下的请求也吃预算,
+    // 计数在真正跑哈希前才自增——否则被人机校验拦下的请求也吃预算,
     // 攻击者可用无效 token 瞬间烧穿预算,把正常用户挤成 429。
     const budget = await readRateLimit(loginGlobalKey());
     if (budget.count >= security.loginGlobalMaxPerMin) {
@@ -75,18 +76,27 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ⑤ Turnstile siteverify:失败 422,不计失败次数
-    const turnstile = await verifyTurnstile(turnstileToken, ip ?? undefined);
-    if (!turnstile.ok) {
-      if (turnstile.errors?.includes("not-configured")) {
-        // 运维误配(已启用但密钥缺失):失败关闭,站点其余部分不受影响
-        return apiError(422, TURNSTILE_ERROR.UNAVAILABLE.code, TURNSTILE_ERROR.UNAVAILABLE.message);
+    // ⑤ 腾讯云验证码票据校验:失败 422,不计失败次数
+    const captcha = await verifyCaptcha(captchaTicket, captchaRandstr, ip ?? undefined);
+    if (!captcha.ok) {
+      if (captcha.errors?.includes("not-configured")) {
+        // 运维误配(已启用但配置缺失):失败关闭,站点其余部分不受影响
+        return apiError(422, CAPTCHA_ERROR.UNAVAILABLE.code, CAPTCHA_ERROR.UNAVAILABLE.message);
       }
-      return apiError(422, TURNSTILE_ERROR.FAILED.code, TURNSTILE_ERROR.FAILED.message);
+      return apiError(422, CAPTCHA_ERROR.FAILED.code, CAPTCHA_ERROR.FAILED.message);
+    }
+    if (captcha.degraded) {
+      // 第三方不可达:按官方容灾方案放行,审计留痕以便发现故障窗口
+      await writeAudit({
+        category: AUDIT_CATEGORY.SECURITY,
+        action: AUDIT_ACTION.CAPTCHA_DEGRADED,
+        payload: { username, reason: captcha.errors?.[0] ?? "unknown" },
+        ip,
+      });
     }
 
     // ⑥ 取哈希槽:单进程并发闸,排队上限 loginQueueWaitMs,取不到 → 429 SERVER_BUSY。
-    // 排在 Turnstile 之后——人机校验失败的请求不占槽(否则会被无效 token 的洪水占满)。
+    // 排在人机校验之后——校验失败的请求不占槽(否则会被无效票据的洪水占满)。
     const slot = await acquireHashSlot(security.loginMaxConcurrent, security.loginQueueWaitMs);
     if (!slot.ok) {
       return apiError(429, "SERVER_BUSY", SERVER_BUSY_429, { retryAfterSec: 1 });

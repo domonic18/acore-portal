@@ -19,11 +19,13 @@ export async function getSettingsView(): Promise<SettingsView> {
       from: config.smtp.from,
       passwordConfigured: config.smtp.password !== "",
     },
-    turnstile: {
-      enabled: config.turnstile.enabled,
-      siteKey: config.turnstile.siteKey || null,
-      secretKeyConfigured: config.turnstile.secretKey !== "",
-      misconfigured: config.turnstile.misconfigured,
+    captcha: {
+      enabled: config.captcha.enabled,
+      appId: config.captcha.appId || null,
+      secretId: config.captcha.secretId || null,
+      appSecretConfigured: config.captcha.appSecret !== "",
+      secretKeyConfigured: config.captcha.secretKey !== "",
+      misconfigured: config.captcha.misconfigured,
     },
     security: {
       loginMaxFails: config.security.loginMaxFails,

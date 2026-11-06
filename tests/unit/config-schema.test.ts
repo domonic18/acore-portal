@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildConfigFromRows } from "@/lib/config";
 
-/** T003:config 扩组(turnstile/security/notify/backup)——键缺省语义单测 */
+/** T003:config 扩组(captcha/security/notify/backup)——键缺省语义单测 */
 const BASE_ROWS: [string, string][] = [
   ["app.url", "https://lokta.cn"],
   ["soap.url", "http://127.0.0.1:7878"],
@@ -21,7 +21,7 @@ function rows(...extra: [string, string][]) {
 }
 
 describe("buildConfigFromRows M4 五组(T003)", () => {
-  it("新五键全缺省可启动:security/notify 取默认,turnstile 组恒存在且为关闭态", () => {
+  it("新五键全缺省可启动:security/notify 取默认,captcha 组恒存在且为关闭态", () => {
     const c = buildConfigFromRows(rows());
     expect(c.security).toEqual({
       loginMaxFails: 5,
@@ -48,9 +48,11 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
       artviewArticleWindowSec: 600,
     });
     expect(c.notify).toEqual({ pointEmailThreshold: 0 });
-    expect(c.turnstile).toEqual({
+    expect(c.captcha).toEqual({
       enabled: false,
-      siteKey: "",
+      appId: "",
+      appSecret: "",
+      secretId: "",
       secretKey: "",
       misconfigured: false,
     });
@@ -94,37 +96,45 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
     expect(c.notify.pointEmailThreshold).toBe(50);
   });
 
-  it("turnstile 全键在=配置可用;enabled=false 无密钥不阻塞(关闭直通)", () => {
-    const off = buildConfigFromRows(rows(["turnstile.enabled", "false"]));
-    expect(off.turnstile).toEqual({
+  it("captcha 四件套齐全=配置可用;enabled=false 无密钥不阻塞(关闭直通)", () => {
+    const off = buildConfigFromRows(rows(["captcha.enabled", "false"]));
+    expect(off.captcha).toEqual({
       enabled: false,
-      siteKey: "",
+      appId: "",
+      appSecret: "",
+      secretId: "",
       secretKey: "",
       misconfigured: false,
     });
 
     const on = buildConfigFromRows(
       rows(
-        ["turnstile.enabled", "true"],
-        ["turnstile.siteKey", "0xAAA"],
-        ["turnstile.secretKey", "0xBBB"],
+        ["captcha.enabled", "true"],
+        ["captcha.appId", "1234567"],
+        ["captcha.appSecret", "app-secret"],
+        ["captcha.secretId", "AKID"],
+        ["captcha.secretKey", "SK"],
       ),
     );
-    expect(on.turnstile).toEqual({
+    expect(on.captcha).toEqual({
       enabled: true,
-      siteKey: "0xAAA",
-      secretKey: "0xBBB",
+      appId: "1234567",
+      appSecret: "app-secret",
+      secretId: "AKID",
+      secretKey: "SK",
       misconfigured: false,
     });
   });
 
-  it("turnstile.enabled=true 而密钥缺失 → 不抛错,标 misconfigured(整站不再 500)", () => {
+  it("captcha.enabled=true 而四件套缺失 → 不抛错,标 misconfigured(整站不再 500)", () => {
     const c = buildConfigFromRows(
-      rows(["turnstile.enabled", "true"], ["turnstile.siteKey", "0xAAA"]),
+      rows(["captcha.enabled", "true"], ["captcha.appId", "1234567"]),
     );
-    expect(c.turnstile).toEqual({
+    expect(c.captcha).toEqual({
       enabled: true,
-      siteKey: "0xAAA",
+      appId: "1234567",
+      appSecret: "",
+      secretId: "",
       secretKey: "",
       misconfigured: true,
     });

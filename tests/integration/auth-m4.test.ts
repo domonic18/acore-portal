@@ -22,18 +22,35 @@ import { POST as loginPost } from "@/app/api/auth/login/route";
 import { POST as registerPost } from "@/app/api/auth/register/route";
 
 /**
+ * 腾讯云 SDK 桩:票据校验走云API 3.0 的 DescribeCaptchaResult,此处截断出网。
+ */
+const { describeCaptchaResult } = vi.hoisted(() => ({ describeCaptchaResult: vi.fn() }));
+vi.mock("tencentcloud-sdk-nodejs-captcha", () => {
+  class Client {
+    DescribeCaptchaResult = describeCaptchaResult;
+  }
+  return { captcha: { v20190722: { Client } } };
+});
+
+/**
  * M4 US2 登录防滥用集成(T009/T010/T011):
- * Turnstile 关态直通/开态 422 且不计失败;连错达阈 429 RATE_LIMITED+锁;
+ * 人机校验关态直通/开态 422 且不计失败;连错达阈 429 RATE_LIMITED+锁;
  * 锁期内前置拦截 429 LOGIN_LOCKED;窗口/锁自然过期恢复;
  * 不存在用户名同计数同锁且 401/429 文案与真实用户逐字一致(FR-307);
  * 成功清账;审计 LOGIN_LOCKED 无凭据字段(宪法 VI)。
  * 状态注入:失败计数/锁直接写 Redis(键格式契约同 guard 导出),
- * Turnstile 开关走 system_config 行+reloadSystemConfig,siteverify 用 stub fetch。
+ * 人机校验开关走 system_config 行+reloadSystemConfig,腾讯云票据校验用 SDK 桩。
  */
 const RUN = Date.now().toString(36);
 const PASSWORD = "GuardPass123";
 const MAX_FAILS = 5;
-const TS_KEYS = ["turnstile.enabled", "turnstile.siteKey", "turnstile.secretKey"];
+const CAPTCHA_KEYS = [
+  "captcha.enabled",
+  "captcha.appId",
+  "captcha.appSecret",
+  "captcha.secretId",
+  "captcha.secretKey",
+];
 /**
  * 本文件断言的阈值全部**显式钉住**,不依赖库里现值——
  * 开发库会被 E2E 预置/运维调参改动(如 loginIpMaxFails 被放宽到 5000),
@@ -95,13 +112,15 @@ async function seedFails(username: string, count: number, ttl = 900) {
   await redis.set(loginFailKey(username), String(count), "EX", ttl);
 }
 
-async function enableTurnstile() {
-  await prisma.systemConfig.deleteMany({ where: { key: { in: TS_KEYS } } });
+async function enableCaptcha() {
+  await prisma.systemConfig.deleteMany({ where: { key: { in: CAPTCHA_KEYS } } });
   await prisma.systemConfig.createMany({
     data: [
-      { key: "turnstile.enabled", value: "true" },
-      { key: "turnstile.siteKey", value: "site-test" },
-      { key: "turnstile.secretKey", value: "sec-test" },
+      { key: "captcha.enabled", value: "true" },
+      { key: "captcha.appId", value: "1234567" },
+      { key: "captcha.appSecret", value: "app-secret" },
+      { key: "captcha.secretId", value: "AKID-test" },
+      { key: "captcha.secretKey", value: "SK-test" },
     ],
   });
   await reloadSystemConfig();
@@ -112,8 +131,8 @@ let securityBackup: { key: string; value: string }[] = [];
 beforeAll(async () => {
   await prisma.$queryRaw`SELECT 1`;
   await redis.ping();
-  // 关态基线:turnstile 行持久跨文件,先清(组内开态测试结束也会还原)
-  await prisma.systemConfig.deleteMany({ where: { key: { in: TS_KEYS } } });
+  // 关态基线:captcha 行持久跨文件,先清(组内开态测试结束也会还原)
+  await prisma.systemConfig.deleteMany({ where: { key: { in: CAPTCHA_KEYS } } });
   // 阈值钉住:先快照,再强制写入本文件断言所依赖的值
   securityBackup = await prisma.systemConfig.findMany({
     where: { key: { in: Object.keys(PINNED_SECURITY) } },
@@ -131,7 +150,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await prisma.systemConfig.deleteMany({ where: { key: { in: TS_KEYS } } });
+  await prisma.systemConfig.deleteMany({ where: { key: { in: CAPTCHA_KEYS } } });
   // 还原阈值:原缺失的键删除(回落代码默认值),原存在的键写回
   await prisma.systemConfig.deleteMany({
     where: { key: { in: Object.keys(PINNED_SECURITY) } },
@@ -144,22 +163,18 @@ afterAll(async () => {
     await prisma.user.deleteMany({ where: { username } });
   }
   await clearKeys([...redisKeys, loginGlobalKey()]);
-  vi.unstubAllGlobals();
   await prisma.$disconnect();
   await redis.quit();
 });
 
-describe("M4 US2 登录防滥用——Turnstile 关态(T009)", () => {
-  it("关态直通:不发起 siteverify,错误密码 401 且计一次失败", async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+describe("M4 US2 登录防滥用——人机校验关态(T009)", () => {
+  it("关态直通:不调腾讯云,错误密码 401 且计一次失败", async () => {
     const { username } = await makeUser(0, PASSWORD);
     const res = await login({ username, password: "wrong-pass" }, ip(10));
     expect(res.status).toBe(401);
     expect((await errBody(res)).error.code).toBe("INVALID_CREDENTIALS");
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(describeCaptchaResult).not.toHaveBeenCalled();
     expect(await redis.get(loginFailKey(username))).toBe("1");
-    vi.unstubAllGlobals();
   });
 
   it("登录成功清账:用户名维计数与锁全清;IP 维计数保留(防交替洗白)", async () => {
@@ -356,12 +371,12 @@ describe("2026-11-06 撞库加固——审计补齐(PR-0)", () => {
     expect(row).toBeDefined();
     expect(row?.ip).toBe(i);
   });
-  it("Turnstile 已启用但密钥缺失 → 登录/注册均失败关闭(422 TURNSTILE_UNAVAILABLE)", async () => {
-    await prisma.systemConfig.deleteMany({ where: { key: { in: TS_KEYS } } });
+  it("人机校验已启用但四件套缺失 → 登录/注册均失败关闭(422 CAPTCHA_UNAVAILABLE)", async () => {
+    await prisma.systemConfig.deleteMany({ where: { key: { in: CAPTCHA_KEYS } } });
     await prisma.systemConfig.createMany({
       data: [
-        { key: "turnstile.enabled", value: "true" },
-        { key: "turnstile.siteKey", value: "site-x" },
+        { key: "captcha.enabled", value: "true" },
+        { key: "captcha.appId", value: "1234567" },
       ],
     });
     await reloadSystemConfig();
@@ -369,7 +384,7 @@ describe("2026-11-06 撞库加固——审计补齐(PR-0)", () => {
     const { username } = await makeUser(23, PASSWORD);
     const res = await login({ username, password: PASSWORD }, ip(45));
     expect(res.status).toBe(422);
-    expect((await errBody(res)).error.code).toBe("TURNSTILE_UNAVAILABLE");
+    expect((await errBody(res)).error.code).toBe("CAPTCHA_UNAVAILABLE");
     // 失败关闭不计入凭据失败次数
     expect(await redis.get(loginFailKey(username))).toBeNull();
 
@@ -385,10 +400,10 @@ describe("2026-11-06 撞库加固——审计补齐(PR-0)", () => {
       }),
     );
     expect(reg.status).toBe(422);
-    expect((await errBody(reg)).error.code).toBe("TURNSTILE_UNAVAILABLE");
+    expect((await errBody(reg)).error.code).toBe("CAPTCHA_UNAVAILABLE");
     expect(await prisma.user.count({ where: { username: regUsername } })).toBe(0);
 
-    await prisma.systemConfig.deleteMany({ where: { key: { in: TS_KEYS } } });
+    await prisma.systemConfig.deleteMany({ where: { key: { in: CAPTCHA_KEYS } } });
     await reloadSystemConfig();
   });
 });
@@ -523,43 +538,70 @@ describe("2026-11-06 撞库加固——IP 维解耦 + 哈希背压(PR-C)", () =>
   });
 });
 
-describe("M4 US2 登录防滥用——Turnstile 开态(T009/T011)", () => {
-  it("开+无 token → 422 TURNSTILE_FAILED:不出网、不计失败", async () => {
-    await enableTurnstile();
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+describe("M4 US2 登录防滥用——人机校验开态(T009/T011)", () => {
+  it("开+无票据 → 422 CAPTCHA_FAILED:不出网、不计失败", async () => {
+    await enableCaptcha();
+    describeCaptchaResult.mockReset();
     const { username } = await makeUser(5, PASSWORD);
     const res = await login({ username, password: "wrong" }, ip(15));
     expect(res.status).toBe(422);
-    expect((await errBody(res)).error.code).toBe("TURNSTILE_FAILED");
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect((await errBody(res)).error.code).toBe("CAPTCHA_FAILED");
+    expect(describeCaptchaResult).not.toHaveBeenCalled();
     expect(await redis.get(loginFailKey(username))).toBeNull();
-    vi.unstubAllGlobals();
   });
 
-  it("开+siteverify 恒失败 → 422 不计失败;通过 → 进入凭据校验并计数", async () => {
+  it("开+票据判定不通过 → 422 不计失败;票据通过 → 进入凭据校验并计数", async () => {
+    await enableCaptcha();
     const { username, password } = await makeUser(6, PASSWORD);
     const i = ip(16);
     redisKeys.push(loginFailIpKey(i));
-    let pass = false;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(JSON.stringify({ success: pass }), { status: 200 })),
-    );
 
-    const blocked = await login({ username, password: "wrong", turnstileToken: "tok" }, i);
+    describeCaptchaResult.mockResolvedValue({ CaptchaCode: 7 });
+    const blocked = await login(
+      { username, password: "wrong", captchaTicket: "tok", captchaRandstr: "rand" },
+      i,
+    );
     expect(blocked.status).toBe(422);
+    expect((await errBody(blocked)).error.code).toBe("CAPTCHA_FAILED");
     expect(await redis.get(loginFailKey(username))).toBeNull();
 
-    pass = true;
-    const allowed = await login({ username, password: "wrong", turnstileToken: "tok" }, i);
+    describeCaptchaResult.mockResolvedValue({ CaptchaCode: 1 });
+    const allowed = await login(
+      { username, password: "wrong", captchaTicket: "tok", captchaRandstr: "rand" },
+      i,
+    );
     expect(allowed.status).toBe(401);
     expect(await redis.get(loginFailKey(username))).toBe("1");
-    vi.unstubAllGlobals();
   });
 
-  it("注册路由:开+无 token → 422 且零副作用(不建站点/游戏账号)", async () => {
-    await enableTurnstile();
+  it("第三方不可达 → 按容灾放行(登录继续)+ 落 CAPTCHA_DEGRADED 审计", async () => {
+    await enableCaptcha();
+    const { username, password } = await makeUser(7, PASSWORD);
+    const i = ip(17);
+    redisKeys.push(loginFailIpKey(i));
+
+    describeCaptchaResult.mockRejectedValue(
+      Object.assign(new Error("timeout"), { code: "RequestLimitExceeded" }),
+    );
+    const res = await login(
+      { username, password, captchaTicket: "tok", captchaRandstr: "rand" },
+      i,
+    );
+    // 放行而非锁死:验证码只是减速带,真防线是限速 + 哈希预算 + 并发闸
+    expect(res.status).toBe(200);
+
+    const rows = await prisma.auditLog.findMany({
+      where: { action: AUDIT_ACTION.CAPTCHA_DEGRADED },
+      orderBy: { id: "desc" },
+      take: 20,
+    });
+    const row = rows.find((r) => (r.payloadJson as Record<string, unknown>).username === username);
+    expect(row).toBeDefined();
+    expect(row?.ip).toBe(i);
+  });
+
+  it("注册路由:开+无票据 → 422 且零副作用(不建站点/游戏账号)", async () => {
+    await enableCaptcha();
     const username = `t_${RUN}_au_reg`;
     const req = new NextRequest("http://localhost/api/auth/register", {
       method: "POST",
@@ -568,7 +610,7 @@ describe("M4 US2 登录防滥用——Turnstile 开态(T009/T011)", () => {
     });
     const res = await registerPost(req);
     expect(res.status).toBe(422);
-    expect((await errBody(res)).error.code).toBe("TURNSTILE_FAILED");
+    expect((await errBody(res)).error.code).toBe("CAPTCHA_FAILED");
     expect(await prisma.user.count({ where: { email: `${username}@test.local` } })).toBe(0);
     expect(await authDb.findByUsername(username)).toBeNull();
   });

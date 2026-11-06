@@ -9,7 +9,7 @@
 {
   "smtp":   { "host": "…", "port": 465, "user": "…", "from": "…",
               "passwordConfigured": true },
-  "turnstile": { "enabled": false, "siteKey": null,
+  "captcha": { "enabled": false, "appId": null, "secretId": null, "appSecretConfigured": false, "secretKeyConfigured": false, "misconfigured": false,
                  "secretKeyConfigured": false },
   "security": { "loginMaxFails": 5, "loginWindowSec": 900, "loginLockSec": 900 },
   "notify":   { "pointEmailThreshold": 0 }
@@ -25,8 +25,8 @@
 // 200 { "ok": true }   // 内部：upsert → reloadSystemConfig → 审计 SETTINGS_CHANGED
 ```
 
-- group ∈ smtp / turnstile / security / notify；非法组 422
-- 校验失败 422（zod 字段路径，照 M2/M3 契约口径）；配置校验失败（如 turnstile.enabled=true 无密钥）422 TURNSTILE_KEYS_REQUIRED
+- group ∈ smtp / captcha / security / notify；非法组 422
+- 校验失败 422（zod 字段路径，照 M2/M3 契约口径）；配置校验失败（如 captcha.enabled=true 四件套不齐）422 CAPTCHA_KEYS_REQUIRED
 - 审计只落组名/键名/掩码 diff，**任何值不落审计**
 
 ## POST /api/admin/settings/test-mail
@@ -68,5 +68,5 @@
 |---|---|---|
 | 401 | UNAUTHORIZED | 未登录 |
 | 403 | FORBIDDEN | 非 admin |
-| 422 | VALIDATION_FAILED / TURNSTILE_KEYS_REQUIRED | zod / 组校验 |
+| 422 | VALIDATION_FAILED / CAPTCHA_KEYS_REQUIRED | zod / 组校验 |
 | 503 | DEPENDENCY_UNAVAILABLE | system_config 不可达（照既有口径） |
