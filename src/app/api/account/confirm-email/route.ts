@@ -4,7 +4,7 @@ import { z } from "zod";
 import { apiError, apiOk, parseBody } from "@/server/http";
 import { confirmEmailChange } from "@/server/services/auth/password";
 import { getClientIp } from "@/server/services/shared/client-ip";
-import { throttleByClientIp } from "@/server/services/auth/ip-throttle";
+import { throttleByClientIp } from "@/server/services/shared/ip-throttle";
 import { getConfig } from "@/lib/config";
 import { IP_HOURLY_WINDOW_SEC, emailChangeIpKey } from "@/constants/security";
 

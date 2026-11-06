@@ -132,10 +132,32 @@ export async function setLock(key: string, ttlSec: number): Promise<void> {
  * 条件加锁(SET NX EX):键不存在时才获得锁并设置 TTL。
  * 获得锁返回 true;已有锁返回 false 且**不续期**
  * (setLock 无 NX,重复调用是续期而非加锁,不能用于互斥场景)。
+ *
+ * value 是锁的持有者标记(默认 "1");释放时用 releaseLockIfOwner 比对标记,
+ * 避免「自己的锁已过期、误删了后来者的锁」。
  */
-export async function setLockIfAbsent(key: string, ttlSec: number): Promise<boolean> {
-  const res = await redisCall(() => redis.set(key, "1", "EX", ttlSec, "NX"));
+export async function setLockIfAbsent(
+  key: string,
+  ttlSec: number,
+  value = "1",
+): Promise<boolean> {
+  const res = await redisCall(() => redis.set(key, value, "EX", ttlSec, "NX"));
   return res === "OK";
+}
+
+/**
+ * 释放自己持有的锁(比对标记后删):标记不符(锁已过期并被他人获得)则不动手。
+ * 用于单飞锁——探针超时超过锁 TTL 时,迟到的释放不得掀掉别人的锁。
+ */
+export async function releaseLockIfOwner(key: string, value: string): Promise<boolean> {
+  const lua = `
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0
+`;
+  const res = (await redisCall(() => redis.eval(lua, 1, key, value))) as number;
+  return res === 1;
 }
 
 export async function checkLock(key: string): Promise<LockState> {

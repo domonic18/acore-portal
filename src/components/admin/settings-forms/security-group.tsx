@@ -29,6 +29,12 @@ const FIELDS = [
   ["pwresetIpMaxPerHour", "找回密码按 IP 限速(次/小时)"],
   ["emailChangeIpMaxPerHour", "换邮箱确认按 IP 限速(次/小时)"],
   ["unknownIpMaxPerHour", "未知 IP 兜底桶(次/小时)"],
+  ["statusIpMaxPerMin", "状态页按 IP 限速(次/分)"],
+  ["statusGlobalMaxPerMin", "状态页全局限速(次/分)"],
+  ["statusUnknownIpMaxPerMin", "状态页未知 IP 兜底桶(次/分)"],
+  ["artviewIpMaxPerMin", "阅读计数按 IP 总闸(次/分)"],
+  ["artviewArticleMax", "同一 IP 对同一篇的计入上限(次/窗口)"],
+  ["artviewArticleWindowSec", "阅读计数计入窗口(秒)"],
 ] as const;
 
 export function SecurityGroup({ view }: { view: SettingsView["security"] }) {

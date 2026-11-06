@@ -100,6 +100,15 @@ const configSchema = z.object({
     // 「未知 IP」共享兜底桶上限(次/小时):IP 不可判定时所有请求并成一个桶,
     // 阈值必须远宽于按 IP 阈值,否则代理配置错一次就误伤全站
     unknownIpMaxPerHour: z.coerce.number().int().positive().default(6000),
+    // 状态页限速(公开无鉴权端点,探针会打 SOAP worldserver + characters 库)
+    statusIpMaxPerMin: z.coerce.number().int().positive().default(30),
+    statusGlobalMaxPerMin: z.coerce.number().int().positive().default(120),
+    statusUnknownIpMaxPerMin: z.coerce.number().int().positive().default(600),
+    // 阅读计数限速(公开无鉴权端点,每次上报都写一次 DB):
+    // 每 IP 总闸(次/分)防单 IP 对海量文章刷写;每 (IP,文章) 窗口闸防刷阅读量
+    artviewIpMaxPerMin: z.coerce.number().int().positive().default(60),
+    artviewArticleMax: z.coerce.number().int().positive().default(1),
+    artviewArticleWindowSec: z.coerce.number().int().positive().default(600),
   }),
   // 通知域(M4 US3):积分变动邮件阈值(0=关闭)
   notify: z.object({
@@ -237,6 +246,12 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       pwresetIpMaxPerHour: flat["security.pwresetIpMaxPerHour"] ?? "20",
       emailChangeIpMaxPerHour: flat["security.emailChangeIpMaxPerHour"] ?? "20",
       unknownIpMaxPerHour: flat["security.unknownIpMaxPerHour"] ?? "6000",
+      statusIpMaxPerMin: flat["security.statusIpMaxPerMin"] ?? "30",
+      statusGlobalMaxPerMin: flat["security.statusGlobalMaxPerMin"] ?? "120",
+      statusUnknownIpMaxPerMin: flat["security.statusUnknownIpMaxPerMin"] ?? "600",
+      artviewIpMaxPerMin: flat["security.artviewIpMaxPerMin"] ?? "60",
+      artviewArticleMax: flat["security.artviewArticleMax"] ?? "1",
+      artviewArticleWindowSec: flat["security.artviewArticleWindowSec"] ?? "600",
     },
     notify: {
       pointEmailThreshold: flat["notify.pointEmailThreshold"] ?? "0",

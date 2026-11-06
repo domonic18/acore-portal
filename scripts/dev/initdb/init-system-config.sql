@@ -4,7 +4,7 @@
 -- 容器内跑 web 的栈(如测试环境)改用 compose 服务名,见下方注释块
 INSERT INTO acore_portal.system_config (`key`, `value`, `updated_at`) VALUES
   ('app.url',           'http://localhost:3000', NOW()),
-  ('soap.url',          'http://localhost:7878/', NOW()),
+  ('soap.url',          'http://localhost:17878/', NOW()),
   ('soap.user',         'soaper', NOW()),
   ('soap.password',     'change-me', NOW()),
   ('soap.realm',        'Dev', NOW()),
@@ -44,7 +44,15 @@ INSERT INTO acore_portal.system_config (`key`, `value`, `updated_at`) VALUES
   ('security.pwresetIpMaxPerHour', '20', NOW()),
   ('security.emailChangeIpMaxPerHour', '20', NOW()),
   -- 未知 IP 共享兜底桶:IP 不可判定时所有请求并成一个桶,须留足余量
-  ('security.unknownIpMaxPerHour', '6000', NOW())
+  ('security.unknownIpMaxPerHour', '6000', NOW()),
+  -- 状态页限速(2026-11-06 撞库加固 PR-H):公开端点,窗口 1 分钟
+  ('security.statusIpMaxPerMin', '30', NOW()),
+  ('security.statusGlobalMaxPerMin', '120', NOW()),
+  ('security.statusUnknownIpMaxPerMin', '600', NOW()),
+  -- 阅读计数限速(2026-11-06 撞库加固 PR-I):每次上报都写 DB,窗口 10 分钟
+  ('security.artviewIpMaxPerMin', '60', NOW()),
+  ('security.artviewArticleMax', '1', NOW()),
+  ('security.artviewArticleWindowSec', '600', NOW())
 ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW();
 
 -- 容器内栈(测试环境)参考取值(compose 服务名互访;真实凭据不入库不入 git):

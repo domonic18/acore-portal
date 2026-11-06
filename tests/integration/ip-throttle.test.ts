@@ -9,6 +9,7 @@ import { POST as registerPost } from "@/app/api/auth/register/route";
 import { POST as forgotPost } from "@/app/api/auth/forgot-password/route";
 import { POST as resetPost } from "@/app/api/auth/reset-password/route";
 import { POST as confirmEmailPost } from "@/app/api/account/confirm-email/route";
+import { pinSystemConfig, restoreSystemConfig } from "../helpers/system-config";
 
 /**
  * 2026-11-06 撞库加固 PR-G——未鉴权端点按 IP 限速:
@@ -57,6 +58,9 @@ function trackKeys(bucket: string) {
 const TAKEN_USERNAME = `t_${RUN}_rl`;
 const TAKEN_EMAIL = `${TAKEN_USERNAME}@test.local`;
 
+/** 钉住的阈值原值(用后原样还原) */
+let priorPinned: { key: string; value: string }[] = [];
+
 beforeAll(async () => {
   await prisma.$queryRaw`SELECT 1`;
   await redis.ping();
@@ -68,15 +72,12 @@ beforeAll(async () => {
       passwordAlgo: PASSWORD_ALGO.BCRYPT_WP,
     },
   });
-  await prisma.systemConfig.createMany({
-    data: Object.entries(PINNED).map(([key, value]) => ({ key, value })),
-    skipDuplicates: true,
-  });
+  priorPinned = await pinSystemConfig(PINNED);
   await reloadSystemConfig();
 });
 
 afterAll(async () => {
-  await prisma.systemConfig.deleteMany({ where: { key: { in: PINNED_KEYS } } });
+  await restoreSystemConfig(PINNED_KEYS, priorPinned);
   await reloadSystemConfig();
   await prisma.user.deleteMany({ where: { username: TAKEN_USERNAME } });
   if (touchedKeys.size > 0) await redis.del(...touchedKeys);

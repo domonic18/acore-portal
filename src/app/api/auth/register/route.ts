@@ -6,7 +6,7 @@ import { registerAccount } from "@/server/services/auth/register";
 import { TURNSTILE_ERROR } from "@/constants/turnstile";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { getClientIp } from "@/server/services/shared/client-ip";
-import { throttleByClientIp } from "@/server/services/auth/ip-throttle";
+import { throttleByClientIp } from "@/server/services/shared/ip-throttle";
 import { getConfig } from "@/lib/config";
 import { IP_HOURLY_WINDOW_SEC, registerIpKey } from "@/constants/security";
 

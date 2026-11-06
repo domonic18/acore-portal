@@ -56,8 +56,13 @@ test.describe("US1 登录 MVP", () => {
     await page.getByRole("button", { name: "登录" }).click();
     await expect(page).toHaveURL(/\/account\/overview$/);
 
-    await page.getByTestId("user-menu-button").click();
-    await expect(page.getByTestId("user-menu")).toBeVisible();
+    // 账户菜单是 client 组件:服务端已渲染出按钮,但水合完成前点击尚未绑定事件 → 菜单不弹。
+    // dev server 按需编译下水合可能晚于导航完成,而断言重试不会补发点击 → 点击丢失后不自愈,
+    // 故改成「点一次没弹出来就再点一次」。
+    await expect(async () => {
+      await page.getByTestId("user-menu-button").click();
+      await expect(page.getByTestId("user-menu")).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
     await page.getByTestId("logout-button").click();
 
     await expect(page).toHaveURL(/\/$/);

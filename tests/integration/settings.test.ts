@@ -42,6 +42,12 @@ const SECURITY_KEYS = [
   "security.pwresetIpMaxPerHour",
   "security.emailChangeIpMaxPerHour",
   "security.unknownIpMaxPerHour",
+  "security.statusIpMaxPerMin",
+  "security.statusGlobalMaxPerMin",
+  "security.statusUnknownIpMaxPerMin",
+  "security.artviewIpMaxPerMin",
+  "security.artviewArticleMax",
+  "security.artviewArticleWindowSec",
 ];
 const NOTIFY_KEYS = ["notify.pointEmailThreshold"];
 const SITE_KEYS = [
@@ -292,6 +298,12 @@ describe("saveSettingsGroup(T029)", () => {
         pwresetIpMaxPerHour: 20,
         emailChangeIpMaxPerHour: 20,
         unknownIpMaxPerHour: 6000,
+        statusIpMaxPerMin: 30,
+        statusGlobalMaxPerMin: 120,
+        statusUnknownIpMaxPerMin: 600,
+        artviewIpMaxPerMin: 60,
+        artviewArticleMax: 1,
+        artviewArticleWindowSec: 600,
       },
       { id: ADMIN_ID },
     );
@@ -314,6 +326,12 @@ describe("saveSettingsGroup(T029)", () => {
       pwresetIpMaxPerHour: 20,
       emailChangeIpMaxPerHour: 20,
       unknownIpMaxPerHour: 6000,
+      statusIpMaxPerMin: 30,
+      statusGlobalMaxPerMin: 120,
+      statusUnknownIpMaxPerMin: 600,
+      artviewIpMaxPerMin: 60,
+      artviewArticleMax: 1,
+      artviewArticleWindowSec: 600,
     });
     expect(config.notify.pointEmailThreshold).toBe(120);
   });
