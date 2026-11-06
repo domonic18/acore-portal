@@ -2,6 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "tests/e2e",
+  // 开态档只跑人机校验专项:腾讯云验证码没有官方测试密钥,无真密钥时
+  // 其余场景全部登录不了(登录/注册都被票据校验挡住)
+  ...(process.env.E2E_CAPTCHA === "1" ? { testMatch: ["**/captcha.spec.ts"] } : {}),
   globalSetup: "./tests/e2e/global-setup.ts",
   globalTeardown: "./tests/e2e/global-teardown.ts",
   // 产物写仓库外:next dev 监听仓库根,产物写入会触发 HMR 打断在跑的页面状态
