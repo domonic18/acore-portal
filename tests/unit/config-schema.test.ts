@@ -135,3 +135,47 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
     expect(zero.backup).toEqual({ retentionDays: 0, gameWeekly: true });
   });
 });
+
+/** 主题系统(2026-11-06):theme 组 flat-dotted 形状 + 默认值 + 脏 active 回落 */
+describe("buildConfigFromRows theme 组(主题系统)", () => {
+  it("全键缺省取默认:active=tbc,TBC 背景留空回落 appearance,WLK 取内置冷色资源", () => {
+    const c = buildConfigFromRows(rows());
+    expect(c.theme).toEqual({
+      active: "tbc",
+      "tbc.headerBackgroundUrl": "",
+      "tbc.pageBackgroundUrl": "",
+      "tbc.panelBackgroundUrl": "",
+      "wlk.headerBackgroundUrl": "/images/banner-wotlk.svg",
+      "wlk.pageBackgroundUrl": "/background.jpg",
+      "wlk.panelBackgroundUrl": "",
+    });
+  });
+
+  it("显式配置生效:active=wlk + 两套主题各自的页头/页面/面板背景", () => {
+    const c = buildConfigFromRows(
+      rows(
+        ["theme.active", "wlk"],
+        ["theme.tbc.headerBackgroundUrl", "/images/tbc-head.svg"],
+        ["theme.tbc.pageBackgroundUrl", "/images/tbc-page.svg"],
+        ["theme.tbc.panelBackgroundUrl", "/images/tbc-panel.svg"],
+        ["theme.wlk.headerBackgroundUrl", "/images/wlk-head.svg"],
+        ["theme.wlk.pageBackgroundUrl", "/images/wlk-page.svg"],
+        ["theme.wlk.panelBackgroundUrl", "/images/wlk-panel.svg"],
+      ),
+    );
+    expect(c.theme.active).toBe("wlk");
+    expect(c.theme["tbc.headerBackgroundUrl"]).toBe("/images/tbc-head.svg");
+    expect(c.theme["wlk.panelBackgroundUrl"]).toBe("/images/wlk-panel.svg");
+  });
+
+  it("active 为非法 id 回落默认主题(单行脏数据不应让整站配置校验失败)", () => {
+    const c = buildConfigFromRows(rows(["theme.active", "cataclysm"]));
+    expect(c.theme.active).toBe("tbc");
+  });
+
+  it("背景地址非法协议 → 校验失败(防 javascript: 注入进内联样式)", () => {
+    expect(() =>
+      buildConfigFromRows(rows(["theme.tbc.pageBackgroundUrl", "javascript:alert(1)"])),
+    ).toThrow(/system_config 配置校验失败/);
+  });
+});

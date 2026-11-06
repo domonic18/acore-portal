@@ -21,6 +21,15 @@ const APPEARANCE_KEYS = [
   "appearance.headerBackgroundUrl",
   "appearance.pageBackgroundUrl",
 ];
+const THEME_KEYS = [
+  "theme.active",
+  "theme.tbc.headerBackgroundUrl",
+  "theme.tbc.pageBackgroundUrl",
+  "theme.tbc.panelBackgroundUrl",
+  "theme.wlk.headerBackgroundUrl",
+  "theme.wlk.pageBackgroundUrl",
+  "theme.wlk.panelBackgroundUrl",
+];
 const SMTP_SECRET = `e2e-secret-${Date.now().toString(36)}`;
 const TEST_TO = `e2e-testmail-${Date.now().toString(36)}@lokta.local`;
 const MAILPIT_API = "http://127.0.0.1:8025";
@@ -30,6 +39,7 @@ let securityBackup: { key: string; value: string }[] = [];
 let siteBackup: { key: string; value: string }[] = [];
 let contentBackup: { key: string; value: string }[] = [];
 let appearanceBackup: { key: string; value: string }[] = [];
+let themeBackup: { key: string; value: string }[] = [];
 
 async function login(page: Page, username: string, password: string) {
   await page.goto("/login");
@@ -60,17 +70,35 @@ test.beforeAll(async () => {
     where: { key: { in: APPEARANCE_KEYS } },
     select: { key: true, value: true },
   });
+  themeBackup = await prisma.systemConfig.findMany({
+    where: { key: { in: THEME_KEYS } },
+    select: { key: true, value: true },
+  });
 });
 
 test.afterAll(async () => {
   await prisma.systemConfig.deleteMany({
     where: {
       key: {
-        in: [...SMTP_KEYS, ...SECURITY_KEYS, ...SITE_KEYS, ...APPEARANCE_KEYS, ...CONTENT_KEYS],
+        in: [
+          ...SMTP_KEYS,
+          ...SECURITY_KEYS,
+          ...SITE_KEYS,
+          ...APPEARANCE_KEYS,
+          ...CONTENT_KEYS,
+          ...THEME_KEYS,
+        ],
       },
     },
   });
-  const restore = [...smtpBackup, ...securityBackup, ...siteBackup, ...appearanceBackup, ...contentBackup];
+  const restore = [
+    ...smtpBackup,
+    ...securityBackup,
+    ...siteBackup,
+    ...appearanceBackup,
+    ...contentBackup,
+    ...themeBackup,
+  ];
   if (restore.length > 0) {
     await prisma.systemConfig.createMany({ data: restore });
   }
@@ -99,7 +127,7 @@ test.describe.serial("admin 设置页", () => {
     ).toHaveAttribute("href", "/admin/settings");
     await page.goto("/admin/settings");
 
-    for (const group of ["smtp", "turnstile", "security", "notify", "content", "site", "appearance", "umami"]) {
+    for (const group of ["smtp", "turnstile", "security", "notify", "content", "site", "appearance", "theme", "umami"]) {
       await expect(page.getByTestId(`settings-group-${group}`)).toBeVisible();
     }
     // 服务端 config 是进程级快照:经 UI 保存密码触发 reloadSystemConfig 后,
@@ -189,6 +217,31 @@ test.describe.serial("admin 设置页", () => {
     await expect(
       page.getByRole("banner").locator('img[alt="老克塔"]'),
     ).toHaveAttribute("src", "/favicon-192.png");
+  });
+
+  test("theme 组:切到 WLK → 首页落地 data-theme=wlk;切回 TBC 恢复", async ({ page }) => {
+    await login(page, "m1admin", "adminpass123");
+    await page.goto("/admin/settings");
+
+    await page.getByTestId("settings-field-theme-active-wlk").check();
+    await page.getByTestId("settings-save-theme").click();
+    await expect(page.getByTestId("settings-result-theme")).toContainText("已保存");
+    const row = await prisma.systemConfig.findUnique({
+      where: { key: "theme.active" },
+      select: { value: true },
+    });
+    expect(row?.value).toBe("wlk");
+
+    // 热生效:刷新即换主题(渲染链路读 system_config,不需重启)
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "wlk");
+
+    await page.goto("/admin/settings");
+    await page.getByTestId("settings-field-theme-active-tbc").check();
+    await page.getByTestId("settings-save-theme").click();
+    await expect(page.getByTestId("settings-result-theme")).toContainText("已保存");
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "tbc");
   });
 
   test("content 组:目录开关关闭 → 文章/静态页目录消失,重开恢复", async ({ page }) => {
