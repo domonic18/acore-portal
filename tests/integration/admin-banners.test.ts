@@ -108,4 +108,27 @@ describe("首页轮播物料管理", () => {
 
     await expect(errCode(updateBanner(9_999_999n, { title: "x", imageUrl: "/x.png", linkUrl: "", sort: 0, enabled: true }, ACTOR))).resolves.toBe("NOT_FOUND");
   });
+
+  /**
+   * 轮播视频地址(2026-11-06):缺省=保持现值,空串=显式清空。
+   * 拖拽排序/启停开关的 payload 不带 videoUrl,不得把已配视频静默清空。
+   */
+  it("videoUrl:存取通;缺省更新不覆盖;空串清空", async () => {
+    const videoUrl = "/uploads/media/20261106/e2evideo.mp4";
+    const id = await createBanner(
+      { title: `${TITLE_PREFIX}video`, imageUrl: "/images/v.png", videoUrl, linkUrl: "", sort: 7, enabled: true },
+      ACTOR,
+    );
+    createdIds.push(id);
+
+    expect((await listActiveBanners()).find((b) => b.id === id)?.videoUrl).toBe(videoUrl);
+
+    // 缺省(排序/启停 payload 形态)→ 保持现值
+    await updateBanner(id, { title: `${TITLE_PREFIX}video`, imageUrl: "/images/v.png", linkUrl: "", sort: 8, enabled: true }, ACTOR);
+    expect((await listAllBanners()).find((b) => b.id === String(id))?.videoUrl).toBe(videoUrl);
+
+    // 空串 → 显式清空
+    await updateBanner(id, { title: `${TITLE_PREFIX}video`, imageUrl: "/images/v.png", videoUrl: "", linkUrl: "", sort: 8, enabled: true }, ACTOR);
+    expect((await listAllBanners()).find((b) => b.id === String(id))?.videoUrl).toBeNull();
+  });
 });

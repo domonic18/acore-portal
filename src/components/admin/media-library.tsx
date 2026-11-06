@@ -55,12 +55,18 @@ export function MediaAssetList({
   onDelete,
   refreshKey = 0,
   defaultCategory = "",
+  kind,
+  canPick,
 }: {
   onPick?: (asset: MediaAssetItem) => void;
   onDelete?: () => void;
   refreshKey?: number;
   /** 初始分类(如商品配图入口默认「商店配图」);空=全部 */
   defaultCategory?: string;
+  /** 服务端按 mime 前缀过滤:图片位只列 image/*,视频位只列 video/* */
+  kind?: "image" | "video";
+  /** 该资产是否可选取;缺省=全部可选取(视频不可插入 Markdown) */
+  canPick?: (asset: MediaAssetItem) => boolean;
 }) {
   const CHIP_BTN =
     "inline-flex items-center whitespace-nowrap rounded-full border px-3 py-1 text-[12.5px] transition select-none";
@@ -82,7 +88,8 @@ export function MediaAssetList({
     let cancelled = false;
     const params = new URLSearchParams({ page: String(page) });
     if (q) params.set("q", q);
-    if (category) params.set("category", category);
+    if (category && !kind) params.set("category", category);
+    if (kind) params.set("kind", kind);
     requestJson<MediaListResponse>(`/api/admin/media?${params.toString()}`)
       .then((body) => {
         if (!cancelled) setData(body);
@@ -91,7 +98,7 @@ export function MediaAssetList({
     return () => {
       cancelled = true;
     };
-  }, [q, page, category, refreshKey]);
+  }, [q, page, category, kind, refreshKey]);
 
   // 分类 tab:按数量降序,稳定呈现(同数按名称)
   const tabs = data
@@ -133,7 +140,7 @@ export function MediaAssetList({
         />
         <span className="shrink-0 whitespace-nowrap text-[#6482a3]">共 {data?.total ?? "…"} 个</span>
       </div>
-      {tabs.length > 0 && (
+      {tabs.length > 0 && !kind && (
         <div className="flex flex-wrap items-center gap-1.5" aria-label="媒体分类">
           <button
             type="button"
@@ -180,6 +187,16 @@ export function MediaAssetList({
                   className="absolute inset-0 h-full w-full cursor-zoom-in object-cover"
                   onClick={() => setViewer(index)}
                 />
+              ) : asset.mimeType.startsWith("video/") ? (
+                /* 视频缩略图:不挂 controls,点击进灯箱播放(预载 metadata 够取首帧) */
+                <video
+                  src={asset.url}
+                  className="absolute inset-0 h-full w-full cursor-zoom-in object-cover"
+                  preload="metadata"
+                  muted
+                  playsInline
+                  onClick={() => setViewer(index)}
+                />
               ) : (
                 <button
                   type="button"
@@ -189,7 +206,7 @@ export function MediaAssetList({
                   PDF
                 </button>
               )}
-              {onPick && (
+              {onPick && (canPick?.(asset) ?? true) && (
                 <button
                   type="button"
                   onClick={() => onPick(asset)}

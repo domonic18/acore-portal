@@ -67,6 +67,9 @@ export function MediaPickerModal({
         </div>
         <MediaAssetList
           refreshKey={refreshKey}
+          /* 视频不进 Markdown:正文渲染走 rehype-sanitize,裸 <video> 会被剥掉,
+             ![](url) 插视频地址也只会渲染成坏图——视频只作后台素材,不入正文 */
+          canPick={(asset) => !asset.mimeType.startsWith("video/")}
           onPick={(asset) => {
             onInsert(`![](${asset.url})\n`);
             onClose();

@@ -13,9 +13,9 @@ export function Dropzone({
   onFiles,
   disabled = false,
   busy = false,
-  accept = "image/*,application/pdf",
+  accept = "image/*,application/pdf,video/mp4,video/webm",
   multiple = true,
-  hint = "支持图片 / PDF,单次可多选",
+  hint = "支持图片 / PDF / 视频(mp4、webm),单次可多选",
   className = "",
 }: {
   onFiles: (files: File[]) => void;

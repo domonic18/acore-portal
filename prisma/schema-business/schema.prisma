@@ -740,6 +740,8 @@ model HomeBanner {
   id        BigInt   @id @default(autoincrement())
   title     String   @db.VarChar(64)
   imageUrl  String   @map("image_url") @db.VarChar(512)
+  // 轮播视频(2026-11-06):非空=该物料播静音循环视频,imageUrl 退为封面图/poster
+  videoUrl  String?  @map("video_url") @db.VarChar(512)
   linkUrl   String   @default("") @map("link_url") @db.VarChar(512) // 空=纯展示不跳转
   sort      Int      @default(0)
   enabled   Boolean  @default(true)

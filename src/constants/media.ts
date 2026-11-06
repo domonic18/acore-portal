@@ -5,6 +5,8 @@
  */
 export const MEDIA_CATEGORY_SHOP = "商店配图";
 export const MEDIA_CATEGORY_FORUM = "论坛图片";
+/** 视频分类(2026-11-06 轮播视频):服务端按 mime 强制落此分类,不靠前端传分类名 */
+export const MEDIA_CATEGORY_VIDEO = "视频";
 
 export const MEDIA_CATEGORIES = [
   MEDIA_CATEGORY_SHOP,
@@ -12,6 +14,7 @@ export const MEDIA_CATEGORIES = [
   MEDIA_CATEGORY_FORUM,
   "网站素材",
   "游戏资讯",
+  MEDIA_CATEGORY_VIDEO,
   "其他",
 ] as const;
 

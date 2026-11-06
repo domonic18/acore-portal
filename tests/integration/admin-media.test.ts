@@ -199,3 +199,65 @@ describe("媒体分类(2026-10-26 FileBird 对齐)", () => {
     expect(all.counts["其他"]).toBeGreaterThanOrEqual(1);
   });
 });
+
+/**
+ * 轮播视频(2026-11-06):白名单放行 mp4/webm、体积分档(视频 50MB,图文 10MB)、
+ * 分类由服务端按 mime 强制落「视频」(不靠前端传)、扩展名兜底与 mime 对齐
+ * (错 content-type + nosniff 会被浏览器拒绝播放)、列表按 mime 前缀过滤。
+ */
+describe("媒体视频(2026-11-06 轮播视频)", () => {
+  it("mp4/webm 放行;分类强制「视频」;无扩展名按 mime 兜底", async () => {
+    const [mp4] = await upload([
+      { ...fileInput(`clip-${RUN}.mp4`, "video/mp4", `mp4-${RUN}`), category: "其他" },
+    ]);
+    if (!mp4) throw new Error("upload returned no asset");
+    expect(mp4.mimeType).toBe("video/mp4");
+    expect(mp4.category).toBe("视频");
+    expect(mp4.cosKey).toMatch(/^media\/\d{8}\/[0-9a-f]{64}\.mp4$/);
+
+    // 文件名无扩展名 → 按 mime 兜底,保证本地回退的 content-type 正确
+    const [noExt] = await upload([fileInput(`noext-${RUN}`, "video/webm", `webm-${RUN}`)]);
+    if (!noExt) throw new Error("upload returned no asset");
+    expect(noExt.cosKey.endsWith(".webm")).toBe(true);
+    expect(noExt.category).toBe("视频");
+  });
+
+  it("体积分档:视频 50MB 上限(11MB 放行,超 50MB TOO_LARGE)", async () => {
+    const [ok] = await upload([
+      {
+        name: `big-${RUN}.mp4`,
+        mimeType: "video/mp4",
+        bytes: Buffer.alloc(11 * 1024 * 1024, 1),
+      },
+    ]);
+    expect(ok?.sizeBytes).toBe(11 * 1024 * 1024);
+
+    await expect(
+      errCode(
+        uploadMediaAssets(
+          [
+            {
+              name: `huge-${RUN}.mp4`,
+              mimeType: "video/mp4",
+              bytes: Buffer.alloc(50 * 1024 * 1024 + 1, 1),
+            },
+          ],
+          UPLOADER,
+        ),
+      ),
+    ).resolves.toBe("TOO_LARGE");
+  });
+
+  it("列表按 mime 前缀过滤(mimeKind=video 只出视频)", async () => {
+    await upload([fileInput(`vlist-${RUN}.mp4`, "video/mp4", `vlist-${RUN}`)]);
+    await upload([fileInput(`ilist-${RUN}.png`, "image/png", `ilist-${RUN}`)]);
+
+    const videos = await listMediaAssets({ q: `list-${RUN}`, mimeKind: "video" });
+    expect(videos.total).toBe(1);
+    expect(videos.items[0]!.mimeType.startsWith("video/")).toBe(true);
+
+    const images = await listMediaAssets({ q: `list-${RUN}`, mimeKind: "image" });
+    expect(images.total).toBe(1);
+    expect(images.items[0]!.mimeType.startsWith("image/")).toBe(true);
+  });
+});
