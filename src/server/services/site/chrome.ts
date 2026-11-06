@@ -11,6 +11,8 @@ export type SiteHeaderView = {
   items: readonly SiteNavItem[];
   portraitUrl: string;
   authed: boolean;
+  /** 管理员:页头头像下拉给出「进入后台」快捷入口(#97) */
+  isAdmin: boolean;
   points: number;
   logoUrl: string;
   headerBackgroundUrl: string;
@@ -50,6 +52,8 @@ export async function getSiteHeaderView(): Promise<SiteHeaderView> {
     items: session ? SITE_NAV : SITE_NAV.filter((n) => !n.authOnly),
     portraitUrl,
     authed: !!session,
+    // 后台入口仅 admin 可见(/admin 由 requireAdmin 把关,moderator 不可达)
+    isAdmin: session?.role === "admin",
     points,
     // 外观配置缺失(build 预渲染)时回落内置资源;显式留空=不渲染背景图
     logoUrl: appearance?.logoUrl || "/logo.png",

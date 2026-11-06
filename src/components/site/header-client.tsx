@@ -17,6 +17,7 @@ export function SiteHeaderClient({
   items,
   portraitUrl,
   authed,
+  isAdmin,
   points,
   logoUrl,
   headerBackgroundUrl,
@@ -24,6 +25,7 @@ export function SiteHeaderClient({
   items: readonly SiteNavItem[];
   portraitUrl: string;
   authed: boolean;
+  isAdmin: boolean;
   points: number;
   logoUrl: string;
   headerBackgroundUrl: string;
@@ -79,7 +81,11 @@ export function SiteHeaderClient({
             {authed ? (
               <>
                 <UnreadBadge />
-                <HeaderUserMenu portraitUrl={portraitUrl} points={points} />
+                <HeaderUserMenu
+                  portraitUrl={portraitUrl}
+                  points={points}
+                  isAdmin={isAdmin}
+                />
               </>
             ) : (
               <div className="flex items-center gap-3 text-[15px]">
