@@ -16,9 +16,7 @@ const assetUrlSchema = z
   .string()
   .trim()
   .refine(
-    (v) =>
-      (v === "" || v.startsWith("/") || /^https?:\/\//.test(v)) &&
-      !/[\s"'()\\]/.test(v),
+    (v) => (v === "" || v.startsWith("/") || /^https?:\/\//.test(v)) && !/[\s"'()\\]/.test(v),
     "须为站内路径或 http(s) 地址",
   );
 
@@ -68,24 +66,15 @@ const configSchema = z.object({
     enabled: z.boolean(),
     maintenanceMode: z.boolean(),
   }),
-  // Turnstile 人机校验(M4 US2):未配置=关闭直通;enabled=true 必须带双密钥
-  // (键允许空串,非空约束由 superRefine 在 enabled=true 时才生效)
-  turnstile: z
-    .object({
-      enabled: z.boolean(),
-      siteKey: z.string(),
-      secretKey: z.string(),
-    })
-    .superRefine((val, ctx) => {
-      if (val.enabled && (!val.siteKey || !val.secretKey)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "enabled=true 时 siteKey/secretKey 必填",
-          path: ["siteKey"],
-        });
-      }
-    })
-    .optional(),
+  // Turnstile 人机校验(M4 US2):组恒存在(键缺省=关闭直通);
+  // enabled=true 但双密钥缺失 → 不抛错(整站不再 500),置 misconfigured:
+  // 是否真正生效由校验层判定(登录端点失败关闭),后台设置页出红色告警
+  turnstile: z.object({
+    enabled: z.boolean().default(false),
+    siteKey: z.string().default(""),
+    secretKey: z.string().default(""),
+    misconfigured: z.boolean().default(false),
+  }),
   // 登录防滥用参数(M4 US2):连续失败阈值/计数窗口/锁定时长
   security: z.object({
     loginMaxFails: z.coerce.number().int().positive().default(5),
@@ -198,13 +187,19 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       enabled: flat[STATUS_CONFIG_KEYS.enabled] !== "false",
       maintenanceMode: flat[STATUS_CONFIG_KEYS.maintenanceMode] === "true",
     },
-    turnstile: flat["turnstile.enabled"]
-      ? {
-          enabled: flat["turnstile.enabled"] === "true",
-          siteKey: flat["turnstile.siteKey"] ?? "",
-          secretKey: flat["turnstile.secretKey"] ?? "",
-        }
-      : undefined,
+    turnstile: (() => {
+      const enabled = flat["turnstile.enabled"] === "true";
+      const siteKey = flat["turnstile.siteKey"] ?? "";
+      const secretKey = flat["turnstile.secretKey"] ?? "";
+      // 启用但密钥缺失:不抛错(整站不 500),标 misconfigured;
+      // 实际生效与否由校验层判定,后台设置页出红色告警
+      return {
+        enabled,
+        siteKey,
+        secretKey,
+        misconfigured: enabled && (!siteKey || !secretKey),
+      };
+    })(),
     security: {
       loginMaxFails: flat["security.loginMaxFails"] ?? "5",
       loginWindowSec: flat["security.loginWindowSec"] ?? "900",
@@ -235,7 +230,8 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       "tbc.headerBackgroundUrl": flat["theme.tbc.headerBackgroundUrl"] ?? "",
       "tbc.pageBackgroundUrl": flat["theme.tbc.pageBackgroundUrl"] ?? "",
       "tbc.panelBackgroundUrl": flat["theme.tbc.panelBackgroundUrl"] ?? "",
-      "wlk.headerBackgroundUrl": flat["theme.wlk.headerBackgroundUrl"] ?? "/images/banner-wotlk.svg",
+      "wlk.headerBackgroundUrl":
+        flat["theme.wlk.headerBackgroundUrl"] ?? "/images/banner-wotlk.svg",
       "wlk.pageBackgroundUrl": flat["theme.wlk.pageBackgroundUrl"] ?? "/background.jpg",
       "wlk.panelBackgroundUrl": flat["theme.wlk.panelBackgroundUrl"] ?? "",
     },
@@ -249,21 +245,20 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       rankBase: flat["tools.rankBase"] ?? "https://rank.lokta.cn",
       dkpUrl: flat["tools.dkpUrl"] ?? "https://webdkp.nfuwow.com",
     },
-    backup: flat["backup.retentionDays"] ?? flat["backup.gameWeekly"]
-      ? {
-          retentionDays: flat["backup.retentionDays"] ?? "30",
-          gameWeekly: flat["backup.gameWeekly"] !== "false",
-        }
-      : undefined,
+    backup:
+      (flat["backup.retentionDays"] ?? flat["backup.gameWeekly"])
+        ? {
+            retentionDays: flat["backup.retentionDays"] ?? "30",
+            gameWeekly: flat["backup.gameWeekly"] !== "false",
+          }
+        : undefined,
   };
 }
 
 function parseConfig(raw: ReturnType<typeof flattenToSchema>): SystemConfig {
   const parsed = configSchema.safeParse(raw);
   if (!parsed.success) {
-    const issues = parsed.error.issues
-      .map((i) => `${i.path.join(".")}: ${i.message}`)
-      .join("; ");
+    const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
     // 只报缺失/格式,不回显任何值
     throw new Error(`system_config 配置校验失败(检查 system_config 表): ${issues}`);
   }
@@ -278,9 +273,7 @@ export async function loadSystemConfig(): Promise<SystemConfig> {
 }
 
 /** 纯函数(KV 行→校验后配置),供单测与设置保存路径复用 */
-export function buildConfigFromRows(
-  rows: { key: string; value: string }[],
-): SystemConfig {
+export function buildConfigFromRows(rows: { key: string; value: string }[]): SystemConfig {
   return parseConfig(flattenToSchema(rows));
 }
 

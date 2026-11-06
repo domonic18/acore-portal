@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { apiError, parseBody } from "@/server/http";
 import { registerAccount } from "@/server/services/auth/register";
+import { TURNSTILE_ERROR } from "@/constants/turnstile";
 import { verifyTurnstile } from "@/lib/turnstile";
 
 /**
@@ -21,27 +22,23 @@ export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, schema);
   if (!parsed.ok) return parsed.response;
   const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    req.headers.get("x-real-ip");
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip");
 
   // Turnstile 预检(仅拦机器人;注册无凭据猜测面,不做失败计数/锁定)
-  const turnstile = await verifyTurnstile(
-    parsed.data.turnstileToken,
-    ip ?? undefined,
-  );
+  const turnstile = await verifyTurnstile(parsed.data.turnstileToken, ip ?? undefined);
   if (!turnstile.ok) {
-    return apiError(422, "TURNSTILE_FAILED", "人机验证未通过,请重试。");
+    if (turnstile.errors?.includes("not-configured")) {
+      // 运维误配(已启用但密钥缺失):失败关闭,站点其余部分不受影响
+      return apiError(422, TURNSTILE_ERROR.UNAVAILABLE.code, TURNSTILE_ERROR.UNAVAILABLE.message);
+    }
+    return apiError(422, TURNSTILE_ERROR.FAILED.code, TURNSTILE_ERROR.FAILED.message);
   }
 
   const outcome = await registerAccount(parsed.data, { ip });
   if (!outcome.ok) {
     switch (outcome.reason) {
       case "invalid_username":
-        return apiError(
-          422,
-          "VALIDATION_ERROR",
-          "用户名需 2-32 个字符,且不能包含 @。",
-        );
+        return apiError(422, "VALIDATION_ERROR", "用户名需 2-32 个字符,且不能包含 @。");
       case "username_taken":
         return apiError(422, "USERNAME_TAKEN", "该用户名已被占用。");
       case "email_taken":
@@ -49,11 +46,7 @@ export async function POST(req: NextRequest) {
       case "username_conflict":
         return apiError(409, "USERNAME_CONFLICT", "该用户名刚刚被他人注册,请换一个。");
       case "game_db_unavailable":
-        return apiError(
-          503,
-          "GAME_DB_UNAVAILABLE",
-          "注册未完成:服务暂时不可用,请稍后重试。",
-        );
+        return apiError(503, "GAME_DB_UNAVAILABLE", "注册未完成:服务暂时不可用,请稍后重试。");
     }
   }
   return NextResponse.json(

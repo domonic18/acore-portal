@@ -19,13 +19,12 @@ export async function getSettingsView(): Promise<SettingsView> {
       from: config.smtp.from,
       passwordConfigured: config.smtp.password !== "",
     },
-    turnstile: config.turnstile
-      ? {
-          enabled: config.turnstile.enabled,
-          siteKey: config.turnstile.siteKey || null,
-          secretKeyConfigured: config.turnstile.secretKey !== "",
-        }
-      : { enabled: false, siteKey: null, secretKeyConfigured: false },
+    turnstile: {
+      enabled: config.turnstile.enabled,
+      siteKey: config.turnstile.siteKey || null,
+      secretKeyConfigured: config.turnstile.secretKey !== "",
+      misconfigured: config.turnstile.misconfigured,
+    },
     security: {
       loginMaxFails: config.security.loginMaxFails,
       loginWindowSec: config.security.loginWindowSec,

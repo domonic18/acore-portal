@@ -24,6 +24,8 @@ export type SettingsView = {
     enabled: boolean;
     siteKey: string | null;
     secretKeyConfigured: boolean;
+    /** 已启用但双密钥缺失:实际未生效,登录端点失败关闭 */
+    misconfigured: boolean;
   };
   security: {
     loginMaxFails: number;
@@ -32,7 +34,13 @@ export type SettingsView = {
   };
   notify: { pointEmailThreshold: number };
   content: { tocEnabled: boolean };
-  site: { icp: string; copyrightEn: string; qqGroup: string; qqGroupQr: string; qqGroupJoinUrl: string };
+  site: {
+    icp: string;
+    copyrightEn: string;
+    qqGroup: string;
+    qqGroupQr: string;
+    qqGroupJoinUrl: string;
+  };
   appearance: {
     logoUrl: string;
     faviconUrl: string;

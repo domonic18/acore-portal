@@ -5,11 +5,10 @@ import { apiError, parseBody } from "@/server/http";
 import { createSession, issueRefreshToken } from "@/lib/auth/session";
 import { setSessionCookies } from "@/lib/auth/cookies";
 import { loginWithPassword } from "@/server/services/auth/login";
-import {
-  assertNotLocked,
-  clearOnSuccess,
-  recordFailure,
-} from "@/server/services/auth/login-guard";
+import { assertNotLocked, clearOnSuccess, recordFailure } from "@/server/services/auth/login-guard";
+import { writeAudit } from "@/server/services/shared/audit";
+import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
+import { TURNSTILE_ERROR } from "@/constants/turnstile";
 import { verifyTurnstile } from "@/lib/turnstile";
 
 const loginSchema = z.object({
@@ -23,15 +22,13 @@ const loginSchema = z.object({
 const UNIFIED_401 = "用户名或密码错误。若遗忘密码,请走找回密码流程。";
 /** 两类 429 对外同一文案(不泄露触发原因),code 区分 RATE_LIMITED/LOGIN_LOCKED */
 const RATE_LIMIT_429 = "尝试过于频繁,请稍后再试。";
-const TURNSTILE_422 = "人机验证未通过,请重试。";
 
 export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, loginSchema);
   if (!parsed.ok) return parsed.response;
   const { username, password, remember, turnstileToken } = parsed.data;
   const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    req.headers.get("x-real-ip");
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip");
 
   // ① 前置锁检查:锁期内不验 Turnstile/凭据,直接 429
   const lock = await assertNotLocked(username);
@@ -44,7 +41,11 @@ export async function POST(req: NextRequest) {
   // ② Turnstile siteverify:失败 422,不计失败次数
   const turnstile = await verifyTurnstile(turnstileToken, ip ?? undefined);
   if (!turnstile.ok) {
-    return apiError(422, "TURNSTILE_FAILED", TURNSTILE_422);
+    if (turnstile.errors?.includes("not-configured")) {
+      // 运维误配(已启用但密钥缺失):失败关闭,站点其余部分不受影响
+      return apiError(422, TURNSTILE_ERROR.UNAVAILABLE.code, TURNSTILE_ERROR.UNAVAILABLE.message);
+    }
+    return apiError(422, TURNSTILE_ERROR.FAILED.code, TURNSTILE_ERROR.FAILED.message);
   }
 
   const outcome = await loginWithPassword(username, password, { ip });
@@ -63,10 +64,17 @@ export async function POST(req: NextRequest) {
   // ④ 成功清账(失败计数与锁全清)
   await clearOnSuccess(username, ip);
 
+  // ⑤ 成功审计(2026-11-06 撞库加固):凭据有效即记,用于界定被攻陷账号
+  await writeAudit({
+    category: AUDIT_CATEGORY.SECURITY,
+    action: AUDIT_ACTION.LOGIN_SUCCESS,
+    actorUserId: outcome.user.id,
+    payload: { username: outcome.user.username, upgraded: outcome.upgraded },
+    ip,
+  });
+
   const { accessToken } = await createSession(outcome.user.id, outcome.user.role);
-  const refreshToken = remember
-    ? (await issueRefreshToken(outcome.user.id)).token
-    : undefined;
+  const refreshToken = remember ? (await issueRefreshToken(outcome.user.id)).token : undefined;
 
   const res = NextResponse.json({
     user: { username: outcome.user.username, role: outcome.user.role },

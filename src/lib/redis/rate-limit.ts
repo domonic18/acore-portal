@@ -48,10 +48,14 @@ redis.call('INCRBY', KEYS[1], ARGV[1])
 redis.call('EXPIRE', KEYS[1], ARGV[3], 'NX')
 return {1, redis.call('TTL', KEYS[1])}
 `;
-  const result = (await redis.eval(lua, 1, key, String(n), String(opts.max), String(opts.windowSec))) as [
-    number,
-    number,
-  ];
+  const result = (await redis.eval(
+    lua,
+    1,
+    key,
+    String(n),
+    String(opts.max),
+    String(opts.windowSec),
+  )) as [number, number];
   return { allowed: result[0] === 1, retryAfterSec: result[1] > 0 ? result[1] : undefined };
 }
 
@@ -61,6 +65,16 @@ return {1, redis.call('TTL', KEYS[1])}
  */
 export async function setLock(key: string, ttlSec: number): Promise<void> {
   await redis.set(key, "1", "EX", ttlSec);
+}
+
+/**
+ * 条件加锁(SET NX EX):键不存在时才获得锁并设置 TTL。
+ * 获得锁返回 true;已有锁返回 false 且**不续期**
+ * (setLock 无 NX,重复调用是续期而非加锁,不能用于互斥场景)。
+ */
+export async function setLockIfAbsent(key: string, ttlSec: number): Promise<boolean> {
+  const res = await redis.set(key, "1", "EX", ttlSec, "NX");
+  return res === "OK";
 }
 
 export async function checkLock(key: string): Promise<LockState> {

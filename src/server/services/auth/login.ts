@@ -1,14 +1,12 @@
 import "server-only";
 import { prisma } from "@/lib/db";
+import { getConfig } from "@/lib/config";
 import { verifyPhpass } from "@/lib/auth/phpass";
 import { hashWpBcrypt, verifyWpBcrypt } from "@/lib/auth/wp-bcrypt";
-import {
-  PASSWORD_ALGO,
-  PHPASS_PREFIX,
-  WP_BCRYPT_PREFIX,
-} from "@/constants/password";
+import { PASSWORD_ALGO, PHPASS_PREFIX, WP_BCRYPT_PREFIX } from "@/constants/password";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { writeAudit } from "@/server/services/shared/audit";
+import { auditUnknownUserKey } from "@/server/services/auth/login-guard";
+import { writeAudit, writeAuditOnce } from "@/server/services/shared/audit";
 
 export type LoginUser = {
   id: bigint;
@@ -22,10 +20,7 @@ export type LoginOutcome =
   | { ok: false; failReason: "bad_password" | "banned" | "corrupt_hash" };
 
 /** 按哈希前缀分派校验(research R2:前缀是自描述权威,upgrade 判定不看 cost) */
-function verifyByHashPrefix(
-  storedHash: string,
-  password: string,
-): boolean | null {
+function verifyByHashPrefix(storedHash: string, password: string): boolean | null {
   if (storedHash.startsWith(WP_BCRYPT_PREFIX)) {
     return verifyWpBcrypt(password, storedHash);
   }
@@ -59,7 +54,22 @@ export async function loginWithPassword(
     },
   });
 
-  if (!user) return { ok: false, failReason: "bad_password" };
+  if (!user) {
+    // 用户名不存在:记未知用户名失败(去重防写放大),但 HTTP 响应与「密码错误」完全一致
+    const { security } = await getConfig();
+    await writeAuditOnce(
+      {
+        category: AUDIT_CATEGORY.SECURITY,
+        action: AUDIT_ACTION.LOGIN_FAILED_UNKNOWN,
+        actorUserId: null,
+        payload: { username },
+        ip: ctx.ip,
+      },
+      auditUnknownUserKey(username, ctx.ip ?? "unknown"),
+      security.loginWindowSec,
+    );
+    return { ok: false, failReason: "bad_password" };
+  }
   if (user.status === "banned") {
     await writeAudit({
       category: AUDIT_CATEGORY.SECURITY,

@@ -1,29 +1,25 @@
 import "server-only";
 import { getConfig } from "@/lib/config";
-import {
-  checkLock,
-  clearKeys,
-  hitRateLimit,
-  setLock,
-} from "@/lib/redis/rate-limit";
+import { sha256Hex } from "@/lib/auth/game-hash";
+import { checkLock, clearKeys, hitRateLimit, setLock } from "@/lib/redis/rate-limit";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
+import { loginFailIpKey, loginFailKey, loginLockKey } from "@/constants/security";
 import { writeAudit } from "@/server/services/shared/audit";
 
-/** 键格式统一定义(M4 防滥用设计;调用方不感知,测试可按此格式注入状态) */
-export const loginFailKey = (username: string) =>
-  `rl:login:fail:u:${username.toLowerCase()}`;
-export const loginFailIpKey = (ip: string) => `rl:login:fail:ip:${ip}`;
-export const loginLockKey = (username: string) =>
-  `login:lock:u:${username.toLowerCase()}`;
+/**
+ * 未知用户名失败审计的去重键(防写放大):
+ * 同一 (用户名,IP) 在窗口内只落一行审计,失败计数不受影响。
+ * 用户名取 sha256 前 16 位——Redis key 不留原始用户名,且键长有界。
+ */
+export const auditUnknownUserKey = (username: string, ip: string) =>
+  `rl:audit:unknown:${sha256Hex(username.toLowerCase()).slice(0, 16)}:${ip}`;
 
 export type LockCheck = { locked: true; retryAfterSec: number } | { locked: false };
 
 /** 前置锁检查:锁期内不验 Turnstile、不碰凭据,调用方直接 429 */
 export async function assertNotLocked(username: string): Promise<LockCheck> {
   const state = await checkLock(loginLockKey(username));
-  return state.locked
-    ? { locked: true, retryAfterSec: state.retryAfterSec }
-    : { locked: false };
+  return state.locked ? { locked: true, retryAfterSec: state.retryAfterSec } : { locked: false };
 }
 
 /**
@@ -47,12 +43,14 @@ export async function recordFailure(
         max: security.loginMaxFails,
       })
     : null;
-  const exceeded = !userDim.allowed || (ipDim?.allowed === false);
+  const exceeded = !userDim.allowed || ipDim?.allowed === false;
   if (exceeded) {
     await setLock(loginLockKey(username), security.loginLockSec);
     await writeAudit({
       category: AUDIT_CATEGORY.SECURITY,
       action: AUDIT_ACTION.LOGIN_LOCKED,
+      // ip 落顶层列(可按列检索),不进 payload
+      ip: ip ?? null,
       payload: {
         username,
         ip: ip ?? null,
@@ -65,10 +63,7 @@ export async function recordFailure(
 }
 
 /** 登录成功清账:失败计数(用户名/IP)与锁全清 */
-export async function clearOnSuccess(
-  username: string,
-  ip?: string | null,
-): Promise<void> {
+export async function clearOnSuccess(username: string, ip?: string | null): Promise<void> {
   const keys = [loginFailKey(username), loginLockKey(username)];
   if (ip) keys.push(loginFailIpKey(ip));
   await clearKeys(keys);

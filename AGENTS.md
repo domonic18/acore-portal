@@ -96,6 +96,7 @@ src/
 scripts/         # 宿主机侧脚本,按用途分子域
 ├── dev/         # 开发辅助(seed/initdb fixture/SOAP mock)
 ├── verify/      # 验收自检(soap-check/sc001-login)
+├── ops/         # 线上运维/事故响应脚本(强制改密等;只走 service 层原语,不直写凭据)
 └── migrate/     # WP→新库数据迁移(清洗/对账 SQL 与脚本)
 docker/          # 部署资产:web/Dockerfile + caddy/Caddyfile + 三套 compose
 ├── docker-compose.dev.yml    # 开发栈(本地依赖:mysql/redis/mailpit/soap-mock)——严禁用于生产

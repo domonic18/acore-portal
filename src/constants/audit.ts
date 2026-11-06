@@ -67,6 +67,14 @@ export const AUDIT_ACTION = {
   FORUM_POST_DELETED: "forum_post_deleted",
   /** M4 防滥用:连续失败达阈值触发锁定(category=security;payload 无密码,只记用户名/ip/计数) */
   LOGIN_LOCKED: "login_locked",
+  /** 2026-11-06 撞库加固:登录成功(category=security;actorUserId 为登录者,payload 记 username/是否透明升级) */
+  LOGIN_SUCCESS: "login_success",
+  /** 2026-11-06 撞库加固:用户名不存在时的失败(category=security;actorUserId=null,payload 记 username) */
+  LOGIN_FAILED_UNKNOWN: "login_failed_unknown",
+  /** 2026-11-06 撞库加固:单 IP 失败数越软阈(category=security;payload 记 ip/计数) */
+  LOGIN_IP_SUSPICIOUS: "login_ip_suspicious",
+  /** 2026-11-06 撞库加固:安全告警(category=security;payload 记 kind/ip/count/window) */
+  SECURITY_ALERT: "security_alert",
   /** M4 系统设置保存(category=admin;只落组名/键名/掩码 diff,任何值不落审计) */
   SETTINGS_CHANGED: "settings_changed",
   /** M4 设置页测试发信(category=admin;记 to) */

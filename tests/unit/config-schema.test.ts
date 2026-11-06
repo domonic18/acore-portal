@@ -21,7 +21,7 @@ function rows(...extra: [string, string][]) {
 }
 
 describe("buildConfigFromRows M4 五组(T003)", () => {
-  it("新五键全缺省可启动:security/notify 取默认,四个 optional 组为 undefined", () => {
+  it("新五键全缺省可启动:security/notify 取默认,turnstile 组恒存在且为关闭态", () => {
     const c = buildConfigFromRows(rows());
     expect(c.security).toEqual({
       loginMaxFails: 5,
@@ -29,7 +29,12 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
       loginLockSec: 900,
     });
     expect(c.notify).toEqual({ pointEmailThreshold: 0 });
-    expect(c.turnstile).toBeUndefined();
+    expect(c.turnstile).toEqual({
+      enabled: false,
+      siteKey: "",
+      secretKey: "",
+      misconfigured: false,
+    });
     expect(c.backup).toBeUndefined();
     expect(c.cos).toBeUndefined();
   });
@@ -52,13 +57,12 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
   });
 
   it("turnstile 全键在=配置可用;enabled=false 无密钥不阻塞(关闭直通)", () => {
-    const off = buildConfigFromRows(
-      rows(["turnstile.enabled", "false"]),
-    );
+    const off = buildConfigFromRows(rows(["turnstile.enabled", "false"]));
     expect(off.turnstile).toEqual({
       enabled: false,
       siteKey: "",
       secretKey: "",
+      misconfigured: false,
     });
 
     const on = buildConfigFromRows(
@@ -72,18 +76,20 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
       enabled: true,
       siteKey: "0xAAA",
       secretKey: "0xBBB",
+      misconfigured: false,
     });
   });
 
-  it("turnstile.enabled=true 而密钥缺失 → 配置校验失败(422 TURNSTILE_KEYS_REQUIRED 同语义)", () => {
-    expect(() =>
-      buildConfigFromRows(
-        rows(
-          ["turnstile.enabled", "true"],
-          ["turnstile.siteKey", "0xAAA"],
-        ),
-      ),
-    ).toThrow(/siteKey\/secretKey 必填/);
+  it("turnstile.enabled=true 而密钥缺失 → 不抛错,标 misconfigured(整站不再 500)", () => {
+    const c = buildConfigFromRows(
+      rows(["turnstile.enabled", "true"], ["turnstile.siteKey", "0xAAA"]),
+    );
+    expect(c.turnstile).toEqual({
+      enabled: true,
+      siteKey: "0xAAA",
+      secretKey: "",
+      misconfigured: true,
+    });
   });
 
   it("appearance 缺省回落内置资源;显式留空=隐藏背景;非法协议校验失败", () => {
@@ -96,17 +102,14 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
     });
 
     const hidden = buildConfigFromRows(
-      rows(
-        ["appearance.headerBackgroundUrl", ""],
-        ["appearance.pageBackgroundUrl", ""],
-      ),
+      rows(["appearance.headerBackgroundUrl", ""], ["appearance.pageBackgroundUrl", ""]),
     );
     expect(hidden.appearance.headerBackgroundUrl).toBe("");
     expect(hidden.appearance.pageBackgroundUrl).toBe("");
 
-    expect(() =>
-      buildConfigFromRows(rows(["appearance.logoUrl", "javascript:alert(1)"])),
-    ).toThrow(/system_config 配置校验失败/);
+    expect(() => buildConfigFromRows(rows(["appearance.logoUrl", "javascript:alert(1)"]))).toThrow(
+      /system_config 配置校验失败/,
+    );
   });
 
   it("backup 可只给 gameWeekly(retentionDays 取默认 30);retentionDays=0 合法", () => {

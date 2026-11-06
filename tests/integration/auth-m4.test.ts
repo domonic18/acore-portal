@@ -8,11 +8,8 @@ import { reloadSystemConfig } from "@/lib/config";
 import { AUDIT_ACTION } from "@/constants/audit";
 import { PASSWORD_ALGO } from "@/constants/password";
 import { hashWpBcrypt } from "@/lib/auth/wp-bcrypt";
-import {
-  loginFailIpKey,
-  loginFailKey,
-  loginLockKey,
-} from "@/server/services/auth/login-guard";
+import { loginFailIpKey, loginFailKey, loginLockKey } from "@/constants/security";
+import { auditUnknownUserKey } from "@/server/services/auth/login-guard";
 import { POST as loginPost } from "@/app/api/auth/login/route";
 import { POST as registerPost } from "@/app/api/auth/register/route";
 
@@ -62,8 +59,7 @@ function loginReq(body: unknown, ipAddr?: string): NextRequest {
   });
 }
 
-const login = (body: unknown, ipAddr?: string) =>
-  loginPost(loginReq(body, ipAddr));
+const login = (body: unknown, ipAddr?: string) => loginPost(loginReq(body, ipAddr));
 
 const errBody = async (res: Response) =>
   (await res.json()) as {
@@ -126,9 +122,7 @@ describe("M4 US2 登录防滥用——Turnstile 关态(T009)", () => {
     await seedFails(username, 3);
     const res = await login({ username, password }, i);
     expect(res.status).toBe(200);
-    expect(((await res.json()) as { user: { username: string } }).user.username).toBe(
-      username,
-    );
+    expect(((await res.json()) as { user: { username: string } }).user.username).toBe(username);
     expect(await redis.get(loginFailKey(username))).toBeNull();
     expect(await redis.get(loginFailIpKey(i))).toBeNull();
     expect((await checkLock(loginLockKey(username))).locked).toBe(false);
@@ -194,12 +188,8 @@ describe("M4 US2 登录防滥用——Turnstile 关态(T009)", () => {
     const ipG = ip(31);
     redisKeys.push(loginFailIpKey(ipG), loginFailKey(GHOST), loginLockKey(GHOST));
 
-    const real401 = await errBody(
-      await login({ username: real, password: "wrong" }, ipR),
-    );
-    const ghost401 = await errBody(
-      await login({ username: GHOST, password: "wrong" }, ipG),
-    );
+    const real401 = await errBody(await login({ username: real, password: "wrong" }, ipR));
+    const ghost401 = await errBody(await login({ username: GHOST, password: "wrong" }, ipG));
     expect(await redis.get(loginFailKey(GHOST))).toBe("1");
     expect(ghost401.error.message).toBe(real401.error.message);
 
@@ -207,26 +197,150 @@ describe("M4 US2 登录防滥用——Turnstile 关态(T009)", () => {
     // 双方各连错达阈 → RATE_LIMITED 文案逐字一致
     await seedFails(GHOST, MAX_FAILS);
     await seedFails(real, MAX_FAILS);
-    const ghost429 = await errBody(
-      await login({ username: GHOST, password: "wrong" }, ipG),
-    );
-    const real429 = await errBody(
-      await login({ username: real, password: "wrong" }, ipR),
-    );
+    const ghost429 = await errBody(await login({ username: GHOST, password: "wrong" }, ipG));
+    const real429 = await errBody(await login({ username: real, password: "wrong" }, ipR));
     expect(ghost429.error.code).toBe("RATE_LIMITED");
     expect(real429.error.code).toBe("RATE_LIMITED");
     expect(real429.error.message).toBe(ghost429.error.message);
     expect((await checkLock(loginLockKey(GHOST))).locked).toBe(true);
 
     // 锁期内 → LOGIN_LOCKED 文案逐字一致(真实用户用正确密码仍被拦)
-    const ghostLock = await errBody(
-      await login({ username: GHOST, password: "wrong" }, ipG),
-    );
+    const ghostLock = await errBody(await login({ username: GHOST, password: "wrong" }, ipG));
     const realLock = await errBody(await login({ username: real, password }, ipR));
     expect(ghostLock.error.code).toBe("LOGIN_LOCKED");
     expect(realLock.error.code).toBe("LOGIN_LOCKED");
     expect(realLock.error.message).toBe(ghostLock.error.message);
     expect(ghostLock.error.retryAfterSec).toBeGreaterThan(0);
+  });
+});
+
+describe("2026-11-06 撞库加固——审计补齐(PR-0)", () => {
+  it("登录成功 → LOGIN_SUCCESS 审计行,ip 落顶层列", async () => {
+    const { username, password } = await makeUser(20, PASSWORD);
+    const i = ip(40);
+    redisKeys.push(loginFailIpKey(i));
+    const res = await login({ username, password }, i);
+    expect(res.status).toBe(200);
+
+    const rows = await prisma.auditLog.findMany({
+      where: { action: AUDIT_ACTION.LOGIN_SUCCESS },
+      orderBy: { id: "desc" },
+      take: 20,
+    });
+    const row = rows.find((r) => (r.payloadJson as Record<string, unknown>).username === username);
+    expect(row).toBeDefined();
+    expect(row?.ip).toBe(i);
+    expect(row?.actorUserId).not.toBeNull();
+  });
+
+  it("用户名不存在 → LOGIN_FAILED_UNKNOWN 审计行;401 文案与真实用户逐字一致", async () => {
+    const { username: real } = await makeUser(21, PASSWORD);
+    const ghost = `${GHOST}_u`;
+    const iReal = ip(41);
+    const iGhost = ip(42);
+    redisKeys.push(
+      loginFailIpKey(iReal),
+      loginFailIpKey(iGhost),
+      loginFailKey(ghost),
+      loginLockKey(ghost),
+      auditUnknownUserKey(ghost, iGhost),
+    );
+
+    const realBody = await errBody(await login({ username: real, password: "wrong" }, iReal));
+    const ghostBody = await errBody(await login({ username: ghost, password: "wrong" }, iGhost));
+    expect(ghostBody.error.code).toBe("INVALID_CREDENTIALS");
+    expect(ghostBody.error.message).toBe(realBody.error.message);
+
+    const rows = await prisma.auditLog.findMany({
+      where: { action: AUDIT_ACTION.LOGIN_FAILED_UNKNOWN },
+      orderBy: { id: "desc" },
+      take: 20,
+    });
+    const row = rows.find((r) => (r.payloadJson as Record<string, unknown>).username === ghost);
+    expect(row).toBeDefined();
+    expect(row?.ip).toBe(iGhost);
+    expect(row?.actorUserId).toBeNull();
+  });
+
+  it("写放大去重:同 (ip,用户名) 二次失败不再写第二行未知用户审计", async () => {
+    const ghost = `${GHOST}_d`;
+    const i = ip(43);
+    redisKeys.push(
+      loginFailIpKey(i),
+      loginFailKey(ghost),
+      loginLockKey(ghost),
+      auditUnknownUserKey(ghost, i),
+    );
+    const countRows = async () =>
+      (
+        await prisma.auditLog.findMany({
+          where: { action: AUDIT_ACTION.LOGIN_FAILED_UNKNOWN },
+          orderBy: { id: "desc" },
+          take: 50,
+        })
+      ).filter((r) => (r.payloadJson as Record<string, unknown>).username === ghost).length;
+
+    const before = await countRows();
+    await login({ username: ghost, password: "wrong" }, i);
+    const afterFirst = await countRows();
+    expect(afterFirst).toBe(before + 1);
+
+    await login({ username: ghost, password: "wrong" }, i);
+    expect(await countRows()).toBe(afterFirst);
+  });
+
+  it("LOGIN_LOCKED 行的 audit_log.ip 列非空(可按列检索攻击来源)", async () => {
+    const { username } = await makeUser(22, PASSWORD);
+    const i = ip(44);
+    redisKeys.push(loginFailIpKey(i));
+    await seedFails(username, MAX_FAILS);
+
+    const res = await login({ username, password: "wrong" }, i);
+    expect(res.status).toBe(429);
+
+    const rows = await prisma.auditLog.findMany({
+      where: { action: AUDIT_ACTION.LOGIN_LOCKED },
+      orderBy: { id: "desc" },
+      take: 20,
+    });
+    const row = rows.find((r) => (r.payloadJson as Record<string, unknown>).username === username);
+    expect(row).toBeDefined();
+    expect(row?.ip).toBe(i);
+  });
+  it("Turnstile 已启用但密钥缺失 → 登录/注册均失败关闭(422 TURNSTILE_UNAVAILABLE)", async () => {
+    await prisma.systemConfig.deleteMany({ where: { key: { in: TS_KEYS } } });
+    await prisma.systemConfig.createMany({
+      data: [
+        { key: "turnstile.enabled", value: "true" },
+        { key: "turnstile.siteKey", value: "site-x" },
+      ],
+    });
+    await reloadSystemConfig();
+
+    const { username } = await makeUser(23, PASSWORD);
+    const res = await login({ username, password: PASSWORD }, ip(45));
+    expect(res.status).toBe(422);
+    expect((await errBody(res)).error.code).toBe("TURNSTILE_UNAVAILABLE");
+    // 失败关闭不计入凭据失败次数
+    expect(await redis.get(loginFailKey(username))).toBeNull();
+
+    const regUsername = `t_${RUN}_au_reg_mis`;
+    const reg = await registerPost(
+      new NextRequest("http://localhost/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          username: regUsername,
+          email: `${regUsername}@test.local`,
+        }),
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    expect(reg.status).toBe(422);
+    expect((await errBody(reg)).error.code).toBe("TURNSTILE_UNAVAILABLE");
+    expect(await prisma.user.count({ where: { username: regUsername } })).toBe(0);
+
+    await prisma.systemConfig.deleteMany({ where: { key: { in: TS_KEYS } } });
+    await reloadSystemConfig();
   });
 });
 
@@ -251,23 +365,15 @@ describe("M4 US2 登录防滥用——Turnstile 开态(T009/T011)", () => {
     let pass = false;
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        new Response(JSON.stringify({ success: pass }), { status: 200 }),
-      ),
+      vi.fn(async () => new Response(JSON.stringify({ success: pass }), { status: 200 })),
     );
 
-    const blocked = await login(
-      { username, password: "wrong", turnstileToken: "tok" },
-      i,
-    );
+    const blocked = await login({ username, password: "wrong", turnstileToken: "tok" }, i);
     expect(blocked.status).toBe(422);
     expect(await redis.get(loginFailKey(username))).toBeNull();
 
     pass = true;
-    const allowed = await login(
-      { username, password: "wrong", turnstileToken: "tok" },
-      i,
-    );
+    const allowed = await login({ username, password: "wrong", turnstileToken: "tok" }, i);
     expect(allowed.status).toBe(401);
     expect(await redis.get(loginFailKey(username))).toBe("1");
     vi.unstubAllGlobals();
