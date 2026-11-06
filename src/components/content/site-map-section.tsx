@@ -16,9 +16,9 @@ export function SiteMapSection({ groups }: { groups: SiteMapGroup[] }) {
       {groups.map((group) => (
         <div
           key={group.name}
-          className="rounded-xl border border-[#22385a] bg-[#13233a]/60 p-4"
+          className="rounded-xl border border-line bg-panel/60 p-4"
         >
-          <h2 className="border-l-[3px] border-[#5ea3cc] pl-2.5 text-[16px] font-bold text-[#dcebf7]">
+          <h2 className="border-l-[3px] border-accent pl-2.5 text-[16px] font-bold text-heading">
             {group.name}
           </h2>
           <ul className="mt-3 space-y-2 text-[14px]">
@@ -26,7 +26,7 @@ export function SiteMapSection({ groups }: { groups: SiteMapGroup[] }) {
               <li key={link.href}>
                 <Link
                   href={link.href}
-                  className="text-[#6fb7e0] hover:text-[#e8c877]"
+                  className="text-link hover:text-highlight"
                 >
                   {link.label}
                 </Link>

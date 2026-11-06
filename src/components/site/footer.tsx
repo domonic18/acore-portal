@@ -13,22 +13,22 @@ export function SiteFooter({
   copyrightEn: string | null;
 }) {
   return (
-    <footer className="mt-12 border-t border-[#22385a] bg-[#0c1626]">
-      <div className="container-site flex flex-col items-center gap-2.5 px-4 py-7 text-[13px] text-[#6482a3]">
+    <footer className="mt-12 border-t border-line bg-footer">
+      <div className="container-site flex flex-col items-center gap-2.5 px-4 py-7 text-[13px] text-muted">
         <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-          <Link href="/agreement" className="hover:text-[#e8c877]">
+          <Link href="/agreement" className="hover:text-highlight">
             用户协议
           </Link>
-          <Link href="/post/网站规范" className="hover:text-[#e8c877]">
+          <Link href="/post/网站规范" className="hover:text-highlight">
             规范要求
           </Link>
-          <Link href="/about" className="hover:text-[#e8c877]">
+          <Link href="/about" className="hover:text-highlight">
             项目简介
           </Link>
-          <Link href="/tutorial" className="hover:text-[#e8c877]">
+          <Link href="/tutorial" className="hover:text-highlight">
             使用教程
           </Link>
-          <Link href="/sitemap" className="hover:text-[#e8c877]">
+          <Link href="/sitemap" className="hover:text-highlight">
             网站地图
           </Link>
         </div>
@@ -41,7 +41,7 @@ export function SiteFooter({
                 href="https://beian.miit.gov.cn"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-[#e8c877]"
+                className="hover:text-highlight"
               >
                 {icp}
               </a>
@@ -49,7 +49,7 @@ export function SiteFooter({
           )}
         </p>
         {copyrightEn && (
-          <p className="max-w-3xl whitespace-pre-line text-center text-[11px] leading-5 text-[#4d6a8c]">
+          <p className="max-w-3xl whitespace-pre-line text-center text-[11px] leading-5 text-muted">
             {copyrightEn}
           </p>
         )}

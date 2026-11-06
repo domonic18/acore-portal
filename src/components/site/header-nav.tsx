@@ -7,7 +7,7 @@ import type { SiteNavItem } from "@/constants/navigation";
 
 /**
  * 页头导航展示层(#84 从 header-client 拆出):
- * 桌面多级下拉 + 移动侧边抽屉;当前路由高亮 #6fb7e0;二级菜单手风琴默认折叠(#56)。
+ * 桌面多级下拉 + 移动侧边抽屉;当前路由高亮(text-link);二级菜单手风琴默认折叠(#56)。
  */
 export function isActivePath(pathname: string, item: SiteNavItem): boolean {
   if (!item.href) return false;
@@ -31,8 +31,8 @@ const CARET = (
 function navLinkClass(active: boolean) {
   return `flex items-center gap-1 rounded-md px-2.5 py-2 text-base transition-colors ${
     active
-      ? "bg-[#6fb7e0]/10 text-[#6fb7e0]"
-      : "text-[#93b2ce] hover:bg-[#6fb7e0]/10 hover:text-[#a8d9f5]"
+      ? "bg-link/10 text-link"
+      : "text-body hover:bg-link/10 hover:text-num"
   }`;
 }
 
@@ -56,12 +56,12 @@ export function HeaderDesktopNav({ items }: { items: readonly SiteNavItem[] }) {
               </span>
             )}
             {item.children && (
-              <ul className="invisible absolute left-0 top-full z-50 min-w-44 rounded-lg border border-[#35577f] bg-[#0d1a2e] py-1.5 opacity-0 shadow-xl shadow-black/40 transition group-hover:visible group-hover:opacity-100">
+              <ul className="invisible absolute left-0 top-full z-50 min-w-44 rounded-lg border border-line-strong bg-panel-strong py-1.5 opacity-0 shadow-xl shadow-black/40 transition group-hover:visible group-hover:opacity-100">
                 {item.children.map((child) => (
                   <li key={child.label}>
                     <Link
                       href={child.href}
-                      className="block px-4 py-2 text-[15px] text-[#93b2ce] hover:bg-[#13233a] hover:text-[#6fb7e0]"
+                      className="block px-4 py-2 text-[15px] text-body hover:bg-panel hover:text-link"
                     >
                       {child.label}
                     </Link>
@@ -103,18 +103,18 @@ export function HeaderMobileNav({
       <nav
         aria-label="移动导航"
         data-testid="mobile-menu"
-        className="fixed inset-y-0 right-0 z-[60] w-72 max-w-[85vw] overflow-y-auto overscroll-contain border-l border-[#22385a] bg-[#0d1a2e] shadow-xl shadow-black/40 lg:hidden"
+        className="fixed inset-y-0 right-0 z-[60] w-72 max-w-[85vw] overflow-y-auto overscroll-contain border-l border-line bg-panel-strong shadow-xl shadow-black/40 lg:hidden"
       >
         <ul className="px-4 py-3 text-[15px]">
           {items.map((item) => {
             const open = expandedGroup === item.label;
             return (
-              <li key={item.label} className="border-b border-[#1a2c47] last:border-0">
+              <li key={item.label} className="border-b border-line-menu last:border-0">
                 <div className="flex items-center justify-between gap-2">
                   {item.href ? (
                     <Link
                       href={item.href}
-                      className="min-w-0 flex-1 py-2.5 text-[#c7d5e6]"
+                      className="min-w-0 flex-1 py-2.5 text-foreground"
                       onClick={onClose}
                     >
                       {item.label}
@@ -122,14 +122,14 @@ export function HeaderMobileNav({
                   ) : item.children ? (
                     <button
                       type="button"
-                      className="min-w-0 flex-1 py-2.5 text-left text-[#93b2ce]"
+                      className="min-w-0 flex-1 py-2.5 text-left text-body"
                       aria-expanded={open}
                       onClick={() => setExpandedGroup(open ? null : item.label)}
                     >
                       {item.label}
                     </button>
                   ) : (
-                    <span className="min-w-0 flex-1 py-2.5 text-[#93b2ce]">{item.label}</span>
+                    <span className="min-w-0 flex-1 py-2.5 text-body">{item.label}</span>
                   )}
                   {item.children && (
                     <button
@@ -138,7 +138,7 @@ export function HeaderMobileNav({
                       aria-expanded={open}
                       data-testid={`mobile-submenu-toggle-${item.label}`}
                       onClick={() => setExpandedGroup(open ? null : item.label)}
-                      className="rounded-md p-2 text-[#93b2ce] hover:text-[#6fb7e0]"
+                      className="rounded-md p-2 text-body hover:text-link"
                     >
                       <svg
                         width="10"
@@ -165,7 +165,7 @@ export function HeaderMobileNav({
                       <li key={child.label}>
                         <Link
                           href={child.href}
-                          className="block py-1.5 text-[#6fb7e0]"
+                          className="block py-1.5 text-link"
                           onClick={onClose}
                         >
                           {child.label}

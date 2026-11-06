@@ -52,7 +52,7 @@ export function ToolsIframe({
       {!loaded && !timedOut && (
         <div
           role="status"
-          className="pointer-events-none absolute left-3 top-3 rounded bg-[#0a1220]/90 px-2.5 py-1 text-xs text-[#8fa0b8]"
+          className="pointer-events-none absolute left-3 top-3 rounded bg-page/90 px-2.5 py-1 text-xs text-muted"
         >
           加载中…
         </div>
@@ -60,14 +60,14 @@ export function ToolsIframe({
       {timedOut && !loaded && (
         <div
           data-testid="tools-fallback"
-          className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#0a1220]"
+          className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-page"
         >
-          <p className="text-sm text-[#c7d2e0]">工具服务暂不可用</p>
+          <p className="text-sm text-foreground">工具服务暂不可用</p>
           <a
             href={src}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded border border-[#c9a227] px-4 py-2 text-sm text-[#e6d8a8] hover:bg-[#16233a]"
+            className="rounded border border-highlight-deep px-4 py-2 text-sm text-highlight-soft hover:bg-surface"
           >
             在新窗口打开
           </a>
@@ -79,7 +79,7 @@ export function ToolsIframe({
           target="_blank"
           rel="noopener noreferrer"
           data-testid="tools-open-external"
-          className="absolute right-3 top-3 rounded border border-[#243350] bg-[#0d1728]/90 px-3 py-1.5 text-xs text-[#c7d2e0] hover:border-[#c9a227] hover:text-[#e6d8a8]"
+          className="absolute right-3 top-3 rounded border border-line-muted bg-panel-inset/90 px-3 py-1.5 text-xs text-foreground hover:border-highlight-deep hover:text-highlight-soft"
         >
           新窗口打开 ↗
         </a>

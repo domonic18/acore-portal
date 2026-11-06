@@ -32,7 +32,7 @@ export function HomeCarousel({
   return (
     <section
       aria-label="首页轮播"
-      className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-[#35577f] bg-[#13233a] lg:aspect-auto lg:h-full"
+      className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-line-strong bg-panel lg:aspect-auto lg:h-full"
     >
       {current.imageUrl ? (
         <>
@@ -48,7 +48,7 @@ export function HomeCarousel({
 
           {/* 左下标题叠层(标题留空=纯图形态,WP 原站首页顶部特色图无文案) */}
           {current.title && (
-            <div className="pointer-events-none absolute bottom-0 left-0 max-w-[85%] rounded-tr-2xl bg-[#050a12]/85 px-3 py-2.5 lg:px-5 lg:py-4">
+            <div className="pointer-events-none absolute bottom-0 left-0 max-w-[85%] rounded-tr-2xl bg-scrim/85 px-3 py-2.5 lg:px-5 lg:py-4">
               <h2 className="text-[15px] font-bold leading-snug text-white sm:text-xl lg:text-[28px]">
                 {current.title}
               </h2>
@@ -78,7 +78,7 @@ export function HomeCarousel({
             type="button"
             aria-label="上一张"
             onClick={() => setIndex((i) => (i - 1 + count) % count)}
-            className="absolute left-4 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-[#050a12]/80 text-xl leading-none text-[#dcebf7] hover:bg-[#050a12]"
+            className="absolute left-4 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-scrim/80 text-xl leading-none text-heading hover:bg-scrim"
           >
             ‹
           </button>
@@ -86,7 +86,7 @@ export function HomeCarousel({
             type="button"
             aria-label="下一张"
             onClick={() => setIndex((i) => (i + 1) % count)}
-            className="absolute right-4 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-[#050a12]/80 text-xl leading-none text-[#dcebf7] hover:bg-[#050a12]"
+            className="absolute right-4 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-scrim/80 text-xl leading-none text-heading hover:bg-scrim"
           >
             ›
           </button>
@@ -99,8 +99,8 @@ export function HomeCarousel({
                 onClick={() => setIndex(i)}
                 className={`h-2 rounded-full transition-all ${
                   i === index
-                    ? "w-5 bg-[#5ea3cc]"
-                    : "w-2 bg-[#6382a3] hover:bg-[#8aa7c4]"
+                    ? "w-5 bg-accent"
+                    : "w-2 bg-dot hover:bg-dot-hover"
                 }`}
               />
             ))}

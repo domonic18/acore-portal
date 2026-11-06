@@ -45,7 +45,7 @@ export function QqGroup({
   const number = (
     <span
       data-testid="sidebar-qq-group-number"
-      className="text-[22px] font-bold leading-none tracking-wider text-[#e8c877] group-hover:text-[#f3d98f]"
+      className="text-[22px] font-bold leading-none tracking-wider text-highlight group-hover:text-highlight-strong"
     >
       {qqGroup}
     </span>
@@ -79,12 +79,12 @@ export function QqGroup({
           type="button"
           onClick={copyGroup}
           data-testid="sidebar-qq-group-copy"
-          className="shrink-0 text-[11px] text-[#93b2ce] hover:text-[#6fb7e0]"
+          className="shrink-0 text-[11px] text-body hover:text-link"
         >
           {copied === "ok" ? "已复制" : "点击复制"}
         </button>
       </div>
-      <p data-testid="sidebar-qq-group-hint" className="mt-1.5 text-[12px] leading-5 text-[#93b2ce]">
+      <p data-testid="sidebar-qq-group-hint" className="mt-1.5 text-[12px] leading-5 text-body">
         {qqGroupJoinUrl ? joinHint : copyHint}
       </p>
       {qqGroupQr && (
@@ -95,9 +95,9 @@ export function QqGroup({
             src={qqGroupQr}
             alt="QQ 群二维码"
             data-testid="sidebar-qq-group-qr"
-            className="h-40 w-40 rounded-lg border border-[#22385a] bg-white p-1.5"
+            className="h-40 w-40 rounded-lg border border-line bg-white p-1.5"
           />
-          <figcaption className="mt-1.5 text-[12px] text-[#93b2ce]">扫码加群</figcaption>
+          <figcaption className="mt-1.5 text-[12px] text-body">扫码加群</figcaption>
         </figure>
       )}
     </SidebarCard>

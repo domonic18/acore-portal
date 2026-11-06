@@ -52,28 +52,28 @@ export function ArchivePage({
 
   return (
     <main className="container-site flex-1 py-6">
-      <div className="mb-5 rounded-xl border border-[#22385a] bg-[#13233a] px-5 py-4">
+      <div className="mb-5 rounded-xl border border-line bg-panel px-5 py-4">
         <nav aria-label="面包屑" className="mb-2.5 flex items-center gap-2 text-[13px]">
-          <Link href={parent.href} className="text-[#6482a3] hover:text-[#6fb7e0]">
+          <Link href={parent.href} className="text-muted hover:text-link">
             {parent.label}
           </Link>
-          <span aria-hidden="true" className="text-[#6482a3]">
+          <span aria-hidden="true" className="text-muted">
             ›
           </span>
-          <span className="text-[#93b2ce]">{title}</span>
+          <span className="text-body">{title}</span>
         </nav>
 
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-[30px] font-bold leading-tight text-[#dcebf7]">{title}</h1>
-            <p className="mt-1.5 text-[13.5px] text-[#6482a3]">
+            <h1 className="text-[30px] font-bold leading-tight text-heading">{title}</h1>
+            <p className="mt-1.5 text-[13.5px] text-muted">
               共 {total} 篇
               {layout === "log" && " · 持续更新"}
               {q && (
                 <>
                   {" · "}
                   搜索“{q}” ·{" "}
-                  <Link href={`/${categorySlug}`} className="text-[#6fb7e0] hover:underline">
+                  <Link href={`/${categorySlug}`} className="text-link hover:underline">
                     清除
                   </Link>
                 </>
@@ -89,7 +89,7 @@ export function ArchivePage({
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0">
           {items.length === 0 ? (
-            <p className="rounded-xl border border-[#22385a] bg-[#13233a] py-16 text-center text-sm text-[#6482a3]">
+            <p className="rounded-xl border border-line bg-panel py-16 text-center text-sm text-muted">
               {q ? "没有匹配的文章。" : "暂无文章。"}
             </p>
           ) : layout === "cards" ? (
@@ -98,25 +98,25 @@ export function ArchivePage({
                 <li key={a.slug} className="min-w-0">
                   <Link
                     href={`/post/${encodeURIComponent(a.slug)}`}
-                    className="group flex h-full min-w-0 flex-col rounded-xl border border-[#22385a] bg-[#13233a] p-5 transition hover:border-[#35577f] hover:bg-[#16283f]"
+                    className="group flex h-full min-w-0 flex-col rounded-xl border border-line bg-panel p-5 transition hover:border-line-strong hover:bg-panel-hover"
                   >
                     <div className="mb-2 flex items-center gap-2 text-[11.5px]">
-                      <span className="shrink-0 rounded bg-[#16324d] px-1.5 py-0.5 font-medium text-[#6eb7df]">
+                      <span className="shrink-0 rounded bg-chip px-1.5 py-0.5 font-medium text-link">
                         {title}
                       </span>
-                      <span className="shrink-0 text-[#6482a3]">
+                      <span className="shrink-0 text-muted">
                         {a.publishedAt && formatDate(a.publishedAt)}
                       </span>
                     </div>
-                    <h3 className="line-clamp-2 break-words text-[15.5px] font-semibold leading-6 text-[#dcebf7] group-hover:text-[#6fb7e0]">
+                    <h3 className="line-clamp-2 break-words text-[15.5px] font-semibold leading-6 text-heading group-hover:text-link">
                       {a.title}
                     </h3>
                     {a.excerpt && (
-                      <p className="mt-2 line-clamp-2 break-words text-[13px] leading-6 text-[#93b2ce]">
+                      <p className="mt-2 line-clamp-2 break-words text-[13px] leading-6 text-body">
                         {a.excerpt}
                       </p>
                     )}
-                    <p className="mt-auto pt-3 text-[12.5px] text-[#6482a3]">
+                    <p className="mt-auto pt-3 text-[12.5px] text-muted">
                       {a.views} 次阅读
                     </p>
                   </Link>
@@ -124,13 +124,13 @@ export function ArchivePage({
               ))}
             </ul>
           ) : layout === "log" ? (
-            <ul className="overflow-hidden rounded-xl border border-[#22385a] bg-[#13233a]">
+            <ul className="overflow-hidden rounded-xl border border-line bg-panel">
               {items.map((a, i) => {
                 const iso = a.publishedAt ? formatDate(a.publishedAt) : "";
                 return (
                   <li
                     key={a.slug}
-                    className={`border-t border-[#22385a] first:border-t-0 ${
+                    className={`border-t border-line first:border-t-0 ${
                       i === 0
                         ? "bg-[linear-gradient(90deg,rgba(232,200,119,0.12),rgba(232,200,119,0))] shadow-[inset_0_0_0_1px_rgba(232,200,119,0.4)]"
                         : ""
@@ -138,17 +138,17 @@ export function ArchivePage({
                   >
                     <Link
                       href={`/post/${encodeURIComponent(a.slug)}`}
-                      className="group flex flex-col gap-1 px-4 py-3 transition hover:bg-[#16283f] sm:flex-row sm:gap-3.5"
+                      className="group flex flex-col gap-1 px-4 py-3 transition hover:bg-panel-hover sm:flex-row sm:gap-3.5"
                     >
-                      <span className="shrink-0 text-[15px] font-bold text-[#e8c877] sm:w-[120px] sm:text-[17px]">
+                      <span className="shrink-0 text-[15px] font-bold text-highlight sm:w-[120px] sm:text-[17px]">
                         {iso || "—"}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[14.5px] leading-[26px] text-[#93b2ce] group-hover:text-[#6fb7e0]">
+                        <span className="block text-[14.5px] leading-[26px] text-body group-hover:text-link">
                           {a.title}
                         </span>
                         {a.excerpt && (
-                          <span className="mt-0.5 line-clamp-2 block text-[12.5px] leading-5 text-[#6482a3]">
+                          <span className="mt-0.5 line-clamp-2 block text-[12.5px] leading-5 text-muted">
                             {a.excerpt}
                           </span>
                         )}
@@ -166,29 +166,29 @@ export function ArchivePage({
                   <li key={a.slug}>
                     <Link
                       href={`/post/${encodeURIComponent(a.slug)}`}
-                      className="group flex items-start gap-5 rounded-xl border border-[#22385a] bg-[#13233a] px-5 py-4 transition hover:border-[#35577f] hover:bg-[#16283f]"
+                      className="group flex items-start gap-5 rounded-xl border border-line bg-panel px-5 py-4 transition hover:border-line-strong hover:bg-panel-hover"
                     >
                       <div className="w-[90px] shrink-0 text-right">
-                        <div className="text-[15px] font-semibold text-[#93b2ce]">
+                        <div className="text-[15px] font-semibold text-body">
                           {iso.slice(5)}
                         </div>
-                        <div className="text-[11.5px] text-[#6482a3]">{iso.slice(0, 4)}</div>
+                        <div className="text-[11.5px] text-muted">{iso.slice(0, 4)}</div>
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                          <span className="text-[12px] font-semibold text-[#e8c877]">
+                          <span className="text-[12px] font-semibold text-highlight">
                             {title}
                           </span>
-                          <h3 className="line-clamp-1 text-[16px] font-semibold text-[#dcebf7] group-hover:text-[#6fb7e0]">
+                          <h3 className="line-clamp-1 text-[16px] font-semibold text-heading group-hover:text-link">
                             {a.title}
                           </h3>
                         </div>
                         {a.excerpt && (
-                          <p className="mt-1.5 line-clamp-2 text-[13px] leading-6 text-[#93b2ce]">
+                          <p className="mt-1.5 line-clamp-2 text-[13px] leading-6 text-body">
                             {a.excerpt}
                           </p>
                         )}
-                        <p className="mt-1.5 text-[12px] text-[#6482a3]">
+                        <p className="mt-1.5 text-[12px] text-muted">
                           {a.views} 次阅读
                         </p>
                       </div>
@@ -201,13 +201,13 @@ export function ArchivePage({
 
           <nav
             aria-label="分页"
-            className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-3 rounded-xl border border-[#22385a] bg-[#13233a] px-4 py-3 text-[13px]"
+            className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-3 rounded-xl border border-line bg-panel px-4 py-3 text-[13px]"
           >
             <div className="flex items-center gap-1">
               {page > 1 && (
                 <Link
                   href={href(1)}
-                  className="rounded-md px-2.5 py-1.5 text-[#6482a3] hover:bg-[#13233a] hover:text-[#6fb7e0]"
+                  className="rounded-md px-2.5 py-1.5 text-muted hover:bg-panel hover:text-link"
                 >
                   首页
                 </Link>
@@ -215,14 +215,14 @@ export function ArchivePage({
               {page > 1 && (
                 <Link
                   href={href(page - 1)}
-                  className="rounded-md px-2.5 py-1.5 text-[#93b2ce] hover:bg-[#13233a] hover:text-[#6fb7e0]"
+                  className="rounded-md px-2.5 py-1.5 text-body hover:bg-panel hover:text-link"
                 >
                   ← 上一页
                 </Link>
               )}
               {pageWindow(page, totalPages).map((p, i) =>
                 p === null ? (
-                  <span key={`gap-${i}`} className="px-1 text-[#6482a3]">
+                  <span key={`gap-${i}`} className="px-1 text-muted">
                     …
                   </span>
                 ) : (
@@ -232,8 +232,8 @@ export function ArchivePage({
                     aria-current={p === page ? "page" : undefined}
                     className={
                       p === page
-                        ? "flex h-8 w-[34px] items-center justify-center rounded-[7px] bg-[#6eb7df] font-semibold text-[#08131f]"
-                        : "flex h-8 w-[34px] items-center justify-center rounded-[7px] text-[#93b2ce] hover:bg-[#13233a] hover:text-[#6fb7e0]"
+                        ? "flex h-8 w-[34px] items-center justify-center rounded-[7px] bg-link font-semibold text-ink"
+                        : "flex h-8 w-[34px] items-center justify-center rounded-[7px] text-body hover:bg-panel hover:text-link"
                     }
                   >
                     {p}
@@ -243,7 +243,7 @@ export function ArchivePage({
               {page < totalPages && (
                 <Link
                   href={href(page + 1)}
-                  className="rounded-md px-2.5 py-1.5 text-[#93b2ce] hover:bg-[#13233a] hover:text-[#6fb7e0]"
+                  className="rounded-md px-2.5 py-1.5 text-body hover:bg-panel hover:text-link"
                 >
                   下一页 →
                 </Link>
@@ -251,13 +251,13 @@ export function ArchivePage({
               {page < totalPages && (
                 <Link
                   href={href(totalPages)}
-                  className="rounded-md px-2.5 py-1.5 text-[#6482a3] hover:bg-[#13233a] hover:text-[#6fb7e0]"
+                  className="rounded-md px-2.5 py-1.5 text-muted hover:bg-panel hover:text-link"
                 >
                   末页
                 </Link>
               )}
             </div>
-            <span className="ml-auto text-[12px] text-[#6482a3]">
+            <span className="ml-auto text-[12px] text-muted">
               第 {page} / {totalPages} 页 · 共 {total} 篇 · 每页 {size} 篇
             </span>
           </nav>

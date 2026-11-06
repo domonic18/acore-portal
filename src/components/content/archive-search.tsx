@@ -10,11 +10,11 @@ export function ArchiveSearch() {
       <input
         name="q"
         placeholder="搜索标题…"
-        className="w-full rounded-lg border border-[#22385a] bg-[#0d1828] px-3.5 py-2 text-[13.5px] text-[#dcebf7] placeholder-[#6482a3] focus:border-[#5ea3cc] focus:outline-none"
+        className="w-full rounded-lg border border-line bg-panel-inset px-3.5 py-2 text-[13.5px] text-heading placeholder-muted focus:border-accent focus:outline-none"
       />
       <button
         type="submit"
-        className="shrink-0 rounded-lg bg-[#6eb7df] px-4 py-2 text-[13.5px] font-semibold text-[#08131f] hover:bg-[#8ccbec]"
+        className="shrink-0 rounded-lg bg-link px-4 py-2 text-[13.5px] font-semibold text-ink hover:bg-link-hover"
       >
         搜索
       </button>

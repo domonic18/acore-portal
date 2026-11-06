@@ -31,7 +31,7 @@ export function UnreadBadge() {
         title="通知"
         aria-label={`通知,未读 ${count ?? 0} 条`}
         data-testid="unread-badge"
-        className="relative rounded-full border border-[#243350] p-2 text-[#c7d2e0] hover:border-[#c9a227] hover:text-[#e6d8a8]"
+        className="relative rounded-full border border-line-muted p-2 text-foreground hover:border-highlight-deep hover:text-highlight-soft"
       >
         <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
           <path
@@ -59,7 +59,7 @@ export function UnreadBadge() {
           onClick={() => {
             window.location.href = "/account/notifications";
           }}
-          className="fixed right-4 top-16 z-50 rounded border border-[#c9a227] bg-[#16233a] px-4 py-2 text-sm text-[#e6d8a8] shadow-lg"
+          className="fixed right-4 top-16 z-50 rounded border border-highlight-deep bg-surface px-4 py-2 text-sm text-highlight-soft shadow-lg"
         >
           你有 {toast} 条新通知,点击查看
         </button>
