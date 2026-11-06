@@ -15,7 +15,6 @@ export type SiteHeaderView = {
   isAdmin: boolean;
   points: number;
   logoUrl: string;
-  headerBackgroundUrl: string;
 };
 
 export type SiteFooterView = {
@@ -55,8 +54,7 @@ export async function getSiteHeaderView(): Promise<SiteHeaderView> {
     // 后台入口仅 admin 可见(/admin 由 requireAdmin 把关,moderator 不可达)
     isAdmin: session?.role === "admin",
     points,
-    // 外观配置缺失(build 预渲染)时回落内置资源;显式留空=不渲染背景图
+    // 外观配置缺失(build 预渲染)时回落内置资源;页面背景与页头背景改由主题变量驱动
     logoUrl: appearance?.logoUrl || "/logo.png",
-    headerBackgroundUrl: appearance?.headerBackgroundUrl ?? "/background.jpg",
   };
 }

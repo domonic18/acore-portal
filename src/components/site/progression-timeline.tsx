@@ -18,10 +18,10 @@ export function formatPhaseDate(value: Date | string | null): string {
 export function ProgressionNodeIcon({ state }: { state: ProgressionNodeState }) {
   const cls =
     state === "current"
-      ? "border-[#e8c877] bg-[#e8c877] text-[#0a1220]"
+      ? "border-highlight bg-highlight text-page"
       : state === "open"
-        ? "border-[#d95a68] bg-[#d95a68] text-white"
-        : "border-[#35577f] bg-[#0d1828] text-[#93b2ce]";
+        ? "border-danger-strong bg-danger-strong text-ink"
+        : "border-line-strong bg-panel-inset text-body";
   return (
     <span
       className={`relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 lg:h-10 lg:w-10 ${cls}`}
@@ -67,7 +67,7 @@ export function ProgressionTimeline({ items }: { items: ProgressionTimelineItem[
       {/* 轴线:移动端居左,桌面居中;源站为绯红渐变细线 */}
       <span
         aria-hidden="true"
-        className="absolute bottom-0 left-[12px] top-0 w-[2px] bg-[linear-gradient(to_bottom,transparent_0%,#d95a68_10%,#d95a68_90%,transparent_100%)] lg:left-1/2 lg:w-[3px] lg:-translate-x-1/2"
+        className="absolute bottom-0 left-[12px] top-0 w-[2px] bg-[linear-gradient(to_bottom,transparent_0%,var(--theme-danger-strong)_10%,var(--theme-danger-strong)_90%,transparent_100%)] lg:left-1/2 lg:w-[3px] lg:-translate-x-1/2"
       />
       <ol className="space-y-6 lg:space-y-8">
         {items.map((item, i) => {
@@ -90,7 +90,7 @@ export function ProgressionTimeline({ items }: { items: ProgressionTimelineItem[
                     : "hidden lg:col-start-3 lg:row-start-1 lg:flex lg:justify-start lg:pl-7 lg:pt-7"
                 }
               >
-                <span className="whitespace-nowrap text-[14px] text-[#cfc8c8]">
+                <span className="whitespace-nowrap text-[14px] text-foreground">
                   {item.dateLabel}
                 </span>
               </div>

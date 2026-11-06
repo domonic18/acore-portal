@@ -5,15 +5,20 @@ import { MediaAssetList, uploadMediaFiles } from "@/components/admin/media-libra
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-/** 图片字段:手填 + 媒体库选图(上传/选择复用媒体库) */
-export function ImageField({
+/**
+ * 媒体选图字段:手填地址 + 媒体库选图/上传。
+ * 消费者:后台轮播物料编辑、站点主题背景设置(≥2 处故置于 components/admin 根目录)。
+ */
+export function MediaPickerField({
   value,
   onChange,
   disabled,
+  placeholder = "/images/… 或 https://…",
 }: {
   value: string;
   onChange: (url: string) => void;
   disabled?: boolean;
+  placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -25,10 +30,9 @@ export function ImageField({
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-1">
         <Input
-          required
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="/images/… 或 https://…"
+          placeholder={placeholder}
           className="w-72 py-1"
         />
         <Button

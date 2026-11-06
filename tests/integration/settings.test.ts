@@ -13,6 +13,7 @@ import { DEFAULT_SITE_COPYRIGHT_EN, reloadSystemConfig, getConfig } from "@/lib/
 import { AUDIT_ACTION } from "@/constants/audit";
 import { getSettingsView } from "@/server/services/settings/view";
 import { saveSettingsGroup as saveGroup, sendTestMail } from "@/server/services/settings/save";
+import { getActiveTheme } from "@/server/services/site/theme";
 
 /**
  * T029:设置服务集成——GET 掩码态(无明文)/PUT 组校验 422/敏感字段空=保持非空=覆写/
@@ -41,6 +42,15 @@ const HOME_KEYS = [
   "home.carouselIntervalSec",
 ];
 const CONTENT_KEYS = ["content.tocEnabled"];
+const THEME_KEYS = [
+  "theme.active",
+  "theme.tbc.headerBackgroundUrl",
+  "theme.tbc.pageBackgroundUrl",
+  "theme.tbc.panelBackgroundUrl",
+  "theme.wlk.headerBackgroundUrl",
+  "theme.wlk.pageBackgroundUrl",
+  "theme.wlk.panelBackgroundUrl",
+];
 const ALL_KEYS = [
   ...SMTP_KEYS,
   ...TURNSTILE_KEYS,
@@ -50,6 +60,7 @@ const ALL_KEYS = [
   ...UMAMI_KEYS,
   ...HOME_KEYS,
   ...CONTENT_KEYS,
+  ...THEME_KEYS,
 ];
 
 let backup: { key: string; value: string }[] = [];
@@ -425,6 +436,57 @@ describe("content 组(正文目录开关)", () => {
     expect(
       (await prisma.systemConfig.findUnique({ where: { key: "content.tocEnabled" } }))?.value,
     ).toBe("true");
+  });
+});
+
+describe("theme 组(主题切换,2026-11-06 主题系统)", () => {
+  it("键缺失 → 默认 active=tbc,WLK 取内置冷色资源", async () => {
+    await delKeys(THEME_KEYS);
+    const view = await getSettingsView();
+    expect(view.theme.active).toBe("tbc");
+    expect(view.theme.assets.wlk.headerBackgroundUrl).toBe("/images/banner-wotlk.svg");
+    expect(view.theme.assets.wlk.pageBackgroundUrl).toBe("/background.jpg");
+  });
+
+  it("切到 wlk + 配两套主题背景 → 落库热生效;视图与 getActiveTheme 同步", async () => {
+    const result = await saveGroup(
+      "theme",
+      {
+        active: "wlk",
+        "tbc.headerBackgroundUrl": "/images/tbc-head.svg",
+        "tbc.pageBackgroundUrl": "/images/tbc-page.svg",
+        "tbc.panelBackgroundUrl": "/images/tbc-panel.svg",
+        "wlk.headerBackgroundUrl": "/images/wlk-head.svg",
+        "wlk.pageBackgroundUrl": "/images/wlk-page.svg",
+        "wlk.panelBackgroundUrl": "/images/wlk-panel.svg",
+      },
+      { id: ADMIN_ID },
+    );
+    expect(result).toEqual({ ok: true });
+    expect((await getConfig()).theme.active).toBe("wlk");
+
+    const view = await getSettingsView();
+    expect(view.theme.active).toBe("wlk");
+    expect(view.theme.assets.tbc.headerBackgroundUrl).toBe("/images/tbc-head.svg");
+
+    const active = await getActiveTheme();
+    expect(active.id).toBe("wlk");
+    expect(active.assets.panelBackgroundUrl).toBe("/images/wlk-panel.svg");
+
+    const audit = await latestAudit(AUDIT_ACTION.SETTINGS_CHANGED);
+    expect((audit!.payloadJson as { group?: string }).group).toBe("theme");
+  });
+
+  it("非法 active id / 非法背景地址 422 零写入", async () => {
+    const bad = await saveGroup("theme", { active: "cataclysm" }, { id: ADMIN_ID });
+    expect(bad).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
+    const badUrl = await saveGroup(
+      "theme",
+      { "wlk.pageBackgroundUrl": "javascript:alert(1)" },
+      { id: ADMIN_ID },
+    );
+    expect(badUrl).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
+    expect((await getConfig()).theme.active).toBe("wlk");
   });
 });
 

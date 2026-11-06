@@ -13,12 +13,12 @@ export function ContentAsideCard({
   return (
     <section
       data-testid={testId ?? `aside-${title}`}
-      className="rounded-xl border border-[#22385a] bg-[#13233a] p-5"
+      className="rounded-xl border border-line bg-panel p-5"
     >
-      <h2 className="mb-3 flex items-center gap-2.5 text-[15px] font-semibold text-[#a8d9f5]">
+      <h2 className="mb-3 flex items-center gap-2.5 text-[15px] font-semibold text-num">
         <span
           aria-hidden="true"
-          className="h-[15px] w-[5px] shrink-0 rounded-full bg-[#5ea3cc]"
+          className="h-[15px] w-[5px] shrink-0 rounded-full bg-accent"
         />
         {title}
       </h2>

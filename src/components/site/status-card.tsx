@@ -35,7 +35,7 @@ export function StatusCard({ initial }: { initial: ServerStatusResult }) {
   return (
     <section
       data-testid="home-server-status"
-      className="rounded-2xl border border-[#22385a] bg-[#13233a] p-5"
+      className="rounded-2xl border border-line bg-panel p-5"
     >
       <SectionHeader
         title="服务器状态"
@@ -47,23 +47,23 @@ export function StatusCard({ initial }: { initial: ServerStatusResult }) {
         <div>
           <div
             data-testid="status-online-count"
-            className="text-[42px] font-bold leading-none text-[#a8d9f5]"
+            className="text-[42px] font-bold leading-none text-num"
           >
             {fmt(status.onlineCount)}
           </div>
-          <div className="mt-1.5 text-xs text-[#6482a3]">当前在线</div>
+          <div className="mt-1.5 text-xs text-muted">当前在线</div>
         </div>
         <div className="flex flex-col items-end gap-1.5">
           <span
             className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[13px] ${
               online
-                ? "border-[#57b87d]/60 text-[#57b87d]"
-                : "border-[#c0564e]/60 text-[#c0564e]"
+                ? "border-ok/60 text-ok"
+                : "border-danger-offline/60 text-danger-offline"
             }`}
           >
             <span
               className={`inline-block h-1.5 w-1.5 rounded-full ${
-                online ? "bg-[#57b87d]" : "bg-[#c0564e]"
+                online ? "bg-ok" : "bg-danger-offline"
               }`}
             />
             {online ? "运行中" : "离线"}
@@ -71,7 +71,7 @@ export function StatusCard({ initial }: { initial: ServerStatusResult }) {
           {status.maintenanceMode && (
             <span
               data-testid="status-maintenance"
-              className="rounded bg-[#5d4a1e] px-2 py-0.5 text-xs text-[#e8c877]"
+              className="rounded bg-warn-bg px-2 py-0.5 text-xs text-highlight"
             >
               维护模式
             </span>
@@ -79,7 +79,7 @@ export function StatusCard({ initial }: { initial: ServerStatusResult }) {
           {status.degraded && (
             <span
               data-testid="status-degraded"
-              className="rounded bg-[#5d553a] px-2 py-0.5 text-xs text-[#e8c877]"
+              className="rounded bg-warn-line px-2 py-0.5 text-xs text-highlight"
             >
               数据延迟
             </span>
@@ -90,17 +90,17 @@ export function StatusCard({ initial }: { initial: ServerStatusResult }) {
       {/* 阵营比条:联盟蓝/部落红;下方居中 "N : M"(E2E 契约:元素文本恰为该格式) */}
       <div className="mt-4">
         <div
-          className="flex h-[22px] overflow-hidden rounded-full border border-[#22385a] text-[11px] leading-[20px] text-white/90"
+          className="flex h-[22px] overflow-hidden rounded-full border border-line text-[11px] leading-[20px] text-white/90"
           aria-hidden="true"
         >
-          <span className="bg-[#2e5e96] text-center" style={{ width: `${allyPct}%` }}>
+          <span className="bg-ally text-center" style={{ width: `${allyPct}%` }}>
             {status.allianceCount !== null ? status.allianceCount : "--"}
           </span>
-          <span className="bg-[#8e2f2a] text-center" style={{ width: `${100 - allyPct}%` }}>
+          <span className="bg-horde text-center" style={{ width: `${100 - allyPct}%` }}>
             {status.hordeCount !== null ? status.hordeCount : "--"}
           </span>
         </div>
-        <div className="mt-1.5 flex items-center justify-between text-[11px] text-[#6482a3]">
+        <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted">
           <span>联盟</span>
           <span data-testid="status-faction">
             {fmt(status.allianceCount)} : {fmt(status.hordeCount)}
@@ -109,13 +109,13 @@ export function StatusCard({ initial }: { initial: ServerStatusResult }) {
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-2.5 rounded-lg bg-[#0d1828] px-3 py-2">
-        <span className="shrink-0 text-[13px] text-[#6482a3]">当前阶段</span>
+      <div className="mt-4 flex items-center justify-between gap-2.5 rounded-lg bg-panel-inset px-3 py-2">
+        <span className="shrink-0 text-[13px] text-muted">当前阶段</span>
         {stage !== null && stageNodeId !== null ? (
           <Link
             href={`/progression#node-${stageNodeId}`}
             data-testid="status-stage"
-            className="min-w-0 text-right text-sm font-medium leading-snug text-[#e8c877] hover:text-[#f5dc9a]"
+            className="min-w-0 text-right text-sm font-medium leading-snug text-highlight hover:text-highlight-strong"
             title={stage}
           >
             {stage}
@@ -123,14 +123,14 @@ export function StatusCard({ initial }: { initial: ServerStatusResult }) {
         ) : (
           <span
             data-testid="status-stage"
-            className="min-w-0 text-right text-sm font-medium text-[#e8c877]"
+            className="min-w-0 text-right text-sm font-medium text-highlight"
           >
             待定
           </span>
         )}
       </div>
 
-      <p className="mt-3 text-right text-xs text-[#6482a3]" suppressHydrationWarning>
+      <p className="mt-3 text-right text-xs text-muted" suppressHydrationWarning>
         更新于 {new Date(status.updatedAt).toLocaleTimeString("zh-CN", { hour12: false })}
       </p>
     </section>

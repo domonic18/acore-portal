@@ -1,41 +1,251 @@
 @import "tailwindcss";
 
 /*
- * 设计令牌(2026-10 与 ardot 设计稿对齐,p01 首页实证取色):
- * 深蓝夜色底 + 金色点缀(魔兽怀旧风)。既有页面散落的旧色值(#0d1728 系)
- * 在各自页面改造时逐步切换,互不影响。
+ * 站点主题令牌(2026-11-06 主题系统):
+ * 两套色板 TBC(暖,原观感)/ WLK(冷),由 <html data-theme="tbc|wlk"> 选择。
+ * 颜色一律按**角色**命名而非色相:同一角色在两套主题里可换色相
+ * (如 --theme-highlight:TBC 金 / WLK 冰蓝),故不得引入 --theme-gold 这类色相名。
+ *
+ * 三层结构:
+ *  1) :root / :root[data-theme=…] 定义普通自定义属性 --theme-*(值随主题变);
+ *  2) @theme inline 把 --theme-* 桥接成 Tailwind 工具类(bg-panel / text-muted …);
+ *     ⚠️ @theme inline 不会把变量写进 :root,故手写 CSS 一律引用 var(--theme-*),
+ *     不可引用 var(--color-*)。
+ *  3) 背景图通道:--theme-*-background 由 <html> 内联样式注入(linear-gradient 遮罩 + url),
+ *     页面背景挂在 html 上(background-attachment:fixed 需挂 html 才是视口相对),
+ *     body 保持透明让页面背景透出。
+ *
+ * 新增主题:constants/theme.ts 登记 id + 此处补一套同名 token 值。
  */
-@theme {
-  --color-bg: #0a1220; /* 页面底 */
-  --color-bg-deep: #080d16; /* 更深内嵌区(iframe 容器) */
-  --color-header: #102035; /* 页头/页脚底 */
-  --color-panel: #13233a; /* 卡片底 */
-  --color-panel-inset: #0d1828; /* 卡内嵌块(chip)底 */
-  --color-line: #22385a; /* 常规描边 */
-  --color-line-strong: #35577f; /* 强调描边(页头/轮播) */
-  --color-gold: #e8c877; /* 金色点缀(标题条/价格/登录注册) */
-  --color-heading: #dcebf7; /* 区块标题 */
-  --color-body: #93b2ce; /* 正文 */
-  --color-link: #6fb7e0; /* 亮链接 */
-  --color-muted: #6482a3; /* 弱化说明 */
-  --color-accent: #5ea3cc; /* 主题蓝(圆点/进度) */
-  --color-num: #a8d9f5; /* 大数字 */
-  --color-ok: #57b87d; /* 在线/成功 */
-  --color-ally: #2e5e96; /* 联盟 */
-  --color-horde: #8e2f2a; /* 部落 */
+
+/* ---------- 令牌值:TBC(默认,暖色) ---------- */
+:root {
+  /* 表面 */
+  --theme-page: #0a1220; /* 页面底 */
+  --theme-deep: #080d16; /* 更深内嵌区 */
+  --theme-header: #102035; /* 页头底 */
+  --theme-footer: #0c1626; /* 页脚底 */
+  --theme-panel: #13233a; /* 卡片底 */
+  --theme-panel-hover: #16283f; /* 卡片悬停 */
+  --theme-panel-strong: #0d1a2e; /* 内容面板底(不透明) */
+  --theme-panel-inset: #0d1828; /* 面板内嵌块 */
+  --theme-surface: #16233a; /* 表格/列表行底 */
+  --theme-surface-hover: #1c2c48; /* 行悬停 */
+  --theme-surface-alt: #1b2f4c; /* 交替行底 */
+  --theme-chip: #16324d; /* 小标签底 */
+  --theme-warn-bg: #5d4a1e; /* 警示块底 */
+  --theme-warn-line: #5d553a; /* 警示块描边 */
+
+  /* 描边 */
+  --theme-line: #22385a; /* 常规描边 */
+  --theme-line-strong: #35577f; /* 强调描边(页头/轮播) */
+  --theme-line-soft: #21385a; /* 弱描边 */
+  --theme-line-muted: #243350; /* 更弱描边 */
+  --theme-line-row: #16304f; /* 表格行分隔 */
+  --theme-line-menu: #1a2c47; /* 菜单描边 */
+  --theme-separator: #3d5a80; /* 分隔线 */
+
+  /* 文字 */
+  --theme-foreground: #c7d5e6; /* 基础正文色 */
+  --theme-heading: #dcebf7; /* 区块标题 */
+  --theme-body: #93b2ce; /* 次级正文 */
+  --theme-muted: #6482a3; /* 弱化说明 */
+  --theme-link: #6fb7e0; /* 链接 */
+  --theme-link-hover: #8ccbec; /* 链接悬停 */
+  --theme-accent: #5ea3cc; /* 主题蓝(圆点/进度) */
+  --theme-num: #a8d9f5; /* 大数字 */
+  --theme-highlight: #e8c877; /* 点缀(标题条/价格) */
+  --theme-highlight-soft: #e6d8a8; /* 点缀弱化 */
+  --theme-highlight-strong: #f5dc9a; /* 点缀强调 */
+  --theme-highlight-deep: #c9a227; /* 点缀实底(按钮) */
+  --theme-highlight-deep-hover: #dbb535; /* 点缀实底悬停 */
+  --theme-dot: #6382a3; /* 轮播圆点 */
+  --theme-dot-hover: #8aa7c4; /* 轮播圆点悬停 */
+  --theme-ink: #08131f; /* 深色墨(反白文字底) */
+  --theme-ink-warm: #1a1408; /* 暖墨底 */
+  --theme-scrim: #050a12; /* 不透明遮罩(轮播控件底) */
+
+  /* 状态 */
+  --theme-ok: #57b87d; /* 在线/成功 */
+  --theme-ok-text: #8ad896; /* 成功文字 */
+  --theme-ok-bright: #6ee7b7; /* 高亮成功 */
+  --theme-danger: #eda9a9; /* 危险文字 */
+  --theme-danger-strong: #d95a68; /* 危险实色 */
+  --theme-danger-soft: #d99a9a; /* 危险弱化 */
+  --theme-danger-offline: #c0564e; /* 离线标记 */
+  --theme-warn: #e0a94e; /* 警告文字 */
+  --theme-warn-soft: #c49a4a; /* 警告弱化 */
+
+  /* 阵营(语义色,不随主题变) */
+  --theme-ally: #2e5e96; /* 联盟 */
+  --theme-ally-text: #6fa3d6; /* 联盟文字 */
+  --theme-horde: #8e2f2a; /* 部落 */
+  --theme-horde-text: #c96f66; /* 部落文字 */
+
+  /* 背景遮罩(与背景图叠加,保证文字可读) */
+  --theme-page-overlay: rgba(10, 18, 32, 0.6);
+  --theme-header-overlay: rgba(16, 32, 53, 0.6);
+  --theme-panel-overlay: rgba(13, 26, 46, 0.95);
 }
 
-:root {
-  --background: #0a1220;
-  --foreground: #c7d5e6;
+/* ---------- 令牌值:WLK(冷色) ---------- */
+:root[data-theme="wlk"] {
+  --theme-page: #081019;
+  --theme-deep: #050a11;
+  --theme-header: #0c1a2b;
+  --theme-footer: #08111d;
+  --theme-panel: #0e1c2e;
+  --theme-panel-hover: #112439;
+  --theme-panel-strong: #0a1626;
+  --theme-panel-inset: #091424;
+  --theme-surface: #101f30;
+  --theme-surface-hover: #142538;
+  --theme-surface-alt: #13263c;
+  --theme-chip: #122740;
+  --theme-warn-bg: #4a4526;
+  --theme-warn-line: #4a4a3a;
+
+  --theme-line: #1d3348;
+  --theme-line-strong: #2f5675;
+  --theme-line-soft: #1c3049;
+  --theme-line-muted: #1e3049;
+  --theme-line-row: #122640;
+  --theme-line-menu: #16263d;
+  --theme-separator: #35607f;
+
+  --theme-foreground: #bdd0e2;
+  --theme-heading: #d6e9f6;
+  --theme-body: #8fb2cc;
+  --theme-muted: #55758f;
+  --theme-link: #6fc3e8;
+  --theme-link-hover: #8fd4f2;
+  --theme-accent: #58b6e0;
+  --theme-num: #9ed8f7;
+  --theme-highlight: #8fd0f0;
+  --theme-highlight-soft: #bfe6f7;
+  --theme-highlight-strong: #c9ecff;
+  --theme-highlight-deep: #4a9ec4;
+  --theme-highlight-deep-hover: #5cb2d6;
+  --theme-dot: #55758f;
+  --theme-dot-hover: #7fa3c0;
+  --theme-ink: #06121f;
+  --theme-ink-warm: #0b1a24;
+  --theme-scrim: #04080f;
+
+  --theme-ok: #5cc48c;
+  --theme-ok-text: #86d3a4;
+  --theme-ok-bright: #74e0ab;
+  --theme-danger: #e79c9c;
+  --theme-danger-strong: #e0707c;
+  --theme-danger-soft: #d99a9a;
+  --theme-danger-offline: #c85e56;
+  --theme-warn: #d9a24e;
+  --theme-warn-soft: #bd9450;
+
+  --theme-ally: #2e5e96;
+  --theme-ally-text: #6fa3d6;
+  --theme-horde: #8e2f2a;
+  --theme-horde-text: #c96f66;
+
+  --theme-page-overlay: rgba(6, 14, 26, 0.62);
+  --theme-header-overlay: rgba(10, 26, 44, 0.62);
+  --theme-panel-overlay: rgba(10, 22, 38, 0.95);
+}
+
+/* ---------- Tailwind 工具类桥接 ---------- */
+@theme inline {
+  --color-page: var(--theme-page);
+  --color-deep: var(--theme-deep);
+  --color-header: var(--theme-header);
+  --color-footer: var(--theme-footer);
+  --color-panel: var(--theme-panel);
+  --color-panel-hover: var(--theme-panel-hover);
+  --color-panel-strong: var(--theme-panel-strong);
+  --color-panel-inset: var(--theme-panel-inset);
+  --color-surface: var(--theme-surface);
+  --color-surface-hover: var(--theme-surface-hover);
+  --color-surface-alt: var(--theme-surface-alt);
+  --color-chip: var(--theme-chip);
+  --color-warn-bg: var(--theme-warn-bg);
+  --color-warn-line: var(--theme-warn-line);
+
+  --color-line: var(--theme-line);
+  --color-line-strong: var(--theme-line-strong);
+  --color-line-soft: var(--theme-line-soft);
+  --color-line-muted: var(--theme-line-muted);
+  --color-line-row: var(--theme-line-row);
+  --color-line-menu: var(--theme-line-menu);
+  --color-separator: var(--theme-separator);
+
+  --color-foreground: var(--theme-foreground);
+  --color-heading: var(--theme-heading);
+  --color-body: var(--theme-body);
+  --color-muted: var(--theme-muted);
+  --color-link: var(--theme-link);
+  --color-link-hover: var(--theme-link-hover);
+  --color-accent: var(--theme-accent);
+  --color-num: var(--theme-num);
+  --color-highlight: var(--theme-highlight);
+  --color-highlight-soft: var(--theme-highlight-soft);
+  --color-highlight-strong: var(--theme-highlight-strong);
+  --color-highlight-deep: var(--theme-highlight-deep);
+  --color-highlight-deep-hover: var(--theme-highlight-deep-hover);
+  --color-dot: var(--theme-dot);
+  --color-dot-hover: var(--theme-dot-hover);
+  --color-ink: var(--theme-ink);
+  --color-ink-warm: var(--theme-ink-warm);
+  --color-scrim: var(--theme-scrim);
+
+  --color-ok: var(--theme-ok);
+  --color-ok-text: var(--theme-ok-text);
+  --color-ok-bright: var(--theme-ok-bright);
+  --color-danger: var(--theme-danger);
+  --color-danger-strong: var(--theme-danger-strong);
+  --color-danger-soft: var(--theme-danger-soft);
+  --color-danger-offline: var(--theme-danger-offline);
+  --color-warn: var(--theme-warn);
+  --color-warn-soft: var(--theme-warn-soft);
+
+  --color-ally: var(--theme-ally);
+  --color-ally-text: var(--theme-ally-text);
+  --color-horde: var(--theme-horde);
+  --color-horde-text: var(--theme-horde-text);
+}
+
+/* ---------- 基础背景与文字 ---------- */
+html {
+  background-color: var(--theme-page);
+  background-image: var(--theme-page-background, none);
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  background-color: transparent;
+  color: var(--theme-foreground);
   font-family:
     "Sarasa Gothic SC", "Sarasa Term SC", ui-sans-serif, system-ui,
     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+/* 页头:背景图由 --theme-header-background 注入(html 内联样式) */
+.site-header {
+  background-color: var(--theme-header);
+  background-image: var(--theme-header-background, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* 内容面板:配了面板背景图时遮罩层保证正文可读 */
+.site-panel {
+  background-color: var(--theme-panel-strong);
+  background-image: var(--theme-panel-background, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 /* 全站容器:对齐 lokta.cn 固定版心(内容 1140px 居中,两侧露页面背景);
@@ -57,11 +267,11 @@ body {
   }
 }
 
-/* 区块标题:金色竖条 + 标题(设计稿 sec-h 模式,全站复用) */
+/* 区块标题:竖条 + 标题(设计稿 sec-h 模式,全站复用) */
 .sec-bar {
   width: 6px;
   height: 22px;
   border-radius: 3px;
-  background: var(--color-gold);
+  background: var(--theme-highlight);
   flex-shrink: 0;
 }

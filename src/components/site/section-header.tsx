@@ -21,12 +21,12 @@ export function SectionHeader({
   return (
     <div className={`mb-3 flex items-center gap-3 ${className}`}>
       <span className="sec-bar" aria-hidden="true" />
-      <h2 className="text-xl font-bold text-[#dcebf7]">{title}</h2>
-      {meta && <span className="text-[13px] text-[#6482a3]">{meta}</span>}
+      <h2 className="text-xl font-bold text-heading">{title}</h2>
+      {meta && <span className="text-[13px] text-muted">{meta}</span>}
       {moreHref && (
         <Link
           href={moreHref}
-          className="ml-auto text-[13px] text-[#6482a3] hover:text-[#6fb7e0]"
+          className="ml-auto text-[13px] text-muted hover:text-link"
         >
           {moreLabel}
         </Link>

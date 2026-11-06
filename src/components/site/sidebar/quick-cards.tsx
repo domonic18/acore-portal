@@ -14,12 +14,12 @@ export function SidebarQuickCards({ cards }: { cards: SidebarCardConfig[] }) {
       {cards.map((card) => (
         <SidebarCard key={card.key} title={card.title} testId={`sidebar-card-${card.key}`}>
           <div className="space-y-2">
-            {card.body ? <p className="text-xs text-[#8fa0b8]">{card.body}</p> : null}
+            {card.body ? <p className="text-xs text-muted">{card.body}</p> : null}
             {card.links.map((link, index) => (
               <Link
                 key={`${link.href}-${index}`}
                 href={link.href}
-                className="block rounded bg-[#16233a] px-3 py-2 text-center text-xs text-[#c7d2e0] hover:bg-[#1c2c48] hover:text-[#e6d8a8]"
+                className="block rounded bg-surface px-3 py-2 text-center text-xs text-foreground hover:bg-surface-hover hover:text-highlight-soft"
               >
                 {link.note ? `${link.label} · ${link.note}` : link.label}
               </Link>

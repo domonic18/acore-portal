@@ -51,7 +51,7 @@ export function HeaderUserMenu({
   };
 
   const itemClass =
-    "block w-full px-4 py-2 text-left text-[15px] text-[#93b2ce] hover:bg-[#13233a] hover:text-[#6fb7e0]";
+    "block w-full px-4 py-2 text-left text-[15px] text-body hover:bg-panel hover:text-link";
 
   return (
     <div className="relative" ref={menuRef}>
@@ -62,7 +62,7 @@ export function HeaderUserMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center overflow-hidden rounded-lg border border-[#35577f] hover:border-[#e8c877]/60"
+        className="flex items-center overflow-hidden rounded-lg border border-line-strong hover:border-highlight/60"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -77,14 +77,14 @@ export function HeaderUserMenu({
         <div
           role="menu"
           data-testid="user-menu"
-          className="absolute right-0 top-full z-50 mt-2 w-44 rounded-lg border border-[#35577f] bg-[#0d1a2e] py-1.5 shadow-xl shadow-black/40"
+          className="absolute right-0 top-full z-50 mt-2 w-44 rounded-lg border border-line-strong bg-panel-strong py-1.5 shadow-xl shadow-black/40"
         >
           <div
             data-testid="menu-points"
-            className="flex items-center justify-between border-b border-[#22385a] px-4 py-2 text-sm"
+            className="flex items-center justify-between border-b border-line px-4 py-2 text-sm"
           >
-            <span className="text-[#93b2ce]">积分</span>
-            <span className="font-semibold text-[#e8c877]">{points}</span>
+            <span className="text-body">积分</span>
+            <span className="font-semibold text-highlight">{points}</span>
           </div>
           <Link
             role="menuitem"
@@ -135,7 +135,7 @@ export function HeaderUserMenu({
             data-testid="logout-button"
             disabled={loggingOut}
             onClick={logout}
-            className={`${itemClass} border-t border-[#22385a] text-[#e8c877] hover:text-[#f5dc9a] disabled:opacity-60`}
+            className={`${itemClass} border-t border-line text-highlight hover:text-highlight-strong disabled:opacity-60`}
           >
             {loggingOut ? "正在退出…" : "退出登录"}
           </button>

@@ -15,6 +15,7 @@ export type GroupName =
   | "content"
   | "site"
   | "appearance"
+  | "theme"
   | "umami";
 
 export function SecretInput({

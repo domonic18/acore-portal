@@ -36,13 +36,13 @@ export function HomeProductCarousel({
 
   return (
     <div>
-      <div className="relative overflow-hidden rounded-xl border border-[#22385a]">
+      <div className="relative overflow-hidden rounded-xl border border-line">
         <Link
           href={`/shop/${encodeURIComponent(current.slug)}`}
           className="block"
           draggable={false}
         >
-          <div className="relative aspect-[2/1] bg-[#0d1828]">
+          <div className="relative aspect-[2/1] bg-panel-inset">
             {current.image ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -53,15 +53,15 @@ export function HomeProductCarousel({
                 className="absolute inset-0 h-full w-full object-cover"
               />
             ) : (
-              <span className="absolute inset-0 flex items-center justify-center px-4 text-center text-sm text-[#6482a3]">
+              <span className="absolute inset-0 flex items-center justify-center px-4 text-center text-sm text-muted">
                 暂无商品图
               </span>
             )}
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#050a12]/95 to-transparent px-3 pb-2.5 pt-10">
-              <p className="line-clamp-1 text-[15px] font-medium text-[#dcebf7]">
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-scrim/95 to-transparent px-3 pb-2.5 pt-10">
+              <p className="line-clamp-1 text-[15px] font-medium text-heading">
                 {current.name}
               </p>
-              <p className="text-sm font-semibold text-[#e8c877]">{current.price} 积分</p>
+              <p className="text-sm font-semibold text-highlight">{current.price} 积分</p>
             </div>
           </div>
         </Link>
@@ -72,7 +72,7 @@ export function HomeProductCarousel({
               type="button"
               aria-label="上一件商品"
               onClick={() => setIndex((i) => (i - 1 + count) % count)}
-              className="absolute left-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-[#050a12]/80 text-base leading-none text-[#dcebf7] hover:bg-[#050a12]"
+              className="absolute left-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-scrim/80 text-base leading-none text-heading hover:bg-scrim"
             >
               ‹
             </button>
@@ -80,7 +80,7 @@ export function HomeProductCarousel({
               type="button"
               aria-label="下一件商品"
               onClick={() => setIndex((i) => (i + 1) % count)}
-              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-[#050a12]/80 text-base leading-none text-[#dcebf7] hover:bg-[#050a12]"
+              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-scrim/80 text-base leading-none text-heading hover:bg-scrim"
             >
               ›
             </button>
@@ -97,7 +97,7 @@ export function HomeProductCarousel({
               aria-label={`第 ${i + 1} 件商品`}
               onClick={() => setIndex(i)}
               className={`h-1.5 rounded-full transition-all ${
-                i === index ? "w-4 bg-[#5ea3cc]" : "w-1.5 bg-[#6382a3] hover:bg-[#8aa7c4]"
+                i === index ? "w-4 bg-accent" : "w-1.5 bg-dot hover:bg-dot-hover"
               }`}
             />
           ))}

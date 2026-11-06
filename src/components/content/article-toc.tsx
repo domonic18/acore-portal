@@ -11,10 +11,10 @@ import type { TocItem } from "@/lib/markdown";
  */
 
 const HEADING_LABEL = (
-  <p className="mb-3 flex items-center gap-2.5 text-[14px] font-semibold text-[#a8d9f5]">
+  <p className="mb-3 flex items-center gap-2.5 text-[14px] font-semibold text-num">
     <span
       aria-hidden="true"
-      className="h-[14px] w-[4px] shrink-0 rounded-full bg-[#5ea3cc]"
+      className="h-[14px] w-[4px] shrink-0 rounded-full bg-accent"
     />
     目录
   </p>
@@ -27,7 +27,7 @@ function TocList({ items }: { items: TocItem[] }) {
         <li key={item.id}>
           <a
             href={`#${item.id}`}
-            className={`block break-words text-[13.5px] leading-relaxed text-[#93b2ce] hover:text-[#6fb7e0] ${
+            className={`block break-words text-[13.5px] leading-relaxed text-body hover:text-link ${
               item.depth === 3 ? "pl-3" : item.depth === 4 ? "pl-6" : ""
             }`}
           >
@@ -47,7 +47,7 @@ export function ArticleTocRail({ items }: { items: TocItem[] }) {
     <nav
       aria-label="目录"
       data-testid="article-toc-rail"
-      className="hidden xl:sticky xl:top-24 xl:block xl:max-h-[calc(100vh-7.5rem)] xl:self-start xl:overflow-y-auto xl:rounded-2xl xl:border xl:border-[#22385a] xl:bg-[#0d1a2e]/95 xl:p-4"
+      className="hidden xl:sticky xl:top-24 xl:block xl:max-h-[calc(100vh-7.5rem)] xl:self-start xl:overflow-y-auto xl:rounded-2xl xl:border xl:border-line xl:bg-panel-strong/95 xl:p-4"
     >
       {HEADING_LABEL}
       <TocList items={items} />
@@ -62,7 +62,7 @@ export function ArticleTocBlock({ items }: { items: TocItem[] }) {
     <nav
       aria-label="目录"
       data-testid="article-toc-top"
-      className="mt-6 hidden rounded-xl border border-[#22385a] bg-[#0d1828] p-5 sm:block xl:hidden"
+      className="mt-6 hidden rounded-xl border border-line bg-panel-inset p-5 sm:block xl:hidden"
     >
       {HEADING_LABEL}
       <TocList items={items} />

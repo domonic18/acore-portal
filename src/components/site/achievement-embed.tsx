@@ -29,7 +29,7 @@ export function AchievementEmbed({
   }, []);
 
   return (
-    <div className="relative overflow-hidden rounded-xl bg-[#080d16]">
+    <div className="relative overflow-hidden rounded-xl bg-deep">
       <iframe
         src={url}
         title="最近成就"
@@ -39,11 +39,11 @@ export function AchievementEmbed({
           setLoaded(true);
           if (timerRef.current !== null) window.clearTimeout(timerRef.current);
         }}
-        className="w-full border-0 bg-[#080d16]"
+        className="w-full border-0 bg-deep"
         style={{ height, maxHeight: "68vh" }}
       />
       {!loaded && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#0a1220]/70 px-6 text-center text-sm text-[#8fa0b8]">
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-page/70 px-6 text-center text-sm text-muted">
           {timedOut
             ? "最近成就数据暂不可用,可点右上角「新窗口打开」查看"
             : "正在加载最近成就…"}

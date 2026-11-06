@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { prisma } from "@/lib/db/business";
 import { STATUS_CONFIG_KEYS } from "@/constants/status";
+import { DEFAULT_THEME, THEME_IDS, isThemeId } from "@/constants/theme";
 
 /**
  * 系统配置唯一入口:SMTP/SOAP/游戏库连接串/站点地址等业务通道配置存 system_config 表,
@@ -122,6 +123,18 @@ const configSchema = z.object({
     headerBackgroundUrl: assetUrlSchema.default("/background.jpg"),
     pageBackgroundUrl: assetUrlSchema.default("/background.jpg"),
   }),
+  // 站点主题(2026-11-06 主题系统):active=当前主题 id(色板见 styles/globals.css,
+  // id 登记见 constants/theme.ts);每套主题可各自覆盖页头/页面/面板背景图,
+  // 留空=回落 appearance 组的通用背景配置(面板无对应项,留空=纯色底)
+  theme: z.object({
+    active: z.enum(THEME_IDS).default(DEFAULT_THEME),
+    "tbc.headerBackgroundUrl": assetUrlSchema.default(""),
+    "tbc.pageBackgroundUrl": assetUrlSchema.default(""),
+    "tbc.panelBackgroundUrl": assetUrlSchema.default(""),
+    "wlk.headerBackgroundUrl": assetUrlSchema.default("/images/banner-wotlk.svg"),
+    "wlk.pageBackgroundUrl": assetUrlSchema.default("/background.jpg"),
+    "wlk.panelBackgroundUrl": assetUrlSchema.default(""),
+  }),
   // 首页配置(US 首页配置):最近成就 iframe 嵌入三参数;url 空=整块隐藏,
   // 高度为 CSS 长度(185vh/600px 等),scrolling 控制 iframe 滚动条;
   // 轮播间隔秒数(1-60,默认 5)供 HomeCarousel 自动轮播
@@ -225,6 +238,16 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       faviconUrl: flat["appearance.faviconUrl"] ?? "/favicon-32.png",
       headerBackgroundUrl: flat["appearance.headerBackgroundUrl"] ?? "/background.jpg",
       pageBackgroundUrl: flat["appearance.pageBackgroundUrl"] ?? "/background.jpg",
+    },
+    theme: {
+      // 非法 id 回落默认主题:单行脏数据不应让整站配置校验失败(500)
+      active: isThemeId(flat["theme.active"] ?? "") ? flat["theme.active"]! : DEFAULT_THEME,
+      "tbc.headerBackgroundUrl": flat["theme.tbc.headerBackgroundUrl"] ?? "",
+      "tbc.pageBackgroundUrl": flat["theme.tbc.pageBackgroundUrl"] ?? "",
+      "tbc.panelBackgroundUrl": flat["theme.tbc.panelBackgroundUrl"] ?? "",
+      "wlk.headerBackgroundUrl": flat["theme.wlk.headerBackgroundUrl"] ?? "/images/banner-wotlk.svg",
+      "wlk.pageBackgroundUrl": flat["theme.wlk.pageBackgroundUrl"] ?? "/background.jpg",
+      "wlk.panelBackgroundUrl": flat["theme.wlk.panelBackgroundUrl"] ?? "",
     },
     home: {
       achievementUrl: flat["home.achievementUrl"] ?? "",

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Draft } from "./draft-types";
-import { ImageField } from "./image-field";
+import { MediaPickerField } from "@/components/admin/media-picker-field";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 
@@ -34,7 +34,7 @@ export function BannerEditorFields({
       </label>
       <span className="flex flex-col gap-1 text-xs text-[#93b2ce] sm:col-span-2">
         图片(媒体库选图/上传,即时预览)
-        <ImageField value={draft.imageUrl} onChange={(url) => setDraft((p) => ({ ...p, imageUrl: url }))} disabled={disabled} />
+        <MediaPickerField value={draft.imageUrl} onChange={(url) => setDraft((p) => ({ ...p, imageUrl: url }))} disabled={disabled} />
       </span>
       <label className="flex items-center gap-2 text-xs text-[#93b2ce]">
         启用
