@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
 import { hashPhpass } from "@/lib/auth/phpass";
 import { hashWpBcrypt } from "@/lib/auth/wp-bcrypt";
@@ -139,5 +139,51 @@ describe("US1 存量无感登录(quickstart S2)", () => {
     // 最终仍可登录(新哈希路径)
     const third = await loginWithPassword(u.username, "oldpass123");
     expect(third.ok).toBe(true);
+  });
+});
+
+/**
+ * PR-E 时序枚举闭合:
+ * 「用户名不存在」原本直接返回(~2ms),「密码错误」要跑完一次 bcrypt——
+ * 几十毫秒的差就是撞库前的免费用户名清单。
+ *
+ * 这里断言「该跑的等成本比对确实跑了」,而不是断言墙钟时间:
+ * 后者在 CI 上会被机器负载放大成 flaky,失去意义。
+ */
+describe("PR-E 时序枚举闭合(对照假哈希)", () => {
+  async function countCompares(run: () => Promise<unknown>): Promise<number> {
+    const bcrypt = (await import("bcrypt")).default;
+    const spy = vi.spyOn(bcrypt, "compare");
+    try {
+      await run();
+      return spy.mock.calls.length;
+    } finally {
+      spy.mockRestore();
+    }
+  }
+
+  it("用户名不存在:仍跑一次 bcrypt 比对(假校验拉平时序)", async () => {
+    const calls = await countCompares(() =>
+      loginWithPassword(`t_${RUN}_ghost`, "whateverpass"),
+    );
+    expect(calls).toBeGreaterThan(0);
+  });
+
+  it("封禁账号:同样跑一次 bcrypt 比对(封禁名单也不是信道)", async () => {
+    const u = await makeUser({ algo: "bcrypt_wp", status: "banned" });
+    const calls = await countCompares(() => loginWithPassword(u.username, "oldpass456"));
+    expect(calls).toBeGreaterThan(0);
+  });
+
+  it("$P$ 存量账号密码错误:补跑 bcrypt 比对(phpass 比 bcrypt 快一个量级)", async () => {
+    const u = await makeUser({ algo: "phpass" });
+    const calls = await countCompares(() => loginWithPassword(u.username, "wrongpass999"));
+    expect(calls).toBeGreaterThan(0);
+  });
+
+  it("$wp$ 账号密码错误:比对照常数——不额外多跑一次假校验", async () => {
+    const u = await makeUser({ algo: "bcrypt_wp" });
+    const calls = await countCompares(() => loginWithPassword(u.username, "wrongpass999"));
+    expect(calls).toBe(1);
   });
 });

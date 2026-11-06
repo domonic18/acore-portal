@@ -6,6 +6,7 @@ import { hashWpBcrypt, verifyWpBcrypt } from "@/lib/auth/wp-bcrypt";
 import { PASSWORD_ALGO, PHPASS_PREFIX, WP_BCRYPT_PREFIX } from "@/constants/password";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { auditUnknownUserKey } from "@/server/services/auth/login-guard";
+import { burnTiming } from "@/server/services/auth/dummy-hash";
 import { writeAudit } from "@/server/services/shared/audit";
 import { writeAuditOnce } from "@/server/services/shared/audit-dedup";
 
@@ -56,6 +57,8 @@ export async function loginWithPassword(
   });
 
   if (!user) {
+    // 用户名不存在:补一次等成本假校验,否则「快响应」= 免费用户名清单
+    await burnTiming(password);
     // 用户名不存在:记未知用户名失败(去重防写放大),但 HTTP 响应与「密码错误」完全一致
     const { security } = await getConfig();
     await writeAuditOnce(
@@ -72,6 +75,8 @@ export async function loginWithPassword(
     return { ok: false, failReason: "bad_password" };
   }
   if (user.status === "banned") {
+    // 封禁账号同样不能比密码错误更快——否则封禁名单也是信道
+    await burnTiming(password);
     await writeAudit({
       category: AUDIT_CATEGORY.SECURITY,
       action: AUDIT_ACTION.LOGIN_FAILED,
@@ -86,6 +91,8 @@ export async function loginWithPassword(
   let verified = await verifyByHashPrefix(storedHash, password);
 
   if (verified === null) {
+    // 未知格式:同样补等成本假校验,不给出「比密码错误更快」的旁路
+    await burnTiming(password);
     await writeAudit({
       category: AUDIT_CATEGORY.SECURITY,
       action: AUDIT_ACTION.LOGIN_FAILED,
@@ -109,6 +116,9 @@ export async function loginWithPassword(
   }
 
   if (!verified) {
+    // `$P$` 存量用户的失败路径只跑了 8k 轮 MD5(约 10ms),比 bcrypt 快一个量级——
+    // 「存量账号=快响应」同样是信道,补一次等成本假校验拉平。
+    if (storedHash.startsWith(PHPASS_PREFIX)) await burnTiming(password);
     await writeAudit({
       category: AUDIT_CATEGORY.SECURITY,
       action: AUDIT_ACTION.LOGIN_FAILED,
