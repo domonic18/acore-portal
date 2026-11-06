@@ -27,6 +27,7 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
       loginMaxFails: 5,
       loginWindowSec: 900,
       loginLockSec: 900,
+      trustedProxyHops: 1,
     });
     expect(c.notify).toEqual({ pointEmailThreshold: 0 });
     expect(c.turnstile).toEqual({
@@ -52,6 +53,7 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
       loginMaxFails: 3,
       loginWindowSec: 600,
       loginLockSec: 300,
+      trustedProxyHops: 1,
     });
     expect(c.notify.pointEmailThreshold).toBe(50);
   });

@@ -5,6 +5,7 @@ import { apiError, apiOk, parseBody } from "@/server/http";
 import { getSessionFromToken } from "@/lib/auth/session";
 import { SESSION } from "@/constants/session";
 import { changePassword } from "@/server/services/auth/password";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 const schema = z.object({
   current_password: z.string().min(1).max(128),
@@ -13,15 +14,13 @@ const schema = z.object({
 
 /** 登录态改密(RSC/API 层一律深校验,middleware 只是浅守卫) */
 export async function POST(req: NextRequest) {
-  const session = await getSessionFromToken(
-    req.cookies.get(SESSION.ACCESS_COOKIE)?.value,
-  );
+  const session = await getSessionFromToken(req.cookies.get(SESSION.ACCESS_COOKIE)?.value);
   if (!session) {
     return apiError(401, "UNAUTHORIZED", "请先登录。");
   }
   const parsed = await parseBody(req, schema);
   if (!parsed.ok) return parsed.response;
-  const ip = req.headers.get("x-forwarded-for");
+  const ip = await getClientIp(req);
   const outcome = await changePassword({
     userId: BigInt(session.userId),
     currentPassword: parsed.data.current_password,
@@ -34,11 +33,7 @@ export async function POST(req: NextRequest) {
   }
   switch (outcome.reason) {
     case "weak_password":
-      return apiError(
-        422,
-        "WEAK_PASSWORD",
-        outcome.message ?? "密码需至少 8 位且包含字母和数字。",
-      );
+      return apiError(422, "WEAK_PASSWORD", outcome.message ?? "密码需至少 8 位且包含字母和数字。");
     case "game_sync_failed":
       return apiError(
         503,

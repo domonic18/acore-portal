@@ -5,6 +5,7 @@ import { apiError, apiOk, parseBody } from "@/server/http";
 import { getSessionFromToken } from "@/lib/auth/session";
 import { SESSION } from "@/constants/session";
 import { requestEmailChange } from "@/server/services/auth/password";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 const schema = z.object({
   new_email: z.string().email(),
@@ -13,15 +14,13 @@ const schema = z.object({
 
 /** 换邮箱:202 受理,确认邮件发往新邮箱;confirm 时刻才生效(FR-021) */
 export async function POST(req: NextRequest) {
-  const session = await getSessionFromToken(
-    req.cookies.get(SESSION.ACCESS_COOKIE)?.value,
-  );
+  const session = await getSessionFromToken(req.cookies.get(SESSION.ACCESS_COOKIE)?.value);
   if (!session) {
     return apiError(401, "UNAUTHORIZED", "请先登录。");
   }
   const parsed = await parseBody(req, schema);
   if (!parsed.ok) return parsed.response;
-  const ip = req.headers.get("x-forwarded-for");
+  const ip = await getClientIp(req);
   const outcome = await requestEmailChange({
     userId: BigInt(session.userId),
     newEmailRaw: parsed.data.new_email,
@@ -29,10 +28,7 @@ export async function POST(req: NextRequest) {
     ip,
   });
   if (outcome.ok) {
-    return apiOk(
-      { message: "确认邮件已发往新邮箱,请查收并点击链接完成绑定。" },
-      202,
-    );
+    return apiOk({ message: "确认邮件已发往新邮箱,请查收并点击链接完成绑定。" }, 202);
   }
   switch (outcome.reason) {
     case "email_taken":

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiError, apiOk, parseBody } from "@/server/http";
 import { requireApiAdmin } from "@/server/session-guard";
 import { setUserRole } from "@/server/services/users-admin/set-role";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 const schema = z.object({
   role: z.enum(["user", "moderator", "admin"]),
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     actorId: BigInt(guard.session.userId),
     targetUserId: BigInt(userId),
     newRole: parsed.data.role,
-    ip: req.headers.get("x-forwarded-for"),
+    ip: await getClientIp(req),
   });
   if (!outcome.ok) {
     if (outcome.reason === "self") {

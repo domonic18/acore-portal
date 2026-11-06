@@ -5,6 +5,7 @@ import { apiError, parseBody } from "@/server/http";
 import { registerAccount } from "@/server/services/auth/register";
 import { TURNSTILE_ERROR } from "@/constants/turnstile";
 import { verifyTurnstile } from "@/lib/turnstile";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 /**
  * 契约:202 受理不泄露占用以外的信息;错误码按 contracts/api-auth.md。
@@ -21,8 +22,7 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, schema);
   if (!parsed.ok) return parsed.response;
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip");
+  const ip = await getClientIp(req);
 
   // Turnstile 预检(仅拦机器人;注册无凭据猜测面,不做失败计数/锁定)
   const turnstile = await verifyTurnstile(parsed.data.turnstileToken, ip ?? undefined);

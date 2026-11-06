@@ -2,10 +2,8 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { apiError, apiOk, parseBody } from "@/server/http";
 import { requireApiAdmin } from "@/server/session-guard";
-import {
-  setInvitationCodeStatus,
-  UsersAdminError,
-} from "@/server/services/users-admin/admin";
+import { setInvitationCodeStatus, UsersAdminError } from "@/server/services/users-admin/admin";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 const schema = z.object({
   status: z.enum(["available", "disabled"]),
@@ -26,7 +24,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       BigInt(id),
       parsed.data.status,
       BigInt(guard.session.userId),
-      req.headers.get("x-forwarded-for"),
+      await getClientIp(req),
     );
     return apiOk({ ok: true });
   } catch (err) {

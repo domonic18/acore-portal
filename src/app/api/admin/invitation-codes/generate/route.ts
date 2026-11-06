@@ -2,11 +2,9 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { apiError, apiOk, parseBody } from "@/server/http";
 import { requireApiAdmin } from "@/server/session-guard";
-import {
-  INVITATION_LIMITS,
-  INVITATION_PREFIX_PATTERN,
-} from "@/constants/invitation";
+import { INVITATION_LIMITS, INVITATION_PREFIX_PATTERN } from "@/constants/invitation";
 import { generateInvitationCodes, UsersAdminError } from "@/server/services/users-admin/admin";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 /** 边界一律取自 constants/invitation.ts(issue #80:路由与 service 不再各写一套) */
 const schema = z
@@ -49,7 +47,7 @@ export async function POST(req: NextRequest) {
       ...parsed.data,
       expiresAt: parsed.data.expiresAt ?? null,
       operatorId: BigInt(guard.session.userId),
-      ip: req.headers.get("x-forwarded-for"),
+      ip: await getClientIp(req),
     });
     return apiOk({ codes }, 201);
   } catch (err) {

@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { apiError, apiOk, parseBody } from "@/server/http";
 import { confirmEmailChange } from "@/server/services/auth/password";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 const schema = z.object({ token: z.string().min(10).max(128) });
 
@@ -10,7 +11,7 @@ const schema = z.object({ token: z.string().min(10).max(128) });
 export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, schema);
   if (!parsed.ok) return parsed.response;
-  const ip = req.headers.get("x-forwarded-for");
+  const ip = await getClientIp(req);
   const outcome = await confirmEmailChange({
     tokenPlain: parsed.data.token,
     ip,

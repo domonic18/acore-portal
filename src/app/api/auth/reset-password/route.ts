@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { apiError, apiOk, parseBody } from "@/server/http";
 import { resetPassword } from "@/server/services/auth/password";
+import { getClientIp } from "@/server/services/shared/client-ip";
 
 const schema = z.object({
   token: z.string().min(10).max(128),
@@ -12,7 +13,7 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, schema);
   if (!parsed.ok) return parsed.response;
-  const ip = req.headers.get("x-forwarded-for");
+  const ip = await getClientIp(req);
   const outcome = await resetPassword({
     tokenPlain: parsed.data.token,
     newPassword: parsed.data.password,
@@ -23,11 +24,7 @@ export async function POST(req: NextRequest) {
   }
   switch (outcome.reason) {
     case "weak_password":
-      return apiError(
-        422,
-        "WEAK_PASSWORD",
-        outcome.message ?? "密码需至少 8 位且包含字母和数字。",
-      );
+      return apiError(422, "WEAK_PASSWORD", outcome.message ?? "密码需至少 8 位且包含字母和数字。");
     case "game_sync_failed":
       // FR-014:变更未完成,链接仍有效,恢复后可重试
       return apiError(
