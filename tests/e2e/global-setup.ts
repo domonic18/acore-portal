@@ -28,11 +28,18 @@ const DEV_CONFIG: Record<string, string> = {
   "gamedb.eluna": "mysql://acore_reader:reader_pass@localhost:3307/eluna",
 };
 
-/** Turnstile 开态档(M4 T013):官方测试密钥,widget 自动通过、siteverify 恒真 */
-const TURNSTILE_E2E: Record<string, string> = {
-  "turnstile.enabled": "true",
-  "turnstile.siteKey": "1x00000000000000000000AA",
-  "turnstile.secretKey": "1x0000000000000000000000000000000AA",
+/**
+ * 腾讯云验证码开态档(2026-11-07 替换 Turnstile):
+ * 腾讯云**没有官方测试密钥**,故这里只播种「已启用且四件套齐备」的形态,
+ * 让服务端走到票据校验分支(缺票据 → 422 CAPTCHA_FAILED);
+ * 「真票据通过」路径需真实 CaptchaAppId + AppSecretKey + 云API SecretId/SecretKey 联调,CI 不覆盖。
+ */
+const CAPTCHA_E2E: Record<string, string> = {
+  "captcha.enabled": "true",
+  "captcha.appId": "1234567",
+  "captcha.appSecret": "e2e-app-secret",
+  "captcha.secretId": "AKID-e2e",
+  "captcha.secretKey": "e2e-secret-key",
 };
 
 /**
@@ -98,8 +105,8 @@ export async function seed() {
         update: { value },
       });
     }
-    if (process.env.E2E_TURNSTILE === "1") {
-      for (const [key, value] of Object.entries(TURNSTILE_E2E)) {
+    if (process.env.E2E_CAPTCHA === "1") {
+      for (const [key, value] of Object.entries(CAPTCHA_E2E)) {
         await prisma.systemConfig.upsert({
           where: { key },
           create: { key, value },
@@ -107,9 +114,9 @@ export async function seed() {
         });
       }
     } else {
-      // 关态档自愈:清残留行,保证无 widget 直通基线(config 进程内快照,须启动前落库)
+      // 关态档自愈:清残留行,保证无控件直通基线(config 进程内快照,须启动前落库)
       await prisma.systemConfig.deleteMany({
-        where: { key: { in: Object.keys(TURNSTILE_E2E) } },
+        where: { key: { in: Object.keys(CAPTCHA_E2E) } },
       });
     }
   } finally {

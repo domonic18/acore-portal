@@ -24,7 +24,13 @@ import { getActiveTheme } from "@/server/services/site/theme";
 const ADMIN_ID = 3n;
 
 const SMTP_KEYS = ["smtp.host", "smtp.port", "smtp.user", "smtp.password", "smtp.from"];
-const TURNSTILE_KEYS = ["turnstile.enabled", "turnstile.siteKey", "turnstile.secretKey"];
+const CAPTCHA_KEYS = [
+  "captcha.enabled",
+  "captcha.appId",
+  "captcha.appSecret",
+  "captcha.secretId",
+  "captcha.secretKey",
+];
 const SECURITY_KEYS = [
   "security.loginMaxFails",
   "security.loginWindowSec",
@@ -75,7 +81,7 @@ const THEME_KEYS = [
 ];
 const ALL_KEYS = [
   ...SMTP_KEYS,
-  ...TURNSTILE_KEYS,
+  ...CAPTCHA_KEYS,
   ...SECURITY_KEYS,
   ...NOTIFY_KEYS,
   ...SITE_KEYS,
@@ -139,40 +145,47 @@ describe("getSettingsView(T029)", () => {
       "smtp.user": "u1",
       "smtp.password": "plain-secret-pw",
       "smtp.from": "noreply@lokta.local",
-      "turnstile.enabled": "true",
-      "turnstile.siteKey": "site-x",
-      "turnstile.secretKey": "turn-plain-secret",
+      "captcha.enabled": "true",
+      "captcha.appId": "1234567",
+      "captcha.appSecret": "captcha-plain-secret",
+      "captcha.secretId": "AKID-test",
+      "captcha.secretKey": "captcha-plain-sk",
     });
     const view = await getSettingsView();
     expect(view.smtp.passwordConfigured).toBe(true);
-    expect(view.turnstile).toMatchObject({
+    expect(view.captcha).toMatchObject({
       enabled: true,
-      siteKey: "site-x",
+      appId: "1234567",
+      secretId: "AKID-test",
+      appSecretConfigured: true,
       secretKeyConfigured: true,
     });
     const dumped = JSON.stringify(view);
     expect(dumped).not.toContain("plain-secret-pw");
-    expect(dumped).not.toContain("turn-plain-secret");
+    expect(dumped).not.toContain("captcha-plain-secret");
+    expect(dumped).not.toContain("captcha-plain-sk");
   });
 
-  it("未配置:turnstile 走关闭态", async () => {
-    await delKeys(TURNSTILE_KEYS);
+  it("未配置:captcha 走关闭态", async () => {
+    await delKeys(CAPTCHA_KEYS);
     const view = await getSettingsView();
-    expect(view.turnstile).toEqual({
+    expect(view.captcha).toEqual({
       enabled: false,
-      siteKey: null,
+      appId: null,
+      secretId: null,
+      appSecretConfigured: false,
       secretKeyConfigured: false,
       misconfigured: false,
     });
   });
 
-  it("启用但密钥缺失:标 misconfigured(后台出告警,登录端点失败关闭)", async () => {
+  it("启用但四件套缺失:标 misconfigured(后台出告警,登录端点失败关闭)", async () => {
     await setKeys({
-      "turnstile.enabled": "true",
-      "turnstile.siteKey": "site-x",
+      "captcha.enabled": "true",
+      "captcha.appId": "1234567",
     });
     const view = await getSettingsView();
-    expect(view.turnstile.misconfigured).toBe(true);
+    expect(view.captcha.misconfigured).toBe(true);
   });
 });
 
@@ -247,33 +260,53 @@ describe("saveSettingsGroup(T029)", () => {
     );
   });
 
-  it("turnstile enabled=true 无密钥 → 422 TURNSTILE_KEYS_REQUIRED,零写入", async () => {
-    await delKeys(TURNSTILE_KEYS);
+  it("captcha enabled=true 四件套不齐 → 422 CAPTCHA_KEYS_REQUIRED,零写入", async () => {
+    await delKeys(CAPTCHA_KEYS);
     const result = await saveGroup(
-      "turnstile",
-      { enabled: true, siteKey: "", secretKey: "" },
+      "captcha",
+      { enabled: true, appId: "", appSecret: "", secretId: "", secretKey: "" },
       { id: ADMIN_ID },
     );
-    expect(result).toMatchObject({ ok: false, code: "TURNSTILE_KEYS_REQUIRED" });
-    expect(await prisma.systemConfig.count({ where: { key: { in: TURNSTILE_KEYS } } })).toBe(0);
+    expect(result).toMatchObject({ ok: false, code: "CAPTCHA_KEYS_REQUIRED" });
+    expect(await prisma.systemConfig.count({ where: { key: { in: CAPTCHA_KEYS } } })).toBe(0);
   });
 
-  it("turnstile 带双密钥保存 → getConfig 热生效 enabled:true;secretKey 空=保持", async () => {
+  it("captcha 带四件套保存 → getConfig 热生效 enabled:true;appSecret/secretKey 空=保持", async () => {
     await saveGroup(
-      "turnstile",
-      { enabled: true, siteKey: "sk-1", secretKey: "sec-1" },
+      "captcha",
+      {
+        enabled: true,
+        appId: "1234567",
+        appSecret: "app-secret-1",
+        secretId: "AKID-1",
+        secretKey: "sk-1",
+      },
       { id: ADMIN_ID },
     );
-    expect((await getConfig()).turnstile).toMatchObject({ enabled: true, siteKey: "sk-1" });
-    await saveGroup(
-      "turnstile",
-      { enabled: true, siteKey: "sk-2", secretKey: "" },
-      { id: ADMIN_ID },
-    );
-    expect((await getConfig()).turnstile).toMatchObject({
+    expect((await getConfig()).captcha).toMatchObject({
       enabled: true,
-      siteKey: "sk-2",
-      secretKey: "sec-1",
+      appId: "1234567",
+      appSecret: "app-secret-1",
+      secretId: "AKID-1",
+      secretKey: "sk-1",
+    });
+    await saveGroup(
+      "captcha",
+      {
+        enabled: true,
+        appId: "7654321",
+        appSecret: "",
+        secretId: "AKID-2",
+        secretKey: "",
+      },
+      { id: ADMIN_ID },
+    );
+    expect((await getConfig()).captcha).toMatchObject({
+      enabled: true,
+      appId: "7654321",
+      appSecret: "app-secret-1",
+      secretId: "AKID-2",
+      secretKey: "sk-1",
     });
   });
 
