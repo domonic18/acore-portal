@@ -43,6 +43,9 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
       statusIpMaxPerMin: 30,
       statusGlobalMaxPerMin: 120,
       statusUnknownIpMaxPerMin: 600,
+      artviewIpMaxPerMin: 60,
+      artviewArticleMax: 1,
+      artviewArticleWindowSec: 600,
     });
     expect(c.notify).toEqual({ pointEmailThreshold: 0 });
     expect(c.turnstile).toEqual({
@@ -84,6 +87,9 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
       statusIpMaxPerMin: 30,
       statusGlobalMaxPerMin: 120,
       statusUnknownIpMaxPerMin: 600,
+      artviewIpMaxPerMin: 60,
+      artviewArticleMax: 1,
+      artviewArticleWindowSec: 600,
     });
     expect(c.notify.pointEmailThreshold).toBe(50);
   });

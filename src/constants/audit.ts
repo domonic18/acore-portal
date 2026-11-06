@@ -97,3 +97,19 @@ export const AUDIT_ACTION = {
 } as const;
 
 export type AuditActionValue = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];
+
+/**
+ * 审计动作展示标签(后台安全看板用)。
+ * 只覆盖安全域高频动作,未列出的回退显示原始 action 值。
+ */
+export const AUDIT_ACTION_LABEL: Record<string, string> = {
+  [AUDIT_ACTION.LOGIN_FAILED]: "登录失败",
+  [AUDIT_ACTION.LOGIN_FAILED_UNKNOWN]: "登录失败(账号不存在)",
+  [AUDIT_ACTION.LOGIN_SUCCESS]: "登录成功",
+  [AUDIT_ACTION.LOGIN_LOCKED]: "账号锁定",
+  [AUDIT_ACTION.LOGIN_IP_SUSPICIOUS]: "来源 IP 可疑",
+  [AUDIT_ACTION.SECURITY_ALERT]: "安全告警",
+  [AUDIT_ACTION.ADMIN_ACCESS_VIOLATION]: "越权访问后台",
+  [AUDIT_ACTION.PASSWORD_RESET]: "密码重置",
+  [AUDIT_ACTION.PASSWORD_CHANGED]: "密码修改",
+};
