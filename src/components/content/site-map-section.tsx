@@ -1,7 +1,11 @@
 import Link from "next/link";
-import type { SiteMapGroup } from "@/server/services/seo/sitemap";
+import type { SiteMapGroup } from "@/constants/content";
 
-/** /sitemap 分组链接区(页面私有组件,与 [slug]/page 同目录;纯展示无 IO) */
+/**
+ * /sitemap 分组链接区(前台页面与后台预览共用;纯展示无 IO)。
+ * 前台由 getSiteMapPageView() 供数,后台静态页编辑器用它预览系统生成内容
+ * (issue #94:编辑器只暴露 body_md 会与前台显示割裂)。
+ */
 export function SiteMapSection({ groups }: { groups: SiteMapGroup[] }) {
   return (
     <section

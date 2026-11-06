@@ -21,6 +21,8 @@ import {
 } from "@/server/services/content/admin";
 // T029 越权回归直接打路由处理器(M2 admin-guard 同源守卫)
 import { POST as articlesPost } from "@/app/api/admin/articles/route";
+// issue #94:静态页保存/删除护栏在路由层(422 CORE_PAGE_PROTECTED/空正文校验)
+import { PUT as pagesPut } from "@/app/api/admin/pages/[id]/route";
 
 /**
  * T029 US4 内容后台集成(quickstart S4,FR-215~217):
@@ -58,6 +60,23 @@ async function moderatorReq(path: string, body: unknown): Promise<NextRequest> {
   const { accessToken } = await createSession(guardUids[1]!, "moderator");
   return new NextRequest(`http://localhost${path}`, {
     method: "POST",
+    headers: new Headers({
+      "content-type": "application/json",
+      cookie: `${SESSION.ACCESS_COOKIE}=${accessToken}`,
+    }),
+    body: JSON.stringify(body),
+  });
+}
+
+/** admin 会话请求(路由层护栏回归用) */
+async function adminSessionReq(
+  path: string,
+  method: string,
+  body: unknown,
+): Promise<NextRequest> {
+  const { accessToken } = await createSession(guardUids[0]!, "admin");
+  return new NextRequest(`http://localhost${path}`, {
+    method,
     headers: new Headers({
       "content-type": "application/json",
       cookie: `${SESSION.ACCESS_COOKIE}=${accessToken}`,
@@ -329,6 +348,72 @@ describe("静态页管理(T029 FR-216/R15)", () => {
     await deletePage(id, guardUids[0]!);
     await expect(prisma.contentPage.findUnique({ where: { id } })).resolves.toBeNull();
     await lastAudit(guardUids[0]!, AUDIT_ACTION.CONTENT_PAGE_DELETED);
+  });
+
+  it("核心静态页不可删除/改别名 → CORE_PAGE_PROTECTED(issue #94)", async () => {
+    const core = await prisma.contentPage.findUniqueOrThrow({ where: { slug: "sitemap" } });
+    await expect(errCode(deletePage(core.id, guardUids[0]!))).resolves.toBe(
+      "CORE_PAGE_PROTECTED",
+    );
+    await expect(
+      errCode(
+        savePage({
+          id: core.id,
+          slug: "sitemap-renamed",
+          title: core.title,
+          bodyMd: core.bodyMd,
+          status: core.status,
+          actorUserId: guardUids[0]!,
+        }),
+      ),
+    ).resolves.toBe("CORE_PAGE_PROTECTED");
+    const kept = await prisma.contentPage.findUniqueOrThrow({ where: { id: core.id } });
+    expect(kept.slug).toBe("sitemap");
+  });
+
+  it("系统生成页可存空正文,普通页空正文 → 422(issue #94)", async () => {
+    const core = await prisma.contentPage.findUniqueOrThrow({ where: { slug: "sitemap" } });
+    const original = core.bodyMd;
+    const ok = await pagesPut(
+      await adminSessionReq(`/api/admin/pages/${core.id}`, "PUT", {
+        slug: "sitemap",
+        title: core.title,
+        bodyMd: "",
+        status: core.status,
+      }),
+      { params: { id: core.id.toString() } },
+    );
+    expect(ok.status).toBe(200);
+    // 复原导语正文(避免改动种子内容)
+    await savePage({
+      id: core.id,
+      slug: "sitemap",
+      title: core.title,
+      bodyMd: original,
+      status: core.status,
+      sortOrder: core.sortOrder,
+      tocEnabled: core.tocEnabled,
+      actorUserId: guardUids[0]!,
+    });
+
+    const slug = `${PAGE_PREFIX}empty`;
+    const { id } = await savePage({
+      slug,
+      title: "T29 空正文",
+      bodyMd: "<p>x</p>",
+      status: "draft",
+      actorUserId: guardUids[0]!,
+    });
+    const bad = await pagesPut(
+      await adminSessionReq(`/api/admin/pages/${id}`, "PUT", {
+        slug,
+        title: "T29 空正文",
+        bodyMd: "",
+        status: "draft",
+      }),
+      { params: { id: id.toString() } },
+    );
+    expect(bad.status).toBe(422);
   });
 });
 

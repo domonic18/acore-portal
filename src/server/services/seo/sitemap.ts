@@ -1,5 +1,6 @@
 import "server-only";
 import { TOOL_PAGES } from "@/constants/tools";
+import type { SiteMapGroup } from "@/constants/content";
 import { prisma } from "@/lib/db";
 
 /**
@@ -71,11 +72,6 @@ export async function buildSitemapEntries(): Promise<SitemapEntry[]> {
  * 打开只有一个标题不像网站地图):主要栏目/玩家工具固定分组 + 论坛版块、
  * 商城分类动态分组。文章/商品/主题海量不做逐条罗列,归档入口可达即可。
  */
-export type SiteMapGroup = {
-  name: string;
-  links: { label: string; href: string }[];
-};
-
 const FIXED_GROUPS: readonly SiteMapGroup[] = [
   {
     name: "主要栏目",

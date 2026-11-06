@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
-import { RESERVED_SLUGS } from "@/constants/content";
+import { CORE_PAGE_SLUGS, RESERVED_SLUGS } from "@/constants/content";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/shared/audit";
 import { ContentAdminError, type ContentStatus } from "./shared";
@@ -57,6 +57,19 @@ export async function savePage(input: {
   tocEnabled?: boolean | null;
   actorUserId: bigint;
 }): Promise<{ id: bigint }> {
+  if (input.id) {
+    const current = await prisma.contentPage.findUnique({
+      where: { id: input.id },
+      select: { slug: true },
+    });
+    if (!current) throw new ContentAdminError("NOT_FOUND", "页面不存在。");
+    if (CORE_PAGE_SLUGS.includes(current.slug) && current.slug !== input.slug) {
+      throw new ContentAdminError(
+        "CORE_PAGE_PROTECTED",
+        `核心静态页 /${current.slug} 的别名不可更改。`,
+      );
+    }
+  }
   const slug = await resolvePageSlug(input.slug, input.id);
   const data = {
     slug,
@@ -91,7 +104,12 @@ export async function savePage(input: {
 }
 
 export async function deletePage(id: bigint, actorUserId: bigint): Promise<void> {
-  const row = await prisma.contentPage.delete({ where: { id }, select: { slug: true } });
+  const row = await prisma.contentPage.findUnique({ where: { id }, select: { slug: true } });
+  if (!row) throw new ContentAdminError("NOT_FOUND", "页面不存在。");
+  if (CORE_PAGE_SLUGS.includes(row.slug)) {
+    throw new ContentAdminError("CORE_PAGE_PROTECTED", `核心静态页 /${row.slug} 不可删除。`);
+  }
+  await prisma.contentPage.delete({ where: { id } });
   await writeAudit({
     category: AUDIT_CATEGORY.CONTENT,
     action: AUDIT_ACTION.CONTENT_PAGE_DELETED,
