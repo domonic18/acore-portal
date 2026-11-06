@@ -221,7 +221,8 @@ export async function activateAccount(input: {
   });
   if (!user) return { ok: false, reason: "invalid_token" };
 
-  const policy = validateNewPassword(input.password, user.username);
+  // 激活设密:占位哈希阶段没有旧密码,不传 previousHash
+  const policy = await validateNewPassword(input.password, user.username);
   if (!policy.ok) {
     return { ok: false, reason: "weak_password", message: policy.message };
   }
