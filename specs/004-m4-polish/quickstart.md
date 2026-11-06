@@ -14,8 +14,8 @@
 
 ## S2 防滥用（→SC-302/303）
 
-1. 默认（turnstile.enabled 缺省=false）：登录/注册直通，无 widget 渲染
-2. system_config 置 turnstile 测试密钥（site `1x…AA` 恒通过）+ enabled=true → 登录页出现 widget，登录成功；重启容器（或 settings 页保存）后生效
+1. 默认（captcha.enabled 缺省=false）：登录/注册直通，无控件渲染
+2. system_config 置腾讯云验证码四件套（`captcha.appId`/`captcha.appSecret`/`captcha.secretId`/`captcha.secretKey`）+ enabled=true → 登录页出现人机验证控件，弹窗通过后携票据登录成功；重启容器（或 settings 页保存）后生效。注:腾讯云无官方测试密钥,真票据通过需真密钥人工联调
 3. 换恒失败密钥（site `2x…AB` 本地无 token 语义）→ 无 token POST /api/auth/login → 422 TURNSTILE_FAILED
 4. 限速：连续错密 5 次 → 第 6 次 429 RATE_LIMITED；等锁期（或调小 loginLockSec 重启）→ 恢复 401 正常语义；audit 表见 LOGIN_LOCKED
 5. 防枚举：不存在用户名连错 5 次 → 同样 429；恢复后 401 文案与真实用户逐字一致
@@ -61,5 +61,5 @@
 
 - `make check` 全绿（vitest + E2E 隔离 schema）
 - specs/004-m4-polish/tasks.md 全部勾选 + SC 核销表（checklists/sc-acceptance.md 按 M3 先例建）
-- launch-checklist 增补节：M4 上线前置项（Umami 生产接线/公网 Turnstile 真密钥/备份 crontab 挂载/游戏库 dump 客户端路径/配置变更重启口径）
+- launch-checklist 增补节：M4 上线前置项（Umami 生产接线/公网人机校验真密钥/备份 crontab 挂载/游戏库 dump 客户端路径/配置变更重启口径）
 - 文档三层同步（AGENTS/README/development-plan M4 状态）

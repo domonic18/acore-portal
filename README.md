@@ -29,7 +29,7 @@ pnpm dev                # http://localhost:3000
 # 质量门禁与测试
 make check              # lint + typecheck + vitest(292)
 pnpm test:e2e           # Playwright E2E 关态档(79, 未起 dev server 时自带 webServer)
-pnpm test:e2e:turnstile # E2E 开态档(Turnstile 测试密钥, 与关态同量)
+pnpm test:e2e:captcha  # E2E 开态档(人机校验已启用;腾讯云无测试密钥,只跑专项)
 ```
 
 ## 文档

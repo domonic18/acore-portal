@@ -31,7 +31,7 @@
 - **框架**: Next.js 全栈单体（React 18 + TypeScript 5 + App Router + Tailwind）——6K 用户规模，单体优先
 - **ORM**: Prisma——新业务库可写迁移；游戏三库（characters/world/eluna）只读 client；auth 库可写
 - **数据**: MySQL 8.4（业务库）· Redis 7（session/限速/热点缓存）
-- **集成**: node-soap（worldserver 命令层：超时/重试/幂等/审计）· nodemailer SMTP · Cloudflare Turnstile · 腾讯云 COS+CDN
+- **集成**: node-soap（worldserver 命令层：超时/重试/幂等/审计）· nodemailer SMTP · 腾讯云验证码 TCaptcha · 腾讯云 COS+CDN
 - **认证**: JWT HttpOnly Cookie + Redis 会话；记住登录 = 长 token + 轮换
 - **部署**: 现有轻量服务器 docker compose + caddy；备份 = cron mysqldump + 对象存储
 - **包管理器**: pnpm（定稿时确认）
@@ -49,7 +49,7 @@ pnpm soap:mock                                 # 本地 SOAP worldserver 模拟(
 pnpm dev                                       # 开发服务器
 make check                                     # 质量门禁: lint + typecheck + vitest(397 用例)
 pnpm test:e2e                                  # Playwright E2E 关态档(151 场景, 含路由兼容 301/商城结账/商品增强(含列表快速编辑)/内容前台(含内容区底色/下载锚点/侧栏吸顶/快捷操作指南静态页+308)/侧栏快捷入口后台/渐进计划后台(含配图本地上传)/论坛管理(tab 双区+发帖回帖)/状态卡/工具页/通知/看板/SEO)
-pnpm test:e2e:turnstile                        # E2E 开态档(E2E_TURNSTILE=1, Turnstile 测试密钥直通, 与关态同量)
+pnpm test:e2e:captcha                         # E2E 开态档(E2E_CAPTCHA=1;腾讯云验证码无官方测试密钥,本档只跑人机校验专项)
 pnpm verify:soap                               # SOAP 通道连通性自检(连真实 worldserver 或 mock)
 pnpm verify:sc001                              # SC-001 老用户双格式登录验收(读 workspace/verify-credentials.txt)
 ```
@@ -116,7 +116,7 @@ docs/            # 文档中心
 3. **app 层禁直连 prisma**：app/ 下 RSC 页面与 Route Handler（`src/app/api/**`）只做校验/会话/编排，数据组装一律收敛 service 层（页面私有取数函数放 `services/<域>/`）；`grep -rn 'from "@/lib/db"' src/app` 应为空
 4. **components 准入**：`components/ui/` 只收 ≥2 个消费者的通用组件；页面私有组件与 page 同目录（colocation）；域组件入 `components/<域>/`；禁止另起 `app/_components/` 等第四类目录。展示组件保持无 IO——需要会话/库数据的异步壳放页面层（取数经 `services/<域>/` 的 view 函数，如 `getSidebarView`/`getArchiveView`/`getSiteHeaderView`），组件只接收 props
 5. **业务域服务禁互引**：`services/auth` 与 `services/shop` 等域间不直接 import，经 `services/shared/` 或上层编排（防循环依赖，借鉴 ai-invest）
-6. **配置分域收口**（宪法 v1.0.2）：env 仅存引导级凭据（业务库/Redis 连接串 + SESSION_SECRET），统一经 `lib/env.ts` 校验；游戏四库连接串与业务通道配置（SMTP/SOAP/app.url/Turnstile/COS 等）存业务库 `system_config` 表，统一经 `lib/config.ts` 读取（启动预热 + 进程内缓存；游戏库 client 惰性建连，改连接需重启；管理端改通道配置后调 `reloadSystemConfig`），禁止散点直读 `process.env`、禁止在新代码引入 env 版业务配置
+6. **配置分域收口**（宪法 v1.0.2）：env 仅存引导级凭据（业务库/Redis 连接串 + SESSION_SECRET），统一经 `lib/env.ts` 校验；游戏四库连接串与业务通道配置（SMTP/SOAP/app.url/腾讯云验证码/COS 等）存业务库 `system_config` 表，统一经 `lib/config.ts` 读取（启动预热 + 进程内缓存；游戏库 client 惰性建连，改连接需重启；管理端改通道配置后调 `reloadSystemConfig`），禁止散点直读 `process.env`、禁止在新代码引入 env 版业务配置
 7. **compose 三分**（2026-11-06 沉淀）：`docker/` 下 dev/test/prod 三套 compose 各自独立成文件，禁止跨环境复用服务定义。**生产栈（`docker-compose.prod.yml`）禁含测试替身**——`mailpit`（生产接真实 SMTP）、`soap-mock`（生产 `soap.url` 指真实 worldserver）、`scripts/dev/initdb` 挂载（含种子账号 `m1admin/adminpass123`）三者一律不进生产；生产 DB 不发布端口（迁移走 `--profile migrate` 一次性服务，备份走 `docker exec`）。新增测试用容器时同步在 prod 文件头部的「刻意排除清单」登记原因与替代方案
 8. **启动钩子依赖图无 node-only 包**（2026-11-06 沉淀）：Next 14 会为 `src/instrumentation.ts` 额外编译一份 edge 产物，其传递依赖图内出现 `ioredis`/`mysql2`/`node:*` 等 node-only 包 → edge 编译报 `Can't resolve 'stream'`，**next dev 与 next build 双双失败**（2026-11-06 PR-0 曾因此静默炸掉整个 E2E，根因离报错点隔了三层 import）。因此：启动链可达的模块（`shared/audit.ts`、`shop/delivery.ts` 等）只许依赖 prisma，Redis 依赖另立文件（`shared/audit-dedup.ts`）。守卫：`tests/unit/instrumentation-graph.test.ts`（红测试，新增 node-only 依赖即失败）
 
@@ -158,7 +158,7 @@ docs/            # 文档中心
 - 永远不信任外部输入，边界处校验（Zod 或同级别 schema 校验，定稿时确认）
 - 配置分域（宪法 v1.0.2）：env 仅存引导级凭据（业务库/Redis 连接串、SESSION_SECRET）；游戏库连接串与业务通道配置存 `system_config` 表（`lib/config.ts` 收口），凭据值禁止打印/落日志/入文档；日志记事件不记敏感值（令牌/密码/个人信息）；安全事件（登录失败/限速/越权尝试）记审计日志
 - 服务端强制校验：角色归属（防越权下单他人角色）、SKU↔物品存在性、邀请码状态机
-- Turnstile 人机验证 + 登录限速为登录/注册硬性要求
+- 腾讯云验证码（TCaptcha）人机验证 + 登录限速为登录/注册硬性要求（2026-11-07 由 Cloudflare Turnstile 替换：国内用户可达性，且两端依赖同一海外端点会让第三方抖动等于全站锁在登录门外）
 
 ## Testing
 
