@@ -6,7 +6,8 @@ import { hashWpBcrypt, verifyWpBcrypt } from "@/lib/auth/wp-bcrypt";
 import { PASSWORD_ALGO, PHPASS_PREFIX, WP_BCRYPT_PREFIX } from "@/constants/password";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { auditUnknownUserKey } from "@/server/services/auth/login-guard";
-import { writeAudit, writeAuditOnce } from "@/server/services/shared/audit";
+import { writeAudit } from "@/server/services/shared/audit";
+import { writeAuditOnce } from "@/server/services/shared/audit-dedup";
 
 export type LoginUser = {
   id: bigint;
