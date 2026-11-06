@@ -793,7 +793,7 @@ model SidebarComponent {
   @@map("sidebar_component")
 }
 
-/// 转化漏斗事件类型(业务转化自建埋点;流量层归 Umami,不在此表)
+/// 转化漏斗事件类型(业务转化自建埋点;流量层归 page_view_event 采集,不在此表)
 enum ConversionEventType {
   product_view // 商品详情页浏览(匿名可报,客户端 beacon)
   add_cart // 加入购物车成功(合并/新建两分支各记一次)
@@ -815,4 +815,16 @@ model ConversionEvent {
   @@index([type, createdAt])
   @@index([productId, createdAt])
   @@map("conversion_event")
+}
+
+/// 页面访问埋点(前台 PV/UV;visitor_id 为 IP+日盐哈希,不留原始 IP)
+model PageViewEvent {
+  id        BigInt   @id @default(autoincrement())
+  path      String   @db.VarChar(256)
+  visitorId String   @map("visitor_id") @db.Char(64)
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  @@index([createdAt])
+  @@index([path, createdAt])
+  @@map("page_view_event")
 }

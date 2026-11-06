@@ -4,6 +4,10 @@
 
 **Input**: Feature specification from `/specs/004-m4-polish/spec.md`（Q1-Q4 已裁决归档）
 
+> **变更记录(2026-11-06)**:Q3 的「Umami 自托管」已下线,页面访问统计改自建采集
+> (客户端 beacon → `page_view_event` 表 → 看板区块),不再有外部容器与独立 schema。
+> 本文件其余 Umami 段落为当时的历史设计留档,现状以 docs/plan/development-plan.md 为准。
+
 ## Summary
 
 交付最后一个开发里程碑：①工具页六页（rank.lokta.cn 五页 iframe + DKP 外部页，route_map 补 6 键收口 M3 遗留 404，导航 m4 占位接线）；②防滥用横切（Cloudflare Turnstile 登录/注册人机验证 + 登录失败限速与锁定，launch-checklist 公网前硬性项清账）；③通知域（notification 站内信模型 + 五类积分事件同事务挂钩 + 收件箱/未读徽标/弹泡 + 阈值邮件走 mail_outbox）；④统计看板（Umami 自托管容器承接流量指标 + 库内指标聚合 + 404 路径 Redis 计数）；⑤系统设置与备份（/admin/settings 分组配置热生效 + 测试发信 + mysqldump→COS cron 备份与恢复演练）；⑥SEO sitemap/robots（M3 FR-213 遗留收口）。

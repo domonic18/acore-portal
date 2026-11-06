@@ -94,7 +94,7 @@ SELECT (SELECT COUNT(*) FROM acore_portal.user),
 ## 6. 配置变更重启口径
 
 - 后台「设置」页(`/admin/settings`)保存:**即时热生效**——服务层保存后调
-  `reloadSystemConfig` 写穿进程内缓存,SMTP/防滥用/通知/Turnstile/Umami 组均免重启;
+  `reloadSystemConfig` 写穿进程内缓存,SMTP/防滥用/通知/Turnstile 组均免重启;
 - **例外(仍需重启)**:`initdb`/手改 SQL 直接写 `system_config` 的场景——web 进程
   的配置是启动时预热+进程内缓存,外部直写对长驻进程不可见,须
   `docker restart {web 容器}`;`gamedb.*` 连接串变更亦需重启(连接池惰性建连)。

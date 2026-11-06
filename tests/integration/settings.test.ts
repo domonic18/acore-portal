@@ -18,7 +18,7 @@ import { getActiveTheme } from "@/server/services/site/theme";
 /**
  * T029:设置服务集成——GET 掩码态(无明文)/PUT 组校验 422/敏感字段空=保持非空=覆写/
  * 保存后 reloadSystemConfig 热生效/审计 SETTINGS_CHANGED 无值落盘/test-mail 成功失败两态。
- * system_config 五组键为全局共享键:用前快照、用后还原(admin-stats umami 先例)。
+ * system_config 共享键:用前快照、用后还原(admin-stats 先例)。
  */
 
 const ADMIN_ID = 3n;
@@ -28,13 +28,6 @@ const TURNSTILE_KEYS = ["turnstile.enabled", "turnstile.siteKey", "turnstile.sec
 const SECURITY_KEYS = ["security.loginMaxFails", "security.loginWindowSec", "security.loginLockSec"];
 const NOTIFY_KEYS = ["notify.pointEmailThreshold"];
 const SITE_KEYS = ["site.icp", "site.copyrightEn", "site.qqGroup", "site.qqGroupQr", "site.qqGroupJoinUrl"];
-const UMAMI_KEYS = [
-  "umami.scriptUrl",
-  "umami.websiteId",
-  "umami.apiUrl",
-  "umami.apiUsername",
-  "umami.apiPassword",
-];
 const HOME_KEYS = [
   "home.achievementUrl",
   "home.achievementHeight",
@@ -57,7 +50,6 @@ const ALL_KEYS = [
   ...SECURITY_KEYS,
   ...NOTIFY_KEYS,
   ...SITE_KEYS,
-  ...UMAMI_KEYS,
   ...HOME_KEYS,
   ...CONTENT_KEYS,
   ...THEME_KEYS,
@@ -118,11 +110,6 @@ describe("getSettingsView(T029)", () => {
       "smtp.user": "u1",
       "smtp.password": "plain-secret-pw",
       "smtp.from": "noreply@lokta.local",
-      "umami.scriptUrl": "https://stats.test.local/script.js",
-      "umami.websiteId": "wid-mask",
-      "umami.apiUrl": "https://stats.test.local/api",
-      "umami.apiUsername": "viewer",
-      "umami.apiPassword": "umami-plain-pw",
       "turnstile.enabled": "true",
       "turnstile.siteKey": "site-x",
       "turnstile.secretKey": "turn-plain-secret",
@@ -130,25 +117,15 @@ describe("getSettingsView(T029)", () => {
     const view = await getSettingsView();
     expect(view.smtp.passwordConfigured).toBe(true);
     expect(view.turnstile).toMatchObject({ enabled: true, siteKey: "site-x", secretKeyConfigured: true });
-    expect(view.umami).toMatchObject({ configured: true, apiPasswordConfigured: true });
     const dumped = JSON.stringify(view);
     expect(dumped).not.toContain("plain-secret-pw");
     expect(dumped).not.toContain("turn-plain-secret");
-    expect(dumped).not.toContain("umami-plain-pw");
   });
 
-  it("未配置:turnstile 走关闭态,umami configured:false 字段全 null", async () => {
-    await delKeys([...TURNSTILE_KEYS, ...UMAMI_KEYS]);
+  it("未配置:turnstile 走关闭态", async () => {
+    await delKeys(TURNSTILE_KEYS);
     const view = await getSettingsView();
     expect(view.turnstile).toEqual({ enabled: false, siteKey: null, secretKeyConfigured: false });
-    expect(view.umami).toEqual({
-      configured: false,
-      scriptUrl: null,
-      websiteId: null,
-      apiUrl: null,
-      apiUsername: null,
-      apiPasswordConfigured: false,
-    });
   });
 });
 
@@ -247,27 +224,6 @@ describe("saveSettingsGroup(T029)", () => {
     expect(config.notify.pointEmailThreshold).toBe(120);
   });
 
-  it("umami 组:apiPassword 空=保持原值,非空=覆写", async () => {
-    await setKeys({
-      "umami.scriptUrl": "https://stats.test.local/script.js",
-      "umami.websiteId": "wid-9",
-      "umami.apiUrl": "https://stats.test.local/api",
-      "umami.apiUsername": "viewer",
-      "umami.apiPassword": "keep-me-pw",
-    });
-    await saveGroup(
-      "umami",
-      { scriptUrl: "https://stats2.test.local/script.js", websiteId: "wid-10", apiUrl: "https://stats2.test.local/api", apiUsername: "viewer2", apiPassword: "" },
-      { id: ADMIN_ID },
-    );
-    expect((await getConfig()).umami).toMatchObject({ websiteId: "wid-10", apiPassword: "keep-me-pw" });
-    await saveGroup(
-      "umami",
-      { scriptUrl: "https://stats2.test.local/script.js", websiteId: "wid-10", apiUrl: "https://stats2.test.local/api", apiUsername: "viewer2", apiPassword: "rotated-pw" },
-      { id: ADMIN_ID },
-    );
-    expect((await getConfig()).umami?.apiPassword).toBe("rotated-pw");
-  });
 });
 
 describe("site 组(CRUD 对齐审计)", () => {

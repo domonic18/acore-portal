@@ -99,7 +99,7 @@ scripts/         # 宿主机侧脚本,按用途分子域
 └── migrate/     # WP→新库数据迁移(清洗/对账 SQL 与脚本)
 docker/          # 部署资产:web/Dockerfile + caddy/Caddyfile + 三套 compose
 ├── docker-compose.dev.yml    # 开发栈(本地依赖:mysql/redis/mailpit/soap-mock)——严禁用于生产
-├── docker-compose.test.yml   # 测试栈(Mac Mini 常驻:mysql/redis/mailpit/soap-mock/umami/web)——严禁用于生产
+├── docker-compose.test.yml   # 测试栈(Mac Mini 常驻:mysql/redis/mailpit/soap-mock/web)——严禁用于生产
 └── docker-compose.prod.yml   # 生产栈(mysql/redis/web/caddy + 一次性 migrate)——不含任何测试替身
 tests/           # 测试
 workspace/       # 宿主机持久化数据（gitignore 不入库）

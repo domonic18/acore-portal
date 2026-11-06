@@ -101,13 +101,6 @@ export const groupSchemas = {
       .max(60, "轮播间隔须为 1-60 秒")
       .optional(),
   }),
-  umami: z.object({
-    scriptUrl: z.string().url(),
-    websiteId: z.string().min(1),
-    apiUrl: z.string().url(),
-    apiUsername: z.string().min(1),
-    apiPassword: z.string().optional(),
-  }),
 } as const;
 
 /** 字段 → system_config 键;sensitive 键空输入=保持原值 */
@@ -159,15 +152,7 @@ export const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>
     achievementScrolling: "home.achievementScrolling",
     carouselIntervalSec: "home.carouselIntervalSec",
   },
-  umami: {
-    scriptUrl: "umami.scriptUrl",
-    websiteId: "umami.websiteId",
-    apiUrl: "umami.apiUrl",
-    apiUsername: "umami.apiUsername",
-    apiPassword: "umami.apiPassword",
-  },
 };
-
 /** 敏感字段:空串输入=保持原值(不落库、不覆盖) */
 export const sensitiveFields = new Set(["password", "secretKey", "apiPassword"]);
 

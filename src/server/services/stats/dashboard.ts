@@ -3,16 +3,20 @@ import { prisma } from "@/lib/db";
 import { redis } from "@/lib/redis";
 import { POINT_TX_TYPE } from "@/constants/points";
 import { getServerStatus } from "@/server/services/status/status";
-import { getUmamiSummary } from "@/lib/umami";
 import { getConversionFunnel, EMPTY_FUNNEL, type ConversionFunnel } from "./funnel";
+import {
+  getPageViewSummary,
+  EMPTY_PAGE_VIEW_SUMMARY,
+  type PageViewSummary,
+} from "./page-view";
 import {
   notFoundDayKey,
   NOT_FOUND_DASHBOARD_DAYS,
 } from "./not-found";
 
 /**
- * 统计看板聚合(US4 T026,FR-313/R12):五区块只读查询,
- * 全部容错(区块失败降级空值,不拖垮整响应);umami 区块独立容错(lib/umami)。
+ * 统计看板聚合(US4 T026,FR-313/R12):区块只读查询,
+ * 全部容错(区块失败降级空值,不拖垮整响应)。
  */
 export type DashboardData = {
   online: { source: "probe" | "degraded"; current: number };
@@ -21,7 +25,7 @@ export type DashboardData = {
   orders7d: { count: number; pointsSpent: number };
   users7d: { newRegistered: number };
   funnel: ConversionFunnel;
-  umami: Awaited<ReturnType<typeof getUmamiSummary>>;
+  pageView: PageViewSummary;
 };
 
 const TOP_N = 10;
@@ -50,8 +54,16 @@ async function notFoundTop(): Promise<{ path: string; count: number }[]> {
 export async function getDashboard(): Promise<DashboardData> {
   const since = new Date(Date.now() - 7 * 24 * 3600 * 1000);
 
-  const [status, articleTop, notFound, orderCount, spentAgg, newRegistered, funnel, umami] =
-    await Promise.all([
+  const [
+    status,
+    articleTop,
+    notFound,
+    orderCount,
+    spentAgg,
+    newRegistered,
+    funnel,
+    pageView,
+  ] = await Promise.all([
       getServerStatus().catch(() => null),
       prisma.article
         .findMany({
@@ -75,7 +87,7 @@ export async function getDashboard(): Promise<DashboardData> {
         .catch(() => ({ _sum: { amount: null } })),
       prisma.user.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
       getConversionFunnel().catch(() => EMPTY_FUNNEL),
-      getUmamiSummary(),
+      getPageViewSummary().catch(() => EMPTY_PAGE_VIEW_SUMMARY),
     ]);
 
   return {
@@ -91,6 +103,6 @@ export async function getDashboard(): Promise<DashboardData> {
     orders7d: { count: orderCount, pointsSpent: Math.abs(spentAgg._sum.amount ?? 0) },
     users7d: { newRegistered },
     funnel,
-    umami,
+    pageView,
   };
 }

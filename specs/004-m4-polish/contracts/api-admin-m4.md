@@ -12,10 +12,7 @@
   "turnstile": { "enabled": false, "siteKey": null,
                  "secretKeyConfigured": false },
   "security": { "loginMaxFails": 5, "loginWindowSec": 900, "loginLockSec": 900 },
-  "notify":   { "pointEmailThreshold": 0 },
-  "umami":    { "configured": false, "scriptUrl": null, "websiteId": null,
-                "apiUrl": null, "apiUsername": null,
-                "apiPasswordConfigured": false }
+  "notify":   { "pointEmailThreshold": 0 }
 }
 ```
 
@@ -28,7 +25,7 @@
 // 200 { "ok": true }   // 内部：upsert → reloadSystemConfig → 审计 SETTINGS_CHANGED
 ```
 
-- group ∈ smtp / turnstile / security / notify / umami；非法组 422
+- group ∈ smtp / turnstile / security / notify；非法组 422
 - 校验失败 422（zod 字段路径，照 M2/M3 契约口径）；配置校验失败（如 turnstile.enabled=true 无密钥）422 TURNSTILE_KEYS_REQUIRED
 - 审计只落组名/键名/掩码 diff，**任何值不落审计**
 
@@ -52,17 +49,18 @@
   "notFoundTop": [{ "path": "/xxx", "count": 45 }],            // 近7日 top10
   "orders7d": { "count": 18, "pointsSpent": 6800 },
   "users7d": { "newRegistered": 25 },
-  "umami": { "configured": true,
-             "pv24h": 1024, "uv24h": 388,
-             "topReferrers": [{ "domain": "google.com", "visits": 96 }] }
-           // 未配置/失败 → { "configured": false } 或区块级 error 标记，不拖垮整响应
+  "pageView": { "pv": 1024, "uv": 388,   // 近 24h 自建采集(page_view_event)
+                "topPages": [{ "path": "/news", "count": 96, "share": 9.4 }] }
 }
 ```
 
+> 2026-11-06 变更:原 `umami` 区块(自托管 Umami)下线,改为自建采集 `pageView` 区块
+> (客户端 beacon → `/api/track/pageview` → `page_view_event` 表),不再有外部服务依赖。
+
 ## 页面
 
-- /admin/settings（requireAdmin RSC）：五组表单 + 测试发信卡片（to 输入 + 结果提示）
-- /admin/stats（requireAdmin RSC）：五区块 + 手动刷新；Umami 区块独立容错
+- /admin/settings（requireAdmin RSC）：四组表单 + 测试发信卡片（to 输入 + 结果提示）
+- /admin/stats（requireAdmin RSC）：多区块 + 手动刷新；页面访问区块独立容错
 
 ## 错误码总表
 

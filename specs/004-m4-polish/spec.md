@@ -6,6 +6,11 @@
 
 **Status**: Clarified（2026-10-25 用户裁决：Q1-Q4 全部按建议项落定，见 §7）
 
+> **变更记录(2026-11-06)**:Q3 裁决的「Umami 自托管」已下线——评估发现 v3 弃 MySQL(需另起 PG),
+> v2 线已 EOL 且镜像内置 Next 15.3.1/React 19.1.0 命中在野利用的 CVE-2025-55182(RCE,CVSS 10.0);
+> 且站点所需仅常规流量指标。改为**自建采集**(客户端 beacon → `page_view_event` 表 → 看板「页面访问」区块),
+> 无外部服务、无独立 schema。详见 docs/plan/development-plan.md 2026-11-06 行与 contracts/api-admin-m4.md。
+
 **Input**: 飞书需求池 M4-完善 15 条（11 待开发 / 4 已取消；RAF/文章评论/SEO 工具裁决后置 → 有效 8 条）+ 规格 §9/§10/§11/§12/§13 + M3 迁移报告「M4 功能面 6 页补键」+ 原型 p05/p06/p10/p15 + launch-checklist §6（Turnstile+限速公网前硬性）
 
 ## User Scenarios & Testing *(mandatory)*

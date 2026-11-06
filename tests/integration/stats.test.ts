@@ -6,25 +6,24 @@ import { SESSION } from "@/constants/session";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { POINT_TX_TYPE } from "@/constants/points";
 import { createSession, revokeAllSessions, revokeAllRefreshTokens } from "@/lib/auth/session";
-import { reloadSystemConfig } from "@/lib/config";
 import { POST as trackNotFound } from "@/app/api/track/not-found/route";
+import { POST as trackPageView } from "@/app/api/track/pageview/route";
 import { GET as adminStatsRoute } from "@/app/api/admin/stats/route";
 import { getDashboard } from "@/server/services/stats/dashboard";
 import { notFoundDayKey } from "@/server/services/stats/not-found";
-import { getUmamiSummary } from "@/lib/umami";
 
 /**
  * M4 US4 统计域集成(T025/T026,quickstart S4):
  * 404 采集:合法 path HINCRBY+48h TTL;外域/协议相对/非斜杠 422;256 截断;IP 30 次/分 429;
  * 看板五区块:articleTop 只含 published 且按 views 降序、404 合并今日键、
  * 订单/积分/注册 7 天基线差值法;API 守卫 anon 401/user 403(审计)/admin 200 形状;
- * umami 容错:未配置 configured:false、坏 apiUrl configured:true+ok:false。
  * redis 键 RUN 后缀隔离(dev redis 集成/E2E 共享),用后 hdel 清理。
  */
 const RUN = Date.now().toString(36);
 const BASE = BigInt(`95${(Number.parseInt(RUN, 36) % 100000).toString().padStart(5, "0")}`);
 const UID = BASE; // 守卫三角色与看板 fixture 共用一个 uid
 const RL_IP = `ntip-${RUN}`;
+const PV_IP = `pvip-${RUN}`;
 const TRACKED_FIELDS: string[] = [];
 
 /** 日键单一来源:service 收口(issue #74),测试不再自行拼键 */
@@ -45,13 +44,15 @@ function reqWithCookie(token: string | undefined, path = "/api/admin/stats"): Ne
   return new NextRequest(`http://localhost${path}`, { headers });
 }
 
-const UMAMI_KEYS = [
-  "umami.scriptUrl",
-  "umami.websiteId",
-  "umami.apiUrl",
-  "umami.apiUsername",
-  "umami.apiPassword",
-];
+function pvReq(path: string, ip?: string): NextRequest {
+  const headers = new Headers({ "content-type": "application/json" });
+  if (ip) headers.set("x-forwarded-for", ip);
+  return new NextRequest("http://localhost/api/track/pageview", {
+    method: "POST",
+    body: JSON.stringify({ path }),
+    headers,
+  });
+}
 
 const username = `t_${RUN}_st`.slice(0, 32);
 const ORDER_NO = `M4NT${RUN.toUpperCase().slice(-8)}A`;
@@ -59,16 +60,6 @@ const CAT_SLUG = `st-${RUN}`;
 
 let userId = 0n;
 let baseline: Awaited<ReturnType<typeof getDashboard>>;
-
-async function setUmamiConfig(values: string[] | null) {
-  await prisma.systemConfig.deleteMany({ where: { key: { in: UMAMI_KEYS } } });
-  if (values) {
-    await prisma.systemConfig.createMany({
-      data: UMAMI_KEYS.map((key, i) => ({ key, value: values[i]! })),
-    });
-  }
-  await reloadSystemConfig();
-}
 
 beforeAll(async () => {
   await prisma.$queryRaw`SELECT 1`;
@@ -126,7 +117,9 @@ afterAll(async () => {
     await redis.hdel(todayKey(), ...TRACKED_FIELDS);
   }
   await redis.del(`rl:404:${RL_IP}`);
+  await redis.del(`rl:pview:${PV_IP}`, `rl:pview:${PV_IP}-uv`, `rl:pview:${PV_IP}-uv-other`);
 
+  await prisma.pageViewEvent.deleteMany({ where: { path: { startsWith: `/pv-${RUN}` } } });
   await prisma.article.deleteMany({ where: { slug: { startsWith: `st-${RUN}` } } });
   await prisma.articleCategory.deleteMany({ where: { slug: CAT_SLUG } });
   await prisma.pointTransaction.deleteMany({ where: { userId } });
@@ -139,7 +132,6 @@ afterAll(async () => {
   await prisma.auditLog.deleteMany({
     where: { action: AUDIT_ACTION.ADMIN_ACCESS_VIOLATION, actorUserId: userId },
   });
-  await setUmamiConfig(null); // dev 基线本就无 umami 键
   await redis.quit();
   await prisma.$disconnect();
 });
@@ -198,6 +190,71 @@ describe("M4 US4 404 采集 /api/track/not-found(T025)", () => {
   });
 });
 
+describe("M4 US4 页面访问采集 /api/track/pageview(替代 umami)", () => {
+  it("合法 path 落库:看板 PV 累加、Top 页面含该路径", async () => {
+    const path = `/pv-${RUN}/page`;
+    const before = await getDashboard();
+
+    const res = await trackPageView(pvReq(path, PV_IP));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+
+    const row = await prisma.pageViewEvent.findFirstOrThrow({
+      where: { path },
+      orderBy: { id: "desc" },
+    });
+    expect(row.path).toBe(path);
+    expect(row.visitorId).toHaveLength(64);
+    expect(row.visitorId).not.toContain(PV_IP);
+
+    const after = await getDashboard();
+    expect(after.pageView.pv - before.pageView.pv).toBe(1);
+    expect(after.pageView.topPages.find((p) => p.path === path)?.count).toBe(1);
+  });
+
+  it("同 IP 同日同访客:同 IP 两次上报 UV 只 +1;换 IP 则 UV +1", async () => {
+    const path = `/pv-${RUN}/uv`;
+    const ip = `${PV_IP}-uv`;
+    const before = await getDashboard();
+
+    await trackPageView(pvReq(path, ip));
+    await trackPageView(pvReq(path, ip));
+    const mid = await getDashboard();
+    expect(mid.pageView.uv - before.pageView.uv).toBe(1);
+    expect(mid.pageView.pv - before.pageView.pv).toBe(2);
+
+    await trackPageView(pvReq(path, `${ip}-other`));
+    const after = await getDashboard();
+    expect(after.pageView.uv - mid.pageView.uv).toBe(1);
+    expect(after.pageView.pv - mid.pageView.pv).toBe(1);
+  });
+
+  it("非法 path 422 且零写入:外域/协议相对/非斜杠/含换行", async () => {
+    for (const bad of ["https://evil.com/a", "//evil.com/a", "no-slash", "/line\nbreak"]) {
+      const res = await trackPageView(pvReq(bad, PV_IP));
+      expect(res.status, bad).toBe(422);
+      expect(((await res.json()) as { error: { code: string } }).error.code).toBe(
+        "VALIDATION_ERROR",
+      );
+    }
+    const rows = await prisma.pageViewEvent.count({
+      where: { path: { contains: "evil.com" } },
+    });
+    expect(rows).toBe(0);
+  });
+
+  it("后台路径不入库:/admin 与 /wp-admin 排除(422)", async () => {
+    for (const p of ["/admin", "/admin/stats", "/wp-admin"]) {
+      const res = await trackPageView(pvReq(p, PV_IP));
+      expect(res.status, p).toBe(422);
+    }
+    const rows = await prisma.pageViewEvent.count({
+      where: { path: { in: ["/admin", "/admin/stats", "/wp-admin"] } },
+    });
+    expect(rows).toBe(0);
+  });
+});
+
 describe("M4 US4 看板五区块聚合 getDashboard(T026)", () => {
   it("articleTop 只含 published 且 views 降序;draft 高阅读不入选", async () => {
     const data = await getDashboard();
@@ -239,7 +296,7 @@ describe("M4 US4 看板五区块聚合 getDashboard(T026)", () => {
 });
 
 describe("M4 US4 GET /api/admin/stats(T026 契约 api-admin-m4)", () => {
-  it("anon 401 UNAUTHORIZED;user 403 FORBIDDEN+越权审计;admin 200 七键形状", async () => {
+  it("anon 401 UNAUTHORIZED;user 403 FORBIDDEN+越权审计;admin 200 八键形状", async () => {
     const anon = await adminStatsRoute(reqWithCookie(undefined));
     expect(anon.status).toBe(401);
     expect(((await anon.json()) as { error: { code: string } }).error.code).toBe("UNAUTHORIZED");
@@ -259,26 +316,8 @@ describe("M4 US4 GET /api/admin/stats(T026 契约 api-admin-m4)", () => {
     expect(okRes.status).toBe(200);
     const body = (await okRes.json()) as Record<string, unknown>;
     expect(Object.keys(body).sort()).toEqual(
-      ["articleTop", "funnel", "notFoundTop", "online", "orders7d", "umami", "users7d"].sort(),
+      ["articleTop", "funnel", "notFoundTop", "online", "orders7d", "pageView", "users7d"].sort(),
     );
-    expect(body.umami).toEqual({ configured: false }); // dev 基线无 umami 配置
   });
 });
 
-describe("M4 US4 umami 区块容错(T026/lib-umami)", () => {
-  it("未配置→configured:false;坏 apiUrl→configured:true+ok:false,不抛未捕获", async () => {
-    await setUmamiConfig(null);
-    expect(await getUmamiSummary()).toEqual({ configured: false });
-
-    await setUmamiConfig([
-      "http://127.0.0.1:1/script.js",
-      "nt-fake-website",
-      "http://127.0.0.1:1/api",
-      "ntuser",
-      "ntpass",
-    ]);
-    expect(await getUmamiSummary()).toEqual({ configured: true, ok: false });
-    // token 缓存不应在失败路径写入
-    expect(await redis.get("umami:token")).toBeNull();
-  });
-});

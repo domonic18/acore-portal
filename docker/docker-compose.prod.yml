@@ -8,7 +8,8 @@
 #   soap-mock    —— 测试专用 SOAP 模拟;生产 soap.url 指向真实 worldserver 的 SOAP 端点(system_config)
 #   initdb 挂载  —— scripts/dev/initdb 含游戏库 fixture 与种子账号(m1admin/adminpass123),
 #                    生产**绝不挂载**:真实库结构由 prisma migrate deploy 建,账号走真实注册
-#   umami        —— 自托管统计,非站点必需;按需单独起(见 docs/plan/development-plan.md)
+#   umami        —— 自托管统计已下线(2026-11-06):流量统计改自建 page_view_event 采集,
+#                    无需额外容器;生产同样不含 umami 容器与 /umami 反代
 #   dev/test 的宿主机端口与卷 —— 生产走标准端口(仅 80/443 对外)与独立卷 workspace/*-prod
 #
 # 业务通道配置(SMTP/SOAP/COS/站点地址/统计)一律存业务库 system_config,部署后进后台「设置」改,
