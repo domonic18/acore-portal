@@ -48,7 +48,10 @@ export function validateNewPassword(
 }
 
 /** 站点侧哈希前缀分派(与 login 同一权威,research R2) */
-export function verifySitePassword(storedHash: string, password: string): boolean {
+export async function verifySitePassword(
+  storedHash: string,
+  password: string,
+): Promise<boolean> {
   if (storedHash.startsWith(WP_BCRYPT_PREFIX)) {
     return verifyWpBcrypt(password, storedHash);
   }
@@ -115,7 +118,7 @@ export async function restoreGameCredential(
 export async function writeSitePassword(userId: bigint, password: string): Promise<void> {
   await prisma.user.update({
     where: { id: userId },
-    data: { passwordHash: hashWpBcrypt(password), passwordAlgo: PASSWORD_ALGO.BCRYPT_WP },
+    data: { passwordHash: await hashWpBcrypt(password), passwordAlgo: PASSWORD_ALGO.BCRYPT_WP },
   });
 }
 

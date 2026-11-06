@@ -23,7 +23,7 @@ async function upsertUser(input: {
   const passwordHash =
     input.algo === "phpass"
       ? hashPhpass(input.password)
-      : hashWpBcrypt(input.password);
+      : await hashWpBcrypt(input.password);
   return prisma.user.upsert({
     where: { username: input.username },
     update: {}, // 已存在则不动(保留可能的升级后状态)

@@ -21,7 +21,7 @@ export type LoginOutcome =
   | { ok: false; failReason: "bad_password" | "banned" | "corrupt_hash" };
 
 /** 按哈希前缀分派校验(research R2:前缀是自描述权威,upgrade 判定不看 cost) */
-function verifyByHashPrefix(storedHash: string, password: string): boolean | null {
+async function verifyByHashPrefix(storedHash: string, password: string): Promise<boolean | null> {
   if (storedHash.startsWith(WP_BCRYPT_PREFIX)) {
     return verifyWpBcrypt(password, storedHash);
   }
@@ -83,7 +83,7 @@ export async function loginWithPassword(
   }
 
   let storedHash = user.passwordHash;
-  let verified = verifyByHashPrefix(storedHash, password);
+  let verified = await verifyByHashPrefix(storedHash, password);
 
   if (verified === null) {
     await writeAudit({
@@ -104,7 +104,7 @@ export async function loginWithPassword(
     });
     if (fresh && fresh.passwordHash !== storedHash) {
       storedHash = fresh.passwordHash;
-      verified = verifyByHashPrefix(storedHash, password);
+      verified = await verifyByHashPrefix(storedHash, password);
     }
   }
 
@@ -122,7 +122,7 @@ export async function loginWithPassword(
   // 透明升级(仅 $P$):乐观锁 WHERE 旧哈希,并发下仅一方生效,其余方自然跳过
   let upgraded = false;
   if (storedHash.startsWith(PHPASS_PREFIX)) {
-    const newHash = hashWpBcrypt(password);
+    const newHash = await hashWpBcrypt(password);
     const result = await prisma.user.updateMany({
       where: { id: user.id, passwordHash: storedHash },
       data: { passwordHash: newHash, passwordAlgo: PASSWORD_ALGO.BCRYPT_WP },

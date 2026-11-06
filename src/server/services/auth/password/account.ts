@@ -50,7 +50,7 @@ export async function changePassword(input: {
     },
   });
   if (!user || user.status === "banned") return { ok: false, reason: "banned" };
-  if (!verifySitePassword(user.passwordHash, input.currentPassword)) {
+  if (!(await verifySitePassword(user.passwordHash, input.currentPassword))) {
     return { ok: false, reason: "bad_current" };
   }
   const policy = validateNewPassword(input.newPassword, user.username);
@@ -124,7 +124,7 @@ export async function requestEmailChange(input: {
     select: { id: true, username: true, email: true, passwordHash: true },
   });
   if (!user) return { ok: false, reason: "bad_current" };
-  if (!verifySitePassword(user.passwordHash, input.currentPassword)) {
+  if (!(await verifySitePassword(user.passwordHash, input.currentPassword))) {
     return { ok: false, reason: "bad_current" };
   }
   const newEmail = input.newEmailRaw.trim().toLowerCase();
