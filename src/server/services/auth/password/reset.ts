@@ -18,13 +18,13 @@ import {
   GameSyncError,
   restoreGameCredential,
   revokeEverything,
-  validateNewPassword,
   withPasswordLock,
   writeGamePassword,
   writeSitePassword,
   type GameCredential,
   type PasswordChangeOutcome,
 } from "./shared";
+import { validateNewPassword } from "./policy";
 
 // ===== 找回密码 =====
 
@@ -103,7 +103,9 @@ export async function resetPassword(input: {
   if (!user || user.status === "banned") {
     return { ok: false, reason: "banned" };
   }
-  const policyFull = validateNewPassword(input.newPassword, user.username);
+  const policyFull = await validateNewPassword(input.newPassword, user.username, {
+    previousHash: user.passwordHash,
+  });
   if (!policyFull.ok) {
     return { ok: false, reason: "weak_password", message: policyFull.message };
   }

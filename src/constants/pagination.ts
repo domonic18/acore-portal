@@ -13,3 +13,4 @@ export const ADMIN_PRODUCT_PAGE_SIZE = 20;
 export const ADMIN_ARTICLE_PAGE_SIZE = 20;
 export const ADMIN_FORUM_PAGE_SIZE = 20;
 export const ADMIN_ORDER_PAGE_SIZE = 20;
+export const ADMIN_SECURITY_PAGE_SIZE = 20;

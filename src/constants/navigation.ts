@@ -116,6 +116,7 @@ export const ADMIN_NAV_GROUPS = [
     label: "系统",
     items: [
       { href: "/admin/users", label: "用户", icon: "users" },
+      { href: "/admin/security", label: "安全看板", icon: "shield" },
       { href: "/admin/server-status", label: "状态配置", icon: "server" },
       { href: "/admin/sidebar", label: "侧栏入口", icon: "panel-left" },
       { href: "/admin/settings", label: "设置", icon: "settings" },

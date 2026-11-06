@@ -21,8 +21,6 @@ import {
   GameSyncError,
   restoreGameCredential,
   revokeEverything,
-  validateNewPassword,
-  verifySitePassword,
   withPasswordLock,
   writeGamePassword,
   writeSitePassword,
@@ -30,6 +28,7 @@ import {
   type PasswordChangeOutcome,
   type SiteUser,
 } from "./shared";
+import { validateNewPassword, verifySitePassword } from "./policy";
 
 // ===== 登录态改密 =====
 
@@ -53,7 +52,9 @@ export async function changePassword(input: {
   if (!(await verifySitePassword(user.passwordHash, input.currentPassword))) {
     return { ok: false, reason: "bad_current" };
   }
-  const policy = validateNewPassword(input.newPassword, user.username);
+  const policy = await validateNewPassword(input.newPassword, user.username, {
+    previousHash: user.passwordHash,
+  });
   if (!policy.ok) {
     return { ok: false, reason: "weak_password", message: policy.message };
   }
