@@ -16,7 +16,7 @@
 
 1. 默认（captcha.enabled 缺省=false）：登录/注册直通，无控件渲染
 2. system_config 置腾讯云验证码四件套（`captcha.appId`/`captcha.appSecret`/`captcha.secretId`/`captcha.secretKey`）+ enabled=true → 登录页出现人机验证控件，弹窗通过后携票据登录成功；重启容器（或 settings 页保存）后生效。注:腾讯云无官方测试密钥,真票据通过需真密钥人工联调
-3. 换恒失败密钥（site `2x…AB` 本地无 token 语义）→ 无 token POST /api/auth/login → 422 TURNSTILE_FAILED
+3. 换一组不存在的四件套密钥 → 无票据 POST /api/auth/login → 422 CAPTCHA_FAILED
 4. 限速：连续错密 5 次 → 第 6 次 429 RATE_LIMITED；等锁期（或调小 loginLockSec 重启）→ 恢复 401 正常语义；audit 表见 LOGIN_LOCKED
 5. 防枚举：不存在用户名连错 5 次 → 同样 429；恢复后 401 文案与真实用户逐字一致
 6. 集成测试覆盖 2-5 全分支（Redis 状态注入，TTL 缩短参数化）

@@ -74,8 +74,8 @@ export async function warmUp(): Promise<void> {
   try {
     browser = await chromium.launch();
     const context = await browser.newContext();
-    // 开态档登录需人机验证 token,脚本拿不到 → 只预热公开路由(后台页仍会编译,只是渲染未登录态)
-    if (process.env.E2E_TURNSTILE !== "1") {
+    // 开态档登录需人机验证 ticket,脚本拿不到 → 只预热公开路由(后台页仍会编译,只是渲染未登录态)
+    if (process.env.E2E_CAPTCHA !== "1") {
       const res = await context.request.post(`${BASE_URL}/api/auth/login`, {
         data: ADMIN,
         timeout: ROUTE_TIMEOUT_MS,

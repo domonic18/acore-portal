@@ -68,5 +68,5 @@
 |---|---|---|
 | 401 | UNAUTHORIZED | 未登录 |
 | 403 | FORBIDDEN | 非 admin |
-| 422 | VALIDATION_FAILED / TURNSTILE_KEYS_REQUIRED | zod / 组校验 |
+| 422 | VALIDATION_FAILED / CAPTCHA_KEYS_REQUIRED | zod / 组校验 |
 | 503 | DEPENDENCY_UNAVAILABLE | system_config 不可达（照既有口径） |
