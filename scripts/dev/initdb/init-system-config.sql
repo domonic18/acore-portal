@@ -24,7 +24,21 @@ INSERT INTO acore_portal.system_config (`key`, `value`, `updated_at`) VALUES
   ('site.qqGroup',      '184670219', NOW()),
   ('site.qqGroupQr',    '/qq-group-qr.png', NOW()),
   -- WP 原站群号加群短链(qm.qq.com 群 key 由群主在 qun.qq.com 生成)
-  ('site.qqGroupJoinUrl', 'https://qm.qq.com/q/hz9TWpqU2A', NOW())
+  ('site.qqGroupJoinUrl', 'https://qm.qq.com/q/hz9TWpqU2A', NOW()),
+  -- 登录防滥用阈值(2026-11-06 撞库加固):与 src/lib/config.ts 默认值一致,
+  -- 显式落库便于运维在后台设置页核对;生产不挂 initdb,先吃代码默认值
+  ('security.trustedProxyHops', '1', NOW()),
+  ('security.loginMaxFails', '5', NOW()),
+  ('security.loginWindowSec', '900', NOW()),
+  ('security.loginLockSec', '900', NOW()),
+  ('security.loginIpSoftFails', '20', NOW()),
+  ('security.loginIpMaxFails', '50', NOW()),
+  ('security.loginIpLockSec', '900', NOW()),
+  ('security.loginSoftLockSec', '2', NOW()),
+  ('security.loginGlobalMaxPerMin', '60', NOW()),
+  ('security.loginMaxConcurrent', '4', NOW()),
+  ('security.loginQueueWaitMs', '1500', NOW()),
+  ('security.loginUnknownIpMaxPerMin', '600', NOW())
 ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW();
 
 -- 容器内栈(测试环境)参考取值(compose 服务名互访;真实凭据不入库不入 git):

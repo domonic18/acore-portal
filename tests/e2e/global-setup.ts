@@ -34,6 +34,21 @@ const TURNSTILE_E2E: Record<string, string> = {
   "turnstile.secretKey": "1x0000000000000000000000000000000AA",
 };
 
+/**
+ * 登录防滥用阈值的 E2E 预置(2026-11-06 撞库加固 PR-C):
+ * 全套 151 场景每场都可能登录,哈希次数远超生产默认预算(60 次/分),
+ * 不放宽则 E2E 会被 429 SERVER_BUSY 误伤(生产值由后台设置页固化,此处只管测试库)。
+ * trustedProxyHops=1:应用正前方 1 个可信代理(Caddy/frp);本地 pnpm dev 不发 XFF,
+ * 请求落「未知 IP」桶(兜底桶上限同步放宽)。
+ */
+const SECURITY_E2E: Record<string, string> = {
+  "security.trustedProxyHops": "1",
+  "security.loginGlobalMaxPerMin": "6000",
+  "security.loginIpSoftFails": "1000",
+  "security.loginIpMaxFails": "5000",
+  "security.loginUnknownIpMaxPerMin": "100000",
+};
+
 export default async function globalSetup() {
   const prisma = new PrismaClient();
   try {
@@ -55,6 +70,14 @@ export default async function globalSetup() {
         where: { key },
         create: { key, value },
         update: {},
+      });
+    }
+    // 防滥用阈值按 E2E 规模强制覆盖(不沿用库里旧值,否则多次跑完被历史阈值误伤)
+    for (const [key, value] of Object.entries(SECURITY_E2E)) {
+      await prisma.systemConfig.upsert({
+        where: { key },
+        create: { key, value },
+        update: { value },
       });
     }
     if (process.env.E2E_TURNSTILE === "1") {

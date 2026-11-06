@@ -68,6 +68,20 @@ return {count, ttl}
   }
 }
 
+/**
+ * 读当前计数(不增长):用于「预算前瞻」——
+ * 先看额度是否已用尽,再决定排队还是拒绝;真正的计数自增由 hitRateLimit 承担。
+ * 计数键不存在视为 0(窗口未开或已过期)。
+ */
+export async function readRateLimit(key: string): Promise<{ count: number; retryAfterSec: number }> {
+  const [raw, ttl] = await redisCall(() => Promise.all([redis.get(key), redis.ttl(key)]));
+  const parsed = raw ? Number.parseInt(raw, 10) : 0;
+  return {
+    count: Number.isFinite(parsed) ? parsed : 0,
+    retryAfterSec: ttl > 0 ? ttl : 0,
+  };
+}
+
 export type LockState = { locked: boolean; retryAfterSec: number };
 
 /**

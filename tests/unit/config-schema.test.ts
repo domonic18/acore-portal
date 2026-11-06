@@ -28,6 +28,14 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
       loginWindowSec: 900,
       loginLockSec: 900,
       trustedProxyHops: 1,
+      loginIpSoftFails: 20,
+      loginIpMaxFails: 50,
+      loginIpLockSec: 900,
+      loginSoftLockSec: 2,
+      loginGlobalMaxPerMin: 60,
+      loginMaxConcurrent: 4,
+      loginQueueWaitMs: 1500,
+      loginUnknownIpMaxPerMin: 600,
     });
     expect(c.notify).toEqual({ pointEmailThreshold: 0 });
     expect(c.turnstile).toEqual({
@@ -54,6 +62,14 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
       loginWindowSec: 600,
       loginLockSec: 300,
       trustedProxyHops: 1,
+      loginIpSoftFails: 20,
+      loginIpMaxFails: 50,
+      loginIpLockSec: 900,
+      loginSoftLockSec: 2,
+      loginGlobalMaxPerMin: 60,
+      loginMaxConcurrent: 4,
+      loginQueueWaitMs: 1500,
+      loginUnknownIpMaxPerMin: 600,
     });
     expect(c.notify.pointEmailThreshold).toBe(50);
   });

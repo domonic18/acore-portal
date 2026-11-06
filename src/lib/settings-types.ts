@@ -31,6 +31,15 @@ export type SettingsView = {
     loginMaxFails: number;
     loginWindowSec: number;
     loginLockSec: number;
+    trustedProxyHops: number;
+    loginIpSoftFails: number;
+    loginIpMaxFails: number;
+    loginIpLockSec: number;
+    loginSoftLockSec: number;
+    loginGlobalMaxPerMin: number;
+    loginMaxConcurrent: number;
+    loginQueueWaitMs: number;
+    loginUnknownIpMaxPerMin: number;
   };
   notify: { pointEmailThreshold: number };
   content: { tocEnabled: boolean };

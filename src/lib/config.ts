@@ -78,11 +78,21 @@ const configSchema = z.object({
   // 登录防滥用参数(M4 US2):连续失败阈值/计数窗口/锁定时长
   // trustedProxyHops:应用正前方的可信代理跳数(2026-11-06 撞库加固 PR-A),
   // 客户端 IP 按 XFF 右起 N 跳解析——代理链不足或头缺失 → 落「未知 IP」桶
+  // IP 维(2026-11-06 撞库加固 PR-C):软阈只降速+审计,硬阈只锁攻击源 IP(不锁账号)
+  // 哈希背压:并发闸限单进程在飞哈希数,全局预算限每分钟真实哈希次数
   security: z.object({
     loginMaxFails: z.coerce.number().int().positive().default(5),
     loginWindowSec: z.coerce.number().int().positive().default(900),
     loginLockSec: z.coerce.number().int().positive().default(900),
     trustedProxyHops: z.coerce.number().int().min(0).max(8).default(1),
+    loginIpSoftFails: z.coerce.number().int().positive().default(20),
+    loginIpMaxFails: z.coerce.number().int().positive().default(50),
+    loginIpLockSec: z.coerce.number().int().positive().default(900),
+    loginSoftLockSec: z.coerce.number().int().positive().default(2),
+    loginGlobalMaxPerMin: z.coerce.number().int().positive().default(60),
+    loginMaxConcurrent: z.coerce.number().int().positive().max(32).default(4),
+    loginQueueWaitMs: z.coerce.number().int().positive().max(10000).default(1500),
+    loginUnknownIpMaxPerMin: z.coerce.number().int().positive().default(600),
   }),
   // 通知域(M4 US3):积分变动邮件阈值(0=关闭)
   notify: z.object({
@@ -208,6 +218,14 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       loginWindowSec: flat["security.loginWindowSec"] ?? "900",
       loginLockSec: flat["security.loginLockSec"] ?? "900",
       trustedProxyHops: flat["security.trustedProxyHops"] ?? "1",
+      loginIpSoftFails: flat["security.loginIpSoftFails"] ?? "20",
+      loginIpMaxFails: flat["security.loginIpMaxFails"] ?? "50",
+      loginIpLockSec: flat["security.loginIpLockSec"] ?? "900",
+      loginSoftLockSec: flat["security.loginSoftLockSec"] ?? "2",
+      loginGlobalMaxPerMin: flat["security.loginGlobalMaxPerMin"] ?? "60",
+      loginMaxConcurrent: flat["security.loginMaxConcurrent"] ?? "4",
+      loginQueueWaitMs: flat["security.loginQueueWaitMs"] ?? "1500",
+      loginUnknownIpMaxPerMin: flat["security.loginUnknownIpMaxPerMin"] ?? "600",
     },
     notify: {
       pointEmailThreshold: flat["notify.pointEmailThreshold"] ?? "0",
