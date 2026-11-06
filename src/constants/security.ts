@@ -67,3 +67,30 @@ export const artviewIpKey = (ip: string) => `rl:artview:ip:${ip}`;
  */
 export const artviewArticleKey = (ip: string, slug: string) =>
   `rl:artview:article:${ip}:${slug}`;
+
+/**
+ * 安全看板聚合窗口(秒):默认 24h——覆盖一个完整工作日,
+ * 让「今天有没有被撞」不必盯日志。
+ */
+export const SECURITY_DASHBOARD_WINDOW_SEC = 24 * 3600;
+
+/** 告警去重窗口(秒):同一 (kind, subject) 在窗口内只发一次告警 */
+export const SECURITY_ALERT_DEDUP_SEC = 3600;
+
+/**
+ * 告警去重键(SET NX EX):subject 为告警对象(IP 或账号名)。
+ * 前缀不用 rl:——那是固定窗口计数的地盘,这里是「只发一次」的锁。
+ */
+export const securityAlertKey = (kind: string, subject: string) =>
+  `alert:dedup:${kind}:${subject}`;
+
+/** 安全告警种类(SECURITY_ALERT 审计行的 payload.kind) */
+export const SECURITY_ALERT_KIND = {
+  /** 单 IP 失败数越阈(撞库嫌疑) */
+  IP_FAILURE_BURST: "ip_failure_burst",
+  /** 账号因连续失败被锁(可能是被撞的受害方) */
+  ACCOUNT_LOCKED: "account_locked",
+} as const;
+
+export type SecurityAlertKind =
+  (typeof SECURITY_ALERT_KIND)[keyof typeof SECURITY_ALERT_KIND];
