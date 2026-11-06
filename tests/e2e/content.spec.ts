@@ -535,10 +535,12 @@ test.describe("首页四区块(T027)", () => {
       /favicon-32\.png$/,
     );
 
-    const bodyBg = await page
-      .locator("body")
+    // 页面背景挂在 html(2026-11-06 主题系统):background-attachment:fixed 需挂 html
+    // 才是视口相对,body 保持透明让内容面板叠在上面
+    const pageBg = await page
+      .locator("html")
       .evaluate((el) => getComputedStyle(el).backgroundImage);
-    expect(bodyBg).toContain("background.jpg");
+    expect(pageBg).toContain("background.jpg");
 
     const headerBg = await page
       .getByRole("banner")
