@@ -4,7 +4,7 @@
 
 **Tests 为硬性交付**（宪法 VIII）：每个 US 先写测试（先失败）再实现；`make check`（lint+typecheck+test）全绿为一切前提；E2E 一律走隔离 schema `acore_portal_e2e`（AGENTS.md 约定）。
 
-**裁决口径速查**：Q1 全局搜索取消 · Q2 RAF/评论/SEO 工具后置二期 · Q3 统计源 Umami 自托管 · Q4 cron 备份属 M4。安全横切（US2）为 launch-checklist 公网前硬性项，**MVP 首增量 = Foundational + US2（T001-T013）**。
+**裁决口径速查**：Q1 全局搜索取消 · Q2 RAF/评论/SEO 工具后置二期 · Q3 统计源 Umami 自托管（2026-11-06 已下线,改自建采集）· Q4 cron 备份属 M4。安全横切（US2）为 launch-checklist 公网前硬性项，**MVP 首增量 = Foundational + US2（T001-T013）**。
 
 ## 文件路径约定（M1-M3 单体延续）
 

@@ -43,12 +43,4 @@ export type SettingsView = {
     active: ThemeId;
     assets: Record<ThemeId, ThemeAssets>;
   };
-  umami: {
-    configured: boolean;
-    scriptUrl: string | null;
-    websiteId: string | null;
-    apiUrl: string | null;
-    apiUsername: string | null;
-    apiPasswordConfigured: boolean;
-  };
 };

@@ -149,16 +149,6 @@ const configSchema = z.object({
     rankBase: z.string().url().default("https://rank.lokta.cn"),
     dkpUrl: z.string().url().default("https://webdkp.nfuwow.com"),
   }),
-  // Umami 统计(M4 US4):未配置=不注入采集脚本+看板区块「暂不可用」
-  umami: z
-    .object({
-      scriptUrl: z.string().url(),
-      websiteId: z.string().min(1),
-      apiUrl: z.string().url(),
-      apiUsername: z.string().min(1),
-      apiPassword: z.string().min(1),
-    })
-    .optional(),
   // 备份(M4 US5):脚本运行参数,不影响 web 启动
   backup: z
     .object({
@@ -259,15 +249,6 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       rankBase: flat["tools.rankBase"] ?? "https://rank.lokta.cn",
       dkpUrl: flat["tools.dkpUrl"] ?? "https://webdkp.nfuwow.com",
     },
-    umami: flat["umami.scriptUrl"]
-      ? {
-          scriptUrl: flat["umami.scriptUrl"],
-          websiteId: flat["umami.websiteId"] ?? "",
-          apiUrl: flat["umami.apiUrl"] ?? "",
-          apiUsername: flat["umami.apiUsername"] ?? "",
-          apiPassword: flat["umami.apiPassword"] ?? "",
-        }
-      : undefined,
     backup: flat["backup.retentionDays"] ?? flat["backup.gameWeekly"]
       ? {
           retentionDays: flat["backup.retentionDays"] ?? "30",

@@ -43,7 +43,12 @@
 - 新模板 `MAIL_TEMPLATE.POINTS_NOTIFY` + renderMail case：payload {username, delta, balance, reason}；邮件为通知性内容**无一次性链接**（MAIL_PAYLOAD.link 现为必填 → 模板载荷类型需放宽或复用 link=/account/points）
 - 注册奖励/徽章授予/购买扣分/退款/手调五类全部经过 R3 挂钩点 → 阈值逻辑单点生效
 
-## R5 Umami 自托管部署与接入
+## R5 Umami 自托管部署与接入（2026-11-06 已作废,留档）
+
+> **作废原因**:Umami v3 起弃 MySQL(须另起 PG 实例);v2 线已 EOL,其镜像内置 Next 15.3.1/React 19.1.0
+> 命中在野利用的 CVE-2025-55182(RCE,CVSS 10.0);且站点所需仅在线数/访问量/页面点击率等常规指标。
+> **替代方案**:自建采集——客户端 beacon → `POST /api/track/pageview` → `page_view_event` 表 →
+> 看板「页面访问」区块(PV/UV/Top 页面占比,近 24h),无外部服务与独立 schema。以下为当时的研究留档。
 
 **结论**: Umami v2 官方镜像入 test compose；同 MySQL 实例独立 schema `umami` + 独立账号；全站 layout 条件注入 tracking script；看板服务端调 Umami API 拉数。
 

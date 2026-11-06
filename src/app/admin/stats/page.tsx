@@ -15,18 +15,18 @@ import {
   StatsFunnelBlock,
   StatsNotFoundTopBlock,
   StatsOnlineBlock,
+  StatsPageViewBlock,
   StatsProductSalesBlock,
   StatsSpiderBlock,
   StatsTradeBlock,
   StatsTrafficSourceBlock,
   StatsTrafficTrendBlock,
-  StatsUmamiBlock,
 } from "@/components/admin/stats-blocks";
 
 /**
- * 统计看板(US4 T027,FR-313/SC-306,quickstart S4):六区块+手动刷新;
- * 流量/SEO 三区块(二期)读 wp_legacy 存档,独立容错(无存档→「暂无数据」,不拖垮整页);
- * Umami 区块独立容错(未配置/失败→「暂不可用」,不拖垮整页)。
+ * 统计看板(US4 T027,FR-313,quickstart S4):多区块+手动刷新;
+ * 页面访问区块读自建 page_view_event 采集(替代已下线的 umami);
+ * 流量/SEO 三区块(二期)读 wp_legacy 存档,独立容错(无存档→「暂无数据」,不拖垮整页)。
  * 区块 UI 见 components/admin/stats-blocks.tsx(stats-* testid 落各 section)。
  */
 export const dynamic = "force-dynamic";
@@ -75,7 +75,7 @@ export default async function AdminStatsPage({
         <StatsTrafficSourceBlock source={source} />
         <StatsSpiderBlock spider={spider} />
         <StatsFunnelBlock funnel={data.funnel} />
-        <StatsUmamiBlock umami={data.umami} />
+        <StatsPageViewBlock pageView={data.pageView} />
       </div>
     </div>
   );

@@ -46,16 +46,14 @@ model Notification {
 | | security.loginWindowSec | int，默认 900 | | 失败计数窗口 |
 | | security.loginLockSec | int，默认 900 | | 锁定时长 |
 | notify | notify.pointEmailThreshold | int，默认 0（0=不发） | ❌ 带默认 | R4；绝对值比较 |
-| umami | umami.scriptUrl | url | ✅ 整组 optional | R5；未配置=不注入不拉数 |
-| | umami.websiteId | string | | |
-| | umami.apiUrl | url | | 看板 API 拉数 |
-| | umami.apiUsername / umami.apiPassword | string | | API 取 token |
 | backup | backup.retentionDays | int，默认 30 | ✅ 整组 optional | R10；备份脚本读取 |
 | | backup.gameWeekly | bool，默认 true | | 游戏四库周备开关 |
 
+> 2026-11-06 变更:原 `umami` 配置组五键已下线(Umami 弃用),页面访问采集改为自建,不读配置组。
+
 - flattenToSchema / configSchema 同步扩展；instrumentation 预热不变（全部可缺省）
-- test 栈联调补键：turnstile（测试密钥）+ umami 五键（compose 起服后 websiteId 手动建档）
-- 敏感键清单（后台掩码展示）：smtp.password（既有）/ turnstile.secretKey / umami.apiPassword
+- test 栈联调补键：turnstile（测试密钥）
+- 敏感键清单（后台掩码展示）：smtp.password（既有）/ turnstile.secretKey
 
 ## 3. Redis 键面
 
@@ -66,15 +64,15 @@ model Notification {
 | login:lock:u:{username} / login:lock:ip:{ip} | string(SET 1) | loginLockSec | 锁定标记 |
 | stats:404:{yyyyMMdd} | hash(HINCRBY path→count) | 48h | 404 日路径计数（R6） |
 | rl:404:{ip} | string(INCR) | 60s | 404 beacon 防刷（30 次/分） |
-| umami:token | string | 30min | Umami API token 缓存（R5） |
+| rl:pview:{ip} | string(INCR) | 60s | 页面访问 beacon 防刷（30 次/分，2026-11-06 起） |
+| stats:pv:pruned:{yyyyMMdd} | string(SET NX) | 48h | 页面访问超期清理日标记（每日一次） |
 
 - 均为非账务缓存/计数，丢失可重建（对账面零影响）
 
-## 4. Umami 外部库（不在 Prisma 管）
+## 4. 页面访问事件表（业务库 Prisma 管，2026-11-06 起替代 Umami 外部库）
 
-- schema `umami`，账号 `umami` 仅限本 schema DDL/DML（Umami 自跑迁移）
-- 业务库账号权限零变更（R5 数据边界）；业务 MySQL 容器内同实例承载
-- website 建档：Umami UI 手动建一次 → websiteId 入 system_config
+- 表 `page_view_event`（业务库）：`path` / `visitor_id`（IP+日盐 sha256，不留原始 IP）/ `created_at`，保留 90 天
+- 无独立 schema、无独立账号、无外部服务；看板按时间窗聚合 PV/UV 与 Top 页面占比
 
 ## 5. 审计面
 

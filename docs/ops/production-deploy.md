@@ -8,7 +8,7 @@
 | | dev | test | prod |
 | --- | --- | --- | --- |
 | compose | `docker-compose.dev.yml` | `docker-compose.test.yml` | `docker-compose.prod.yml` |
-| 服务 | mysql / redis / mailpit / soap-mock | mysql / redis / mailpit / soap-mock / umami / web | mysql / redis / web / caddy(+ 一次性 migrate) |
+| 服务 | mysql / redis / mailpit / soap-mock | mysql / redis / mailpit / soap-mock / web | mysql / redis / web / caddy(+ 一次性 migrate) |
 | 对外端口 | 3307 / 6381 / 8025 / 1025 / 17878 | 3308 / 6382 / 8026 / 9000 | 80 / 443(仅 caddy);web 另开 127.0.0.1:3000 排查口 |
 | 种子账号 | `scripts/dev/initdb` 灌 `m1admin/adminpass123` | 同左 | **不挂 initdb**,账号走真实注册 |
 
@@ -17,7 +17,6 @@
 - `mailpit` → 生产接真实 SMTP(`system_config` 的 `smtp.*`,后台「设置」改)
 - `soap-mock` → 生产 `soap.url` 指向真实 worldserver 的 SOAP 端点
 - `scripts/dev/initdb` → 生产不挂载;业务库结构由 `prisma migrate deploy` 建
-- `umami` → 自托管统计,非站点必需,要起就单独起,不随主栈
 
 ## 1. 首次部署(空机器起站)
 

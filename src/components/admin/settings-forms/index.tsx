@@ -10,11 +10,10 @@ import { SmtpGroup } from "./smtp-group";
 import { TestMailCard } from "./test-mail-card";
 import { ThemeGroup } from "./theme-group";
 import { TurnstileGroup } from "./turnstile-group";
-import { UmamiGroup } from "./umami-group";
 
 /**
  * 八组设置表单+测试发信卡片(T032;api-admin-m4 契约)。
- * 敏感字段(smtp.password/turnstile.secretKey/umami.apiPassword)只写不读:
+ * 敏感字段(smtp.password/turnstile.secretKey)只写不读:
  * 已配置显「已配置,留空保持」占位,空提交=保持原值,非空=覆写。
  */
 export function SettingsForms({ view }: { view: SettingsView }) {
@@ -28,7 +27,6 @@ export function SettingsForms({ view }: { view: SettingsView }) {
       <SiteGroup view={view.site} />
       <AppearanceGroup view={view.appearance} />
       <ThemeGroup view={view.theme} />
-      <UmamiGroup view={view.umami} />
       <TestMailCard />
     </div>
   );

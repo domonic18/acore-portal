@@ -3,7 +3,7 @@
 **Branch**: `004-m4-polish` | **Date**: 2026-10-25 | 依赖: contracts/*, data-model.md
 
 > 每节 = 一组可独立验证的检查点；全部通过 = M4 开发收口（SC-301~309 对应核销）。
-> 环境前置：dev compose（3307/6379/8025/7878/3000）或 test compose（3308/6382/8026/9000 + umami 3001）；E2E 一律隔离 schema（AGENTS 口径）。
+> 环境前置：dev compose（3307/6379/8025/7878/3000）或 test compose（3308/6382/8026/9000）；E2E 一律隔离 schema（AGENTS 口径）。
 
 ## S1 工具页与 301（→SC-301）
 
@@ -32,11 +32,13 @@
 
 ## S4 统计看板（→SC-306）
 
-1. compose 起 umami：`docker compose -f docker/docker-compose.test.yml up -d umami` → 127.0.0.1:3001 可登录；建 website 得 websiteId
-2. system_config 补 umami 五键 → 浏览站内数页 → Umami 后台 PV/UV 增长（采集链路通）
-3. /admin/stats 五区块渲染：在线/阅读 top/404 top/近 7 天订单与积分消耗/新注册；数值与 SQL 手查一致（抽查 2 项）
+> 2026-11-06 起:Umami 已下线,改自建采集(客户端 beacon → `page_view_event` 表),下面第 1/2/5 条按自建口径重写。
+
+1. 浏览站内若干页 → 前台 beacon 发 `POST /api/track/pageview` 200 → `page_view_event` 表落行（path + visitor_id 哈希）
+2. 看板「页面访问」区块（近 24h）出 PV/UV 与 Top 页面占比；数值与 SQL 手查一致（抽查 2 项）
+3. /admin/stats 各区块渲染：在线/阅读 top/404 top/近 7 天订单与积分消耗/新注册；数值与 SQL 手查一致（抽查 2 项）
 4. 访问不存在路径 → not-found beacon → stats:404:{今日} hash 增计数 → 看板 404 区块出现该路径
-5. umami.apiUrl 指向错误端口 → 仅 Umami 区块「暂不可用」，整页 200 其余区块正常
+5. `page_view_event` 表不可用 → 仅「页面访问」区块降级为空，整页 200 其余区块正常
 6. 非 admin 访问 /admin/stats → edge 层拦回 /login?next=（M2 口径）
 
 ## S5 设置与备份（→SC-307/308）

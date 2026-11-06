@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { SiteFooter } from "@/components/site/footer";
 import { HideOnAdmin } from "@/components/site/chrome-gate";
 import { SiteHeaderClient } from "@/components/site/header-client";
+import { PageViewBeacon } from "@/components/site/page-view-beacon";
 import { getSiteFooterView, getSiteHeaderView } from "@/server/services/site/chrome";
 import { getActiveTheme } from "@/server/services/site/theme";
 import { getConfig } from "@/lib/config";
@@ -40,15 +40,11 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // FR-312:umami 组存在才注入 tracking script;build 期(假 DATABASE_URL
-  // 预渲染 /_not-found 等)取不到配置时静默跳过,不阻塞渲染
-  const [config, header, footer, theme] = await Promise.all([
-    getConfig().catch(() => null),
+  const [header, footer, theme] = await Promise.all([
     getSiteHeaderView(),
     getSiteFooterView(),
     getActiveTheme(),
   ]);
-  const umami = config?.umami;
   // 主题变量挂在 <html>:CSS 自定义属性沿 DOM 继承,页头/内容面板无需逐层传参
   const themeStyle = {
     "--theme-page-background": backgroundLayer(
@@ -75,13 +71,7 @@ export default async function RootLayout({
         <HideOnAdmin>
           <SiteFooter icp={footer.icp} copyrightEn={footer.copyrightEn} />
         </HideOnAdmin>
-        {umami && (
-          <Script
-            src={umami.scriptUrl}
-            data-website-id={umami.websiteId}
-            strategy="afterInteractive"
-          />
-        )}
+        <PageViewBeacon />
       </body>
     </html>
   );

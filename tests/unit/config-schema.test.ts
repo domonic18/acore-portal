@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildConfigFromRows } from "@/lib/config";
 
-/** T003:config 扩 5 组(turnstile/security/notify/umami/backup)——键缺省语义单测 */
+/** T003:config 扩组(turnstile/security/notify/backup)——键缺省语义单测 */
 const BASE_ROWS: [string, string][] = [
   ["app.url", "https://lokta.cn"],
   ["soap.url", "http://127.0.0.1:7878"],
@@ -30,7 +30,6 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
     });
     expect(c.notify).toEqual({ pointEmailThreshold: 0 });
     expect(c.turnstile).toBeUndefined();
-    expect(c.umami).toBeUndefined();
     expect(c.backup).toBeUndefined();
     expect(c.cos).toBeUndefined();
   });
@@ -85,23 +84,6 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
         ),
       ),
     ).toThrow(/siteKey\/secretKey 必填/);
-  });
-
-  it("umami 五键齐全=配置可用;只给部分键 → 校验失败(fail-fast 防半配置)", () => {
-    const full = buildConfigFromRows(
-      rows(
-        ["umami.scriptUrl", "https://stats.lokta.cn/script.js"],
-        ["umami.websiteId", "wid-1"],
-        ["umami.apiUrl", "https://stats.lokta.cn/api"],
-        ["umami.apiUsername", "viewer"],
-        ["umami.apiPassword", "pw"],
-      ),
-    );
-    expect(full.umami?.websiteId).toBe("wid-1");
-
-    expect(() =>
-      buildConfigFromRows(rows(["umami.scriptUrl", "https://stats.lokta.cn/script.js"])),
-    ).toThrow(/system_config 配置校验失败/);
   });
 
   it("appearance 缺省回落内置资源;显式留空=隐藏背景;非法协议校验失败", () => {

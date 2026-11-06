@@ -5,7 +5,7 @@ import { FOCUS_RING } from "@/components/ui/admin-tokens";
 
 /**
  * 统计看板区块(与 app/admin/stats/page.tsx 拆分配套;components 禁 import server,
- * 结构类型与 services/stats/dashboard·traffic·sales、lib/umami 返回同形)。
+ * 结构类型与 services/stats/dashboard·traffic·sales 返回同形)。
  * data-testid 落在 Card 渲染的 section 上(E2E stats-* 断言依赖)。
  */
 type OnlineData = { source: string; current: number };
@@ -23,10 +23,11 @@ type SpiderData = {
   lastCrawl: string | null;
 };
 type FunnelData = { productView: number; addCart: number; order: number; viewToCart: number; cartToOrder: number };
-type UmamiData =
-  | { configured: false }
-  | { configured: true; ok: true; pv24h: number; uv24h: number; topReferrers: { domain: string; visits: number }[] }
-  | { configured: true; ok: false };
+type PageViewData = {
+  pv: number;
+  uv: number;
+  topPages: { path: string; count: number; share: number }[];
+};
 
 /** 区块外壳:Card(即 section)+ CardHeader,testid 落 section */
 function Block({
@@ -316,34 +317,27 @@ export function StatsFunnelBlock({ funnel }: { funnel: FunnelData }) {
   );
 }
 
-export function StatsUmamiBlock({ umami }: { umami: UmamiData }) {
+export function StatsPageViewBlock({ pageView }: { pageView: PageViewData }) {
   return (
-    <Block title="Umami 流量(24h)" testid="stats-umami">
-      {!umami.configured ? (
-        <p className="text-[#6482a3]">未接入 Umami(配置 umami 组后生效)。</p>
-      ) : !umami.ok ? (
-        <p className="text-[#6482a3]" data-testid="stats-umami-error">
-          Umami 暂不可用。
-        </p>
+    <Block title="页面访问(近 24h)" testid="stats-pageview">
+      <p>
+        PV <Strong>{pageView.pv}</Strong>
+        <span className="ml-4">
+          UV <Strong>{pageView.uv}</Strong>
+        </span>
+      </p>
+      {pageView.topPages.length === 0 ? (
+        <p className="text-[#6482a3]">{EMPTY}</p>
       ) : (
-        <>
-          <p>
-            PV <Strong>{umami.pv24h}</Strong>
-            <span className="ml-4">
-              UV <Strong>{umami.uv24h}</Strong>
-            </span>
-          </p>
-          {umami.topReferrers.length > 0 && (
-            <ul className="flex flex-col gap-1">
-              {umami.topReferrers.map((r) => (
-                <li key={r.domain} className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate text-[#dcebf7]">{r.domain}</span>
-                  <span>{r.visits}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
+        <ol className="flex flex-col gap-1">
+          {pageView.topPages.map((p) => (
+            <li key={p.path} className="flex items-center gap-2">
+              <code className="min-w-0 flex-1 truncate text-[#dcebf7]">{p.path}</code>
+              <span>{p.count}</span>
+              <span className="w-14 text-right text-xs text-[#6482a3]">{p.share}%</span>
+            </li>
+          ))}
+        </ol>
       )}
     </Block>
   );

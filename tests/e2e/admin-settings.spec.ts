@@ -127,7 +127,7 @@ test.describe.serial("admin 设置页", () => {
     ).toHaveAttribute("href", "/admin/settings");
     await page.goto("/admin/settings");
 
-    for (const group of ["smtp", "turnstile", "security", "notify", "content", "site", "appearance", "theme", "umami"]) {
+    for (const group of ["smtp", "turnstile", "security", "notify", "content", "site", "appearance", "theme"]) {
       await expect(page.getByTestId(`settings-group-${group}`)).toBeVisible();
     }
     // 服务端 config 是进程级快照:经 UI 保存密码触发 reloadSystemConfig 后,

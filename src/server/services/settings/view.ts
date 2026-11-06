@@ -59,22 +59,5 @@ export async function getSettingsView(): Promise<SettingsView> {
         ]),
       ) as SettingsView["theme"]["assets"],
     },
-    umami: config.umami
-      ? {
-          configured: true,
-          scriptUrl: config.umami.scriptUrl,
-          websiteId: config.umami.websiteId,
-          apiUrl: config.umami.apiUrl,
-          apiUsername: config.umami.apiUsername,
-          apiPasswordConfigured: config.umami.apiPassword !== "",
-        }
-      : {
-          configured: false,
-          scriptUrl: null,
-          websiteId: null,
-          apiUrl: null,
-          apiUsername: null,
-          apiPasswordConfigured: false,
-        },
   };
 }

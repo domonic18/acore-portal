@@ -1,4 +1,4 @@
-/** 转化埋点常量(业务转化漏斗;流量层归 Umami) */
+/** 转化埋点常量(业务转化漏斗;页面访问流量见 services/stats/page-view) */
 export const CONVERSION_EVENT = {
   PRODUCT_VIEW: "product_view",
   ADD_CART: "add_cart",
