@@ -1,10 +1,10 @@
-import fs from "node:fs";
 import path from "node:path";
 import { unlink } from "node:fs/promises";
 import Redis from "ioredis";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { PrismaClient } from "../../src/generated/business";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "../../src/constants/audit";
+import { resolveE2ERedisUrl } from "./redis-url";
 
 /**
  * T041 US5 论坛 E2E(quickstart S4;SC-201/207):
@@ -22,10 +22,7 @@ const BOARD_SLUG = `e2eforum-${RUN}`;
 const POST_BOARD_SLUG = `e2epost-${RUN}`;
 const PNG_1PX = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="), (c) => c.charCodeAt(0));
 // 发帖/回帖/上传频控 key 清理(E2E 连发会撞 429;spec 进程直连 dev redis)
-const redisUrl =
-  fs.readFileSync(".env", "utf8").match(/^REDIS_URL=(.+)$/m)?.[1]?.trim() ??
-  "redis://localhost:6381/0";
-const redis = new Redis(redisUrl);
+const redis = new Redis(resolveE2ERedisUrl());
 
 async function clearForumRateLimits() {
   const patterns = [

@@ -2,6 +2,11 @@
 -- compose initdb 仅在数据卷首次初始化时执行;已有库请手动补插或按环境改值
 -- 默认值为「宿主机跑 pnpm dev」场景(Mailpit/SOAP mock 均映射到 localhost);
 -- 容器内跑 web 的栈(如测试环境)改用 compose 服务名,见下方注释块
+--
+-- SET NAMES utf8mb4 必留:docker-entrypoint-initdb.d 与裸 mysql 客户端的
+-- character_set_client 默认 latin1,文件里的多字节字面量(© ® 等)会被二次编码
+-- 存成乱码(2026-11-06 CI 演练实测:页脚英文版权声明渲染成 "Â®")。
+SET NAMES utf8mb4;
 INSERT INTO acore_portal.system_config (`key`, `value`, `updated_at`) VALUES
   ('app.url',           'http://localhost:3000', NOW()),
   ('soap.url',          'http://localhost:17878/', NOW()),

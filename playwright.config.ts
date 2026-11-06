@@ -21,10 +21,13 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  webServer: {
-    command: "pnpm dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: true,
-    timeout: 60_000,
-  },
+  // CI 档自行启动生产构建的应用(next start),此时不托管 webServer
+  webServer: process.env.E2E_SKIP_WEBSERVER
+    ? undefined
+    : {
+        command: process.env.E2E_WEB_COMMAND ?? "pnpm dev",
+        url: "http://localhost:3000",
+        reuseExistingServer: true,
+        timeout: 60_000,
+      },
 });

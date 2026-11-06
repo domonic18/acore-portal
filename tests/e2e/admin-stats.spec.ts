@@ -1,7 +1,7 @@
-import fs from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import Redis from "ioredis";
 import { PrismaClient } from "../../src/generated/business";
+import { resolveE2ERedisUrl } from "./redis-url";
 
 /**
  * M4 US4 统计看板 E2E(T027,quickstart S4):
@@ -18,10 +18,7 @@ const prisma = new PrismaClient();
 const RUN = Date.now().toString(36);
 const MISSING_PATH = `/nt-${RUN}/e2e-missing`;
 // spec 进程不经 pnpm dev 加载 .env,读同一文件取 dev redis(E2E 与集成共享)
-const redisUrl =
-  fs.readFileSync(".env", "utf8").match(/^REDIS_URL=(.+)$/m)?.[1]?.trim() ??
-  "redis://localhost:6381/0";
-const redis = new Redis(redisUrl);
+const redis = new Redis(resolveE2ERedisUrl());
 
 function todayKey(): string {
   const d = new Date();

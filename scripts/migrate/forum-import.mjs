@@ -243,7 +243,7 @@ export async function importPosts(pool, { topicIds } = {}) {
   const ids = topics.map((t) => t.ID);
   const [replies] = ids.length
     ? await pool.query(
-        `SELECT r.ID, r.post_parent, r.post_author, r.post_date, r.post_status, r.post_content,
+        `SELECT r.ID AS id, r.post_date AS created_at, r.post_parent, r.post_author, r.post_status, r.post_content,
                 COALESCE(NULLIF(u.display_name, ''), u.user_login, '') AS author
            FROM wp_legacy.wp_posts r
            LEFT JOIN wp_legacy.wp_users u ON u.ID = r.post_author
@@ -317,9 +317,9 @@ export async function importPosts(pool, { topicIds } = {}) {
           userByWpId.get(Number(r.post_author) || 0) ?? null,
           r.author || "匿名",
           rewriteForumImages(r.post_content ?? "", imageMap),
-          r.ID,
+          r.id,
           r.post_status === "publish" ? null : new Date(),
-          r.post_date,
+          r.created_at,
         ],
       );
       replyImported += 1;
