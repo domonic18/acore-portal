@@ -3,6 +3,7 @@ import type { Prisma } from "@/generated/business";
 import { getConfig } from "@/lib/config";
 import { MAIL_TEMPLATE } from "@/constants/mail";
 import { POINT_TX_TYPE_LABEL, type PointTxTypeValue } from "@/constants/points";
+import { NOTIFICATION_TYPE } from "@/constants/notification";
 import { enqueueMail } from "@/server/services/shared/mail-outbox";
 
 /**
@@ -31,7 +32,7 @@ export async function notifyPointsChange(
   await tx.notification.create({
     data: {
       userId: input.userId,
-      type: "points",
+      type: NOTIFICATION_TYPE.POINTS,
       title,
       body,
       linkUrl: "/account/points",

@@ -16,7 +16,14 @@ const SRC_ROOT = path.resolve(process.cwd(), "src");
 const ENTRY = path.join(SRC_ROOT, "instrumentation.ts");
 
 /** 本仓已知 node-only 的第三方包(edge 运行时无对应实现) */
-const NODE_ONLY_PACKAGES = new Set(["ioredis", "mysql2", "bcrypt", "nodemailer", "node-soap"]);
+const NODE_ONLY_PACKAGES = new Set([
+  "ioredis",
+  "mysql2",
+  "bcrypt",
+  "bcryptjs",
+  "nodemailer",
+  "node-soap",
+]);
 
 /** node-only 内置模块(edge 运行时不可用) */
 const NODE_ONLY_BUILTINS = new Set([

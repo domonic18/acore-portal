@@ -14,11 +14,20 @@ export const STATUS_REDIS_KEYS = {
   probe: "status:probe",
   probeLastok: "status:probe:lastok",
   probeTtlSeconds: 25,
+  // 单飞锁:缓存未命中时只放一个探针出去,其余请求等它把快照写进缓存
+  probeLock: "status:probe:lock",
+  probeLockTtlSeconds: 5,
   peakPrefix: "status:peak:",
   peakTtlSeconds: 48 * 60 * 60,
   portrait: "m3:portrait",
   portraitTtlSeconds: 60,
 } as const;
+
+/** 未抢到单飞锁时的等待上限(毫秒):持锁者通常 1s 内写完缓存 */
+export const STATUS_PROBE_WAIT_MS = 2_500;
+
+/** 等待单飞锁期间的轮询间隔(毫秒) */
+export const STATUS_PROBE_WAIT_INTERVAL_MS = 100;
 
 /** SOAP 探针超时(2s,contracts/server-status.md 行为约定) */
 export const STATUS_PROBE_TIMEOUT_MS = 2_000;

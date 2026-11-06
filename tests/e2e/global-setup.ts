@@ -1,5 +1,6 @@
 import { PrismaClient } from "../../src/generated/business";
 import { TOOL_PAGES } from "../../src/constants/tools";
+import { warmUp } from "./warmup";
 
 /**
  * E2E 全局播种(webServer 启动前落库):
@@ -36,20 +37,37 @@ const TURNSTILE_E2E: Record<string, string> = {
 
 /**
  * 登录防滥用阈值的 E2E 预置(2026-11-06 撞库加固 PR-C):
- * 全套 151 场景每场都可能登录,哈希次数远超生产默认预算(60 次/分),
+ * 全套 169 场景每场都可能登录,哈希次数远超生产默认预算(60 次/分),
  * 不放宽则 E2E 会被 429 SERVER_BUSY 误伤(生产值由后台设置页固化,此处只管测试库)。
- * trustedProxyHops=1:应用正前方 1 个可信代理(Caddy/frp);本地 pnpm dev 不发 XFF,
- * 请求落「未知 IP」桶(兜底桶上限同步放宽)。
+ * trustedProxyHops=0:E2E 直连本地 dev server,应用正前方**没有**可信代理
+ * (next dev 自己塞的 X-Forwarded-For 是 socket 地址,不是代理转发的客户端地址),
+ * 按「无可信代理」口径一律落「未知 IP」桶(兜底桶上限同步放宽)。
+ * 另:所有 E2E 请求共享同一个来源地址,若解析成真实 IP 则共用一个限流桶,
+ * 页面访问上报(30 次/分)等按 IP 限速必然越阈 → 未知桶是唯一无共享桶的落点。
  */
 const SECURITY_E2E: Record<string, string> = {
-  "security.trustedProxyHops": "1",
+  "security.trustedProxyHops": "0",
   "security.loginGlobalMaxPerMin": "6000",
   "security.loginIpSoftFails": "1000",
   "security.loginIpMaxFails": "5000",
   "security.loginUnknownIpMaxPerMin": "100000",
+  // 未鉴权端点的按 IP 限速(PR-G):E2E 全部请求落「未知 IP」共享桶,须放宽
+  "security.registerIpMaxPerHour": "1000",
+  "security.pwresetIpMaxPerHour": "1000",
+  "security.emailChangeIpMaxPerHour": "1000",
+  "security.unknownIpMaxPerHour": "100000",
+  // 状态页限速(PR-H):E2E 每个页面都轮询 /api/status,全局桶须放宽
+  "security.statusIpMaxPerMin": "10000",
+  "security.statusGlobalMaxPerMin": "100000",
+  "security.statusUnknownIpMaxPerMin": "100000",
+  // 阅读计数限速(PR-I):同篇重复上报须照常计入,否则前台 views 断言漂移
+  "security.artviewIpMaxPerMin": "10000",
+  "security.artviewArticleMax": "100",
+  "security.artviewArticleWindowSec": "600",
 };
 
-export default async function globalSetup() {
+/** 播种路由映射与系统配置(幂等;pre-seed 与 globalSetup 共用) */
+export async function seed() {
   const prisma = new PrismaClient();
   try {
     await prisma.routeMap.upsert({
@@ -97,4 +115,14 @@ export default async function globalSetup() {
   } finally {
     await prisma.$disconnect();
   }
+}
+
+/**
+ * Playwright globalSetup:播种 + 路由预热。
+ * 任务序:webServer(plugin setup)先于 globalSetup —— dev server 已就绪,
+ * 预热可在此时打路由让 next dev 提前编译(见 tests/e2e/warmup.ts)。
+ */
+export default async function globalSetup() {
+  await seed();
+  await warmUp();
 }

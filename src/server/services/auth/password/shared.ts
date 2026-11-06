@@ -2,9 +2,8 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { redis } from "@/lib/redis";
 import { srp6MakeRegistrationData } from "@/lib/auth/game-hash";
-import { hashWpBcrypt, verifyWpBcrypt } from "@/lib/auth/wp-bcrypt";
-import { verifyPhpass } from "@/lib/auth/phpass";
-import { PASSWORD_ALGO, PHPASS_PREFIX, WP_BCRYPT_PREFIX } from "@/constants/password";
+import { hashWpBcrypt } from "@/lib/auth/wp-bcrypt";
+import { PASSWORD_ALGO } from "@/constants/password";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/shared/audit";
 import { revokeAllSessions, revokeAllRefreshTokens } from "@/lib/auth/session";
@@ -30,33 +29,6 @@ export type PasswordChangeFailure =
 export type PasswordChangeOutcome =
   | { ok: true }
   | { ok: false; reason: PasswordChangeFailure; message?: string };
-
-export function validateNewPassword(
-  password: string,
-  username: string,
-): { ok: true } | { ok: false; message: string } {
-  if (password.length < 8) {
-    return { ok: false, message: "密码至少 8 位。" };
-  }
-  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
-    return { ok: false, message: "密码需同时包含字母和数字。" };
-  }
-  if (password.toLowerCase() === username.toLowerCase()) {
-    return { ok: false, message: "密码不能与用户名相同。" };
-  }
-  return { ok: true };
-}
-
-/** 站点侧哈希前缀分派(与 login 同一权威,research R2) */
-export function verifySitePassword(storedHash: string, password: string): boolean {
-  if (storedHash.startsWith(WP_BCRYPT_PREFIX)) {
-    return verifyWpBcrypt(password, storedHash);
-  }
-  if (storedHash.startsWith(PHPASS_PREFIX)) {
-    return verifyPhpass(password, storedHash);
-  }
-  return false;
-}
 
 /** per-user 锁:跨库双写串行化,防并发交错产生双端不一致 */
 export async function withPasswordLock<T>(
@@ -115,7 +87,7 @@ export async function restoreGameCredential(
 export async function writeSitePassword(userId: bigint, password: string): Promise<void> {
   await prisma.user.update({
     where: { id: userId },
-    data: { passwordHash: hashWpBcrypt(password), passwordAlgo: PASSWORD_ALGO.BCRYPT_WP },
+    data: { passwordHash: await hashWpBcrypt(password), passwordAlgo: PASSWORD_ALGO.BCRYPT_WP },
   });
 }
 

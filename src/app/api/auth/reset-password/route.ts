@@ -4,16 +4,39 @@ import { z } from "zod";
 import { apiError, apiOk, parseBody } from "@/server/http";
 import { resetPassword } from "@/server/services/auth/password";
 import { getClientIp } from "@/server/services/shared/client-ip";
+import { throttleByClientIp } from "@/server/services/shared/ip-throttle";
+import { getConfig } from "@/lib/config";
+import { IP_HOURLY_WINDOW_SEC, pwresetIpKey } from "@/constants/security";
 
 const schema = z.object({
   token: z.string().min(10).max(128),
   password: z.string().min(1).max(128),
 });
 
+/** 与申请找回共用同一个按 IP 桶——同一流程的两段 */
+const RATE_LIMIT_429 = "尝试过于频繁,请稍后再试。";
+
 export async function POST(req: NextRequest) {
+  const ip = await getClientIp(req);
+  const { security } = await getConfig();
+
+  const gate = await throttleByClientIp({
+    ip,
+    keyFor: pwresetIpKey,
+    max: security.pwresetIpMaxPerHour,
+    windowSec: IP_HOURLY_WINDOW_SEC,
+  });
+  if (!gate.allowed) {
+    if (gate.reason === "unavailable") {
+      return apiError(503, "AUTH_UNAVAILABLE", "密码重置服务暂时不可用,请稍后再试。");
+    }
+    return apiError(429, "RATE_LIMITED", RATE_LIMIT_429, {
+      retryAfterSec: gate.retryAfterSec,
+    });
+  }
+
   const parsed = await parseBody(req, schema);
   if (!parsed.ok) return parsed.response;
-  const ip = await getClientIp(req);
   const outcome = await resetPassword({
     tokenPlain: parsed.data.token,
     newPassword: parsed.data.password,

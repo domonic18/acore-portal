@@ -91,11 +91,11 @@ describe("论坛写路径 forum/write(#34)", () => {
       where: { id: threadId },
       data: { closedAt: new Date() },
     });
-    expect(async () => {
-      await createReply({ threadId, author, content: "尝试回帖" }).catch((e) => {
+    await expect(
+      createReply({ threadId, author, content: "尝试回帖" }).catch((e) => {
         throw new Error((e as { code?: string }).code);
-      });
-    }).rejects.toThrow("THREAD_CLOSED");
+      }),
+    ).rejects.toThrow("THREAD_CLOSED");
     await prisma.forumThread.update({
       where: { id: threadId },
       data: { deletedAt: new Date() },

@@ -38,6 +38,16 @@ const SECURITY_KEYS = [
   "security.loginMaxConcurrent",
   "security.loginQueueWaitMs",
   "security.loginUnknownIpMaxPerMin",
+  "security.registerIpMaxPerHour",
+  "security.pwresetIpMaxPerHour",
+  "security.emailChangeIpMaxPerHour",
+  "security.unknownIpMaxPerHour",
+  "security.statusIpMaxPerMin",
+  "security.statusGlobalMaxPerMin",
+  "security.statusUnknownIpMaxPerMin",
+  "security.artviewIpMaxPerMin",
+  "security.artviewArticleMax",
+  "security.artviewArticleWindowSec",
 ];
 const NOTIFY_KEYS = ["notify.pointEmailThreshold"];
 const SITE_KEYS = [
@@ -268,7 +278,7 @@ describe("saveSettingsGroup(T029)", () => {
   });
 
   it("security/notify 组保存 → reloadSystemConfig 热生效(getConfig 反映新值)", async () => {
-    // 全量提交:12 键显式落库,断言不依赖库里既有值(E2E 预置会改写这些行)
+    // 全量提交:16 键显式落库,断言不依赖库里既有值(E2E 预置会改写这些行)
     await saveGroup(
       "security",
       {
@@ -284,6 +294,16 @@ describe("saveSettingsGroup(T029)", () => {
         loginMaxConcurrent: 4,
         loginQueueWaitMs: 1500,
         loginUnknownIpMaxPerMin: 600,
+        registerIpMaxPerHour: 10,
+        pwresetIpMaxPerHour: 20,
+        emailChangeIpMaxPerHour: 20,
+        unknownIpMaxPerHour: 6000,
+        statusIpMaxPerMin: 30,
+        statusGlobalMaxPerMin: 120,
+        statusUnknownIpMaxPerMin: 600,
+        artviewIpMaxPerMin: 60,
+        artviewArticleMax: 1,
+        artviewArticleWindowSec: 600,
       },
       { id: ADMIN_ID },
     );
@@ -302,6 +322,16 @@ describe("saveSettingsGroup(T029)", () => {
       loginMaxConcurrent: 4,
       loginQueueWaitMs: 1500,
       loginUnknownIpMaxPerMin: 600,
+      registerIpMaxPerHour: 10,
+      pwresetIpMaxPerHour: 20,
+      emailChangeIpMaxPerHour: 20,
+      unknownIpMaxPerHour: 6000,
+      statusIpMaxPerMin: 30,
+      statusGlobalMaxPerMin: 120,
+      statusUnknownIpMaxPerMin: 600,
+      artviewIpMaxPerMin: 60,
+      artviewArticleMax: 1,
+      artviewArticleWindowSec: 600,
     });
     expect(config.notify.pointEmailThreshold).toBe(120);
   });

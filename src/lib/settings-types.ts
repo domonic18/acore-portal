@@ -40,6 +40,16 @@ export type SettingsView = {
     loginMaxConcurrent: number;
     loginQueueWaitMs: number;
     loginUnknownIpMaxPerMin: number;
+    registerIpMaxPerHour: number;
+    pwresetIpMaxPerHour: number;
+    emailChangeIpMaxPerHour: number;
+    unknownIpMaxPerHour: number;
+    statusIpMaxPerMin: number;
+    statusGlobalMaxPerMin: number;
+    statusUnknownIpMaxPerMin: number;
+    artviewIpMaxPerMin: number;
+    artviewArticleMax: number;
+    artviewArticleWindowSec: number;
   };
   notify: { pointEmailThreshold: number };
   content: { tocEnabled: boolean };

@@ -60,7 +60,7 @@ async function makeUser(input: { withGame?: boolean } = {}) {
     data: {
       username,
       email,
-      passwordHash: hashWpBcrypt("oldpass456"),
+      passwordHash: await hashWpBcrypt("oldpass456"),
       passwordAlgo: PASSWORD_ALGO.BCRYPT_WP,
     },
   });
@@ -128,7 +128,7 @@ describe("US3 改密双写(quickstart S3)", () => {
       where: { id: u.id },
       select: { passwordHash: true, passwordAlgo: true },
     });
-    expect(verifyWpBcrypt("Newpass123", site.passwordHash)).toBe(true);
+    expect(await verifyWpBcrypt("Newpass123", site.passwordHash)).toBe(true);
     expect(site.passwordAlgo).toBe(PASSWORD_ALGO.BCRYPT_WP);
 
     const game = await authDb.findByUsername(u.username);
@@ -505,5 +505,71 @@ describe("US3 换邮箱(FR-021)", () => {
       ok: false,
       reason: "email_taken",
     });
+  });
+});
+
+/**
+ * 撞库加固 PR-F:口令策略在真实链路上的落点。
+ * 单测只覆盖纯函数口径,这里验证三条链路(改密/重置)都真的走了新规则。
+ */
+describe("口令策略加固(PR-F)", () => {
+  it("改密:弱口令表命中 → weak_password,密码不变", async () => {
+    const u = await makeUser();
+    const before = await prisma.user.findUniqueOrThrow({
+      where: { id: u.id },
+      select: { passwordHash: true },
+    });
+    const outcome = await changePassword({
+      userId: u.id,
+      currentPassword: "oldpass456",
+      newPassword: "password123",
+    });
+    expect(outcome).toMatchObject({ ok: false, reason: "weak_password" });
+    const after = await prisma.user.findUniqueOrThrow({
+      where: { id: u.id },
+      select: { passwordHash: true },
+    });
+    expect(after.passwordHash).toBe(before.passwordHash);
+  });
+
+  it("改密:含用户名 → weak_password", async () => {
+    const u = await makeUser();
+    const outcome = await changePassword({
+      userId: u.id,
+      currentPassword: "oldpass456",
+      newPassword: `${u.username}2024`,
+    });
+    expect(outcome).toMatchObject({ ok: false, reason: "weak_password" });
+  });
+
+  it("改密:复用当前密码 → weak_password", async () => {
+    const u = await makeUser();
+    const outcome = await changePassword({
+      userId: u.id,
+      currentPassword: "oldpass456",
+      newPassword: "oldpass456",
+    });
+    expect(outcome).toMatchObject({ ok: false, reason: "weak_password" });
+    // 旧密码仍可用(拒绝发生在双写之前)
+    expect((await loginWithPassword(u.username, "oldpass456")).ok).toBe(true);
+  });
+
+  it("重置:复用当前密码 → weak_password,旧密码仍有效", async () => {
+    const u = await makeUser();
+    await clearResetGate(u.email);
+    await requestPasswordReset(u.email);
+    const token = await latestResetToken(u.email);
+    const outcome = await resetPassword({ tokenPlain: token, newPassword: "oldpass456" });
+    expect(outcome).toMatchObject({ ok: false, reason: "weak_password" });
+    expect((await loginWithPassword(u.username, "oldpass456")).ok).toBe(true);
+  });
+
+  it("重置:弱口令表命中 → weak_password", async () => {
+    const u = await makeUser();
+    await clearResetGate(u.email);
+    await requestPasswordReset(u.email);
+    const token = await latestResetToken(u.email);
+    const outcome = await resetPassword({ tokenPlain: token, newPassword: "qwerty123" });
+    expect(outcome).toMatchObject({ ok: false, reason: "weak_password" });
   });
 });

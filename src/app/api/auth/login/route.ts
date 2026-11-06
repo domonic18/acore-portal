@@ -92,6 +92,9 @@ export async function POST(req: NextRequest) {
       return apiError(429, "SERVER_BUSY", SERVER_BUSY_429, { retryAfterSec: 1 });
     }
 
+    // ⑧ 凭据校验(全站唯一跑哈希处)——槽位只覆盖哈希本身,
+    // 计数/审计/建会话等 IO 不占着 CPU 槽(否则吞吐被 Redis 往返拖住)。
+    let outcome: Awaited<ReturnType<typeof loginWithPassword>>;
     try {
       // ⑦ 消费哈希预算(此刻才算一次真实哈希)
       const consumed = await hitRateLimit(loginGlobalKey(), {
@@ -104,45 +107,44 @@ export async function POST(req: NextRequest) {
           retryAfterSec: consumed.retryAfterSec,
         });
       }
-
-      // ⑧ 凭据校验(全站唯一跑哈希处)
-      const outcome = await loginWithPassword(username, password, { ip });
-      if (!outcome.ok) {
-        // ⑨ 失败计数:用户名维与 IP 维解耦——IP 维越阈只锁攻击源 IP
-        const gate = await recordFailure(username, ip);
-        if (gate.ipLocked || gate.accountLocked) {
-          return apiError(429, "RATE_LIMITED", RATE_LIMIT_429, {
-            retryAfterSec: gate.retryAfterSec,
-          });
-        }
-        // 真实原因仅审计可见(login 服务已写);对外一律统一模糊文案
-        return apiError(401, "INVALID_CREDENTIALS", UNIFIED_401);
-      }
-
-      // ⑩ 成功清账(用户名维计数与锁全清;IP 维计数保留,理由见 login-guard)
-      await clearOnSuccess(username);
-
-      // ⑪ 成功审计(2026-11-06 撞库加固):凭据有效即记,用于界定被攻陷账号
-      await writeAudit({
-        category: AUDIT_CATEGORY.SECURITY,
-        action: AUDIT_ACTION.LOGIN_SUCCESS,
-        actorUserId: outcome.user.id,
-        payload: { username: outcome.user.username, upgraded: outcome.upgraded },
-        ip,
-      });
-
-      const { accessToken } = await createSession(outcome.user.id, outcome.user.role);
-      const refreshToken = remember ? (await issueRefreshToken(outcome.user.id)).token : undefined;
-
-      const res = NextResponse.json({
-        user: { username: outcome.user.username, role: outcome.user.role },
-        upgraded: outcome.upgraded,
-      });
-      setSessionCookies(res, { accessToken, refreshToken });
-      return res;
+      outcome = await loginWithPassword(username, password, { ip });
     } finally {
       slot.slot.release();
     }
+
+    if (!outcome.ok) {
+      // ⑨ 失败计数:用户名维与 IP 维解耦——IP 维越阈只锁攻击源 IP
+      const gate = await recordFailure(username, ip);
+      if (gate.ipLocked || gate.accountLocked) {
+        return apiError(429, "RATE_LIMITED", RATE_LIMIT_429, {
+          retryAfterSec: gate.retryAfterSec,
+        });
+      }
+      // 真实原因仅审计可见(login 服务已写);对外一律统一模糊文案
+      return apiError(401, "INVALID_CREDENTIALS", UNIFIED_401);
+    }
+
+    // ⑩ 成功清账(用户名维计数与锁全清;IP 维计数保留,理由见 login-guard)
+    await clearOnSuccess(username);
+
+    // ⑪ 成功审计(2026-11-06 撞库加固):凭据有效即记,用于界定被攻陷账号
+    await writeAudit({
+      category: AUDIT_CATEGORY.SECURITY,
+      action: AUDIT_ACTION.LOGIN_SUCCESS,
+      actorUserId: outcome.user.id,
+      payload: { username: outcome.user.username, upgraded: outcome.upgraded },
+      ip,
+    });
+
+    const { accessToken } = await createSession(outcome.user.id, outcome.user.role);
+    const refreshToken = remember ? (await issueRefreshToken(outcome.user.id)).token : undefined;
+
+    const res = NextResponse.json({
+      user: { username: outcome.user.username, role: outcome.user.role },
+      upgraded: outcome.upgraded,
+    });
+    setSessionCookies(res, { accessToken, refreshToken });
+    return res;
   } catch (err) {
     // Redis 故障:锁/计数不可用 → 失败关闭(503),既不静默放行也不 500
     if (err instanceof RateLimitUnavailableError) {
