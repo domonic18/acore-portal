@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildHeightAvailableMessage,
   clampIframeHeight,
+  isIframeNavigated,
   isMessageFromIframe,
   parseAvailableHeightRequest,
   parseIframeHeightMessage,
@@ -183,5 +184,36 @@ describe("parseAvailableHeightRequest", () => {
   it("非对象载荷一律拒绝", () => {
     expect(parseAvailableHeightRequest(null)).toBe(false);
     expect(parseAvailableHeightRequest("available-height-request")).toBe(false);
+  });
+});
+
+describe("isIframeNavigated", () => {
+  it("仍是初始 about:blank → 未导航(投递会被浏览器拒收)", () => {
+    expect(
+      isIframeNavigated({ contentWindow: { location: { href: "about:blank" } } }),
+    ).toBe(false);
+  });
+
+  it("已导航到目标页 → 视为就绪", () => {
+    expect(
+      isIframeNavigated({
+        contentWindow: { location: { href: "https://rank.lokta.cn/achievement" } },
+      }),
+    ).toBe(true);
+  });
+
+  it("跨源访问 location 抛错 → 已到跨源目标页", () => {
+    const crossOrigin = {
+      contentWindow: {
+        get location(): { href: string } {
+          throw new Error("SecurityError: blocked a frame with origin");
+        },
+      },
+    };
+    expect(isIframeNavigated(crossOrigin)).toBe(true);
+  });
+
+  it("contentWindow 为 null → 未就绪", () => {
+    expect(isIframeNavigated({ contentWindow: null })).toBe(false);
   });
 });
