@@ -11,7 +11,7 @@
 import { pathToFileURL } from "node:url";
 import { createConverter, normalizeWowheadShortcodes } from "./lib/content-convert.mjs";
 
-const GUIDE_PAGES = [
+export const GUIDE_PAGES = [
   {
     slug: "hardcore-mode",
     title: "硬核模式介绍",
@@ -117,10 +117,9 @@ export async function promoteGuidePages(pool) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { createPool } = await import("mysql2/promise");
-  const url = new URL(process.env.DATABASE_URL);
+  const { loadEnv, createPool } = await import("./lib/db.mjs");
+  loadEnv();
   const pool = createPool({
-    uri: url.toString(),
     connectionLimit: 4,
     charset: "utf8mb4_0900_ai_ci",
   });
