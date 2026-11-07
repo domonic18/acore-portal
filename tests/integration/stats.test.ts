@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { redis } from "@/lib/redis";
+import { reloadSystemConfig } from "@/lib/config";
 import { SESSION } from "@/constants/session";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { POINT_TX_TYPE } from "@/constants/points";
@@ -11,6 +12,7 @@ import { POST as trackPageView } from "@/app/api/track/pageview/route";
 import { GET as adminStatsRoute } from "@/app/api/admin/stats/route";
 import { getDashboard } from "@/server/services/stats/dashboard";
 import { notFoundDayKey } from "@/server/services/stats/not-found";
+import { pinSystemConfig, restoreSystemConfig } from "../helpers/system-config";
 
 /**
  * M4 US4 统计域集成(T025/T026,quickstart S4):
@@ -64,8 +66,22 @@ const CAT_SLUG = `st-${RUN}`;
 let userId = 0n;
 let baseline: Awaited<ReturnType<typeof getDashboard>>;
 
+/**
+ * 客户端 IP 走 XFF 右起 1 跳解析(PR-A)——必须钉住 hops=1,
+ * 否则库里 hops=0 时 XFF 被整体忽略,所有请求落「未知 IP」桶,
+ * 按 IP 的限速/访客断言全部失真(表现为间歇性失败)。
+ * 未知 IP 兜底桶阈值放宽:本文件的无 IP 请求共用一个桶,不能互相挤掉。
+ */
+const PINNED: Record<string, string> = {
+  "security.trustedProxyHops": "1",
+  "security.trackUnknownIpMaxPerMin": "600",
+};
+let pinnedPrior: { key: string; value: string }[] = [];
+
 beforeAll(async () => {
   await prisma.$queryRaw`SELECT 1`;
+  pinnedPrior = await pinSystemConfig(PINNED);
+  await reloadSystemConfig();
   baseline = await getDashboard();
 
   const user = await prisma.user.create({
@@ -125,6 +141,8 @@ afterAll(async () => {
     `rl:pview:203.1.${IP_OCTET}.30`,
     `rl:pview:203.1.${IP_OCTET}.31`,
   );
+  await restoreSystemConfig(Object.keys(PINNED), pinnedPrior);
+  await reloadSystemConfig();
 
   await prisma.pageViewEvent.deleteMany({ where: { path: { startsWith: `/pv-${RUN}` } } });
   await prisma.article.deleteMany({ where: { slug: { startsWith: `st-${RUN}` } } });
@@ -192,6 +210,30 @@ describe("M4 US4 404 采集 /api/track/not-found(T025)", () => {
     const blocked = await trackNotFound(trackReq(`/nt-${RUN}/rl/over`, RL_IP));
     expect(blocked.status).toBe(429);
     expect(((await blocked.json()) as { error: { code: string } }).error.code).toBe("RATE_LIMITED");
+  });
+
+  it("IP 不可判定:落未知 IP 兜底桶,越阈同样 429(不得跳过限速)", async () => {
+    // 阈值钉到 3,验证「IP 判不出来」不是「不限速」的漏洞(2026-11-07 修复)
+    await pinSystemConfig({ "security.trackUnknownIpMaxPerMin": "3" });
+    await reloadSystemConfig();
+    await redis.del("rl:404:unknown");
+    try {
+      for (let i = 0; i < 3; i++) {
+        const path = `/nt-${RUN}/unknown/${i}`;
+        TRACKED_FIELDS.push(path);
+        const res = await trackNotFound(trackReq(path));
+        expect(res.status, `#${i}`).toBe(200);
+      }
+      const blocked = await trackNotFound(trackReq(`/nt-${RUN}/unknown/over`));
+      expect(blocked.status).toBe(429);
+      expect(((await blocked.json()) as { error: { code: string } }).error.code).toBe(
+        "RATE_LIMITED",
+      );
+    } finally {
+      await redis.del("rl:404:unknown");
+      await pinSystemConfig(PINNED);
+      await reloadSystemConfig();
+    }
   });
 });
 

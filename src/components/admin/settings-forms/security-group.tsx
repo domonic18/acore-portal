@@ -35,6 +35,7 @@ const FIELDS = [
   ["artviewIpMaxPerMin", "阅读计数按 IP 总闸(次/分)"],
   ["artviewArticleMax", "同一 IP 对同一篇的计入上限(次/窗口)"],
   ["artviewArticleWindowSec", "阅读计数计入窗口(秒)"],
+  ["trackUnknownIpMaxPerMin", "埋点上报未知 IP 兜底桶(次/分)"],
 ] as const;
 
 export function SecurityGroup({ view }: { view: SettingsView["security"] }) {

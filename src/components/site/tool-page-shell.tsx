@@ -124,7 +124,7 @@ export function ToolPageShell({
           src={page.iframeSrc}
           title={page.title}
           showExternal={false}
-          heightClass="h-[calc(100dvh-17rem)] min-h-[520px] lg:min-h-[640px]"
+          heightClass="h-[calc(100dvh-9rem)] min-h-[600px] lg:min-h-[720px]"
         />
       </div>
 

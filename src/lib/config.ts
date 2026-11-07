@@ -113,6 +113,10 @@ const configSchema = z.object({
     artviewIpMaxPerMin: z.coerce.number().int().positive().default(60),
     artviewArticleMax: z.coerce.number().int().positive().default(1),
     artviewArticleWindowSec: z.coerce.number().int().positive().default(600),
+    // 埋点上报限速(页面访问/商品浏览/404 采集,窗口 1 分钟):
+    // IP 不可判定时并进共享兜底桶,阈值远宽于按 IP 阈值——不放弃限速,
+    // 也不因一次代理配置错误把全站用户并成一个桶而误伤
+    trackUnknownIpMaxPerMin: z.coerce.number().int().positive().default(600),
   }),
   // 通知域(M4 US3):积分变动邮件阈值(0=关闭)
   notify: z.object({
@@ -260,6 +264,7 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       artviewIpMaxPerMin: flat["security.artviewIpMaxPerMin"] ?? "60",
       artviewArticleMax: flat["security.artviewArticleMax"] ?? "1",
       artviewArticleWindowSec: flat["security.artviewArticleWindowSec"] ?? "600",
+      trackUnknownIpMaxPerMin: flat["security.trackUnknownIpMaxPerMin"] ?? "600",
     },
     notify: {
       pointEmailThreshold: flat["notify.pointEmailThreshold"] ?? "0",

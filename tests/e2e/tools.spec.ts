@@ -121,6 +121,32 @@ test.describe("工具页六页(US1,SC-301)", () => {
     await expect(page.getByText(/iframe src=/)).toHaveCount(0);
   });
 
+  test("工具页 iframe 支持高度上报自动撑高(嵌入协议)", async ({ page }) => {
+    await page.goto("/hardcore");
+    const frame = page.getByTestId("tools-iframe");
+    await expect(frame).toBeVisible();
+
+    const before = await frame.evaluate((el) => el.getBoundingClientRect().height);
+
+    // 模拟 rank 子站(acore-ranking)上报内容高度;源窗口与源站须与 iframe 对得上
+    await page.evaluate(() => {
+      const iframe = document.querySelector(
+        '[data-testid="tools-iframe"]',
+      ) as HTMLIFrameElement;
+      const event = new MessageEvent("message", {
+        data: { source: "acore-ranking", type: "height", height: 1234 },
+        origin: new URL(iframe.src).origin,
+      });
+      Object.defineProperty(event, "source", { value: iframe.contentWindow });
+      window.dispatchEvent(event);
+    });
+
+    await expect
+      .poll(async () => frame.evaluate((el) => el.getBoundingClientRect().height))
+      .toBe(1234);
+    expect(before).toBeLessThan(1234);
+  });
+
   test("旧 page_id 六键 301 到六工具页(US1 T024)", async ({ request }) => {
     const probe = await redirectTarget(
       request,

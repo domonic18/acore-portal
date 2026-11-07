@@ -1,9 +1,11 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { apiError, apiOk, parseBody } from "@/server/http";
-import { hitRateLimit } from "@/lib/redis/rate-limit";
 import { normalizePagePath, recordPageView } from "@/server/services/stats/page-view";
 import { getClientIp } from "@/server/services/shared/client-ip";
+import { throttleByClientIp } from "@/server/services/shared/ip-throttle";
+import { getConfig } from "@/lib/config";
+import { pageviewIpKey } from "@/constants/security";
 
 /**
  * 页面访问上报(自建流量统计,替代 umami):匿名公开路由。
@@ -25,15 +27,23 @@ export async function POST(req: NextRequest) {
     return apiError(422, "VALIDATION_ERROR", "参数错误:path");
   }
 
+  const { security } = await getConfig();
   const ip = await getClientIp(req);
-  if (ip) {
-    const limited = await hitRateLimit(`rl:pview:${ip}`, {
-      windowSec: RATE_WINDOW_SEC,
-      max: RATE_MAX,
-    });
-    if (!limited.allowed) {
-      return apiError(429, "RATE_LIMITED", "请求过于频繁,请稍后再试。");
+  // IP 不可判定时落共享兜底桶(不放弃限速);Redis 故障失败关闭 503
+  const gate = await throttleByClientIp({
+    ip,
+    keyFor: pageviewIpKey,
+    max: RATE_MAX,
+    windowSec: RATE_WINDOW_SEC,
+    unknownMax: security.trackUnknownIpMaxPerMin,
+  });
+  if (!gate.allowed) {
+    if (gate.reason === "unavailable") {
+      return apiError(503, "TRACK_UNAVAILABLE", "上报服务暂时不可用,请稍后再试。");
     }
+    return apiError(429, "RATE_LIMITED", "请求过于频繁,请稍后再试。", {
+      retryAfterSec: gate.retryAfterSec,
+    });
   }
 
   await recordPageView(path, ip);

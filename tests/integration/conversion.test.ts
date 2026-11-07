@@ -6,6 +6,8 @@ import { CONVERSION_EVENT } from "@/constants/conversion";
 import { recordConversion } from "@/server/services/shared/conversion";
 import { getConversionFunnel } from "@/server/services/stats/funnel";
 import { POST as productViewRoute } from "@/app/api/shop/product-view/route";
+import { reloadSystemConfig } from "@/lib/config";
+import { pinSystemConfig, restoreSystemConfig } from "../helpers/system-config";
 
 /**
  * 转化埋点集成(product_view→add_cart→order):
@@ -31,8 +33,20 @@ function viewReq(productId: number | string, ip?: string): NextRequest {
 let productId = 0n;
 let baseline: Awaited<ReturnType<typeof getConversionFunnel>>;
 
+/**
+ * 客户端 IP 走 XFF 右起 1 跳解析(PR-A)——必须钉住 hops=1,
+ * 否则库里 hops=0 时 XFF 被整体忽略,按 IP 的限速断言失真。
+ */
+const PINNED: Record<string, string> = {
+  "security.trustedProxyHops": "1",
+  "security.trackUnknownIpMaxPerMin": "600",
+};
+let pinnedPrior: { key: string; value: string }[] = [];
+
 beforeAll(async () => {
   await prisma.$queryRaw`SELECT 1`;
+  pinnedPrior = await pinSystemConfig(PINNED);
+  await reloadSystemConfig();
   baseline = await getConversionFunnel();
 
   const category = await prisma.productCategory.create({
@@ -57,6 +71,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await redis.del(`rl:pview:${RL_IP}`);
+  await restoreSystemConfig(Object.keys(PINNED), pinnedPrior);
+  await reloadSystemConfig();
   await prisma.conversionEvent.deleteMany({ where: { productId } });
   await prisma.product.deleteMany({ where: { slug: SLUG } });
   await prisma.productCategory.deleteMany({ where: { slug: SLUG } });
@@ -157,5 +173,26 @@ describe("浏览上报路由 POST /api/shop/product-view", () => {
     const blocked = await productViewRoute(viewReq(productId.toString(), RL_IP));
     expect(blocked.status).toBe(429);
     expect(((await blocked.json()) as { error: { code: string } }).error.code).toBe("RATE_LIMITED");
+  });
+
+  it("IP 不可判定:落未知 IP 兜底桶,越阈同样 429(不得跳过限速)", async () => {
+    await pinSystemConfig({ "security.trackUnknownIpMaxPerMin": "3" });
+    await reloadSystemConfig();
+    await redis.del("rl:pview:unknown");
+    try {
+      for (let i = 0; i < 3; i++) {
+        const res = await productViewRoute(viewReq(productId.toString()));
+        expect(res.status, `#${i}`).toBe(200);
+      }
+      const blocked = await productViewRoute(viewReq(productId.toString()));
+      expect(blocked.status).toBe(429);
+      expect(((await blocked.json()) as { error: { code: string } }).error.code).toBe(
+        "RATE_LIMITED",
+      );
+    } finally {
+      await redis.del("rl:pview:unknown");
+      await pinSystemConfig(PINNED);
+      await reloadSystemConfig();
+    }
   });
 });

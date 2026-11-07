@@ -8,6 +8,22 @@
 /** iframe 加载超时降级卡「工具服务暂不可用」(tools-iframe) */
 export const TOOLS_IFRAME_TIMEOUT_MS = 12_000;
 
+/**
+ * 工具页 iframe 高度上报协议(跨仓契约,源:acore-ranking 服务
+ * frontend/src/shared/constants/embed.ts):
+ * 被嵌入的 rank 子站把内容高度 postMessage 给门户,门户据此把 iframe 撑到内容高度,
+ * 消掉 iframe 内层滚动(固定高度下表格底部被截)。
+ * 门户侧实现:src/lib/iframe-height.ts + src/components/site/tools-iframe.tsx
+ */
+export const TOOLS_IFRAME_HEIGHT_SOURCE = "acore-ranking";
+export const TOOLS_IFRAME_HEIGHT_TYPE = "height";
+export const TOOLS_IFRAME_HEIGHT_REQUEST_SOURCE = "acore-portal";
+export const TOOLS_IFRAME_HEIGHT_REQUEST_TYPE = "height-request";
+
+/** 自动撑高下限/上限(px):下限防首帧塌陷,上限防超长页把外层页面拉爆 */
+export const TOOLS_IFRAME_HEIGHT_MIN_PX = 320;
+export const TOOLS_IFRAME_HEIGHT_MAX_PX = 3000;
+
 export type ToolNavSlot = "announce" | "database" | null;
 
 /** rank = 排行榜子站(带站内路径);dkp = 第三方独立站(整站地址) */

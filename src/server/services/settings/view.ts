@@ -50,6 +50,7 @@ export async function getSettingsView(): Promise<SettingsView> {
       artviewIpMaxPerMin: config.security.artviewIpMaxPerMin,
       artviewArticleMax: config.security.artviewArticleMax,
       artviewArticleWindowSec: config.security.artviewArticleWindowSec,
+      trackUnknownIpMaxPerMin: config.security.trackUnknownIpMaxPerMin,
     },
     notify: { pointEmailThreshold: config.notify.pointEmailThreshold },
     content: { tocEnabled: config.content.tocEnabled },

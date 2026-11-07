@@ -17,6 +17,21 @@
 - 每页：SSR 薄壳（metadata 标题）+ tools-iframe（撑满视口 + 常驻「新窗口打开」外链 + 12s 加载超时降级卡）
 - 页面自身必须 200（rank/webdkp 可用性不在断言面，SC-301）
 
+### 工具页 iframe 高度自适应协议（2026-11-07）
+
+固定高度下 rank 子站的表格底部被截、iframe 内层滚动。门户与 rank 子站（acore-ranking）
+同为自有服务，走 postMessage 握手撑高：
+
+| 方向 | 消息 | 说明 |
+|---|---|---|
+| 子 → 父 | `{ source: "acore-ranking", type: "height", height: number }` | 子页内容高度（`documentElement.scrollHeight`） |
+| 父 → 子 | `{ source: "acore-portal", type: "height-request" }` | 父页监听器就绪后补要一次（规避子页先挂载的竞态） |
+
+- 门户侧：`src/lib/iframe-height.ts`（纯函数：解析/收敛/来源校验）+ `src/components/site/tools-iframe.tsx`（监听 + 撑高 + 握手）
+- 来源双校验：`event.source === iframe.contentWindow` 且 `event.origin` 与 iframe src 同源，缺一不认
+- 高度收敛区间 320~3000px（`constants/tools.ts`）；未收到上报时沿用固定高度，第三方 DKP 站不参与本协议
+- 对端实现：acore-ranking `frontend/src/shared/constants/embed.ts` + `useIframeHeightReporter`
+
 ## route_map 补键（scripts/migrate/route-map-m4.sql）
 
 | old_key | new_path |

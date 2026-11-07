@@ -55,6 +55,15 @@ export const statusIpKey = (ip: string) => `rl:status:ip:${ip}`;
 /** 状态页全局限速(固定窗口):护住 worldserver 与 characters 库,不限单 IP 也能护住 */
 export const statusGlobalKey = () => `rl:status:global:${STATUS_WINDOW_SEC}s`;
 
+/**
+ * 埋点上报按 IP 限速(固定窗口):页面访问与商品浏览共用一个桶——
+ * 两个端点都是「每次上报写一次 DB」的放大面,共用预算比各给一份更严。
+ */
+export const pageviewIpKey = (ip: string) => `rl:pview:${ip}`;
+
+/** 404 采集上报按 IP 限速(固定窗口):防单 IP 刷写当日 404 计数桶 */
+export const notFoundIpKey = (ip: string) => `rl:404:${ip}`;
+
 /** 分钟级固定窗口(秒):阅读计数按 IP 总闸共用 */
 export const ARTVIEW_IP_WINDOW_SEC = 60;
 
