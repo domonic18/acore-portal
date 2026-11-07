@@ -27,6 +27,7 @@ const GUID_BASE = 950000 + (Number.parseInt(RUN, 36) % 40000);
 const ownedGuid = GUID_BASE;
 const extraSlugs: string[] = [];
 const gameUsernames: string[] = [];
+const gameGuids: number[] = [];
 const orderItemIds: bigint[] = [];
 let MOCK_BASE = "";
 
@@ -34,6 +35,7 @@ async function makeGameUser(tag: string) {
   const user = await makePointsUser("rich", tag);
   gameUsernames.push(user.username);
   const guid = GUID_BASE + gameUsernames.length;
+  gameGuids.push(guid);
   const charName = `V${gameUsernames.length}${RUN.slice(-5)}`;
   const account = await authDb.createAccount({
     username: user.username,
@@ -145,10 +147,12 @@ afterAll(async () => {
         )
     `;
   }
-  if (gameUsernames.length > 0) {
+  if (gameGuids.length > 0) {
+    // 按本次实际插入的 guid 精确删——固定区间会漏:本文件每次跑建的角色数远多于区间宽度,
+    // 残留行留在共享游戏库里,下一轮撞同一 guid 段就报 Duplicate entry 主键冲突
     await prisma.$executeRaw`
       DELETE FROM acore_characters.characters
-      WHERE guid BETWEEN ${GUID_BASE} AND ${GUID_BASE + 9}
+      WHERE guid IN (${Prisma.join(gameGuids)})
     `;
     await prisma.$executeRaw`
       DELETE FROM acore_auth.account
