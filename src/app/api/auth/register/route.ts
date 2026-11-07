@@ -9,6 +9,7 @@ import { getClientIp } from "@/server/services/shared/client-ip";
 import { throttleByClientIp } from "@/server/services/shared/ip-throttle";
 import { getConfig } from "@/lib/config";
 import { IP_HOURLY_WINDOW_SEC, registerIpKey } from "@/constants/security";
+import { checkSameOrigin } from "@/server/origin-guard";
 
 /**
  * 契约:202 受理不泄露占用以外的信息;错误码按 contracts/api-auth.md。
@@ -27,6 +28,8 @@ const schema = z.object({
 const RATE_LIMIT_429 = "注册过于频繁,请稍后再试。";
 
 export async function POST(req: NextRequest) {
+  const origin = await checkSameOrigin(req);
+  if (!origin.ok) return origin.response;
   const ip = await getClientIp(req);
   const { security } = await getConfig();
 

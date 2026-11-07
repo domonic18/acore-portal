@@ -7,6 +7,7 @@ import { getClientIp } from "@/server/services/shared/client-ip";
 import { throttleByClientIp } from "@/server/services/shared/ip-throttle";
 import { getConfig } from "@/lib/config";
 import { IP_HOURLY_WINDOW_SEC, emailChangeIpKey } from "@/constants/security";
+import { checkSameOrigin } from "@/server/origin-guard";
 
 const schema = z.object({ token: z.string().min(10).max(128) });
 
@@ -15,6 +16,8 @@ const RATE_LIMIT_429 = "尝试过于频繁,请稍后再试。";
 
 /** 邮件链接点击后的确认端点;token 即凭证,不要求登录态 */
 export async function POST(req: NextRequest) {
+  const origin = await checkSameOrigin(req);
+  if (!origin.ok) return origin.response;
   const ip = await getClientIp(req);
   const { security } = await getConfig();
 

@@ -16,6 +16,34 @@ const nextConfig = {
   eslint: {
     dirs: ["src", "scripts", "tests"],
   },
+  // 安全响应头(2026-11-07,应用层兜底):
+  // 边缘也有一套(生产 Caddy),但边缘不在本仓库、测试栈根本没有边缘,
+  // 头设在应用层 → 任何部署形态下都成立。
+  // CSP 只收「不破功能」的几条:门户要嵌 rank.lokta.cn 与第三方工具站、
+  // 加载腾讯云验证码脚本与 wow.zamimg.com 图标,故不设 default-src/script-src
+  // (一设就把子站 iframe、验证码、图片全打死);收紧留给后续按白名单逐条推进。
+  // /uploads 路由自带更严的 CSP(default-src 'none'; sandbox),不重复叠加。
+  async headers() {
+    return [
+      {
+        source: "/:path((?!uploads/).*)",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value:
+              "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'",
+          },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
+          },
+        ],
+      },
+    ];
+  },
   // Playwright MCP 把 console 日志写进仓库内 .playwright-mcp/,dev 监听会造成
   // 「写日志→重编译→热更新→再写日志」自激循环;开发期忽略该目录。
   // tests/scripts/docs/specs 同理:跑 E2E 期间改动这些目录会触发重编译→HMR 整页刷新,

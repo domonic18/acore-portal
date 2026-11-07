@@ -23,6 +23,14 @@ export function apiOk<T extends object>(data: T, status = 200): NextResponse {
   return NextResponse.json(data, { status });
 }
 
+/**
+ * 只收 application/json(2026-11-07 CSRF 加固):
+ * 浏览器跨源发起的简单请求只能带 text/plain / form-urlencoded 等类型,
+ * 收紧到 JSON 后,跨源写请求必然触发预检,而本服务不签发 CORS 头 → 浏览器直接拦下。
+ * 非 JSON 的请求体一律 415,不进业务校验。
+ */
+const JSON_MEDIA_TYPE = "application/json";
+
 type ParseResult<T> = { ok: true; data: T } | { ok: false; response: NextResponse };
 
 /** 请求边界 Zod 校验封装(宪法 VI) */
@@ -30,6 +38,17 @@ export async function parseBody<S extends z.ZodTypeAny>(
   req: Request,
   schema: S,
 ): Promise<ParseResult<z.infer<S>>> {
+  const mediaType = req.headers
+    .get("content-type")
+    ?.split(";")[0]
+    ?.trim()
+    .toLowerCase();
+  if (mediaType !== JSON_MEDIA_TYPE) {
+    return {
+      ok: false,
+      response: apiError(415, "UNSUPPORTED_MEDIA_TYPE", "请求格式错误"),
+    };
+  }
   let raw: unknown;
   try {
     raw = await req.json();

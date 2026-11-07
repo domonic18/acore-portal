@@ -5,6 +5,7 @@ import { apiError, parseBody } from "@/server/http";
 import { activateAccount } from "@/server/services/auth/register";
 import { setSessionCookies } from "@/lib/auth/cookies";
 import { getClientIp } from "@/server/services/shared/client-ip";
+import { checkSameOrigin } from "@/server/origin-guard";
 
 /** 契约:激活即登录(200 + 登录态 Cookie);422 TOKEN_INVALID_OR_EXPIRED / WEAK_PASSWORD */
 const schema = z.object({
@@ -13,6 +14,8 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const origin = await checkSameOrigin(req);
+  if (!origin.ok) return origin.response;
   const parsed = await parseBody(req, schema);
   if (!parsed.ok) return parsed.response;
   const ip = await getClientIp(req);
