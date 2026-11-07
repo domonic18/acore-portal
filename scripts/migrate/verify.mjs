@@ -22,19 +22,9 @@ function isWhitelisted(url) {
 }
 
 async function main() {
-  const { config } = await import("dotenv");
-  config({ path: new URL("../../.env", import.meta.url).pathname });
-  const { createPool } = await import("mysql2/promise");
-  const url = new URL(process.env.DATABASE_URL);
-  const pool = createPool({
-    host: url.hostname,
-    port: Number(url.port),
-    user: url.username,
-    password: url.password,
-    database: url.pathname.slice(1),
-    connectionLimit: 2,
-    charset: "utf8mb4",
-  });
+  const { loadEnv, createPool } = await import("./lib/db.mjs");
+  loadEnv();
+  const pool = createPool();
 
   let fail = 0;
   let warn = 0;

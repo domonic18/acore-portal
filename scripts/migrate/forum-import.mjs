@@ -28,7 +28,7 @@ export const BOARD_DEFS = [
 /** image_asset_map 装载为同步 Map(与 content-import 同源管线) */
 export async function loadImageMap(pool) {
   const [rows] = await pool.query(
-    `SELECT old_url, new_url FROM acore_portal.image_asset_map`,
+    `SELECT old_url, new_url FROM image_asset_map`,
   );
   return new Map(rows.map((r) => [r.old_url, r.new_url]));
 }
@@ -111,14 +111,14 @@ export async function importBoards(pool, { forumIds, forceBoards = false } = {})
     if (!row) continue;
     const description = boardDescription(row.post_content, slugMap);
     const [existing] = await pool.query(
-      `SELECT id, description FROM acore_portal.forum_board WHERE legacy_wp_forum_id = ?`,
+      `SELECT id, description FROM forum_board WHERE legacy_wp_forum_id = ?`,
       [def.wpId],
     );
     if (existing.length > 0) {
       // 空值回补(issue #35);forceBoards 重写压平说明(换行/链接数据修复 #59 后),否则不动后台已改内容
       if (description && (forceBoards || existing[0].description == null)) {
         await pool.query(
-          `UPDATE acore_portal.forum_board SET description = ? WHERE id = ?`,
+          `UPDATE forum_board SET description = ? WHERE id = ?`,
           [description, existing[0].id],
         );
         updated += 1;
@@ -126,7 +126,7 @@ export async function importBoards(pool, { forumIds, forceBoards = false } = {})
       continue;
     }
     await pool.query(
-      `INSERT INTO acore_portal.forum_board (slug, name, description, sort, legacy_wp_forum_id)
+      `INSERT INTO forum_board (slug, name, description, sort, legacy_wp_forum_id)
        VALUES (?, ?, ?, ?, ?)`,
       [def.slug, row.post_title ?? def.name, description, i + 1, def.wpId],
     );
@@ -154,7 +154,7 @@ export async function importThreads(pool, { topicIds } = {}) {
        LEFT JOIN wp_legacy.wp_users u ON u.ID = t.post_author
       WHERE t.post_type = 'topic' ${scope}
         AND NOT EXISTS (
-          SELECT 1 FROM acore_portal.forum_thread f WHERE f.legacy_wp_topic_id = t.ID
+          SELECT 1 FROM forum_thread f WHERE f.legacy_wp_topic_id = t.ID
         )`,
     topicIds ?? [],
   );
@@ -164,7 +164,7 @@ export async function importThreads(pool, { topicIds } = {}) {
   const userByWpId = new Map();
   if (authorIds.length > 0) {
     const [users] = await pool.query(
-      `SELECT id, wp_user_id FROM acore_portal.user WHERE wp_user_id IN (${authorIds
+      `SELECT id, wp_user_id FROM user WHERE wp_user_id IN (${authorIds
         .map(() => "?")
         .join(",")})`,
       authorIds,
@@ -173,7 +173,7 @@ export async function importThreads(pool, { topicIds } = {}) {
   }
 
   const [boards] = await pool.query(
-    `SELECT id, legacy_wp_forum_id FROM acore_portal.forum_board WHERE legacy_wp_forum_id IS NOT NULL`,
+    `SELECT id, legacy_wp_forum_id FROM forum_board WHERE legacy_wp_forum_id IS NOT NULL`,
   );
   const boardByWpId = new Map(boards.map((b) => [Number(b.legacy_wp_forum_id), b.id]));
 
@@ -192,7 +192,7 @@ export async function importThreads(pool, { topicIds } = {}) {
     const wpClosed = t.post_status === "closed";
     const statusLabel = wpClosed ? "closed" : label;
     const [res] = await pool.query(
-      `INSERT INTO acore_portal.forum_thread
+      `INSERT INTO forum_thread
          (board_id, title, author_user_id, author_name, pinned, closed_at, status_label,
           view_count, reply_count, last_post_at, legacy_wp_topic_id, deleted_at,
           created_at, updated_at)
@@ -232,11 +232,11 @@ export async function importPosts(pool, { topicIds } = {}) {
     `SELECT t.ID, t.post_author, t.post_date, f.id AS thread_id,
             COALESCE(NULLIF(u.display_name, ''), u.user_login, '') AS author
        FROM wp_legacy.wp_posts t
-       JOIN acore_portal.forum_thread f ON f.legacy_wp_topic_id = t.ID
+       JOIN forum_thread f ON f.legacy_wp_topic_id = t.ID
        LEFT JOIN wp_legacy.wp_users u ON u.ID = t.post_author
       WHERE t.post_type = 'topic' ${scope}
         AND NOT EXISTS (
-          SELECT 1 FROM acore_portal.forum_post p WHERE p.legacy_wp_post_id = t.ID
+          SELECT 1 FROM forum_post p WHERE p.legacy_wp_post_id = t.ID
         )`,
     topicIds ?? [],
   );
@@ -249,7 +249,7 @@ export async function importPosts(pool, { topicIds } = {}) {
            LEFT JOIN wp_legacy.wp_users u ON u.ID = r.post_author
           WHERE r.post_type = 'reply' AND r.post_parent IN (${ids.map(() => "?").join(",")})
             AND NOT EXISTS (
-              SELECT 1 FROM acore_portal.forum_post p WHERE p.legacy_wp_post_id = r.ID
+              SELECT 1 FROM forum_post p WHERE p.legacy_wp_post_id = r.ID
             )`,
         ids,
       )
@@ -263,7 +263,7 @@ export async function importPosts(pool, { topicIds } = {}) {
   const userByWpId = new Map();
   if (authorIds.length > 0) {
     const [users] = await pool.query(
-      `SELECT id, wp_user_id FROM acore_portal.user WHERE wp_user_id IN (${authorIds
+      `SELECT id, wp_user_id FROM user WHERE wp_user_id IN (${authorIds
         .map(() => "?")
         .join(",")})`,
       authorIds,
@@ -278,7 +278,7 @@ export async function importPosts(pool, { topicIds } = {}) {
       [t.ID],
     );
     await pool.query(
-      `INSERT INTO acore_portal.forum_post
+      `INSERT INTO forum_post
          (thread_id, floor, author_user_id, author_name, content_html, legacy_wp_post_id,
           deleted_at, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NOW(3))`,
@@ -307,7 +307,7 @@ export async function importPosts(pool, { topicIds } = {}) {
     if (!thread) continue;
     for (const [i, r] of [...rows].sort(byEarlyOrder).entries()) {
       await pool.query(
-        `INSERT INTO acore_portal.forum_post
+        `INSERT INTO forum_post
            (thread_id, floor, author_user_id, author_name, content_html, legacy_wp_post_id,
             deleted_at, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(3))`,
@@ -339,23 +339,23 @@ export async function reconcile(pool) {
   );
   const [[db]] = await pool.query(
     `SELECT
-       (SELECT COUNT(*) FROM acore_portal.forum_board b
+       (SELECT COUNT(*) FROM forum_board b
          JOIN wp_legacy.wp_posts w ON w.ID = b.legacy_wp_forum_id AND w.post_type = 'forum') AS boards,
-       (SELECT COUNT(*) FROM acore_portal.forum_thread f
+       (SELECT COUNT(*) FROM forum_thread f
          JOIN wp_legacy.wp_posts w ON w.ID = f.legacy_wp_topic_id AND w.post_type = 'topic') AS threads,
-       (SELECT COUNT(*) FROM acore_portal.forum_thread f
+       (SELECT COUNT(*) FROM forum_thread f
          JOIN wp_legacy.wp_posts w ON w.ID = f.legacy_wp_topic_id AND w.post_type = 'topic'
         WHERE f.deleted_at IS NULL) AS threads_visible,
-       (SELECT COUNT(*) FROM acore_portal.forum_post p
+       (SELECT COUNT(*) FROM forum_post p
          JOIN wp_legacy.wp_posts w ON w.ID = p.legacy_wp_post_id
          AND w.post_type IN ('topic', 'reply')) AS posts,
-       (SELECT COUNT(*) FROM acore_portal.forum_post p
+       (SELECT COUNT(*) FROM forum_post p
          JOIN wp_legacy.wp_posts w ON w.ID = p.legacy_wp_post_id AND w.post_type IN ('topic', 'reply')
         WHERE p.deleted_at IS NULL) AS posts_visible,
-       (SELECT COUNT(*) FROM acore_portal.forum_thread f
+       (SELECT COUNT(*) FROM forum_thread f
          JOIN wp_legacy.wp_posts w ON w.ID = f.legacy_wp_topic_id AND w.post_type = 'topic'
         WHERE f.author_user_id IS NOT NULL) AS mapped_threads,
-       (SELECT COUNT(*) FROM acore_portal.forum_post p
+       (SELECT COUNT(*) FROM forum_post p
          JOIN wp_legacy.wp_posts w ON w.ID = p.legacy_wp_post_id AND w.post_type IN ('topic', 'reply')
         WHERE p.author_user_id IS NOT NULL) AS mapped_posts`,
   );
@@ -370,19 +370,9 @@ export async function reconcile(pool) {
 
 // ---- CLI 入口(vitest 导入时不执行) ----
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { config } = await import("dotenv");
-  config({ path: new URL("../../.env", import.meta.url).pathname });
-  const { createPool } = await import("mysql2/promise");
-  const url = new URL(process.env.DATABASE_URL);
-  const pool = createPool({
-    host: url.hostname,
-    port: Number(url.port),
-    user: url.username,
-    password: url.password,
-    database: url.pathname.slice(1),
-    connectionLimit: 2,
-    timezone: "+00:00",
-  });
+  const { loadEnv, createPool } = await import("./lib/db.mjs");
+  loadEnv();
+  const pool = createPool({ timezone: "+00:00" });
   // --force-boards:重写既有版块说明(换行/链接数据修复后的一次性回填,默认不动后台已改内容)
   const forceBoards = process.argv.includes("--force-boards");
   const boards = await importBoards(pool, { forceBoards });

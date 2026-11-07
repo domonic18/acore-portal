@@ -13,9 +13,9 @@
 -- 幂等: 重跑前先清理上批迁移行(wp_user_id IS NOT NULL),不影响环境内手工注册账号
 
 -- 清理上批迁移行
-DELETE FROM acore_portal.`user` WHERE wp_user_id IS NOT NULL;
+DELETE FROM `user` WHERE wp_user_id IS NOT NULL;
 
-INSERT INTO acore_portal.`user`
+INSERT INTO `user`
   (username, email, password_hash, password_algo, nickname, wp_user_id, created_at, updated_at)
 SELECT
   w.user_login,
@@ -30,13 +30,13 @@ SELECT
 FROM wp_legacy.wp_users w
 WHERE CHAR_LENGTH(w.user_login) <= 32
   AND NOT EXISTS (
-    SELECT 1 FROM acore_portal.`user` u
+    SELECT 1 FROM `user` u
     WHERE u.username = w.user_login COLLATE utf8mb4_unicode_ci
   );
 
 -- 迁移结果报告
 SELECT
-  (SELECT COUNT(*) FROM acore_portal.`user` WHERE wp_user_id IS NOT NULL) AS migrated,
+  (SELECT COUNT(*) FROM `user` WHERE wp_user_id IS NOT NULL) AS migrated,
   (SELECT COUNT(*) FROM wp_legacy.wp_users WHERE CHAR_LENGTH(user_login) > 32) AS skipped_spam_long_login,
-  (SELECT COUNT(*) FROM acore_portal.`user` WHERE email LIKE 'legacy%@migrated.lokta.cn') AS synthesized_email,
-  (SELECT COUNT(*) FROM acore_portal.`user`) AS total_in_user_table;
+  (SELECT COUNT(*) FROM `user` WHERE email LIKE 'legacy%@migrated.lokta.cn') AS synthesized_email,
+  (SELECT COUNT(*) FROM `user`) AS total_in_user_table;

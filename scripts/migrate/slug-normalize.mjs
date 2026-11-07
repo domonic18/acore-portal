@@ -6,18 +6,18 @@
 // 消费端契约:动态路由 params 需 decodeURIComponent(post/[slug] 先例)。
 // 幂等:二跑无 %xx 模式即零更新。冲突(解码后撞已有 slug)跳过并报告,不猜后缀。
 // 用法:node slug-normalize.mjs [--dry-run]
-import mysql from "mysql2/promise";
+// 连接口径:目标库取自 MIGRATE_DATABASE_URL / DATABASE_URL(统一入口 lib/db.mjs);
+// 缺连接串直接报错——历史实现硬编码默认连 3308(测试栈),漏传 env 会静默打到错误的库。
+import { loadEnv, createConnection } from "./lib/db.mjs";
 
 const dryRun = process.argv.includes("--dry-run");
-// .env 恒指 dev 3307;测试栈演练一律内联覆盖 3308(与 import-points.mjs 同口径)
-process.env.DATABASE_URL =
-  process.env.MIGRATE_DATABASE_URL ??
-  "mysql://root:root@127.0.0.1:3308/acore_portal";
+
+loadEnv();
 
 const PCT = /%[0-9a-f]{2}/i;
 const UNSAFE = /[%/#?&+\s]/;
 
-const conn = await mysql.createConnection(process.env.DATABASE_URL);
+const conn = await createConnection();
 const summary = {};
 
 for (const table of ["product_category", "product"]) {

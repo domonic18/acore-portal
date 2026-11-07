@@ -19,19 +19,9 @@ function normalizeOldUrl(src) {
 
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
-  const { config } = await import("dotenv");
-  config({ path: new URL("../../.env", import.meta.url).pathname });
-  const { createPool } = await import("mysql2/promise");
-  const url = new URL(process.env.DATABASE_URL);
-  const pool = createPool({
-    host: url.hostname,
-    port: Number(url.port),
-    user: url.username,
-    password: url.password,
-    database: url.pathname.slice(1),
-    connectionLimit: 2,
-    charset: "utf8mb4",
-  });
+  const { loadEnv, createPool } = await import("./lib/db.mjs");
+  loadEnv();
+  const pool = createPool();
 
   const [products] = await pool.query(
     `SELECT id, legacy_wp_product_id, description FROM product
