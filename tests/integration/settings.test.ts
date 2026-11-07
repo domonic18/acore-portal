@@ -66,7 +66,6 @@ const SITE_KEYS = [
 ];
 const HOME_KEYS = [
   "home.achievementUrl",
-  "home.achievementHeight",
   "home.achievementScrolling",
   "home.carouselIntervalSec",
 ];
@@ -491,11 +490,10 @@ describe("site 组(CRUD 对齐审计)", () => {
 });
 
 describe("home 组(轮播间隔+成就嵌入)", () => {
-  it("键缺失 → 默认值兜底:轮播 5 秒+成就空隐藏+高度 68vh+滚动条默认开", async () => {
+  it("键缺失 → 默认值兜底:轮播 5 秒+成就空隐藏+滚动条默认开", async () => {
     await delKeys(HOME_KEYS);
     expect((await getConfig()).home).toEqual({
       achievementUrl: "",
-      achievementHeight: "68vh",
       achievementScrolling: true,
       carouselIntervalSec: 5,
     });
@@ -506,7 +504,6 @@ describe("home 组(轮播间隔+成就嵌入)", () => {
       "home",
       {
         achievementUrl: "https://rank.lokta.local/achievement",
-        achievementHeight: "120vh",
         achievementScrolling: true,
         carouselIntervalSec: 5,
       },
@@ -516,7 +513,6 @@ describe("home 组(轮播间隔+成就嵌入)", () => {
     expect(result).toEqual({ ok: true });
     expect((await getConfig()).home).toEqual({
       achievementUrl: "https://rank.lokta.local/achievement",
-      achievementHeight: "120vh",
       achievementScrolling: true,
       carouselIntervalSec: 2,
     });

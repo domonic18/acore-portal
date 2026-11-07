@@ -4,7 +4,7 @@ import { BannerManager } from "@/components/admin/banner-manager";
 import { CarouselSettingsForm } from "@/components/admin/carousel-settings-form";
 import { AchievementEmbedForm } from "@/components/admin/achievement-embed-form";
 
-/** 首页配置:轮播物料管理+轮播间隔 + 最近成就 iframe 嵌入三参数 */
+/** 首页配置:轮播物料管理+轮播间隔 + 最近成就 iframe 嵌入(地址/滚动条) */
 export default async function AdminHomePage() {
   const [banners, config] = await Promise.all([listAllBanners(), getConfig()]);
 
@@ -19,7 +19,6 @@ export default async function AdminHomePage() {
         rankBase={config.tools.rankBase}
         initial={{
           achievementUrl: config.home.achievementUrl,
-          achievementHeight: config.home.achievementHeight,
           achievementScrolling: config.home.achievementScrolling,
         }}
       />

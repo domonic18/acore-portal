@@ -3,7 +3,6 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/business";
 import { STATUS_CONFIG_KEYS } from "@/constants/status";
 import { DEFAULT_THEME, THEME_IDS, isThemeId } from "@/constants/theme";
-import { HOME_ACHIEVEMENT_HEIGHT } from "@/constants/home";
 
 /**
  * 系统配置唯一入口:SMTP/SOAP/游戏库连接串/站点地址等业务通道配置存 system_config 表,
@@ -162,13 +161,12 @@ const configSchema = z.object({
     "wlk.pageBackgroundUrl": assetUrlSchema.default("/background.jpg"),
     "wlk.panelBackgroundUrl": assetUrlSchema.default(""),
   }),
-  // 首页配置(US 首页配置):最近成就 iframe 嵌入三参数;url 空=整块隐藏,
-  // 高度为 CSS 长度(作最小高度,实际取值上限见 HOME_ACHIEVEMENT_HEIGHT;桌面端另由栅格拉伸到与右栏等高),
+  // 首页配置(US 首页配置):最近成就 iframe 嵌入两参数;url 空=整块隐藏,
+  // 高度固定(常量 HOME_ACHIEVEMENT_HEIGHT;桌面端另由栅格拉伸到与右栏等高),
   // scrolling 控制 iframe 滚动条(内容高于框高时须开,否则底部内容既看不见也滚不到);
   // 轮播间隔秒数(1-60,默认 5)供 HomeCarousel 自动轮播
   home: z.object({
     achievementUrl: z.string().default(""),
-    achievementHeight: z.string().default(HOME_ACHIEVEMENT_HEIGHT),
     achievementScrolling: z.boolean().default(true),
     carouselIntervalSec: z.coerce.number().int().min(1).max(60).default(5),
   }),
@@ -300,7 +298,6 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
     },
     home: {
       achievementUrl: flat["home.achievementUrl"] ?? "",
-      achievementHeight: flat["home.achievementHeight"] ?? HOME_ACHIEVEMENT_HEIGHT,
       // 默认开滚动条:嵌入页内容常高于框高,关掉则底部内容既看不见也滚不到
       achievementScrolling: flat["home.achievementScrolling"] !== "false",
       carouselIntervalSec: flat["home.carouselIntervalSec"] ?? "5",

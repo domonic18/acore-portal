@@ -14,8 +14,8 @@ const HINT_TIMEOUT_MS = 12_000;
 
 /**
  * 首页「最近成就事件」嵌入:加载期给提示,超时给空态文案。
- * 高度口径(2026-11-07):后台配的高度作**最小高度**,硬顶 68vh;
- * 桌面端外层区块随首页右栏拉伸(两列等高),此处 flex-auto 以设定高度为基线再吃掉剩余高度,iframe 填满。
+ * 高度口径(2026-11-07):高度固定 HOME_ACHIEVEMENT_HEIGHT,后台不再提供「显示高度」;
+ * 桌面端外层区块随首页右栏拉伸(两列等高),此处 flex-auto 以固定高度为基线再吃掉剩余高度,iframe 填满。
  *
  * 嵌入协议(2026-11-07):本区块框高固定(不能像工具页那样撑高 iframe,否则右栏被拉爆),
  * 框内若出现内层滚动条会与页面滚动打架。rank 子站据此需要知道「我能用多高」——
@@ -24,11 +24,9 @@ const HINT_TIMEOUT_MS = 12_000;
  */
 export function AchievementEmbed({
   url,
-  height,
   scrolling,
 }: {
   url: string;
-  height: string;
   scrolling: boolean;
 }) {
   const [loaded, setLoaded] = useState(false);
@@ -47,7 +45,7 @@ export function AchievementEmbed({
     iframe.contentWindow?.postMessage(message, resolveIframeOrigin(url) ?? "*");
   }, [url]);
 
-  // 框高变化即重新下发(栅格拉伸、窗口缩放、后台改「显示高度」都会触发)
+  // 框高变化即重新下发(栅格拉伸、窗口缩放都会触发)
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
@@ -81,8 +79,7 @@ export function AchievementEmbed({
       className="relative h-[var(--achievement-height)] overflow-hidden rounded-xl bg-deep lg:flex-auto"
       style={
         {
-          // 高度硬顶:存量后台配了 185vh/500vh,不设顶会撑爆首屏
-          "--achievement-height": `min(${height}, ${HOME_ACHIEVEMENT_HEIGHT})`,
+          "--achievement-height": HOME_ACHIEVEMENT_HEIGHT,
         } as CSSProperties
       }
     >

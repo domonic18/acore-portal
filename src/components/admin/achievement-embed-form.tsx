@@ -17,14 +17,13 @@ export function AchievementEmbedForm({
   initial,
   rankBase,
 }: {
-  initial: { achievementUrl: string; achievementHeight: string; achievementScrolling: boolean };
+  initial: { achievementUrl: string; achievementScrolling: boolean };
   /** 占位示例取自 tools.rankBase 运行时配置,不在组件内写死外部域 */
   rankBase: string;
 }) {
   const router = useRouter();
   const hydrated = useHydrated();
   const [url, setUrl] = useState(initial.achievementUrl);
-  const [height, setHeight] = useState(initial.achievementHeight);
   const [scrolling, setScrolling] = useState(initial.achievementScrolling);
   const [busy, setBusy] = useState(false);
   const [ok, setOk] = useState(false);
@@ -42,7 +41,6 @@ export function AchievementEmbedForm({
           group: "home",
           values: {
             achievementUrl: url.trim(),
-            achievementHeight: height.trim(),
             achievementScrolling: scrolling,
           },
         }),
@@ -62,7 +60,7 @@ export function AchievementEmbedForm({
       <p className="text-xs text-[#6482a3]">
         首页以 iframe 嵌入外部成就页(如 rank 站);页面地址留空则首页隐藏该区块。
         rank 子站已支持按可用高度自适应(框内不再出现第二根滚动条,超出部分渐隐;新窗口打开入口在区块页头);
-        桌面端该区块与首页右栏等高(不低于此处设定的最小高度);设定值本身封顶 {HOME_ACHIEVEMENT_HEIGHT}。
+        桌面端该区块与首页右栏等高,移动端高度固定 {HOME_ACHIEVEMENT_HEIGHT}。
       </p>
       <form
         className="flex flex-wrap items-end gap-3"
@@ -78,15 +76,6 @@ export function AchievementEmbedForm({
             onChange={(e) => setUrl(e.target.value)}
             placeholder={`${rankBase.replace(/\/+$/, "")}/achievement`}
             className="w-96 py-1"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-[#93b2ce]">
-          显示高度
-          <Input
-            value={height}
-            onChange={(e) => setHeight(e.target.value)}
-            placeholder={HOME_ACHIEVEMENT_HEIGHT}
-            className="w-24 py-1"
           />
         </label>
         <label className="flex items-center gap-2 pb-1 text-xs text-[#93b2ce]">

@@ -125,8 +125,8 @@ export default async function HomePage() {
             </div>
         </section>
 
-        {/* 最近成就嵌入(US 首页配置):url 空=整块隐藏;高度/滚动条后台可配。
-         * 桌面端高度随右栏拉伸(两列等高),后台配的高度退为最小高度(移动端按其取值) */}
+        {/* 最近成就嵌入(US 首页配置):url 空=整块隐藏;滚动条后台可配。
+         * 桌面端高度随右栏拉伸(两列等高),移动端高度固定(HOME_ACHIEVEMENT_HEIGHT) */}
         {config.home.achievementUrl && (
           <section
             className="flex min-w-0 flex-col rounded-2xl border border-line bg-panel p-5 lg:col-start-1 lg:row-start-2"
@@ -148,7 +148,6 @@ export default async function HomePage() {
             />
             <AchievementEmbed
               url={config.home.achievementUrl}
-              height={config.home.achievementHeight}
               scrolling={config.home.achievementScrolling}
             />
           </section>

@@ -112,11 +112,6 @@ export const groupSchemas = {
         z.string().trim().url().refine((v) => /^https:\/\//.test(v), "成就页地址须为 https 链接"),
       ])
       .optional(),
-    achievementHeight: z
-      .string()
-      .trim()
-      .regex(/^\d+(px|vh|rem|%)$/, "高度格式如 68vh / 600px")
-      .optional(),
     achievementScrolling: z.boolean().optional(),
     carouselIntervalSec: z.coerce
       .number()
@@ -194,7 +189,6 @@ export const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>
   },
   home: {
     achievementUrl: "home.achievementUrl",
-    achievementHeight: "home.achievementHeight",
     achievementScrolling: "home.achievementScrolling",
     carouselIntervalSec: "home.carouselIntervalSec",
   },

@@ -148,7 +148,7 @@ test("轮播闭环:新建→首页可见→停用隐藏→删除", async ({ page
   expect(await prisma.homeBanner.findFirst({ where: { title: TITLE_A } })).toBeNull();
 });
 
-test("成就嵌入:url/高度/滚动条配置→首页 iframe 即时生效", async ({ page }) => {
+test("成就嵌入:url/滚动条配置→首页 iframe 即时生效", async ({ page }) => {
   test.setTimeout(60_000);
   await login(page, "m1admin", "adminpass123");
   await page.goto("/admin/home");
@@ -161,17 +161,17 @@ test("成就嵌入:url/高度/滚动条配置→首页 iframe 即时生效", asy
   const urlInput = page.getByLabel("页面地址");
   await expect(urlInput).toBeEnabled();
   await urlInput.fill("https://rank.lokta.cn/achievement");
-  await page.getByLabel("显示高度").fill("120vh");
   await saveBtn.click();
   await expect(savedTip).toBeVisible();
 
   await page.goto("/");
   const frame = page.locator('iframe[title="最近成就"]');
   await expect(frame).toHaveAttribute("src", "https://rank.lokta.cn/achievement");
-  // 高度落在外层容器的 CSS 变量上(桌面端再由栅格拉伸成与右栏等高)
+  // 高度固定(后台不再可配「显示高度」):落在外层容器的 CSS 变量上
+  // (桌面端再由栅格拉伸成与右栏等高)
   await expect(
     page.getByTestId("home-achievement").locator('[style*="--achievement-height"]'),
-  ).toHaveAttribute("style", /min\(120vh,\s*68vh\)/);
+  ).toHaveAttribute("style", /68vh/);
   // 滚动条默认开(2026-11-07):嵌入页内容常高于框高,关掉则底部内容看不见也滚不到
   await expect(frame).toHaveAttribute("scrolling", "auto");
 
