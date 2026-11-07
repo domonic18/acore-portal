@@ -30,7 +30,7 @@
 
 ### V. 数据边界与生产只读
 
-游戏四库（acore_auth/characters/world/eluna）schema 归 AzerothCore 管，禁止任何 DDL；本项目只读，auth 库仅按契约写账号表。业务库 schema 以 Prisma migrations 为唯一真相源，迁移 forward-only，合并后禁止修改。生产 101.42.117.123 正在运行：一切备份/分析访问只读；游戏库凭据仅存环境变量，不入库不入文档不入日志。旧仓库 `~/Code/acore-cms` 切换下线前勿动。
+游戏四库（acore_auth/characters/world/eluna）schema 归 AzerothCore 管，禁止任何 DDL；本项目只读，auth 库仅按契约写账号表。业务库 schema 以 Prisma migrations 为唯一真相源，迁移 forward-only，合并后禁止修改。生产主机正在运行：一切备份/分析访问只读；游戏库凭据仅存环境变量，不入库不入文档不入日志。旧 WordPress 仓库切换下线前勿动。
 
 ### VI. 安全纵深
 
@@ -70,7 +70,7 @@
 | 版本 | 日期 | 变更 | 原因 |
 |------|------|------|------|
 | 1.0.2 | 2026-10-24 | 原则 VI 配置分域：「秘钥仅存 env」修正为「env 仅引导级凭据（业务库/Redis 连接串、会话签名密钥）；游戏库连接串与业务通道配置（SMTP/SOAP 等）存 system_config 表」 | 运维方针变更：配置需免重构建/免改 env 即可在库内调整（测试环境已实测 SMTP 从旧站 WP 插件恢复后入库、游戏库连接串入库）；SESSION_SECRET 因 Edge middleware 限制明确留 env |
-| 1.0.1 | 2026-10-23 | 原则 IV 事实勘误：存量哈希由"phpass 单格式"修正为"phpass + WP6.8 bcrypt 双格式混合" | 2026-10-23 实测备份库 `wp_users.user_pass`：phpass 58% + `$wp$` bcrypt 42%，单格式前提不成立；方案细节见 specs/001-m1-account-foundation/research.md R1/R2 |
+| 1.0.1 | 2026-10-23 | 原则 IV 事实勘误：存量哈希由"phpass 单格式"修正为"phpass + WP6.8 bcrypt 双格式混合" | 2026-10-23 实测备份库 `wp_users.user_pass`：phpass 58% + `$wp$` bcrypt 42%，单格式前提不成立；方案细节见本地 `specs/001` research R1/R2（不入库），公开口径以 `docs/research/01` §3 勘误注记为准 |
 | 1.0.0 | 2026-10-23 | 初版批准（8 原则 + 附加约束 + 工作流门禁 + Governance） | 项目立项 |
 
 **Version**: 1.0.2 | **Ratified**: 2026-10-23 | **Last Amended**: 2026-10-24
