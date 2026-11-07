@@ -1,12 +1,25 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { TOOLS_IFRAME_TIMEOUT_MS } from "@/constants/tools";
+import {
+  TOOLS_IFRAME_HEIGHT_REQUEST_SOURCE,
+  TOOLS_IFRAME_HEIGHT_REQUEST_TYPE,
+  TOOLS_IFRAME_TIMEOUT_MS,
+} from "@/constants/tools";
+import {
+  clampIframeHeight,
+  isMessageFromIframe,
+  parseIframeHeightMessage,
+} from "@/lib/iframe-height";
 
 /**
  * 工具页 iframe 容器(T021,契约 tools-and-seo §六工具页):
  * 撑满页头(3.5rem)以下视口;12s 未 load 降级「工具服务暂不可用」卡+新窗口外链出口;
  * iframe 常驻 DOM(外部可用性不参与页面自身 200 断言,SC-301),常驻外链按钮右上角。
+ *
+ * 高度自适应:被嵌入的 rank 子站(acore-ranking)按协议上报内容高度,
+ * 门户据此把 iframe 撑高,消掉固定高度下表格底部被截、iframe 内层滚动的问题
+ * (协议见 src/lib/iframe-height.ts);未上报时沿用 heightClass 的固定高度。
  */
 export function ToolsIframe({
   src,
@@ -23,7 +36,9 @@ export function ToolsIframe({
 }) {
   const [loaded, setLoaded] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
+  const [autoHeight, setAutoHeight] = useState<number | null>(null);
   const timerRef = useRef<number | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     timerRef.current = window.setTimeout(
@@ -35,9 +50,37 @@ export function ToolsIframe({
     };
   }, []);
 
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      const iframe = iframeRef.current;
+      if (!iframe) return;
+      if (!isMessageFromIframe(event, iframe)) return;
+      const height = parseIframeHeightMessage(event.data);
+      if (height === null) return;
+      setAutoHeight(clampIframeHeight(height));
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
+  /** 握手:父页监听器就绪后向子页索要一次高度(规避子页先挂载的竞态) */
+  const requestHeight = () => {
+    iframeRef.current?.contentWindow?.postMessage(
+      {
+        source: TOOLS_IFRAME_HEIGHT_REQUEST_SOURCE,
+        type: TOOLS_IFRAME_HEIGHT_REQUEST_TYPE,
+      },
+      "*",
+    );
+  };
+
   return (
-    <div className={`relative w-full ${heightClass}`}>
+    <div
+      className={`relative w-full ${heightClass}`}
+      style={autoHeight === null ? undefined : { height: `${autoHeight}px` }}
+    >
       <iframe
+        ref={iframeRef}
         src={src}
         title={title}
         data-testid="tools-iframe"
@@ -45,6 +88,7 @@ export function ToolsIframe({
           setLoaded(true);
           setTimedOut(false);
           if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+          requestHeight();
         }}
         className="h-full w-full border-0"
       />
