@@ -10,8 +10,9 @@ import { resolveE2ERedisUrl } from "./redis-url";
  *    admin 看板「404 路径 Top 10」出现该路径(FR-312 端到端);
  * ②' 页面访问采集闭环:前台访问 → 客户端 beacon 上报 → page_view_event 落库
  *    → admin 看板「页面访问」区块可见(自建统计替代 umami);
- * ③ 看板整页:ADMIN_NAV「看板」入口+区块齐备(含转化漏斗/页面访问/二期流量趋势/来源设备平台/百度蜘蛛)
- *    +手动刷新。
+ * ③ 看板整页(2026-11-07 重构后布局):ADMIN_NAV「看板」入口 + KPI 概览行 +
+ *    流量类面板(趋势/来源/画像/热门页面/时段/搜索引擎/搜索词/蜘蛛)+
+ *    业务类面板(漏斗/销量/页面访问/404/文章)+ 区间切换 + 手动刷新。
  * redis 404 键跑前全清、自家键用后 hdel。
  */
 const prisma = new PrismaClient();
@@ -117,20 +118,37 @@ test.describe("US4 统计看板(T027)", () => {
       page.getByRole("link", { name: "看板" }).filter({ hasText: "看板" }).first(),
     ).toHaveAttribute("href", "/admin/stats");
 
+    // KPI 概览行(在线/PV/UV/订单/积分/注册)
     for (const testid of [
-      "stats-online",
+      "stats-kpi-online",
+      "stats-kpi-pv",
+      "stats-kpi-uv",
+      "stats-kpi-orders",
+      "stats-kpi-points",
+      "stats-kpi-users",
+    ]) {
+      await expect(page.getByTestId(testid)).toBeVisible();
+    }
+
+    // 流量类面板 + 业务类面板
+    for (const testid of [
       "stats-article-top",
       "stats-product-sales",
       "stats-notfound-top",
-      "stats-trade",
       "stats-funnel",
       "stats-pageview",
       "stats-traffic-trend",
       "stats-traffic-source",
+      "stats-audience",
+      "stats-top-pages",
+      "stats-hourly",
+      "stats-search-engines",
+      "stats-search-terms",
       "stats-spider",
     ]) {
       await expect(page.getByTestId(testid)).toBeVisible();
     }
+
     // 商品销量榜:累计/近 30 天切换链接
     await expect(
       page.getByTestId("stats-product-sales").getByRole("link", { name: "近 30 天" }),
@@ -138,6 +156,24 @@ test.describe("US4 统计看板(T027)", () => {
 
     await page.getByTestId("stats-refresh").click();
     await expect(page.getByTestId("stats-refresh")).toHaveText(/刷新中…|再刷新一次/);
-    await expect(page.getByTestId("stats-online")).toBeVisible();
+    await expect(page.getByTestId("stats-kpi-online")).toBeVisible();
+  });
+
+  test("区间切换:趋势面板的区间 chip 改写 URL 并生效", async ({ page }) => {
+    await login(page, "m1admin", "adminpass123");
+    await page.goto("/admin/stats");
+    const trend = page.getByTestId("stats-traffic-trend");
+    await expect(trend).toBeVisible();
+    await expect(trend.getByRole("link", { name: "近 30 天" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await trend.getByRole("link", { name: "近 7 天" }).click();
+    await expect(page).toHaveURL(/range=7d/);
+    await expect(trend.getByRole("link", { name: "近 7 天" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 });
