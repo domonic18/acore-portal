@@ -100,6 +100,11 @@ docker compose -f docker/docker-compose.prod.yml logs --tail 50 web
 
 - TLS 证书由 caddy 自动签发并续期;证书与 ACME 账号落在 `workspace/caddy-data`,**容器重建不丢**(丢了会触发 Let's Encrypt 签发频率限制)
 - 首页 `data-theme` 属性应与 `theme.active` 一致
+- `security.trustedProxyHops` = **1**(2026-11-07 拍板:生产域名前**无 CDN/WAF**,腾讯云 CVM 直连 Caddy,应用正前方只有 Caddy 一层可信代理;Caddy 会把观测到的对端地址追加到 XFF 尾部,右起第 1 项即真实客户端 IP)
+  - 填 0 或大于实际跳数 → 取不到 IP,全站落进 `unknown` 兜底桶(登录 600 次/分钟**全站共享**)→ 撞库防护形同虚设且一个用户失败全站被锁
+  - 填小于实际跳数(将来上了 CDN/WAF 则是 2)→ 取到中间代理 IP,同代理用户共用一个桶、攻击者换 IP 即绕过限流
+  - 改动入口:后台「安全设置 → 可信代理跳数」;域名链路变更(加 CDN/高防)时必须同步改
+- `home.achievementUrl` = `https://rank.lokta.cn/achievement`、`home.achievementScrolling` = `true`(2026-11-07 拍板:生产首页要带成就嵌入;滚动条默认开是因为嵌入页内容常高于框高,关掉则底部内容既看不见也滚不到。高度固定 68vh,后台不再可配)
 - 媒体上传:图片/PDF ≤10MB、视频 mp4/webm ≤50MB;**公网入口的体积闸门在网关侧也要放开**(反代若设了 `client_max_body_size 1m` 会先于应用层返回 413)
 
 ## 5. 备份对接
