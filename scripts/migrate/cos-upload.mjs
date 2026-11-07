@@ -6,8 +6,6 @@
 // 幂等:image_asset_map.oldUrl unique;fileHash 相同跳过上传(重复跑零上传,验收红线)
 // 配置:cos.* 五键走业务库 system_config(宪法 VI;凭据不入 env/文档/日志)
 // 死链扫描:wp_posts.post_content 里的 /wp-content/uploads/ 引用 → 逐一核对映射覆盖
-import { config as dotenvConfig } from "dotenv";
-import { createPool } from "mysql2/promise";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
@@ -46,34 +44,49 @@ export async function scanUploads(uploadsDir) {
   return out.sort((a, b) => a.relPath.localeCompare(b.relPath));
 }
 
-/** 读取 system_config 的 cos.* 五键(缺失返回 null,配合 --scan-only) */
+/** 读取 system_config 的 cos.* 五键(缺键的键不在结果里) */
 export async function loadCosConfig(pool) {
   const [rows] = await pool.query(
     `SELECT \`key\`, value FROM system_config WHERE \`key\` IN
        ('cos.bucket','cos.region','cos.secretId','cos.secretKey','cos.cdnBase')`,
   );
-  const flat = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-  if (!flat["cos.bucket"] || !flat["cos.region"] || !flat["cos.cdnBase"]) return null;
-  return {
-    bucket: flat["cos.bucket"],
-    region: flat["cos.region"],
-    secretId: flat["cos.secretId"] ?? "",
-    secretKey: flat["cos.secretKey"] ?? "",
-    cdnBase: flat["cos.cdnBase"].replace(/\/?$/, ""),
-  };
+  return Object.fromEntries(rows.map((r) => [r.key, r.value]));
 }
 
 /**
  * 幂等上传 + 映射回填。返回 { scanned, uploaded, skippedHash, mapped, missingConfig }。
+ *
+ * 失败关闭(2026-11-07):缺 cdnBase 时**不**降级为"只建映射"——映射会把正文图片
+ * URL 改写成无效值(此前缺配置时静默写出 "/2023/10/x.jpg" 这类相对路径),
+ * 而 content-import 的 NOT EXISTS 守卫让这批文章无法二次修复,故此处直接失败。
+ * scan-only 只需 cdnBase(不真上传);真实上传另需 bucket/region/secretId/secretKey。
  */
 export async function uploadAndMap(pool, uploadsDir, { scanOnly = false } = {}) {
-  const cos = await loadCosConfig(pool);
+  const config = await loadCosConfig(pool);
+  const cdnBase = (config["cos.cdnBase"] ?? "").replace(/\/?$/, "");
+  if (!cdnBase) {
+    throw new Error(
+      "COS 配置缺失(system_config.cos.cdnBase):拒绝建映射——映射会把正文图片 URL " +
+        "改写成无效值。先在后台「设置」配好 COS 再跑媒体链。",
+    );
+  }
+  if (!scanOnly) {
+    const missing = ["cos.bucket", "cos.region", "cos.secretId", "cos.secretKey"].filter(
+      (k) => !config[k],
+    );
+    if (missing.length > 0) {
+      throw new Error(`COS 配置缺失(${missing.join(", ")}):真实上传模式需要五键齐备`);
+    }
+  }
+  const cos = {
+    bucket: config["cos.bucket"] ?? "",
+    region: config["cos.region"] ?? "",
+    secretId: config["cos.secretId"] ?? "",
+    secretKey: config["cos.secretKey"] ?? "",
+    cdnBase,
+  };
   const files = await scanUploads(uploadsDir);
 
-  if (!scanOnly && !cos) {
-    // 凭据缺失时不失败退出:按演练口径只回填映射与报告(死链扫描依赖映射行)
-    scanOnly = true;
-  }
   let client;
   if (!scanOnly) {
     const { default: COS } = await import("cos-nodejs-sdk-v5");
@@ -100,7 +113,7 @@ export async function uploadAndMap(pool, uploadsDir, { scanOnly = false } = {}) 
       });
       uploaded++;
     }
-    const newUrl = `${(cos?.cdnBase ?? "").replace(/\/?$/, "")}/${f.relPath}`;
+    const newUrl = `${cos.cdnBase}/${f.relPath}`;
     await pool.query(
       `INSERT INTO image_asset_map (old_url, new_url, file_hash)
        VALUES (?, ?, ?)
@@ -148,7 +161,6 @@ export async function scanDeadlinks(pool) {
 
 // ---- CLI 入口(vitest 导入时不执行) ----
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  dotenvConfig({ path: new URL("../../.env", import.meta.url).pathname });
   const args = process.argv.slice(2);
   const scanOnly = args.includes("--scan-only");
   const dirIdx = args.indexOf("--uploads-dir");
@@ -161,15 +173,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error(`uploads 目录不存在: ${uploadsDir}(--uploads-dir 指定)`);
     process.exit(1);
   }
-  const url = new URL(process.env.DATABASE_URL);
-  const pool = createPool({
-    host: url.hostname,
-    port: Number(url.port),
-    user: url.username,
-    password: url.password,
-    database: url.pathname.slice(1),
-    connectionLimit: 2,
-  });
+  const { loadEnv, createPool } = await import("./lib/db.mjs");
+  loadEnv();
+  const pool = createPool();
   const up = await uploadAndMap(pool, uploadsDir, { scanOnly });
   const dead = await scanDeadlinks(pool);
   console.log(JSON.stringify({ uploadsDir, ...up, deadlinks: dead }, null, 2));
