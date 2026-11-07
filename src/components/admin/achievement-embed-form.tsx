@@ -7,6 +7,7 @@ import { errorMessage, requestJson } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { HOME_ACHIEVEMENT_HEIGHT } from "@/constants/home";
 
 /**
  * 最近成就嵌入配置(form api-admin 契约):PUT /api/admin/settings group=home,
@@ -60,6 +61,7 @@ export function AchievementEmbedForm({
       <h2 className="text-lg font-semibold text-[#dcebf7]">最近成就嵌入</h2>
       <p className="text-xs text-[#6482a3]">
         首页以 iframe 嵌入外部成就页(如 rank 站);页面地址留空则首页隐藏该区块。
+        桌面端该区块高度自动与首页右栏对齐,此处设定的是最小高度(实际取值上限 {HOME_ACHIEVEMENT_HEIGHT})。
       </p>
       <form
         className="flex flex-wrap items-end gap-3"
@@ -82,7 +84,7 @@ export function AchievementEmbedForm({
           <Input
             value={height}
             onChange={(e) => setHeight(e.target.value)}
-            placeholder="185vh"
+            placeholder={HOME_ACHIEVEMENT_HEIGHT}
             className="w-24 py-1"
           />
         </label>
