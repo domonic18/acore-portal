@@ -61,7 +61,7 @@ export function AchievementEmbedForm({
       <h2 className="text-lg font-semibold text-[#dcebf7]">最近成就嵌入</h2>
       <p className="text-xs text-[#6482a3]">
         首页以 iframe 嵌入外部成就页(如 rank 站);页面地址留空则首页隐藏该区块。
-        桌面端该区块高度自动与首页右栏对齐,此处设定的是最小高度(实际取值上限 {HOME_ACHIEVEMENT_HEIGHT})。
+        桌面端该区块与首页右栏等高(不低于此处设定的最小高度);设定值本身封顶 {HOME_ACHIEVEMENT_HEIGHT}。
       </p>
       <form
         className="flex flex-wrap items-end gap-3"

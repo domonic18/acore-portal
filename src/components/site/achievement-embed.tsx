@@ -8,7 +8,7 @@ const HINT_TIMEOUT_MS = 12_000;
 /**
  * 首页「最近成就事件」嵌入:加载期给提示,超时给空态文案。
  * 高度口径(2026-11-07):后台配的高度作**最小高度**,硬顶 68vh;
- * 桌面端外层区块随首页右栏拉伸(两列等高),此处 flex-1 吃掉剩余高度,iframe 填满。
+ * 桌面端外层区块随首页右栏拉伸(两列等高),此处 flex-auto 以设定高度为基线再吃掉剩余高度,iframe 填满。
  */
 export function AchievementEmbed({
   url,
@@ -32,7 +32,7 @@ export function AchievementEmbed({
 
   return (
     <div
-      className="relative h-[var(--achievement-height)] overflow-hidden rounded-xl bg-deep lg:flex-1"
+      className="relative h-[var(--achievement-height)] overflow-hidden rounded-xl bg-deep lg:flex-auto"
       style={
         {
           // 高度硬顶:存量后台配了 185vh/500vh,不设顶会撑爆首屏
