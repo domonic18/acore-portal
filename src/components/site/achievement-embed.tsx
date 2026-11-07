@@ -18,7 +18,7 @@ const HINT_TIMEOUT_MS = 12_000;
  *
  * 嵌入协议(2026-11-07):本区块框高固定(不能像工具页那样撑高 iframe,否则右栏被拉爆),
  * 框内若出现内层滚动条会与页面滚动打架。rank 子站据此需要知道「我能用多高」——
- * 父页把 iframe 框高下发给子页,子页自行裁剪内容(底部渐隐 + 「查看全部」出口)。
+ * 父页把 iframe 框高下发给子页,子页自行裁剪内容(底部渐隐)。
  * 协议对端:acore-ranking frontend/src/shared/hooks/useEmbedAvailableHeight.ts
  */
 export function AchievementEmbed({
