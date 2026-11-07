@@ -96,7 +96,8 @@ export default async function HomePage() {
   return (
     <main className="container-site flex-1 py-6">
       {/* 版心固定 1140px 后栏宽不随视口放大,右栏对齐 lokta.cn 的 ~340px */}
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+      {/* 不设 items-start:栅格行高取两列内容高者,左列(最近成就)随右列拉伸成等高 */}
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]" data-testid="home-grid">
         {/* 轮播 / 快捷入口为两栏首屏同行(lg:h-[486px]);移动端 DOM 顺序
          * = 轮播 → 快捷入口 → 最近成就 → 其余卡片,快捷入口不再被成就块挤走 */}
         <div className="min-w-0 lg:col-start-1 lg:row-start-1 lg:h-[486px]">
@@ -125,9 +126,12 @@ export default async function HomePage() {
         </section>
 
         {/* 最近成就嵌入(US 首页配置):url 空=整块隐藏;高度/滚动条后台可配。
-         * 高度在组件内再受 68vh 约束,存量 185vh 配置不再撑爆首屏 */}
+         * 桌面端高度随右栏拉伸(两列等高),后台配的高度退为最小高度(移动端按其取值) */}
         {config.home.achievementUrl && (
-          <section className="min-w-0 rounded-2xl border border-line bg-panel p-5 lg:col-start-1 lg:row-start-2">
+          <section
+            className="flex min-w-0 flex-col rounded-2xl border border-line bg-panel p-5 lg:col-start-1 lg:row-start-2"
+            data-testid="home-achievement"
+          >
             <SectionHeader
               title="最近成就事件"
               className="mb-4"
@@ -151,7 +155,7 @@ export default async function HomePage() {
         )}
 
         {/* 右栏其余卡片 */}
-        <div className="w-full space-y-5 lg:col-start-2 lg:row-start-2 lg:w-auto">
+        <div className="w-full space-y-5 lg:col-start-2 lg:row-start-2 lg:w-auto" data-testid="home-side-column">
           {/* enabled=false 时整卡隐藏(StatusCard 内部短路) */}
           <StatusCard initial={serverStatus} />
 

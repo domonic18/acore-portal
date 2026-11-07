@@ -168,14 +168,33 @@ test("成就嵌入:url/高度/滚动条配置→首页 iframe 即时生效", asy
   await page.goto("/");
   const frame = page.locator('iframe[title="最近成就"]');
   await expect(frame).toHaveAttribute("src", "https://rank.lokta.cn/achievement");
-  await expect(frame).toHaveAttribute("style", /height:\s*120vh/);
-  await expect(frame).toHaveAttribute("scrolling", "no");
+  // 高度落在外层容器的 CSS 变量上(桌面端再由栅格拉伸成与右栏等高)
+  await expect(
+    page.getByTestId("home-achievement").locator('[style*="--achievement-height"]'),
+  ).toHaveAttribute("style", /min\(120vh,\s*68vh\)/);
+  // 滚动条默认开(2026-11-07):嵌入页内容常高于框高,关掉则底部内容看不见也滚不到
+  await expect(frame).toHaveAttribute("scrolling", "auto");
 
-  // 勾选滚动条 → scrolling=auto
+  // 桌面端:成就块与右栏等高(栅格行高取两列内容高者,左列随右列拉伸)
+  const achBox = await page.getByTestId("home-achievement").boundingBox();
+  const sideBox = await page.getByTestId("home-side-column").boundingBox();
+  expect(Math.abs((achBox?.height ?? 0) - (sideBox?.height ?? 0))).toBeLessThanOrEqual(2);
+
+  // 取消滚动条 → scrolling=no;再勾回 → scrolling=auto
   await page.goto("/admin/home");
   const scrollCheck = page.getByLabel("显示滚动条");
   await expect(scrollCheck).toBeEnabled();
-  await scrollCheck.check();
+  await expect(scrollCheck).toHaveAttribute("aria-checked", "true");
+  await scrollCheck.click();
+  await expect(scrollCheck).toHaveAttribute("aria-checked", "false");
+  await saveBtn.click();
+  await expect(savedTip).toBeVisible();
+  await page.goto("/");
+  await expect(page.locator('iframe[title="最近成就"]')).toHaveAttribute("scrolling", "no");
+
+  await page.goto("/admin/home");
+  await scrollCheck.click();
+  await expect(scrollCheck).toHaveAttribute("aria-checked", "true");
   await saveBtn.click();
   await expect(savedTip).toBeVisible();
   await page.goto("/");

@@ -51,14 +51,14 @@ export function SiteHeaderClient({
       <header className="site-header sticky top-0 z-40 border-b border-line-strong">
         <div className="container-site flex h-16 items-center gap-8 lg:h-[88px]">
           <Link href="/" className="shrink-0" aria-label="老克塔首页">
-            {/* 800×313 生产原图(WP 原版 Logo 迁移),54px 显示高倍屏不糊 */}
+            {/* 800×313 生产原图(WP 原版 Logo 迁移),64px 显示高倍屏不糊 */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={logoUrl}
               alt="老克塔"
               width={800}
               height={313}
-              className="h-10 w-auto lg:h-[54px]"
+              className="h-11 w-auto lg:h-[64px]"
             />
           </Link>
 

@@ -23,7 +23,7 @@
   /* 表面 */
   --theme-page: #0a1220; /* 页面底 */
   --theme-deep: #080d16; /* 更深内嵌区 */
-  --theme-header: #102035; /* 页头底 */
+  --theme-header: #1a1006; /* 页头底(暖棕,配合暖调遮罩) */
   --theme-footer: #0c1626; /* 页脚底 */
   --theme-panel: #13233a; /* 卡片底 */
   --theme-panel-hover: #16283f; /* 卡片悬停 */
@@ -84,7 +84,8 @@
 
   /* 背景遮罩(与背景图叠加,保证文字可读) */
   --theme-page-overlay: rgba(10, 18, 32, 0.6);
-  --theme-header-overlay: rgba(16, 32, 53, 0.6);
+  /* 页头遮罩取暖棕(非冷蓝):背景图是暖色夕阳,冷蓝遮罩会把页头压成灰蓝,违和 */
+  --theme-header-overlay: rgba(58, 30, 10, 0.62);
   --theme-panel-overlay: rgba(13, 26, 46, 0.95);
 }
 
