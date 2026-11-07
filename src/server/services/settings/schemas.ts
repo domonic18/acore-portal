@@ -115,7 +115,7 @@ export const groupSchemas = {
     achievementHeight: z
       .string()
       .trim()
-      .regex(/^\d+(px|vh|rem|%)$/, "高度格式如 185vh / 600px")
+      .regex(/^\d+(px|vh|rem|%)$/, "高度格式如 68vh / 600px")
       .optional(),
     achievementScrolling: z.boolean().optional(),
     carouselIntervalSec: z.coerce
