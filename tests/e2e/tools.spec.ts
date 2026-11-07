@@ -29,6 +29,24 @@ async function postReportedHeight(page: Page, height: number) {
 }
 
 /**
+ * 工具页 iframe 指向外部站(rank 子站 / DKP 第三方),E2E 不依赖其可用性:
+ * 一律桩成空白页。真实 rank 子站也会 postMessage 上报内容高度,
+ * 与用例自己 post 的消息同场竞技 → 父页框高被真实上报覆盖,用例随机失败。
+ */
+async function stubExternalIframes(page: Page) {
+  await page.route(
+    (url) =>
+      url.hostname === "rank.lokta.cn" || url.hostname === "webdkp.nfuwow.com",
+    (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "text/html; charset=utf-8",
+        body: "<!doctype html><html><body></body></html>",
+      }),
+  );
+}
+
+/**
  * T024 US1 工具页六页 E2E(契约 tools-and-seo,SC-301):
  * 六页自身 200+iframe src 逐行契约+常驻外链按钮;主导航菜单逐项可达
  * (公告▾封号记录+数据库▾四项;在线查询不进导航);旧 page_id 六键 301
@@ -43,6 +61,10 @@ async function redirectTarget(request: APIRequestContext, path: string) {
 }
 
 test.describe("工具页六页(US1,SC-301)", () => {
+  test.beforeEach(async ({ page }) => {
+    await stubExternalIframes(page);
+  });
+
   test("六页 200+iframe src+外链按钮与契约表逐行一致", async ({ page }) => {
     for (const tool of TOOL_PAGES) {
       const res = await page.goto(tool.path);

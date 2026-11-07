@@ -11,6 +11,7 @@ import { POST as trackNotFound } from "@/app/api/track/not-found/route";
 import { POST as trackPageView } from "@/app/api/track/pageview/route";
 import { GET as adminStatsRoute } from "@/app/api/admin/stats/route";
 import { getDashboard } from "@/server/services/stats/dashboard";
+import { getPageViewSummary } from "@/server/services/stats/page-view";
 import { notFoundDayKey } from "@/server/services/stats/not-found";
 import { pinSystemConfig, restoreSystemConfig } from "../helpers/system-config";
 
@@ -256,7 +257,11 @@ describe("M4 US4 页面访问采集 /api/track/pageview(替代 umami)", () => {
 
     const after = await getDashboard();
     expect(after.pageView.pv - before.pageView.pv).toBe(1);
-    expect(after.pageView.topPages.find((p) => p.path === path)?.count).toBe(1);
+    // Top 10 是展示口径(按访问次数降序取前 10):本 path 只有 1 次访问,
+    // 共享 dev 库里只要有其它流量(例:整套 E2E 的路由预热会打一遍全站)就未必进前 10
+    // → 把窗口缩到本次上报的瞬间,验证的是同一段聚合逻辑
+    const narrow = await getPageViewSummary(5 / 3600);
+    expect(narrow.topPages.find((p) => p.path === path)?.count).toBe(1);
   });
 
   it("同 IP 同日同访客:同 IP 两次上报 UV 只 +1;换 IP 则 UV +1", async () => {
