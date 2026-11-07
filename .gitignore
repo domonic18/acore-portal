@@ -9,6 +9,10 @@
 workspace/*
 !workspace/.gitkeep
 
+# 里程碑特性规格(specs/):SDD 过程产物,仅本地工作区,不入库
+# 交付形态与验收锚点以 docs/plan/development-plan.md(状态)为准
+specs/
+
 # 依赖
 node_modules/
 __pycache__/

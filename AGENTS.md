@@ -15,16 +15,21 @@
 | 全量功能规格（细节权威） | docs/requirement/02-功能规格说明书.md |
 | 数据迁移映射/选型建议/决策记录 | docs/research/01-数据迁移与技术方案.md |
 | 里程碑状态（**状态真相源**） | docs/plan/development-plan.md |
+| 终态架构方案 | docs/arch/00-总体架构设计.md |
+| 生产发布 / 备份恢复 | docs/ops/production-deploy.md · docs/ops/backup-restore.md |
 | 需求条目级状态流转 | 飞书需求池 https://my.feishu.cn/base/EPfDb63bPaBqQTsD5oBc6ztqnwh |
+
+> **仓库是 public 仓**：文档不得出现其他内部项目名、本机路径、生产 IP、registry 命名空间（口径见记忆条目「公开仓文档脱敏口径」）。
+> `specs/`（里程碑 SDD 过程产物）**不入 git**，只在本地工作区；交付形态与验收锚点以 `docs/plan/development-plan.md` 为准。
 
 ## 关键业务约束（违反视为事故级）
 
 1. **三条铁律**：① 站点用户名 = 游戏账号名，注册同步写 acore_auth 库；② 一切密码/账号变更必须双写（站点 + 游戏 auth 库）；③ 商品 SKU `itemsend_{游戏物品ID}` 是商城与游戏世界的映射契约
-2. **密码无感迁移**：存量 6,330 用户为**双格式混合**（phpass `$P$` 58% + WP6.8 `$wp$` bcrypt 42%，2026-10-23 实测）；登录按格式前缀分派校验，`$P$` 通过后重哈希为 `$wp$` bcrypt（一人一次零感知；`$wp$` 存量零接触）（specs/001 research R1/R2；research/01 §3 勘误注记）
+2. **密码无感迁移**：存量 6,330 用户为**双格式混合**（phpass `$P$` 58% + WP6.8 `$wp$` bcrypt 42%，2026-10-23 实测）；登录按格式前缀分派校验，`$P$` 通过后重哈希为 `$wp$` bcrypt（一人一次零感知；`$wp$` 存量零接触）（权威口径见 research/01 §3 勘误注记；本地 `specs/001` research R1/R2 不入库）
 3. **SOAP 发货必须可靠可见**：支付成功→扣分→发货→订单 completed 状态机闭环；失败进重试队列 + 告警 + 人工补发，禁止静默（现状 1,895 单滞留是反面教材）
 4. **积分账本一致**：余额必须可由流水重算推导；每笔流水实时更新余额 + 日终对账任务双保险
 5. **路由兼容**：旧 URL（`?p=`/`?page_id=`/`/wp-login.php` 等）必须 301/302，教程页截图与外部引用硬编码了旧路径（规格 §14）
-6. **生产只读**：生产 101.42.117.123 在运行；游戏库凭据仅存 env，不入库不入文档；旧仓库 `~/Code/acore-cms` 切换下线前勿动
+6. **生产只读**：生产主机在运行；游戏库凭据仅存 env，不入库不入文档；旧 WordPress 仓库切换下线前勿动
 
 ## Tech stack（规划基线，待定稿）
 
@@ -110,12 +115,12 @@ docs/            # 文档中心
 
 **依赖方向（强制）**: `app → server → lib → constants`；`components → lib`；`constants` 不引用任何业务层。禁止反向 import、禁止循环依赖；客户端组件禁止 import `server/`（用 `server-only` 包强制）。
 
-**目录规范（2026-10-23 CodeReview 沉淀，借鉴 acore-manager/ai-invest）**:
-1. **目录即架构**：新增一级/域目录须先修订本节（借鉴 acore-manager《代码目录结构规范》守门做法）
-2. **services 分域**：`services/` 根目录禁新增平文件，新域一律 `services/<域>/`（现有 auth/points/shop/orders/catalog/users-admin/images/account/content/progression/forum/status/media/home/notification/stats/settings/seo/sidebar/tools/site/security 均此模式）。跨域基础服务**只**入 `services/shared/`、不再单独占业务域目录，当前为审计 `audit`、发信队列 `mail-outbox`、用户 token `user-token`、积分账本 `ledger`、积分通知 `points-notify`、路由映射 `route-map`、游戏身份 `game-identity`、站点身份 `site-identity`、头像 `portrait`、审计去重 `audit-dedup`（借鉴 ai-invest 按子域分包、根目录禁平文件）。**域间横向 import 由 eslint-plugin-boundaries 机械拦截**：域服务只能引用 `services/shared/*` 与 `eslint.config.mjs` 中 `ORCHESTRATION_EDGES` 登记的编排边，未登记直接 lint 失败（issue #6）
+**目录规范（2026-10-23 CodeReview 沉淀，借鉴内部同族项目）**:
+1. **目录即架构**：新增一级/域目录须先修订本节（借鉴内部同族项目的《代码目录结构规范》守门做法）
+2. **services 分域**：`services/` 根目录禁新增平文件，新域一律 `services/<域>/`（现有 auth/points/shop/orders/catalog/users-admin/images/account/content/progression/forum/status/media/home/notification/stats/settings/seo/sidebar/tools/site/security 均此模式）。跨域基础服务**只**入 `services/shared/`、不再单独占业务域目录，当前为审计 `audit`、发信队列 `mail-outbox`、用户 token `user-token`、积分账本 `ledger`、积分通知 `points-notify`、路由映射 `route-map`、游戏身份 `game-identity`、站点身份 `site-identity`、头像 `portrait`、审计去重 `audit-dedup`（借鉴内部同族项目按子域分包、根目录禁平文件）。**域间横向 import 由 eslint-plugin-boundaries 机械拦截**：域服务只能引用 `services/shared/*` 与 `eslint.config.mjs` 中 `ORCHESTRATION_EDGES` 登记的编排边，未登记直接 lint 失败（issue #6）
 3. **app 层禁直连 prisma**：app/ 下 RSC 页面与 Route Handler（`src/app/api/**`）只做校验/会话/编排，数据组装一律收敛 service 层（页面私有取数函数放 `services/<域>/`）；`grep -rn 'from "@/lib/db"' src/app` 应为空
 4. **components 准入**：`components/ui/` 只收 ≥2 个消费者的通用组件；页面私有组件与 page 同目录（colocation）；域组件入 `components/<域>/`；禁止另起 `app/_components/` 等第四类目录。展示组件保持无 IO——需要会话/库数据的异步壳放页面层（取数经 `services/<域>/` 的 view 函数，如 `getSidebarView`/`getArchiveView`/`getSiteHeaderView`），组件只接收 props
-5. **业务域服务禁互引**：`services/auth` 与 `services/shop` 等域间不直接 import，经 `services/shared/` 或上层编排（防循环依赖，借鉴 ai-invest）
+5. **业务域服务禁互引**：`services/auth` 与 `services/shop` 等域间不直接 import，经 `services/shared/` 或上层编排（防循环依赖，借鉴内部同族项目）
 6. **配置分域收口**（宪法 v1.0.2）：env 仅存引导级凭据（业务库/Redis 连接串 + SESSION_SECRET），统一经 `lib/env.ts` 校验；游戏四库连接串与业务通道配置（SMTP/SOAP/app.url/腾讯云验证码/COS 等）存业务库 `system_config` 表，统一经 `lib/config.ts` 读取（启动预热 + 进程内缓存；游戏库 client 惰性建连，改连接需重启；管理端改通道配置后调 `reloadSystemConfig`），禁止散点直读 `process.env`、禁止在新代码引入 env 版业务配置
 7. **compose 三分**（2026-11-06 沉淀）：`docker/` 下 dev/test/prod 三套 compose 各自独立成文件，禁止跨环境复用服务定义。**生产栈（`docker-compose.prod.yml`）禁含测试替身**——`mailpit`（生产接真实 SMTP）、`soap-mock`（生产 `soap.url` 指真实 worldserver）、`scripts/dev/initdb` 挂载（含种子账号 `m1admin/adminpass123`）三者一律不进生产；生产 DB 不发布端口（迁移走 `--profile migrate` 一次性服务，备份走 `docker exec`）。新增测试用容器时同步在 prod 文件头部的「刻意排除清单」登记原因与替代方案
 8. **启动钩子依赖图无 node-only 包**（2026-11-06 沉淀）：Next 14 会为 `src/instrumentation.ts` 额外编译一份 edge 产物，其传递依赖图内出现 `ioredis`/`mysql2`/`node:*` 等 node-only 包 → edge 编译报 `Can't resolve 'stream'`，**next dev 与 next build 双双失败**（2026-11-06 PR-0 曾因此静默炸掉整个 E2E，根因离报错点隔了三层 import）。因此：启动链可达的模块（`shared/audit.ts`、`shop/delivery.ts` 等）只许依赖 prisma，Redis 依赖另立文件（`shared/audit-dedup.ts`）。守卫：`tests/unit/instrumentation-graph.test.ts`（红测试，新增 node-only 依赖即失败）

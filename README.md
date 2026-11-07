@@ -1,6 +1,6 @@
 # acore-portal
 
-> 老克塔（lokta.cn）官网重开发——魔兽世界 60 年代怀旧服（AzerothCore 引擎）社区门户：门户资讯 + 玩家自助服务 + 积分商城（游戏内自动发货）+ 论坛社区。替代生产 WordPress 系统（旧仓库 `~/Code/acore-cms`，切换下线前保留）。
+> 老克塔（lokta.cn）官网重开发——魔兽世界 60 年代怀旧服（AzerothCore 引擎）社区门户：门户资讯 + 玩家自助服务 + 积分商城（游戏内自动发货）+ 论坛社区。替代生产 WordPress 系统（旧 WordPress 仓库保留至切换下线）。
 
 ## 技术栈
 
@@ -27,8 +27,8 @@ pnpm db:seed
 pnpm dev                # http://localhost:3000
 
 # 质量门禁与测试
-make check              # lint + typecheck + vitest(292)
-pnpm test:e2e           # Playwright E2E 关态档(79, 未起 dev server 时自带 webServer)
+make check              # lint + typecheck + vitest(90 文件 / 666 用例)
+pnpm test:e2e           # Playwright E2E 关态档(176 场景, 未起 dev server 时自带 webServer)
 pnpm test:e2e:captcha  # E2E 开态档(人机校验已启用;腾讯云无测试密钥,只跑专项)
 ```
 
@@ -36,12 +36,18 @@ pnpm test:e2e:captcha  # E2E 开态档(人机校验已启用;腾讯云无测试�
 
 完整文档见 [docs/README.md](docs/README.md)：
 
-- **需求基准**：[docs/requirement/](docs/requirement/)
-- **架构设计**：[docs/arch/](docs/arch/)
-- **迭代计划**：[docs/plan/development-plan.md](docs/plan/development-plan.md)
-- **调研评估**：[docs/research/](docs/research/)
+| 目录 | 内容 |
+|---|---|
+| [docs/requirement/](docs/requirement/) | 需求基准 + 功能规格说明书（功能细节权威） |
+| [docs/arch/](docs/arch/) | 终态架构设计（技术选型 / 系统拓扑 / 数据流 / 部署） |
+| [docs/research/](docs/research/) | 数据迁移映射与决策记录 |
+| [docs/ops/](docs/ops/) | 生产发布手册 · 备份恢复口径 |
+| [docs/plan/](docs/plan/) | 迭代状态真相源（里程碑） |
 
 需求条目状态流转在飞书多维表格「Lokta 重构项目需求池」（91 条已确认，状态真相源之一：条目状态看这里）。
+
+> 里程碑 SDD 过程产物（spec/plan/tasks/contracts/migration-report 等）位于本地 `specs/`，**不在 git 管控内**；
+> 交付形态与验收锚点以 `docs/plan/development-plan.md` 为准。
 
 ## 目录结构
 
@@ -54,11 +60,13 @@ src/
 ├── lib/      基础设施（db×5/redis/auth/config/cos）
 └── constants/ 全局枚举（订单状态/积分类型/SKU 前缀/SOAP 命令）
 scripts/
-├── dev/      seed/initdb fixture/SOAP mock
+├── dev/      seed/initdb fixture/SOAP mock/性能 profile
 ├── verify/   验收自检（soap-check/sc001-login）
 ├── migrate/  WP→新库迁移管线（users/shop/points/cos,全幂等可重跑）
-└── cron/     日终任务（对账/发货恢复）
-docker/       部署资产（dev/test compose+web/Dockerfile）
+├── ops/      线上运维与事故响应（强制改密等）
+├── cron/     日终任务（对账/发货恢复/备份）
+└── ci/       CI 环境自举（游戏四库结构/存量库空壳）
+docker/       部署资产（dev/test/prod 三套 compose + web/Dockerfile + caddy）
 tests/        vitest(单元/集成) + Playwright(E2E)
 workspace/    宿主机持久化数据（gitignore 不入库）
 docs/         文档中心
