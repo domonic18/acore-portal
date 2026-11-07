@@ -13,6 +13,21 @@ const BASES = {
 
 const srcOf = (tool: ToolPageMeta) => resolveToolIframeSrc(tool, BASES);
 
+/** 模拟 rank 子站上报内容高度(源窗口与源站须与 iframe 对得上,否则父页拒收) */
+async function postReportedHeight(page: Page, height: number) {
+  await page.evaluate((h) => {
+    const iframe = document.querySelector(
+      '[data-testid="tools-iframe"]',
+    ) as HTMLIFrameElement;
+    const event = new MessageEvent("message", {
+      data: { source: "acore-ranking", type: "height", height: h },
+      origin: new URL(iframe.src).origin,
+    });
+    Object.defineProperty(event, "source", { value: iframe.contentWindow });
+    window.dispatchEvent(event);
+  }, height);
+}
+
 /**
  * 工具页 iframe 指向外部站(rank 子站 / DKP 第三方),E2E 不依赖其可用性:
  * 一律桩成空白页。真实 rank 子站也会 postMessage 上报内容高度,
@@ -151,22 +166,31 @@ test.describe("工具页六页(US1,SC-301)", () => {
     const before = await frame.evaluate((el) => el.getBoundingClientRect().height);
 
     // 模拟 rank 子站(acore-ranking)上报内容高度;源窗口与源站须与 iframe 对得上
-    await page.evaluate(() => {
-      const iframe = document.querySelector(
-        '[data-testid="tools-iframe"]',
-      ) as HTMLIFrameElement;
-      const event = new MessageEvent("message", {
-        data: { source: "acore-ranking", type: "height", height: 1234 },
-        origin: new URL(iframe.src).origin,
-      });
-      Object.defineProperty(event, "source", { value: iframe.contentWindow });
-      window.dispatchEvent(event);
-    });
+    await postReportedHeight(page, 1234);
 
     await expect
       .poll(async () => frame.evaluate((el) => el.getBoundingClientRect().height))
       .toBe(1234);
     expect(before).toBeLessThan(1234);
+  });
+
+  test("工具页 iframe 收到更小的上报高度时收矮(内容变短不留空带)", async ({
+    page,
+  }) => {
+    await page.goto("/hardcore");
+    const frame = page.getByTestId("tools-iframe");
+    await expect(frame).toBeVisible();
+
+    await postReportedHeight(page, 1234);
+    await expect
+      .poll(async () => frame.evaluate((el) => el.getBoundingClientRect().height))
+      .toBe(1234);
+
+    // 子站切回 10 条:上报变小 → 框高必须跟着收矮,且不被 lg:min-h-[720px] 地板压住
+    await postReportedHeight(page, 600);
+    await expect
+      .poll(async () => frame.evaluate((el) => el.getBoundingClientRect().height))
+      .toBe(600);
   });
 
   test("旧 page_id 六键 301 到六工具页(US1 T024)", async ({ request }) => {

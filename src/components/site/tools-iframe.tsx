@@ -74,7 +74,12 @@ export function ToolsIframe({
   return (
     <div
       className={`relative w-full ${heightClass}`}
-      style={autoHeight === null ? undefined : { height: `${autoHeight}px` }}
+      style={
+        autoHeight === null
+          ? undefined
+          : // 协议高度权威:连 class 的 min-h 一并清掉,否则内容比 min-h 矮时框内留一条空带
+            { height: `${autoHeight}px`, minHeight: 0 }
+      }
     >
       <iframe
         ref={iframeRef}
