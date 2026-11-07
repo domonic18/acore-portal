@@ -38,6 +38,7 @@
 | 文档 | 说明 |
 |------|------|
 | [development-plan.md](plan/development-plan.md) | M1-M4 里程碑与完成状态;**只在此维护状态,不回填过程** |
+| [ci-deploy-pipeline-plan.md](plan/ci-deploy-pipeline-plan.md) | CI 发布流水线方案(**待核对 · 未实施**):现状、目标形态、ai-invest 演练计划、待决问题清单 |
 
 ## 外部系统
 
