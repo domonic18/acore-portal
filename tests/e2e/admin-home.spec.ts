@@ -279,6 +279,53 @@ test("成就嵌入协议:父页把 iframe 框高下发给子页(模拟子页,不
   expect(Math.abs(last - (box?.height ?? 0))).toBeLessThanOrEqual(2);
 });
 
+test("成就嵌入:iframe 导航完成前不投递——控制台无 target origin 警告", async ({ page }) => {
+  test.setTimeout(60_000);
+  await login(page, "m1admin", "adminpass123");
+
+  // 子页桩:延迟应答,让 iframe 在一段时间内停留在 about:blank(其 origin 继承父页)——
+  // 这正是「父页在 iframe 导航完成前投递」的窗口
+  const mockChild = `<!doctype html>
+<html><head><meta charset="utf-8"></head><body><div>mock child</div>
+<script>
+  function request() {
+    window.parent.postMessage({ source: 'acore-ranking', type: 'available-height-request' }, '*');
+  }
+  request();
+  setInterval(request, 500);
+</script></body></html>`;
+  await page.route(
+    (url) => url.hostname === "rank.lokta.cn" && url.pathname === "/achievement",
+    async (route) => {
+      await new Promise((r) => setTimeout(r, 1500));
+      await route.fulfill({
+        status: 200,
+        contentType: "text/html; charset=utf-8",
+        body: mockChild,
+      });
+    },
+  );
+
+  await page.goto("/admin/home");
+  const achSection = page.locator("section").filter({ hasText: "最近成就嵌入" });
+  await achSection.getByLabel("页面地址").fill("https://rank.lokta.cn/achievement");
+  await achSection.getByRole("button", { name: "保存" }).click();
+  await expect(achSection.getByText("已保存,首页即时生效。")).toBeVisible();
+
+  const consoleIssues: string[] = [];
+  page.on("console", (m) => {
+    if (m.type() === "warning" || m.type() === "error") consoleIssues.push(m.text());
+  });
+
+  await page.goto("/");
+  await expect(page.locator('iframe[title="最近成就"]')).toBeVisible();
+  await page.waitForTimeout(4000);
+
+  // iframe 导航完成前,contentWindow 是 about:blank(origin 继承父页):
+  // 此时按子站 origin 投递 → 浏览器报 "target origin ... does not match"
+  expect(consoleIssues.filter((t) => t.includes("target origin"))).toEqual([]);
+});
+
 test("轮播间隔:越界 422 呈现;配置 2 秒→首页按新间隔自动切换", async ({ page }) => {
   test.setTimeout(60_000);
   await login(page, "m1admin", "adminpass123");

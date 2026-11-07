@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   buildHeightAvailableMessage,
+  isIframeNavigated,
   isMessageFromIframe,
   parseAvailableHeightRequest,
   resolveIframeOrigin,
@@ -34,11 +35,13 @@ export function AchievementEmbed({
   const [timedOut, setTimedOut] = useState(false);
   const timerRef = useRef<number | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-
   /** 把 iframe 框高下发给子页(父 → 子) */
   const publishAvailableHeight = useCallback(() => {
     const iframe = iframeRef.current;
-    if (!iframe) return;
+    // 未完成导航不投递:contentWindow 还是 about:blank(origin 继承父页)时,
+    // 按子站 origin 投递会被浏览器拒收并报 "target origin ... does not match"。
+    // 子页有重试索要兜底,不会漏发。
+    if (!iframe || !isIframeNavigated(iframe)) return;
     const message = buildHeightAvailableMessage(iframe.getBoundingClientRect().height);
     if (!message) return;
     iframe.contentWindow?.postMessage(message, resolveIframeOrigin(url) ?? "*");

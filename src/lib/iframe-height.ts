@@ -76,6 +76,26 @@ export function resolveIframeOrigin(src: string): string | null {
 }
 
 /**
+ * iframe 是否已导航到目标页(而非初始的 about:blank)。
+ * 未导航时 contentWindow 还是 about:blank,其 origin 继承父页 → 按子站 origin 投递
+ * 必然对不上(浏览器报 "target origin ... does not match the recipient window's origin")。
+ * 探测:跨源访问 contentWindow.location 会抛错 → 已到跨源目标页;
+ * 同源可读 → 比对 href 是否仍为 about:blank。
+ * 不依赖 load 事件:iframe 可能在 React 挂载前就加载完毕,load 事件会被漏接。
+ */
+export function isIframeNavigated(iframe: {
+  contentWindow: { location: { href: string } } | null;
+}): boolean {
+  const win = iframe.contentWindow;
+  if (!win) return false;
+  try {
+    return win.location.href !== "about:blank";
+  } catch {
+    return true;
+  }
+}
+
+/**
  * 消息是否来自目标 iframe 自身:双重校验(源窗口 + 源站)。
  * 源窗口对不上直接拒——别的页面伪造不出 iframe.contentWindow。
  */
