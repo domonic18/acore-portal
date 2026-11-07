@@ -61,6 +61,7 @@ export function AchievementEmbedForm({
       <h2 className="text-lg font-semibold text-[#dcebf7]">最近成就嵌入</h2>
       <p className="text-xs text-[#6482a3]">
         首页以 iframe 嵌入外部成就页(如 rank 站);页面地址留空则首页隐藏该区块。
+        rank 子站已支持按可用高度自适应(框内不再出现第二根滚动条,超出部分渐隐并给出「查看全部」入口);
         桌面端该区块与首页右栏等高(不低于此处设定的最小高度);设定值本身封顶 {HOME_ACHIEVEMENT_HEIGHT}。
       </p>
       <form
@@ -101,6 +102,10 @@ export function AchievementEmbedForm({
           保存
         </Button>
       </form>
+      <p className="text-xs text-[#6482a3]">
+        「显示滚动条」仅在嵌入非 rank 子站(不支持按可用高度自适应)时才需要开启;
+        rank 子站已自行裁剪内容,框内不会出现滚动条。
+      </p>
       {ok && <p className="text-xs text-[#6ee7b7]">已保存,首页即时生效。</p>}
       {error && (
         <p role="alert" className="text-sm text-[#eda9a9]">

@@ -1,11 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  TOOLS_IFRAME_HEIGHT_REQUEST_SOURCE,
-  TOOLS_IFRAME_HEIGHT_REQUEST_TYPE,
-  TOOLS_IFRAME_TIMEOUT_MS,
-} from "@/constants/tools";
+import { EMBED_HEIGHT_REQUEST_TYPE, EMBED_PARENT_SOURCE } from "@/constants/embed";
+import { TOOLS_IFRAME_TIMEOUT_MS } from "@/constants/tools";
 import {
   clampIframeHeight,
   isMessageFromIframe,
@@ -67,8 +64,8 @@ export function ToolsIframe({
   const requestHeight = () => {
     iframeRef.current?.contentWindow?.postMessage(
       {
-        source: TOOLS_IFRAME_HEIGHT_REQUEST_SOURCE,
-        type: TOOLS_IFRAME_HEIGHT_REQUEST_TYPE,
+        source: EMBED_PARENT_SOURCE,
+        type: EMBED_HEIGHT_REQUEST_TYPE,
       },
       "*",
     );

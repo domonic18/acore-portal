@@ -219,6 +219,66 @@ test("成就嵌入:url/高度/滚动条配置→首页 iframe 即时生效", asy
   expect(homeAudits.length).toBeGreaterThanOrEqual(3);
 });
 
+test("成就嵌入协议:父页把 iframe 框高下发给子页(模拟子页,不依赖线上 rank)", async ({ page }) => {
+  test.setTimeout(60_000);
+  await login(page, "m1admin", "adminpass123");
+
+  // 模拟子页:记录收到的 height-available;并主动索要可用高度(验证握手回推链路)
+  // 索要按 500ms 间隔重试(同真实子页 useEmbedAvailableHeight):父页 React 可能
+  // 尚未 hydration,监听器未就绪时首次索要会丢;父页侧另有首帧下发兜底。
+  const mockChild = `<!doctype html>
+<html><head><meta charset="utf-8"></head><body><div>mock child</div>
+<script>
+  var heights = [];
+  function record(h) {
+    heights.push(String(h));
+    document.body.setAttribute('data-heights', heights.join(','));
+  }
+  window.addEventListener('message', function (e) {
+    var d = e.data;
+    if (d && d.source === 'acore-portal' && d.type === 'height-available') record(d.height);
+  });
+  function request() {
+    window.parent.postMessage({ source: 'acore-ranking', type: 'available-height-request' }, '*');
+  }
+  request();
+  setInterval(request, 500);
+</script></body></html>`;
+  await page.route(
+    (url) => url.hostname === "rank.lokta.cn" && url.pathname === "/achievement",
+    (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "text/html; charset=utf-8",
+        body: mockChild,
+      }),
+  );
+
+  // 配置成就页地址(rank 子站)→ 首页渲染 iframe
+  await page.goto("/admin/home");
+  const achSection = page.locator("section").filter({ hasText: "最近成就嵌入" });
+  await achSection.getByLabel("页面地址").fill("https://rank.lokta.cn/achievement");
+  await achSection.getByRole("button", { name: "保存" }).click();
+  await expect(achSection.getByText("已保存,首页即时生效。")).toBeVisible();
+
+  await page.goto("/");
+  const frame = page.frameLocator('iframe[title="最近成就"]');
+  // 父页 load 时推一次 + 子页索要时回推 → 至少两条(证明请求-回推链路真的通)
+  await expect(frame.locator("body")).toHaveAttribute("data-heights", /^\d+,\d+/);
+  const heights = ((await frame.locator("body").getAttribute("data-heights")) ?? "")
+    .split(",")
+    .filter(Boolean)
+    .map(Number);
+  for (const h of heights) {
+    expect(h).toBeGreaterThan(0);
+  }
+  // 最后一次下发的框高须与 iframe 实测渲染高度一致(前几次可能是栅格未拉伸
+  // 时的旧高度——那时下发的值在当时也是对的,故只校验最后一次)
+  const box = await page.locator('iframe[title="最近成就"]').boundingBox();
+  const last = heights[heights.length - 1]!;
+  expect(Math.abs(last - (box?.height ?? 0))).toBeLessThanOrEqual(2);
+});
+
 test("轮播间隔:越界 422 呈现;配置 2 秒→首页按新间隔自动切换", async ({ page }) => {
   test.setTimeout(60_000);
   await login(page, "m1admin", "adminpass123");
