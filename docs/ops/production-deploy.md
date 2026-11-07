@@ -129,3 +129,50 @@ docker compose -f docker/docker-compose.prod.yml logs --tail 50 web
 4. 观察 404 采集、SOAP 发货、邮件三条关键链路
 
 **回滚**:DNS 指回旧机即可(新栈数据已落 `workspace/mysql-prod`,不停机保留现场)。
+
+## 7. 发布方式:门户与子站是两套形态
+
+两个仓库的部署形态**不同,不要互相套用**:
+
+| | acore-portal(门户) | acore-ranking(子站 rank.lokta.cn) |
+| --- | --- | --- |
+| 运行时 | 腾讯云 **CVM + Docker Compose** | 腾讯云 **SCF 容器镜像函数** |
+| 发布方式 | **人工在服务器上发布**(见 §7.1) | **流水线自动发布**:develop → staging,main → production |
+| 配置载体 | 宿主机 `.env.prod` + 库内 `system_config` | 云函数控制台环境变量(流水线不覆盖) |
+| 发布动作 | `git pull` + `docker compose up -d --build` | 换函数镜像(`UpdateFunctionCode`,只传 `Code.ImageConfig`) |
+
+子站的流水线细节见子站仓库 `docs/arch/04部署架构.md`(镜像地址带 `@sha256:` 摘要、按摘要拉取)。
+门户**不**接腾讯云 SCF:门户是长驻的 Web 服务,依赖 MySQL + Redis + 常驻进程与本地卷
+(`workspace/uploads` 兜底、Caddy 证书目录),SCF 的无状态容器模型不契合这套生命周期;
+门户也**不需要**镜像部署那套「只换镜像、不动配置」的收敛——它的运行配置本来就在宿主机与 `system_config` 里。
+
+### 7.1 门户的发布流程(人工)
+
+```bash
+cd /home/ubuntu/acore-portal
+git fetch --all && git checkout <发布提交>
+docker compose --env-file .env.prod -f docker/docker-compose.prod.yml up -d --build
+docker compose --env-file .env.prod -f docker/docker-compose.prod.yml --profile migrate run --rm migrate
+```
+
+- **迁移在重建之后跑**:新镜像的 schema 变更靠一次性 `migrate` 服务(§2),漏跑会导致新代码读不到新列;
+- `.env.prod` 在宿主机且不入库,重建容器不丢业务通道凭据;
+- 回滚:`git checkout <上一个发布提交>` 再 `up -d --build`,数据库侧的破坏性变更需另备 SQL 回滚脚本
+  (Prisma 迁移 forward-only,不做自动 down)。
+
+### 7.2 为什么门户的 CI 里没有 deploy job
+
+门户的 `.github/workflows/ci.yml` 只有 `check` / `build` / `integration` 三个检查作业,**不发布**。这是有意的:
+
+1. **门户尚未上线**,生产域名现在还指向旧 WordPress 栈,门户生产栈没有真实流量;
+   在没有真实流量与已验证回滚路径之前,把「合并即上线」自动化,风险高于收益。
+2. **CI 要发布就得拿到宿主机权限**:要么在 CVM 上装 self-hosted runner,要么把 SSH 私钥塞进 GitHub Secrets。
+   这两条都是新增攻击面(私钥泄露 = 整机沦陷),而门户的发布动作本身只是
+   「拉代码 + 重建容器」——与 CI 相比节省的只有几分钟手工操作,不成比例。
+3. **回滚仍然需要人登机器**:Compose 发布没有版本化的制品仓,回滚 = 回到上一个提交重新构建,
+   这一步无论如何要人工介入,既然如此,发布也一并人工,保持「发布与回滚同一条路径」。
+
+上线后若仍想自动化,建议路径(届时再定):CVM 上装 self-hosted runner(不引 SSH 私钥)→
+加 GitHub Environments + `main` 分支保护 + 人工审批 → 流水线内跑 §7.1 的同一组命令,
+让发布与回滚共用一份脚本,避免两套流程漂移。
+
