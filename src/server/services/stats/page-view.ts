@@ -138,3 +138,30 @@ export async function getPageViewSummary(
     })),
   };
 }
+
+export type PageViewDailyPoint = { date: string; pv: number; uv: number };
+
+/**
+ * 自建埋点日序列(看板趋势与存档日汇总合并成一条连续时间线):
+ * PV=当日上报次数;UV=当日去重访客数(访客标识按日加盐,跨日重新计数)。
+ */
+export async function getPageViewDaily(opts: {
+  since: Date;
+  until?: Date;
+}): Promise<PageViewDailyPoint[]> {
+  const until = opts.until ?? new Date();
+  const rows = await prisma.$queryRaw<{ d: string; pv: bigint; uv: bigint }[]>`
+    SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS d,
+           COUNT(*) AS pv,
+           COUNT(DISTINCT visitor_id) AS uv
+    FROM page_view_event
+    WHERE created_at >= ${opts.since} AND created_at < ${until}
+    GROUP BY d
+    ORDER BY d ASC
+  `;
+  return rows.map((r) => ({
+    date: r.d,
+    pv: Number(r.pv),
+    uv: Number(r.uv),
+  }));
+}
