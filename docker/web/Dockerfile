@@ -1,4 +1,4 @@
-# 多阶段构建(照 ai-invest prod 口径):builder 全量依赖产出构建物,
+# 多阶段构建(照内部同族项目的 prod 口径):builder 全量依赖产出构建物,
 # runtime 仅留生产依赖。非 standalone 红线不变——
 # 规避 5 个 Prisma client 二进制引擎在 outputFileTracing 下的追踪缺失风险,
 # 故 runtime 保留真实 node_modules(symlink 结构)而非 standalone 精简产物。

@@ -9,6 +9,7 @@ import {
 import { setSessionCookies } from "@/lib/auth/cookies";
 import { SESSION } from "@/constants/session";
 import { safeNextPath } from "@/lib/safe-redirect";
+import { checkSameOrigin } from "@/server/origin-guard";
 
 /**
  * remember 登录续期(research R4):access 过期后 middleware 重定向至此;
@@ -23,6 +24,11 @@ function redirectTo(path: string) {
 }
 
 async function handle(req: NextRequest) {
+  // GET 是顶层导航(无 Origin),只对写形态做来源校验
+  if (req.method === "POST") {
+    const origin = await checkSameOrigin(req);
+    if (!origin.ok) return origin.response;
+  }
   const presented = req.cookies.get(SESSION.REFRESH_COOKIE)?.value;
   if (!presented) {
     return redirectTo("/login");

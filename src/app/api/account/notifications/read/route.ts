@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiError, apiOk, parseBody } from "@/server/http";
 import { getApiSession } from "@/server/session-guard";
 import { markRead } from "@/server/services/notification/inbox";
+import { checkSameOrigin } from "@/server/origin-guard";
 
 const readSchema = z
   .object({
@@ -15,6 +16,8 @@ const readSchema = z
 
 /** 契约:200 {marked};单条/批量/全部已读;已读不可逆 */
 export async function POST(req: NextRequest) {
+  const origin = await checkSameOrigin(req);
+  if (!origin.ok) return origin.response;
   const session = await getApiSession(req);
   if (!session) return apiError(401, "UNAUTHORIZED", "请先登录。");
 

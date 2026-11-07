@@ -6,6 +6,7 @@ import { getSessionFromToken } from "@/lib/auth/session";
 import { SESSION } from "@/constants/session";
 import { changePassword } from "@/server/services/auth/password";
 import { getClientIp } from "@/server/services/shared/client-ip";
+import { checkSameOrigin } from "@/server/origin-guard";
 
 const schema = z.object({
   current_password: z.string().min(1).max(128),
@@ -14,6 +15,8 @@ const schema = z.object({
 
 /** 登录态改密(RSC/API 层一律深校验,middleware 只是浅守卫) */
 export async function POST(req: NextRequest) {
+  const origin = await checkSameOrigin(req);
+  if (!origin.ok) return origin.response;
   const session = await getSessionFromToken(req.cookies.get(SESSION.ACCESS_COOKIE)?.value);
   if (!session) {
     return apiError(401, "UNAUTHORIZED", "请先登录。");

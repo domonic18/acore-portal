@@ -1,4 +1,4 @@
-// T047 本地性能 profile(M3 Polish;不设 CI 门,结果记 specs/003-m3-community/perf-profile.md)
+// T047 本地性能 profile(M3 Polish;不设 CI 门,结果记本地 specs/003 perf-profile.md,不入库)
 // 前置:dev server 已起(localhost:3000)、dev 库已迁入文章、SOAP mock 运行中(:7878)
 // 口径:①/announcements 归档列表 RSC 渲染 ②/post/[slug] 最长文章(12KB MD)渲染管线
 //       ③/api/status 探针缓存命中(warmup 先打满 25s Redis 缓存,计量段全为命中)

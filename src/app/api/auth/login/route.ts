@@ -22,6 +22,7 @@ import { loginGlobalKey, LOGIN_GLOBAL_WINDOW_SEC } from "@/constants/security";
 import { CAPTCHA_ERROR } from "@/constants/captcha";
 import { verifyCaptcha } from "@/lib/captcha/tencent";
 import { getClientIp } from "@/server/services/shared/client-ip";
+import { checkSameOrigin } from "@/server/origin-guard";
 
 const loginSchema = z.object({
   username: z.string().min(1).max(32),
@@ -39,6 +40,8 @@ const RATE_LIMIT_429 = "尝试过于频繁,请稍后再试。";
 const SERVER_BUSY_429 = "登录服务繁忙,请稍后再试。";
 
 export async function POST(req: NextRequest) {
+  const origin = await checkSameOrigin(req);
+  if (!origin.ok) return origin.response;
   const parsed = await parseBody(req, loginSchema);
   if (!parsed.ok) return parsed.response;
   const { username, password, remember, captchaTicket, captchaRandstr } = parsed.data;

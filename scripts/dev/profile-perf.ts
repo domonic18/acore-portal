@@ -1,4 +1,4 @@
-// T065 本地性能 profile(M2 Polish;不设 CI 门,结果记 specs/002-m2-shop-points/perf-profile.md)
+// T065 本地性能 profile(M2 Polish;不设 CI 门,结果记本地 specs/002 perf-profile.md,不入库)
 // 前置:dev server 已起(localhost:3000)、legacyuser 可登录、guid 10 角色存在
 // 口径:GET /shop 完整 RSC 渲染(99 商品);POST /api/checkout 纯事务
 //       (发货 fire-and-forget 不计,符合「不含发货」);临时商品 perf- 前缀用后即清,余额用后还原

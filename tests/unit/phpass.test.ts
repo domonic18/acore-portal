@@ -8,7 +8,7 @@ import {
 /**
  * 黄金向量(来源:passlib 1.7.4 独立实现生成,2026-10-23 本地交叉核对)。
  * passlib 与本实现无共享代码,向量 MATCH 即双实现一致(research R2)。
- * 生产凭据/哈希不入 git——正式 golden case 见 specs/001 research R2。
+ * 生产凭据/哈希不入 git——正式 golden case 见本地 specs/001 research R2(不入库)。
  */
 const PASSLIB_VECTORS: Array<[string, string]> = [
   ["test12345", "$P$BaQhNYI93YVHpM4ThRTw0MQnYK9VGd."],

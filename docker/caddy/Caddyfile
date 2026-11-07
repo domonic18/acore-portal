@@ -18,11 +18,13 @@
 		max_size 32KB
 	}
 
-	# 安全响应头(2026-11-06 撞库加固)
+	# 安全响应头(2026-11-06 撞库加固;X-Frame-Options 于 2026-11-07 与应用层对齐)
+	# 应用层(next.config.mjs)已设同一套头 + CSP + Permissions-Policy;
+	# 此处保留边缘副本,覆盖「边缘在、应用层被改坏」的场景;同名头以本块为准
 	header {
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options "nosniff"
-		X-Frame-Options "SAMEORIGIN"
+		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		-Server
 	}

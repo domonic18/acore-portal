@@ -6,6 +6,7 @@ import { getSessionFromToken } from "@/lib/auth/session";
 import { SESSION } from "@/constants/session";
 import { requestEmailChange } from "@/server/services/auth/password";
 import { getClientIp } from "@/server/services/shared/client-ip";
+import { checkSameOrigin } from "@/server/origin-guard";
 
 const schema = z.object({
   new_email: z.string().email(),
@@ -14,6 +15,8 @@ const schema = z.object({
 
 /** 换邮箱:202 受理,确认邮件发往新邮箱;confirm 时刻才生效(FR-021) */
 export async function POST(req: NextRequest) {
+  const origin = await checkSameOrigin(req);
+  if (!origin.ok) return origin.response;
   const session = await getSessionFromToken(req.cookies.get(SESSION.ACCESS_COOKIE)?.value);
   if (!session) {
     return apiError(401, "UNAUTHORIZED", "请先登录。");
