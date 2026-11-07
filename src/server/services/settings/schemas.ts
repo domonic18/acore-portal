@@ -62,6 +62,7 @@ export const groupSchemas = {
     artviewIpMaxPerMin: z.coerce.number().int().positive().optional(),
     artviewArticleMax: z.coerce.number().int().positive().optional(),
     artviewArticleWindowSec: z.coerce.number().int().positive().optional(),
+    trackUnknownIpMaxPerMin: z.coerce.number().int().positive().optional(),
   }),
   notify: z.object({
     pointEmailThreshold: z.coerce.number().int().min(0),
@@ -165,6 +166,7 @@ export const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>
     artviewIpMaxPerMin: "security.artviewIpMaxPerMin",
     artviewArticleMax: "security.artviewArticleMax",
     artviewArticleWindowSec: "security.artviewArticleWindowSec",
+    trackUnknownIpMaxPerMin: "security.trackUnknownIpMaxPerMin",
   },
   notify: { pointEmailThreshold: "notify.pointEmailThreshold" },
   content: { tocEnabled: "content.tocEnabled" },

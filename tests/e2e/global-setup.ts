@@ -71,6 +71,8 @@ const SECURITY_E2E: Record<string, string> = {
   "security.artviewIpMaxPerMin": "10000",
   "security.artviewArticleMax": "100",
   "security.artviewArticleWindowSec": "600",
+  // 埋点上报限速:E2E 全部请求落「未知 IP」共享桶,须放宽
+  "security.trackUnknownIpMaxPerMin": "100000",
 };
 
 /** 播种路由映射与系统配置(幂等;pre-seed 与 globalSetup 共用) */

@@ -46,6 +46,7 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
       artviewIpMaxPerMin: 60,
       artviewArticleMax: 1,
       artviewArticleWindowSec: 600,
+      trackUnknownIpMaxPerMin: 600,
     });
     expect(c.notify).toEqual({ pointEmailThreshold: 0 });
     expect(c.captcha).toEqual({
@@ -92,6 +93,7 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
       artviewIpMaxPerMin: 60,
       artviewArticleMax: 1,
       artviewArticleWindowSec: 600,
+      trackUnknownIpMaxPerMin: 600,
     });
     expect(c.notify.pointEmailThreshold).toBe(50);
   });

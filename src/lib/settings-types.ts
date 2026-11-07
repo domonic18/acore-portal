@@ -56,6 +56,7 @@ export type SettingsView = {
     artviewIpMaxPerMin: number;
     artviewArticleMax: number;
     artviewArticleWindowSec: number;
+    trackUnknownIpMaxPerMin: number;
   };
   notify: { pointEmailThreshold: number };
   content: { tocEnabled: boolean };

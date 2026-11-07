@@ -58,6 +58,8 @@ INSERT INTO acore_portal.system_config (`key`, `value`, `updated_at`) VALUES
   ('security.artviewIpMaxPerMin', '60', NOW()),
   ('security.artviewArticleMax', '1', NOW()),
   ('security.artviewArticleWindowSec', '600', NOW()),
+  -- 埋点上报未知 IP 兜底桶(次/分):IP 不可判定时并进共享桶,不放弃限速
+  ('security.trackUnknownIpMaxPerMin', '600', NOW()),
   -- 人机校验(2026-11-07 换腾讯云验证码):默认关闭直通;
   -- appSecret/secretKey 是凭据,一律不入库不入 git,只在后台设置页填(只写不读)
   ('captcha.enabled', 'false', NOW())

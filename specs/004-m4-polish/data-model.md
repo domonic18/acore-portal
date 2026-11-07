@@ -65,6 +65,7 @@ model Notification {
 | stats:404:{yyyyMMdd} | hash(HINCRBY path→count) | 48h | 404 日路径计数（R6） |
 | rl:404:{ip} | string(INCR) | 60s | 404 beacon 防刷（30 次/分） |
 | rl:pview:{ip} | string(INCR) | 60s | 页面访问 beacon 防刷（30 次/分，2026-11-06 起） |
+| rl:404:unknown / rl:pview:unknown | string(INCR) | 60s | IP 不可判定时的共享兜底桶（阈值 `security.trackUnknownIpMaxPerMin`，2026-11-07 起——**不放弃限速**） |
 | stats:pv:pruned:{yyyyMMdd} | string(SET NX) | 48h | 页面访问超期清理日标记（每日一次） |
 
 - 均为非账务缓存/计数，丢失可重建（对账面零影响）

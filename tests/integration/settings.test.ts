@@ -54,6 +54,7 @@ const SECURITY_KEYS = [
   "security.artviewIpMaxPerMin",
   "security.artviewArticleMax",
   "security.artviewArticleWindowSec",
+  "security.trackUnknownIpMaxPerMin",
 ];
 const NOTIFY_KEYS = ["notify.pointEmailThreshold"];
 const SITE_KEYS = [
@@ -337,6 +338,7 @@ describe("saveSettingsGroup(T029)", () => {
         artviewIpMaxPerMin: 60,
         artviewArticleMax: 1,
         artviewArticleWindowSec: 600,
+        trackUnknownIpMaxPerMin: 600,
       },
       { id: ADMIN_ID },
     );
@@ -365,6 +367,7 @@ describe("saveSettingsGroup(T029)", () => {
       artviewIpMaxPerMin: 60,
       artviewArticleMax: 1,
       artviewArticleWindowSec: 600,
+      trackUnknownIpMaxPerMin: 600,
     });
     expect(config.notify.pointEmailThreshold).toBe(120);
   });
