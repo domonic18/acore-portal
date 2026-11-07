@@ -36,7 +36,7 @@ export const DEVLOG_SLUG = "devlog";
 /** image_asset_map 装载为同步 Map(turndown 规则不能异步回库) */
 export async function loadImageMap(pool) {
   const [rows] = await pool.query(
-    `SELECT old_url, new_url FROM acore_portal.image_asset_map`,
+    `SELECT old_url, new_url FROM image_asset_map`,
   );
   return new Map(rows.map((r) => [r.old_url, r.new_url]));
 }
@@ -61,7 +61,7 @@ export async function importCategories(pool) {
   const bySlug = {};
   for (const slug of Object.values(CATEGORY_MAP)) {
     const [rows] = await pool.query(
-      `SELECT id FROM acore_portal.article_category WHERE slug = ?`,
+      `SELECT id FROM article_category WHERE slug = ?`,
       [slug],
     );
     if (rows.length > 0) {
@@ -69,7 +69,7 @@ export async function importCategories(pool) {
       continue;
     }
     const [ins] = await pool.query(
-      `INSERT INTO acore_portal.article_category (name, slug, sort) VALUES (?, ?, 0)`,
+      `INSERT INTO article_category (name, slug, sort) VALUES (?, ?, 0)`,
       [nameBySlug[slug] ?? slug, slug],
     );
     bySlug[slug] = ins.insertId;
@@ -107,7 +107,7 @@ export async function importArticles(pool, { postIds } = {}) {
        ) v ON v.id = p.ID
       WHERE p.post_type = 'post' AND p.post_status IN ('publish', 'draft') ${scope}
         AND NOT EXISTS (
-          SELECT 1 FROM acore_portal.article a WHERE a.legacy_wp_post_id = p.ID
+          SELECT 1 FROM article a WHERE a.legacy_wp_post_id = p.ID
         )`,
     postIds ?? [],
   );
@@ -148,7 +148,7 @@ export async function importArticles(pool, { postIds } = {}) {
     for (const slug of [slug0, `${slug0}-${p.ID}`]) {
       try {
         await pool.query(
-          `INSERT INTO acore_portal.article
+          `INSERT INTO article
              (slug, title, excerpt, body_md, category_id, status, published_at, views, legacy_wp_post_id, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(3))`,
           [
@@ -243,14 +243,14 @@ export async function importDevlogPage(
   );
   const status = page.post_status === "publish" ? "published" : "draft";
   const [upd] = await pool.query(
-    `UPDATE acore_portal.content_page
+    `UPDATE content_page
         SET title = ?, body_md = ?, status = ?, legacy_wp_page_id = ?, sort_order = ?
       WHERE slug = ?`,
     [page.post_title, bodyMd, status, pageId, sortOrder, slug],
   );
   if (upd.affectedRows > 0) return { parsed: entries.length, inserted: 0, updated: 1 };
   await pool.query(
-    `INSERT INTO acore_portal.content_page
+    `INSERT INTO content_page
        (slug, title, body_md, status, sort_order, legacy_wp_page_id, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, NOW(3))`,
     [slug, page.post_title, bodyMd, status, sortOrder, pageId],
@@ -275,7 +275,7 @@ export async function importPages(pool, { pages = PAGE_MAP } = {}) {
     const bodyMd = normalizeWowheadShortcodes(toMd(page.post_content ?? ""));
     const status = page.post_status === "publish" ? "published" : "draft";
     const [upd] = await pool.query(
-      `UPDATE acore_portal.content_page
+      `UPDATE content_page
           SET title = ?, body_md = ?, status = ?, legacy_wp_page_id = ?, sort_order = ?
         WHERE slug = ?`,
       [page.post_title, bodyMd, status, wpId, i + 1, slug],
@@ -285,7 +285,7 @@ export async function importPages(pool, { pages = PAGE_MAP } = {}) {
       continue;
     }
     await pool.query(
-      `INSERT INTO acore_portal.content_page
+      `INSERT INTO content_page
          (slug, title, body_md, status, sort_order, legacy_wp_page_id, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, NOW(3))`,
       [slug, page.post_title, bodyMd, status, i + 1, wpId],
@@ -311,14 +311,14 @@ export async function importProgression(pool, { pageId = PROGRESSION_PAGE_ID } =
     const bodyMd = n.descHtml ? toMd(n.descHtml) : null;
     const imageUrl = n.imageUrl ? (makeResolver(imageMap)(n.imageUrl) ?? n.imageUrl) : null;
     const [upd] = await pool.query(
-      `UPDATE acore_portal.progression_node
+      `UPDATE progression_node
           SET title = ?, phase_date = ?, image_url = ?, body_md = ?, status = ?, sort = ?
         WHERE legacy_wp_key = ?`,
       [n.heading, n.date, imageUrl, bodyMd, n.open ? "open" : "locked", i + 1, legacyKey],
     );
     if (upd.affectedRows > 0) continue;
     await pool.query(
-      `INSERT INTO acore_portal.progression_node
+      `INSERT INTO progression_node
          (title, phase_date, image_url, body_md, status, sort, legacy_wp_key, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, NOW(3))`,
       [n.heading, n.date, imageUrl, bodyMd, n.open ? "open" : "locked", i + 1, legacyKey],
@@ -334,11 +334,11 @@ export async function reconcile(pool) {
     `SELECT COUNT(*) n FROM wp_legacy.wp_posts WHERE post_type = 'post' AND post_status IN ('publish','draft')`,
   );
   const [dstCount] = await pool.query(
-    `SELECT COUNT(*) n FROM acore_portal.article WHERE legacy_wp_post_id IS NOT NULL`,
+    `SELECT COUNT(*) n FROM article WHERE legacy_wp_post_id IS NOT NULL`,
   );
   const [viewDiffs] = await pool.query(
     `SELECT a.id, a.slug, a.views, COALESCE(v.cnt, 0) AS wp_views
-       FROM acore_portal.article a
+       FROM article a
        JOIN wp_legacy.wp_posts p ON p.ID = a.legacy_wp_post_id
        LEFT JOIN (
          SELECT id, \`count\` cnt FROM wp_legacy.wp_post_views WHERE type = 4 AND period = 'total'
@@ -346,10 +346,10 @@ export async function reconcile(pool) {
       WHERE a.views <> COALESCE(v.cnt, 0)`,
   );
   const [pageCount] = await pool.query(
-    `SELECT COUNT(*) n FROM acore_portal.content_page WHERE legacy_wp_page_id IS NOT NULL`,
+    `SELECT COUNT(*) n FROM content_page WHERE legacy_wp_page_id IS NOT NULL`,
   );
   const [progCount] = await pool.query(
-    `SELECT COUNT(*) n FROM acore_portal.progression_node WHERE legacy_wp_key LIKE 'cp:%'`,
+    `SELECT COUNT(*) n FROM progression_node WHERE legacy_wp_key LIKE 'cp:%'`,
   );
   return {
     articles: { wp: Number(srcCount[0].n), imported: Number(dstCount[0].n) },
@@ -366,13 +366,13 @@ export async function reconcile(pool) {
  */
 export async function scanContentDeadlinks(pool) {
   const [articles] = await pool.query(
-    `SELECT id, slug, body_md FROM acore_portal.article WHERE body_md LIKE '%/wp-content/uploads/%'`,
+    `SELECT id, slug, body_md FROM article WHERE body_md LIKE '%/wp-content/uploads/%'`,
   );
   const [pages] = await pool.query(
-    `SELECT id, slug, body_md FROM acore_portal.content_page WHERE body_md LIKE '%/wp-content/uploads/%'`,
+    `SELECT id, slug, body_md FROM content_page WHERE body_md LIKE '%/wp-content/uploads/%'`,
   );
   const [nodes] = await pool.query(
-    `SELECT id, legacy_wp_key, image_url, body_md FROM acore_portal.progression_node
+    `SELECT id, legacy_wp_key, image_url, body_md FROM progression_node
       WHERE image_url LIKE '%/wp-content/uploads/%' OR body_md LIKE '%/wp-content/uploads/%'`,
   );
   const refs = [];
@@ -404,19 +404,9 @@ export async function scanContentDeadlinks(pool) {
 
 // ---- CLI 入口(vitest 导入时不执行) ----
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { config } = await import("dotenv");
-  config({ path: new URL("../../.env", import.meta.url).pathname });
-  const { createPool } = await import("mysql2/promise");
-  const url = new URL(process.env.DATABASE_URL);
-  const pool = createPool({
-    host: url.hostname,
-    port: Number(url.port),
-    user: url.username,
-    password: url.password,
-    database: url.pathname.slice(1),
-    connectionLimit: 2,
-    timezone: "+00:00",
-  });
+  const { loadEnv, createPool } = await import("./lib/db.mjs");
+  loadEnv();
+  const pool = createPool({ timezone: "+00:00" });
   const categories = await importCategories(pool);
   const articles = await importArticles(pool);
   const devlog = await importDevlogPage(pool);
@@ -441,6 +431,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       2,
     ),
   );
-  if (audit.viewsDiffRows.length > 0 || deadlinks.refs.length > 0) process.exitCode = 1;
+  if (audit.viewsDiffRows.length > 0) process.exitCode = 1;
+  // 死链断言:媒体组未跑时(image_asset_map 为空)旧 URL 残留是预期态,不是事故——
+  // 编排器置 MIGRATE_MEDIA_PENDING=1 时不阻断,改由对账器降级 WARN 并点名。
+  if (deadlinks.refs.length > 0 && process.env.MIGRATE_MEDIA_PENDING !== "1") {
+    process.exitCode = 1;
+  }
   await pool.end();
 }

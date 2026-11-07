@@ -37,22 +37,20 @@ function pathKey(url) {
 
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
-  const { config } = await import("dotenv");
-  config({ path: new URL("../../.env", import.meta.url).pathname });
-  const { createPool } = await import("mysql2/promise");
-  const url = new URL(process.env.DATABASE_URL);
-  const pool = createPool({
-    host: url.hostname,
-    port: Number(url.port),
-    user: url.username,
-    password: url.password,
-    database: url.pathname.slice(1),
-    connectionLimit: 2,
-    charset: "utf8mb4",
-  });
+  const { loadEnv, createPool } = await import("./lib/db.mjs");
+  loadEnv();
+  const pool = createPool();
 
-  const [[admin]] = await pool.query(`SELECT id FROM user WHERE username = 'm1admin' LIMIT 1`);
-  if (!admin) throw new Error("m1admin 用户不存在,无法回填(uploadedBy 外键)");
+  // uploadedBy 外键必须指向真实管理员:优先 dev 种子账号 m1admin,否则取任意 admin
+  const [[admin]] = await pool.query(
+    `SELECT id FROM user
+      WHERE role = 'admin'
+      ORDER BY (username = 'm1admin') DESC, id ASC
+      LIMIT 1`,
+  );
+  if (!admin) {
+    throw new Error("目标库无管理员账号,无法回填(uploadedBy 外键):先建管理员再跑媒体库回填");
+  }
 
   // FileBird 附件分类:attachment_id → 一级文件夹名
   const [attachments] = await pool.query(

@@ -51,7 +51,14 @@
 - ~~topic/forum 两键未入 route_map~~ **已闭合(T037)**:`forum-import.mjs` 随论坛导入扩充两键,`?topic=/?forum=` 301 经 E2E 断言(forum.spec FR-219);`/bbs` 路径级由 middleware 写死 301(T008)
 - **M4 功能面 6 页**切换日补键(route-map-m3.sql 追加 VALUES 段)
 - **图片真实上传**:沿用 M2 结论——dev 演练 scan-only 映射;正式执行 `cos-upload.mjs`(去 --scan-only)后重跑内容导入即可获得 COS 绝对地址重写(当前映射 newUrl 为站点相对路径,前台可直接用)
-- 正式切换顺序:cos-upload → content-import.mjs → route-map-m3.sql → 对账输出 JSON 全零(viewsDiffRows=0 / deadlinks.refs=0)即通过;forum-import.mjs 与 route_map topic/forum 扩充随论坛域同批执行(均幂等,顺序不敏感)
+- **正式切换顺序(权威口径已上移,2026-11-07)**:本节原写的"cos-upload → content-import → route-map-m3,
+  forum 顺序不敏感"**已过时且不成立**——现由迁移链编排器收口,
+  权威顺序见 `scripts/migrate/README.md` 的 STEPS 表,执行入口 `pnpm migrate:rehearse`。
+  两处真实顺序约束(此前散落各处、易漏):
+  - `cos-upload`(**media-cos**)**必须先于** content/forum:正文图片 URL 在导入时按
+    `image_asset_map` 重写且带 `NOT EXISTS` 守卫,映射表空时旧 URL 永久落库,事后补跑救不回来;
+  - `route-map-m3.sql` **必须晚于** forum-import:⑤⑥ 两键读 `forum_thread`/`forum_board`。
+  链末统一对账:viewsDiffRows=0 / deadlinks.refs=0 即通过
 
 ## 7. 定稿核验(T050)
 

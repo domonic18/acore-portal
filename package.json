@@ -28,6 +28,8 @@
     "cron:reconcile-points": "tsx scripts/cron/reconcile-points.ts",
     "cron:recover-deliveries": "tsx --conditions=react-server scripts/cron/recover-deliveries.ts",
     "ops:force-password-reset": "tsx --conditions=react-server scripts/ops/force-password-reset.ts",
+    "migrate:rehearse": "node scripts/migrate/rehearse.mjs",
+    "migrate:reconcile": "node scripts/migrate/reconcile.mjs",
     "soap:mock": "node scripts/dev/soap-mock.mjs",
     "verify:sc001": "tsx --conditions=react-server scripts/verify/sc001-login.ts",
     "verify:soap": "tsx --conditions=react-server scripts/verify/soap-check.ts"

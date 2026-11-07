@@ -13,14 +13,14 @@
 
 -- ① 文章:p:{id} → /post/{post_name}(publish 全量)
 --   INSERT…SELECT 不支持行别名,8.4 又移除了 VALUES();沿用 M2 无更新幂等式(no-op ODKU)
-INSERT INTO acore_portal.route_map (old_key, new_path)
+INSERT INTO route_map (old_key, new_path)
 SELECT CONCAT('p:', p.ID), CONCAT('/post/', p.post_name)
 FROM wp_legacy.wp_posts p
 WHERE p.post_type = 'post' AND p.post_status = 'publish' AND p.post_name <> ''
 ON DUPLICATE KEY UPDATE route_map.id = route_map.id;
 
 -- ② 静态内容页:page_id:{id} → content_page 路径(与 content-import PAGE_MAP 对齐)
-INSERT INTO acore_portal.route_map (old_key, new_path) VALUES
+INSERT INTO route_map (old_key, new_path) VALUES
   ('page_id:2',    '/tutorial'),
   ('page_id:135',  '/about'),
   ('page_id:1407', '/agreement'),
@@ -28,7 +28,7 @@ INSERT INTO acore_portal.route_map (old_key, new_path) VALUES
 ON DUPLICATE KEY UPDATE new_path = new.new_path;
 
 -- ③ 功能面页:page_id:{id} → 现役路由(商店/渐进/论坛/开发日志/首页)
-INSERT INTO acore_portal.route_map (old_key, new_path) VALUES
+INSERT INTO route_map (old_key, new_path) VALUES
   ('page_id:8',    '/shop'),
   ('page_id:9',    '/cart'),
   ('page_id:10',   '/checkout'),
@@ -41,7 +41,7 @@ INSERT INTO acore_portal.route_map (old_key, new_path) VALUES
 ON DUPLICATE KEY UPDATE new_path = new.new_path;
 
 -- ④ 分类:cat:{id} → 归档路径
-INSERT INTO acore_portal.route_map (old_key, new_path)
+INSERT INTO route_map (old_key, new_path)
 SELECT CONCAT('cat:', t.term_id),
        CONCAT('/', CASE t.term_id WHEN 1 THEN 'announcements' WHEN 83 THEN 'news' WHEN 68 THEN 'guides' END)
 FROM wp_legacy.wp_terms t
@@ -50,25 +50,25 @@ ON DUPLICATE KEY UPDATE route_map.id = route_map.id;
 
 
 -- ⑤ 论坛(T037):topic:{wpTopicId} → /forum/thread/{id}(forum_thread 自增 id,导入后运行)
-INSERT INTO acore_portal.route_map (old_key, new_path)
+INSERT INTO route_map (old_key, new_path)
 SELECT CONCAT('topic:', f.legacy_wp_topic_id), CONCAT('/forum/thread/', f.id)
-FROM acore_portal.forum_thread f
+FROM forum_thread f
 WHERE f.legacy_wp_topic_id IS NOT NULL
 ON DUPLICATE KEY UPDATE route_map.id = route_map.id;
 
 -- ⑥ 论坛版块:forum:{wpForumId} → /forum/{slug}(slug 固定映射,forum-import 同源)
-INSERT INTO acore_portal.route_map (old_key, new_path)
+INSERT INTO route_map (old_key, new_path)
 SELECT CONCAT('forum:', b.legacy_wp_forum_id), CONCAT('/forum/', b.slug)
-FROM acore_portal.forum_board b
+FROM forum_board b
 WHERE b.legacy_wp_forum_id IS NOT NULL
 ON DUPLICATE KEY UPDATE route_map.id = route_map.id;
 
 -- 尾部对账:真实存量 108 p + 13 page_id + 3 cat + 259 topic + 5 forum = 388;
 -- dev 库另有 seed fixture(topic:2001/2002、forum:1000/1001)→ total 392 属正常
 SELECT
-  (SELECT COUNT(*) FROM acore_portal.route_map) AS total,
-  (SELECT COUNT(*) FROM acore_portal.route_map WHERE old_key LIKE 'p:%') AS posts,
-  (SELECT COUNT(*) FROM acore_portal.route_map WHERE old_key LIKE 'page_id:%') AS pages,
-  (SELECT COUNT(*) FROM acore_portal.route_map WHERE old_key LIKE 'cat:%') AS cats,
-  (SELECT COUNT(*) FROM acore_portal.route_map WHERE old_key LIKE 'topic:%') AS topics,
-  (SELECT COUNT(*) FROM acore_portal.route_map WHERE old_key LIKE 'forum:%') AS boards;
+  (SELECT COUNT(*) FROM route_map) AS total,
+  (SELECT COUNT(*) FROM route_map WHERE old_key LIKE 'p:%') AS posts,
+  (SELECT COUNT(*) FROM route_map WHERE old_key LIKE 'page_id:%') AS pages,
+  (SELECT COUNT(*) FROM route_map WHERE old_key LIKE 'cat:%') AS cats,
+  (SELECT COUNT(*) FROM route_map WHERE old_key LIKE 'topic:%') AS topics,
+  (SELECT COUNT(*) FROM route_map WHERE old_key LIKE 'forum:%') AS boards;

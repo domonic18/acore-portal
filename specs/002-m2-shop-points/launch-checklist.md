@@ -22,10 +22,24 @@
 - [ ] 测试环境(dev.17aitech.com)邀请部分玩家真实登录;`$P$` 重哈希与 `$wp$` 零接触双路径各覆盖
 - [ ] 备选:`pnpm verify:sc001`(读 workspace/verify-credentials.txt,100 组明文凭据方案保留待用)
 
-## 4. COS 图片资产正式迁移(演练走 scan-only,见 migration-report.md)
+## 4. 数据迁移链执行(切换日一条命令,权威顺序见 scripts/migrate/README.md)
 
-- [ ] system_config 配置 cos.bucket/region/secretId/secretKey/cdnBase 五键(凭据不入 env/文档,宪法 VI)
-- [ ] 切换日对最新快照按序重跑(全幂等):①`wp-users-import.sql` → ②`shop-import.sql` → ②b `slug-normalize.mjs`(WP 百分号编码 slug 解码为中文明文,对齐 M3 文章口径;动态 params 需手动 decodeURIComponent,消费端已对齐) → ③`import-points.mjs`(含 D7 差额补录+point_account 建户物化:余额=旧站 mycred_default 终值,全量 balance 与流水 SUM 零偏差) → ④`cos-upload.mjs`(去掉 `--scan-only` 即真实上传,newUrl 由 ODKU 回填 cdnBase+key)
+> 2026-11-07 起迁移链由编排器收口:`pnpm migrate:rehearse` 按权威顺序逐步执行、
+> 失败即停、链末统一对账(`FAIL>0` → 退出码 1)。**不再手工按脚本逐个跑**——
+> 顺序错了事后无从发现(内容/论坛导入的 `NOT EXISTS` 守卫会让"媒体映射未跑就导内容"
+> 永久落死链 URL,补跑救不回来)。
+
+- [ ] **切换前先在新站建好管理员账号**:`media_asset.uploaded_by` 是非空外键,
+      而迁移链只导 `role=user` 的存量用户、**链本身不建管理员**。
+      或给编排器 `MIGRATE_ADMIN_USERNAME` / `MIGRATE_ADMIN_PASSWORD` 让它代建(建完即在后台改密)
+- [ ] system_config 配置 cos.bucket/region/secretId/secretKey/cdnBase 五键(凭据不入 env/文档,宪法 VI);
+      **`cos.cdnBase` 缺失时媒体链失败关闭**(拒绝把正文图片 URL 改写成无效值)
+- [ ] 切换日演练一遍全链(空跑不入库、只验顺序与前置):`pnpm migrate:rehearse --list` 核对顺序,
+      再对独立演练 schema 跑一次 `--fresh --yes --with-media --scan-only --cdn-base https://cdn.example.invalid`
+      ——须 14/14 步过、对账 FAIL 0
+- [ ] 切换日对最新快照正式跑:`pnpm migrate:rehearse --yes --with-media`(全幂等,可重跑)。
+      覆盖 users/shop/slug/points/content/forum/route-map×2/board-descriptions/guide-pages/
+      product-images/media-library/media-verify 共 14 步
 - [ ] **SQL 执行必须带 `--default-character-set=utf8mb4`**:容器 mysql 客户端默认 latin1(无 LANG),SQL 文件内联中文字面量(legacy-deleted 商品/legacy-uncategorized 分类)会按 latin1 误读成乱码(2026-10-25 演练实翻,UPDATE 修复);WP 数据走 INSERT...SELECT 二进制安全不受累
 - [ ] 迁移后提权清单(导入口径全量 role=user,特殊角色需手工提):`deadwalk`(WP ID 1,keymaster)→ admin;版主 `422169327`/`429747629`(WP ID 3/3931)如仍在任 → moderator(后台操作,或 UPDATE user.role)
 - [ ] 死链扫描报告复跑归零;抽样前台图片可达
@@ -46,7 +60,12 @@
 
 - [x] SOAP `.server info` 真机解析核对:2026-10-29 真机(master-b9ba5a689)uptime 行为中文「服务器运行时间」,无 `Uptime:` 英文行;解析已加中英文回退(`status/parse.ts`,单测覆盖),登录队列真机无输出→前台 N/A;在线数走 characters 库 `online=1` 计数不走文本解析(契约 specs/003 contracts/server-status.md)
 - [x] characters 今日新注册口径核对:2026-10-29 真机列为 `creation_date TIMESTAMP`(非 `create_date` unix 秒);模型/fixture/集成夹具已对齐,比较改用 Date(T043 偏差注记,原推断不成立)
-- [ ] 内容迁移正式跑清单(切换日全幂等,顺序权威口径见 specs/003 migration-report §6):`cos-upload.mjs`(去 --scan-only,新增扫描面 forum_post.contentHtml/progression_node.imageUrl) → `content-import.mjs`(article/content_page/progression_node 三落地表+正文死链扫描) → `route-map-m3.sql`(p/page_id/cat 三键 124 行,断言见文件尾;topic/forum 两键随 `forum-import.mjs` 扩充) → 对账 JSON 全零(viewsDiffRows=0/deadlinks=0)
+- [ ] 内容迁移正式跑清单:**已并入 §4 的迁移链**(`pnpm migrate:rehearse --yes --with-media`),
+      链内顺序 `media-cos → content → forum → route-map-m3 → route-map-m4 → guide-pages`。
+      其中 `media-cos` 必须**先于** content/forum(正文图片 URL 在导入时按 `image_asset_map`
+      重写且带 `NOT EXISTS` 守卫,映射表空则旧 URL 永久落库);
+      `route-map-m3` 必须**晚于** forum(⑤⑥ 两键读 `forum_thread`/`forum_board`)。
+      链末对账须全零:viewsDiffRows=0 / deadlinks=0
 
 ## 8. M4 防滥用/统计/备份前置项(T037 扩)
 
@@ -54,5 +73,5 @@
 - [ ] 人机校验公网切换步骤:后台 `/admin/settings`「人机验证」组填四件套(`CaptchaAppId`/`AppSecretKey` 取自腾讯云验证码控制台,`SecretId`/`SecretKey` 取自腾讯云访问管理 API 密钥)后勾选启用并保存(保存即热生效);腾讯云**无官方测试密钥**,真票据通过路径需在测试环境用真密钥人工联调(`pnpm test:e2e:captcha` 只覆盖控件渲染与无票据 422);登录限速随 Redis 自动生效(默认 5 次/900s 窗口,锁 900s,`config.ts` 可调),公网放开前确认两防均已开
 - [ ] 备份 crontab 挂载:`BACKUP_MYSQL_CONTAINER` 改生产业务 MySQL 容器名后挂宿主 crontab(每日 03:30,周日自动追加游戏四库;命令与日志口径见 docs/ops/backup-restore.md §3);首周人工核验 COS 对象产物并做一次恢复演练
 - [ ] 游戏库 dump 客户端路径确认:mysqldump 在业务 MySQL 容器内经 `docker exec` 执行(宿主零依赖),确认生产容器名与容器内 client 可用;`gamedb.*` 连接串账号需 SELECT+LOCK TABLES 权限(`--single-transaction` 一致性快照口径)
-- [ ] route-map-m4.sql 切换日执行位次:六工具页六键(page_id 537/1287/1699/1880/1897/4371)INSERT ODKU 幂等,排在 M3 内容迁移清单之后;执行后 web 容器重启生效(route_map 进程内缓存)
+- [ ] route-map-m4.sql 切换日执行位次:六工具页六键(page_id 537/1287/1699/1880/1897/4371)INSERT ODKU 幂等,链内已固化在 `route-map-m3` 之后(§4 迁移链第 9 步);执行后 web 容器重启生效(route_map 进程内缓存)
 - [ ] 配置变更重启口径:system_config 多数键(captcha/smtp/soap/cos/备份参数)后台保存即热生效(写穿失效);唯 `gamedb.*` 四连接串改库后需 web 容器重启(进程内惰性建连,config.ts 注记)
