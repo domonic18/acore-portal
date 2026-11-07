@@ -42,6 +42,41 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml --profile 
 - 生产镜像里没有 prisma CLI(它是 devDependency,Dockerfile 做了 `--prod` 瘦身),故单独用 node 镜像跑
 - 宿主无需装 node/pnpm,也无需开放数据库端口
 
+## 2.1 迁移链在生产怎么跑(与上条不同的两件事)
+
+> §2 的 `migrate` 服务只干 `prisma migrate deploy`——它**不是**数据迁移链。
+> 数据迁移链(`pnpm migrate:rehearse`,见 `scripts/migrate/README.md`)在生产有两个结构前提:
+
+**① `wp_legacy` 必须与目标库在同一个 MySQL 实例内。**
+
+生产栈**不发布 DB 端口**(外部流量只走 caddy,见 §0),故宿主机上的迁移脚本连不进生产库;
+`wp_legacy` 若在宿主机或另一台机器上,链根本够不着它。两个可选解法:
+
+- 把 `wp_legacy` 导进生产 MySQL 实例的独立 schema(推荐;链的连接串指向该实例即可);
+- 或在 compose 网络内跑迁移:生产 `migrate` 服务目前是裸 `node:22-slim` 镜像,
+  **不含仓库代码与 node_modules**,装不下迁移链——需给该服务挂仓库卷 + 装依赖,
+  或另起一个带完整镜像的迁移服务。
+
+**② 生产迁移链需要一个有仓库与依赖的运行环境。**
+
+宿主机跑 `pnpm migrate:rehearse` 要求宿主机有 node 22 + pnpm + 依赖已装;
+生产镜像做的是 `--prod` 瘦身,迁移链要用到的 `mysql2`/`bcrypt`/`dotenv` 虽在生产依赖内,
+但仓库代码与 `scripts/` 不在镜像里。切换前二选一:宿主机装好依赖跑,或给 compose 加一个
+带完整镜像的迁移服务(勿改 §2 的 prisma 迁移服务,两者职责不同)。
+
+**③ 迁移链自己要建管理员(媒体组回填的硬前提)。**
+
+`media_asset.uploaded_by` 是非空外键,而迁移链只导 `role=user` 的存量用户,
+**链本身不建管理员**。切换前须先在新站建好管理员账号,或给编排器
+`MIGRATE_ADMIN_USERNAME` / `MIGRATE_ADMIN_PASSWORD` 让它代建(口令建完即在后台改密)。
+
+**④ 遗留库在运行时仍被查询(未记录的长期依赖)。**
+
+`src/server/services/stats/traffic.ts` 在**运行时**查 `wp_legacy.wp_statistics_summary_totals` /
+`wp_statistics_visitor` / `wp_baiduseo_zhizhu`。旧站下线后这些表消失,站点访问统计区块会空/报错。
+切换前须确认:要么把 `wp_legacy` 作为长期只读库保留(不进生产 compose 也得有可达的实例),
+要么改 `traffic.ts` 改读自建的 `page_view_event` 表(自建采集已上线,数据源本就在新库)。
+
 ## 3. 业务通道配置(部署后进后台配)
 
 `.env.prod` 只放引导级凭据(宪法 v1.0.2);下列全部存 `system_config`,部署后登录后台 `/admin/settings` 逐组保存,保存即热生效(部分例外见 `backup-restore.md` §6):
@@ -80,6 +115,11 @@ docker compose -f docker/docker-compose.prod.yml logs --tail 50 web
 
 1. 停旧栈的 nginx/mysql(释放 80/443/3306),保留其数据目录与 dump 备份
 2. 起新栈 → 迁移 → 后台配业务通道
+   - 数据迁移链走 `pnpm migrate:rehearse`(权威顺序见 `scripts/migrate/README.md`),
+     **不要手工按脚本逐个执行**——顺序错了事后无从发现(内容/论坛导入的 `NOT EXISTS`
+     守卫会让"媒体映射未跑就导内容"永久落死链 URL)
+   - 切换前先在新站建管理员账号(媒体库回填的 `uploaded_by` 外键需要),
+     并配好 COS 五键(`cos.cdnBase` 缺失时链会失败关闭)
 3. DNS 切到新机(或先 hosts 指认验证)
 4. 观察 404 采集、SOAP 发货、邮件三条关键链路
 

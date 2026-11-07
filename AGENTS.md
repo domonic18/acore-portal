@@ -97,7 +97,7 @@ scripts/         # 宿主机侧脚本,按用途分子域
 ├── dev/         # 开发辅助(seed/initdb fixture/SOAP mock)
 ├── verify/      # 验收自检(soap-check/sc001-login)
 ├── ops/         # 线上运维/事故响应脚本(强制改密等;只走 service 层原语,不直写凭据)
-├── migrate/     # WP→新库数据迁移(清洗/对账 SQL 与脚本)
+├── migrate/     # WP→新库数据迁移(清洗/对账 SQL 与脚本);migrate/lib/ = 连接与口径共享层(db.mjs 连接串/schema 前缀、admin.mjs 切换期管理员引导),migrate/rehearse.mjs = 迁移链编排器(权威顺序),migrate/reconcile.mjs = 全链统一对账断言器
 └── ci/          # CI 环境自举(游戏四库结构+WP 存量库空壳 / system_config 基线;只供 GitHub Actions)
 docker/          # 部署资产:web/Dockerfile + caddy/Caddyfile + 三套 compose
 ├── docker-compose.dev.yml    # 开发栈(本地依赖:mysql/redis/mailpit/soap-mock)——严禁用于生产
