@@ -2,7 +2,7 @@ import "server-only";
 import { Prisma } from "@/generated/business";
 import { prisma } from "@/lib/db";
 import { ADMIN_ARTICLE_PAGE_SIZE } from "@/constants/pagination";
-import { paginate } from "@/lib/pagination";
+import { pageSlice, totalPageCount } from "@/lib/pagination";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/shared/audit";
 import { ContentAdminError, type ContentStatus } from "./shared";
@@ -34,18 +34,20 @@ export async function listAdminArticles(opts: {
     ...(opts.status ? { status: opts.status } : {}),
     ...(opts.q ? { title: { contains: opts.q } } : {}),
   };
-  const total = await prisma.article.count({ where });
-  const { totalPages, skip, take } = paginate(total, page, pageSize);
-  const rows = await prisma.article.findMany({
-    where,
-    include: { category: { select: { name: true } } },
-    orderBy: { id: "desc" },
-    skip,
-    take,
-  });
+  const { skip, take } = pageSlice(page, pageSize);
+  const [total, rows] = await Promise.all([
+    prisma.article.count({ where }),
+    prisma.article.findMany({
+      where,
+      include: { category: { select: { name: true } } },
+      orderBy: { id: "desc" },
+      skip,
+      take,
+    }),
+  ]);
   return {
     page,
-    totalPages,
+    totalPages: totalPageCount(total, pageSize),
     total,
     items: rows.map((r) => ({
       id: r.id.toString(),
