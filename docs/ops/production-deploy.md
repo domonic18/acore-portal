@@ -148,17 +148,33 @@ docker compose -f docker/docker-compose.prod.yml logs --tail 50 web
 
 ### 7.1 门户的发布流程(人工)
 
+发布动作由人执行,但步骤已固化成脚本 `scripts/ops/deploy-production.sh`,避免每次发布的手工步骤随人漂移:
+
 ```bash
 cd /home/ubuntu/acore-portal
-git fetch --all && git checkout <发布提交>
-docker compose --env-file .env.prod -f docker/docker-compose.prod.yml up -d --build
-docker compose --env-file .env.prod -f docker/docker-compose.prod.yml --profile migrate run --rm migrate
+TARGET_COMMIT=<发布提交 sha> DEPLOY_ROOT=/home/ubuntu/acore-portal \
+  bash scripts/ops/deploy-production.sh
 ```
+
+脚本按顺序做六件事:
+
+1. **预检**——`.env.prod` 存在、`workspace/mysql-prod` 非空(防误指空目录起新空库)、compose 可用;
+2. **校验发布提交(只读,不碰 git)**——工作树 HEAD 必须已是 `TARGET_COMMIT` 且无未提交改动,否则拒绝发布。
+   **脚本刻意不执行 fetch / checkout / pull**:发布脚本改动仓库状态会连带破坏「回滚 = 回到上一个提交重新构建」
+   这条人工回滚路径的前提,拉代码由人自己做;
+3. **构建 web 镜像**——构建时间与提交短号以 `--build-arg` 内联进产物(页脚版本行据此核对线上版本);
+4. **迁移**——`--profile migrate run --rm migrate` 一次性服务(schema 先行,与 §2 一致);
+5. **迁移台账断言**——查库内 `_prisma_migrations`:已完成迁移数须**等于仓库里的迁移目录数**,且无未完成(失败残留)行。
+   不符即中止发布:漏跑迁移会让新代码读不到新列,失败残留行会让后续 `migrate deploy` 直接拒绝继续;
+6. **滚动 web + 健康检查**——任一步失败自动把 web 镜像切回上一版(只回代码不回数据库,迁移 forward-only)。
+
+要点:
 
 - **迁移在重建之后跑**:新镜像的 schema 变更靠一次性 `migrate` 服务(§2),漏跑会导致新代码读不到新列;
 - `.env.prod` 在宿主机且不入库,重建容器不丢业务通道凭据;
 - 回滚:`git checkout <上一个发布提交>` 再 `up -d --build`,数据库侧的破坏性变更需另备 SQL 回滚脚本
-  (Prisma 迁移 forward-only,不做自动 down)。
+  (Prisma 迁移 forward-only,不做自动 down);脚本已内置「本次发布失败 → 自动切回上一版镜像」,
+  但**回滚到更早的版本仍需人工**(脚本的镜像 tag 按提交短号打,旧镜像保留在宿主机可直接复用)。
 
 ### 7.2 为什么门户的 CI 里没有 deploy job
 
@@ -181,4 +197,8 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml --profile 
 > 手册见 [staging-deploy.md](staging-deploy.md)。两者的差别正是 §7.2 第 2、3 条说的那两条:
 > 测试栈跑在自有机器上、无真实流量、数据可重灌,风险与收益都比生产低一个量级;
 > 生产仍按 §7.1 人工发布。
+>
+> **2026-11-08 再补记**:生产栈的**发布步骤**已固化为 `scripts/ops/deploy-production.sh`(§7.1),
+> 但**触发仍由人在服务器上执行**、不接 CI——脚本化的是步骤(校验/构建/迁移/台账断言/健康检查/失败回滚),
+> 不是发布时机;「发布与回滚同一条路径」这一条仍然成立。
 
