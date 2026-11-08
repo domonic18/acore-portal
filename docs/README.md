@@ -30,6 +30,7 @@
 | 文档 | 说明 |
 |------|------|
 | [production-deploy.md](ops/production-deploy.md) | 生产栈(CVM + compose + Caddy)架构、发布/回滚手册、**§7 门户「人工发布」现状与理由**、子站部署形态差异 |
+| [staging-deploy.md](ops/staging-deploy.md) | **预发布环境自动部署**:push develop → 自托管 runner 重建 web 镜像、迁移守卫闸门、回滚与数据安全红线 |
 | [backup-restore.md](ops/backup-restore.md) | 备份口径(cron mysqldump + 对象存储)、恢复流程、与发布窗口的对齐 |
 
 ### plan/(迭代计划 · 状态真相源)
