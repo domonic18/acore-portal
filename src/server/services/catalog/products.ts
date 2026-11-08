@@ -109,6 +109,8 @@ export async function listProducts(
 export type ProductDetail = {
   id: string;
   sku: string;
+  /** 服务类发货处理器键(服务类参数矩阵按此解析,SKU 仅为唯一标识) */
+  handlerKey: string | null;
   slug: string;
   name: string;
   type: string;
@@ -139,6 +141,7 @@ export async function getProductDetail(slug: string): Promise<ProductDetail | nu
   return {
     id: row.id.toString(),
     sku: row.sku,
+    handlerKey: row.handlerKey,
     slug: row.slug,
     name: row.name,
     type: row.type,

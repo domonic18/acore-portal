@@ -122,9 +122,13 @@ const configSchema = z.object({
     // 也不因一次代理配置错误把全站用户并成一个桶而误伤
     trackUnknownIpMaxPerMin: z.coerce.number().int().positive().default(600),
   }),
-  // 通知域(M4 US3):积分变动邮件阈值(0=关闭)
+  // 通知域(M4 US3):积分变动邮件阈值(0=关闭);
+  // 飞书自定义机器人告警通道:webhook 地址含 bot key,按敏感口径只写不读
   notify: z.object({
     pointEmailThreshold: z.coerce.number().int().min(0).default(0),
+    feishuAlertEnabled: z.boolean().default(false),
+    feishuWebhookUrl: z.string().default(""),
+    feishuWebhookSecret: z.string().default(""),
   }),
   // 内容域(2026-11-05 用户反馈):正文目录开关;键缺省按 tocEnabled=true
   content: z.object({
@@ -275,6 +279,9 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
     },
     notify: {
       pointEmailThreshold: flat["notify.pointEmailThreshold"] ?? "0",
+      feishuAlertEnabled: flat["notify.feishuAlertEnabled"] === "true",
+      feishuWebhookUrl: flat["notify.feishuWebhookUrl"] ?? "",
+      feishuWebhookSecret: flat["notify.feishuWebhookSecret"] ?? "",
     },
     content: {
       tocEnabled: flat["content.tocEnabled"] !== "false",

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiRequestError, requestJson } from "@/lib/api-client";
 import { ITEM_QUALITY_COLOR } from "@/constants/shop";
-import { SERVICE_SKU_OPTIONS } from "@/constants/shop-sku";
+import { SERVICE_HANDLER_OPTIONS } from "@/constants/shop-sku";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -12,9 +12,10 @@ import { FormField } from "./field";
 import type { ProductFieldErrors } from "./validation";
 
 /**
- * 物品 / 服务 SKU 选择器(商品编辑页「基本信息」区的核心):
+ * 物品 / 服务 选择器(商品编辑页「基本信息」区的核心):
  * 物品类——按物品ID 或名称检索 world.item_template,选中即自动派生 itemsend_{物品ID};
- * 服务类——从发货处理器注册表的 6 个键里下拉选择,不再自由文本。
+ *          可堆叠物品(stackable>1)自动派生 _stack 后缀(一封邮件发多个);
+ * 服务类——从发货处理器注册表的 6 个键里下拉选择(handler_key),SKU 只是唯一标识。
  * SKU 默认只读,高级区可手动改写(改写后实时校验与服务端二次校验)。
  */
 
@@ -22,6 +23,7 @@ type GameItemHit = {
   entry: number;
   name: string | null;
   quality: number | null;
+  stackable: number | null;
 };
 
 function qualityColor(quality: number | null): string {
@@ -29,9 +31,15 @@ function qualityColor(quality: number | null): string {
   return ITEM_QUALITY_COLOR[quality] ?? "#9d9d9d";
 }
 
+/** 可堆叠判定(AC 真表 stackable=最大堆叠数,1=不可堆叠) */
+function isStackable(hit: { stackable: number | null } | null): boolean {
+  return (hit?.stackable ?? 1) > 1;
+}
+
 export function ItemPicker({
   type,
   sku,
+  handlerKey,
   gameItemId,
   stack,
   skuOverride,
@@ -46,11 +54,12 @@ export function ItemPicker({
 }: {
   type: string;
   sku: string;
+  handlerKey: string | null;
   gameItemId: number | null;
   stack: boolean;
   skuOverride: boolean;
   errors: ProductFieldErrors;
-  onSelectItem: (entry: number, name: string | null) => void;
+  onSelectItem: (entry: number, name: string | null, stackable: number | null) => void;
   onSelectService: (key: string) => void;
   onToggleStack: (next: boolean) => void;
   onEnableOverride: () => void;
@@ -93,7 +102,7 @@ export function ItemPicker({
     return () => clearTimeout(timer);
   }, [q, runSearch, type]);
 
-  // 编辑既有商品时补出当前物品的名称(检索不到不影响编辑,只是少一行说明)
+  // 编辑既有商品时补出当前物品的名称与可堆叠性(检索不到不影响编辑,只是少一行说明)
   useEffect(() => {
     if (type !== "game_item" || gameItemId == null) return;
     let cancelled = false;
@@ -112,26 +121,68 @@ export function ItemPicker({
     };
   }, [gameItemId, type]);
 
+  const skuField = (
+    <FormField
+      label={type === "service" ? "SKU(商品唯一标识)" : "SKU(发货唯一依据)"}
+      required
+      error={errors.sku}
+      hint={
+        skuOverride
+          ? undefined
+          : type === "service"
+            ? "默认取所选发货处理器键;复制商品会自动追加 -copy 后缀"
+            : "由所选物品自动生成,不可手改"
+      }
+    >
+      <Input
+        value={sku}
+        onChange={(e) => onSkuChange(e.target.value)}
+        readOnly={!skuOverride}
+        aria-label="SKU"
+        className={skuOverride ? "" : "opacity-70"}
+      />
+    </FormField>
+  );
+
+  const overrideControls = skuOverride ? (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-[#e8c877]">
+        高级模式:手改 SKU 不会改变所选物品,保存时服务端仍会核对两者是否一致。
+      </span>
+      <Button type="button" variant="ghost" size="sm" onClick={onDisableOverride}>
+        恢复自动生成
+      </Button>
+    </div>
+  ) : (
+    <Button type="button" variant="ghost" size="sm" onClick={onEnableOverride}>
+      高级:手动改写 SKU
+    </Button>
+  );
+
   if (type === "service") {
-    const known = SERVICE_SKU_OPTIONS.some((o) => o.key === sku);
+    const known = SERVICE_HANDLER_OPTIONS.some((o) => o.key === handlerKey);
     return (
       <div className="flex flex-col gap-2">
         <FormField label="服务类型(发货处理器)" required error={errors.sku}>
           <Select
-            value={sku}
+            value={handlerKey ?? ""}
             onChange={(e) => onSelectService(e.target.value)}
             aria-label="服务类型"
           >
-            {!known && sku && <option value={sku}>{sku}(历史自定义键)</option>}
-            {SERVICE_SKU_OPTIONS.map((o) => (
+            {!known && handlerKey && (
+              <option value={handlerKey}>{handlerKey}(历史自定义键)</option>
+            )}
+            {SERVICE_HANDLER_OPTIONS.map((o) => (
               <option key={o.key} value={o.key}>
                 {o.label}({o.key})
               </option>
             ))}
           </Select>
         </FormField>
+        {skuField}
+        {overrideControls}
         <p className="text-xs text-[#6482a3]">
-          服务类商品由选定的处理器发货,SKU 即处理器键;系统不支持的服务不要上架。
+          服务类由所选处理器发货;SKU 只是商品唯一标识(可与处理器键不同),不影响发货。
         </p>
       </div>
     );
@@ -173,7 +224,7 @@ export function ItemPicker({
                 data-testid={`game-item-option-${item.entry}`}
                 onClick={() => {
                   setCurrent(item);
-                  onSelectItem(item.entry, item.name);
+                  onSelectItem(item.entry, item.name, item.stackable);
                 }}
                 className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[13px] hover:bg-[#13233a] ${FOCUS_RING}`}
               >
@@ -186,6 +237,11 @@ export function ItemPicker({
                 <span className="min-w-0 flex-1 truncate text-[#dcebf7]">
                   {item.name || "(未命名物品)"}
                 </span>
+                {isStackable(item) && (
+                  <span className="shrink-0 rounded bg-[#1d3557] px-1.5 py-0.5 text-[11px] text-[#8fd3f4]">
+                    可堆叠
+                  </span>
+                )}
                 {item.entry === gameItemId && <span className="text-xs text-[#6ee7b7]">已选</span>}
               </button>
             </li>
@@ -205,44 +261,22 @@ export function ItemPicker({
             <span className="min-w-0 flex-1 truncate text-[#dcebf7]">
               {current?.name || "(名称未知,可在高级区改写 SKU)"}
             </span>
+            {isStackable(current) && (
+              <span className="shrink-0 rounded bg-[#1d3557] px-1.5 py-0.5 text-[11px] text-[#8fd3f4]">
+                可堆叠 ×{current?.stackable}
+              </span>
+            )}
           </div>
         </div>
       )}
 
       <label className="flex items-center gap-2 text-[13px] text-[#93b2ce]">
         <Switch checked={stack} onChange={onToggleStack} ariaLabel="一封邮件发多个" />
-        <span>一封邮件发多个(_stack 形态,可堆叠物品才勾选)</span>
+        <span>一封邮件发多个(_stack 形态;可堆叠物品已自动勾选)</span>
       </label>
 
-      <FormField
-        label="SKU(发货唯一依据)"
-        required
-        error={errors.sku}
-        hint={skuOverride ? undefined : "由所选物品自动生成,不可手改"}
-      >
-        <Input
-          value={sku}
-          onChange={(e) => onSkuChange(e.target.value)}
-          readOnly={!skuOverride}
-          aria-label="SKU"
-          className={skuOverride ? "" : "opacity-70"}
-        />
-      </FormField>
-
-      {skuOverride ? (
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-[#e8c877]">
-            高级模式:手改 SKU 不会改变所选物品,保存时服务端仍会核对两者是否一致。
-          </span>
-          <Button type="button" variant="ghost" size="sm" onClick={onDisableOverride}>
-            恢复自动生成
-          </Button>
-        </div>
-      ) : (
-        <Button type="button" variant="ghost" size="sm" onClick={onEnableOverride}>
-          高级:手动改写 SKU
-        </Button>
-      )}
+      {skuField}
+      {overrideControls}
     </div>
   );
 }

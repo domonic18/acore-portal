@@ -10,7 +10,11 @@ import type { ProductFormValues } from "./use-product-form";
 
 export type ProductFieldErrors = Partial<Record<string, string>>;
 
-export function validateProductForm(values: ProductFormValues): ProductFieldErrors {
+export function validateProductForm(
+  values: ProductFormValues,
+  /** 所选物品的最大堆叠数(1=不可堆叠);null=未知 */
+  itemStackable?: number | null,
+): ProductFieldErrors {
   const errors: ProductFieldErrors = {};
 
   const name = values.name.trim();
@@ -58,6 +62,8 @@ export function validateProductForm(values: ProductFormValues): ProductFieldErro
     type: values.type,
     sku: values.sku,
     gameItemId: values.gameItemId ?? null,
+    handlerKey: values.handlerKey,
+    stackable: itemStackable ?? null,
   });
   if (binding) errors[binding.field] = binding.message;
 
