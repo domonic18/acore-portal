@@ -31,7 +31,7 @@ export function BasicSection({
   categories: { id: string; name: string }[];
   skuOverride: boolean;
   stack: boolean;
-  onSelectItem: (entry: number, name: string | null) => void;
+  onSelectItem: (entry: number, name: string | null, stackable: number | null) => void;
   onSelectService: (key: string) => void;
   onToggleStack: (next: boolean) => void;
   onEnableOverride: () => void;
@@ -58,7 +58,7 @@ export function BasicSection({
                 aria-pressed={active}
                 onClick={() => {
                   if (active) return;
-                  update({ type: opt.key, sku: "", gameItemId: null });
+                  update({ type: opt.key, sku: "", gameItemId: null, handlerKey: null });
                 }}
                 className={`rounded-lg border px-3 py-1.5 text-[13px] transition ${FOCUS_RING} ${
                   active
@@ -76,6 +76,7 @@ export function BasicSection({
       <ItemPicker
         type={values.type}
         sku={values.sku}
+        handlerKey={values.handlerKey}
         gameItemId={values.gameItemId ?? null}
         stack={stack}
         skuOverride={skuOverride}

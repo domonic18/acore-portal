@@ -121,6 +121,8 @@ export type AdminProductDetail = {
   id: string;
   type: string;
   sku: string;
+  /** 服务类发货处理器键 */
+  handlerKey: string | null;
   slug: string;
   name: string;
   description: string;
@@ -152,6 +154,7 @@ export async function getAdminProduct(id: bigint): Promise<AdminProductDetail | 
     id: product.id.toString(),
     type: product.type,
     sku: product.sku,
+    handlerKey: product.handlerKey,
     slug: product.slug,
     name: product.name,
     description: product.description,

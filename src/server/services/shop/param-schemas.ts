@@ -45,15 +45,24 @@ export const ITEM_SEND_PARAM_SCHEMA: z.ZodType<ValidatedCartParams> = z
   .object({ characterGuid: guidSchema })
   .strict();
 
-export function resolveParamSchema(sku: string): z.ZodType<ValidatedCartParams> | null {
+export function resolveParamSchema(
+  sku: string,
+  handlerKey?: string | null,
+): z.ZodType<ValidatedCartParams> | null {
   if (sku.startsWith(ITEMSEND_SKU_PREFIX)) return ITEM_SEND_PARAM_SCHEMA;
   if (sku.startsWith(TRANSMOG_ITEM_SKU_PREFIX)) return ITEM_SEND_PARAM_SCHEMA;
-  return CART_PARAM_SCHEMAS[sku] ?? null;
+  // 服务类:处理器键优先;缺省时回落到「SKU 本身就是注册键」的存量形态
+  const key = handlerKey?.trim() || (CART_PARAM_SCHEMAS[sku] ? sku : "");
+  if (!key) return null;
+  return CART_PARAM_SCHEMAS[key] ?? null;
 }
 
 /** 详情页渲染参数表单所需的字段键(null=未注册 SKU,前端呈现"暂不支持购买") */
-export function cartParamFields(sku: string): (keyof CartParams)[] | null {
-  const schema = resolveParamSchema(sku);
+export function cartParamFields(
+  sku: string,
+  handlerKey?: string | null,
+): (keyof CartParams)[] | null {
+  const schema = resolveParamSchema(sku, handlerKey);
   if (!schema) return null;
   const obj = schema as unknown as z.ZodObject<z.ZodRawShape>;
   return Object.keys(obj.shape) as (keyof CartParams)[];
@@ -63,9 +72,13 @@ export type CartParamsOutcome =
   | { ok: true; params: ValidatedCartParams }
   | { ok: false; reason: "PARAM_INVALID" | "NO_HANDLER" };
 
-/** 未注册 SKU(服务类)与未命中矩阵的物品类一律 NO_HANDLER(FR-126 同源防线) */
-export function validateCartParams(sku: string, params: unknown): CartParamsOutcome {
-  const schema = resolveParamSchema(sku);
+/** 未注册处理器(服务类)与未命中矩阵的物品类一律 NO_HANDLER(FR-126 同源防线) */
+export function validateCartParams(
+  sku: string,
+  params: unknown,
+  handlerKey?: string | null,
+): CartParamsOutcome {
+  const schema = resolveParamSchema(sku, handlerKey);
   if (!schema) return { ok: false, reason: "NO_HANDLER" };
   const parsed = schema.safeParse(params ?? {});
   if (!parsed.success) return { ok: false, reason: "PARAM_INVALID" };

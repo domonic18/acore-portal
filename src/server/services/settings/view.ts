@@ -69,7 +69,12 @@ export async function getSettingsView(): Promise<SettingsView> {
       artviewArticleWindowSec: config.security.artviewArticleWindowSec,
       trackUnknownIpMaxPerMin: config.security.trackUnknownIpMaxPerMin,
     },
-    notify: { pointEmailThreshold: config.notify.pointEmailThreshold },
+    notify: {
+      pointEmailThreshold: config.notify.pointEmailThreshold,
+      feishuAlertEnabled: config.notify.feishuAlertEnabled,
+      feishuWebhookConfigured: config.notify.feishuWebhookUrl !== "",
+      feishuWebhookSecretConfigured: config.notify.feishuWebhookSecret !== "",
+    },
     content: { tocEnabled: config.content.tocEnabled },
     site: {
       name: config.site.name,

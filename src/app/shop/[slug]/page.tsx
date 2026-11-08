@@ -52,7 +52,7 @@ export default async function ProductDetailPage({
     }
   }
 
-  const fields = cartParamFields(detail.sku);
+  const fields = cartParamFields(detail.sku, detail.handlerKey);
   const loginHref = `/login?next=${encodeURIComponent(`/shop/${detail.slug}`)}`;
   // 详情 Markdown 与文章同管线同白名单(图片域=站内+CDN);detailMd 空回退简介——
   // 存量商品简介是 WP 遗留 HTML(<p>/<a>),直出会把标签当文字显示,同样走管线渲染

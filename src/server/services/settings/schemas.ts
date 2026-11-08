@@ -85,6 +85,10 @@ export const groupSchemas = {
   }),
   notify: z.object({
     pointEmailThreshold: z.coerce.number().int().min(0),
+    // 飞书告警开关(非敏感);webhook 地址与密钥为只写不读,留空=保持现值
+    feishuAlertEnabled: z.boolean().optional(),
+    feishuWebhookUrl: z.string().trim().optional(),
+    feishuWebhookSecret: z.string().trim().optional(),
   }),
   // 内容域:目录开关;optional=缺省保持现值(组级全量提交口径)
   content: z.object({
@@ -219,7 +223,12 @@ export const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>
     artviewArticleWindowSec: "security.artviewArticleWindowSec",
     trackUnknownIpMaxPerMin: "security.trackUnknownIpMaxPerMin",
   },
-  notify: { pointEmailThreshold: "notify.pointEmailThreshold" },
+  notify: {
+    pointEmailThreshold: "notify.pointEmailThreshold",
+    feishuAlertEnabled: "notify.feishuAlertEnabled",
+    feishuWebhookUrl: "notify.feishuWebhookUrl",
+    feishuWebhookSecret: "notify.feishuWebhookSecret",
+  },
   content: { tocEnabled: "content.tocEnabled" },
   site: {
     name: "site.name",
@@ -282,6 +291,8 @@ export const sensitiveFields: Partial<
   captcha: { appSecret: "secret", secretKey: "secret" },
   gamedb: { auth: "masked", characters: "masked", world: "masked", eluna: "masked" },
   cos: { secretKey: "secret" },
+  // 飞书 webhook 地址本身含 bot key,密钥同理 → 两者都只写不读
+  notify: { feishuWebhookUrl: "secret", feishuWebhookSecret: "secret" },
 };
 
 /** 取字段的敏感处理口径;非敏感字段返回 undefined */
