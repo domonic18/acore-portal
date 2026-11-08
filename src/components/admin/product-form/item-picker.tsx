@@ -22,6 +22,8 @@ import type { ProductFieldErrors } from "./validation";
 type GameItemHit = {
   entry: number;
   name: string | null;
+  /** 中文名(issue #151);游戏库无本地化表时为 null */
+  nameZh: string | null;
   quality: number | null;
   stackable: number | null;
 };
@@ -29,6 +31,17 @@ type GameItemHit = {
 function qualityColor(quality: number | null): string {
   if (quality == null) return "#9d9d9d";
   return ITEM_QUALITY_COLOR[quality] ?? "#9d9d9d";
+}
+
+/** 主名优先中文,回落英文 */
+function primaryName(hit: { name: string | null; nameZh: string | null }): string {
+  return hit.nameZh || hit.name || "(未命名物品)";
+}
+
+/** 副名:英文名与主名不同时并列展示,便于核对 */
+function secondaryName(hit: { name: string | null; nameZh: string | null }): string | null {
+  if (!hit.name || !hit.nameZh || hit.name === hit.nameZh) return null;
+  return hit.name;
 }
 
 /** 可堆叠判定(AC 真表 stackable=最大堆叠数,1=不可堆叠) */
@@ -195,7 +208,7 @@ export function ItemPicker({
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="按物品 ID 或名称搜索(如 19019 / 坐骑)"
+          placeholder="按物品 ID 或名称搜索(如 19019 / 坐骑 / 中文名)"
           aria-label="搜索游戏物品"
         />
         {searchError && (
@@ -234,8 +247,11 @@ export function ItemPicker({
                   style={{ backgroundColor: qualityColor(item.quality) }}
                 />
                 <span className="w-20 shrink-0 font-mono text-[#93b2ce]">#{item.entry}</span>
-                <span className="min-w-0 flex-1 truncate text-[#dcebf7]">
-                  {item.name || "(未命名物品)"}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[#dcebf7]">{primaryName(item)}</span>
+                  {secondaryName(item) && (
+                    <span className="block truncate text-[11px] text-[#6482a3]">{item.name}</span>
+                  )}
                 </span>
                 {isStackable(item) && (
                   <span className="shrink-0 rounded bg-[#1d3557] px-1.5 py-0.5 text-[11px] text-[#8fd3f4]">
@@ -258,8 +274,13 @@ export function ItemPicker({
               style={{ backgroundColor: qualityColor(current?.quality ?? null) }}
             />
             <span className="font-mono text-[#93b2ce]">#{gameItemId}</span>
-            <span className="min-w-0 flex-1 truncate text-[#dcebf7]">
-              {current?.name || "(名称未知,可在高级区改写 SKU)"}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[#dcebf7]">
+                {current ? primaryName(current) : "(名称未知,可在高级区改写 SKU)"}
+              </span>
+              {current && secondaryName(current) && (
+                <span className="block truncate text-[11px] text-[#6482a3]">{current.name}</span>
+              )}
             </span>
             {isStackable(current) && (
               <span className="shrink-0 rounded bg-[#1d3557] px-1.5 py-0.5 text-[11px] text-[#8fd3f4]">
