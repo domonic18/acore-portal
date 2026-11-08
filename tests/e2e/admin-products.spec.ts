@@ -62,19 +62,21 @@ test.beforeAll(async () => {
     })
   ).id;
 
+  // 物品类商品的 SKU 必须是 itemsend_{真实存在的物品ID}(编辑页保存会做交叉校验),
+  // 取 19500+ 测试区间(见 scripts/dev/initdb/init-game-schemas.sql)
   limitId = await createProduct({
-    sku: `e2e-limit-${RUN}`,
+    sku: "itemsend_19500",
     slug: `${SLUG_PREFIX}limit`,
     name: `E2E 限购商品 ${RUN}`,
     type: "game_item",
-    gameItemId: 19019,
+    gameItemId: 19500,
   });
   batchId = await createProduct({
-    sku: `e2e-batch-${RUN}`,
+    sku: "itemsend_19501",
     slug: `${SLUG_PREFIX}batch`,
     name: `E2E 批量商品 ${RUN}`,
     type: "game_item",
-    gameItemId: 19020,
+    gameItemId: 19501,
   });
   await createProduct({
     sku: `e2e-svc-${RUN}`,
@@ -83,11 +85,11 @@ test.beforeAll(async () => {
     type: "service",
   });
   await createProduct({
-    sku: `e2e-item-${RUN}`,
+    sku: "itemsend_19502",
     slug: `${SLUG_PREFIX}item`,
     name: `E2E 物品商品 ${RUN}`,
     type: "game_item",
-    gameItemId: 19021,
+    gameItemId: 19502,
   });
 });
 
