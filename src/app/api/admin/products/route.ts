@@ -113,7 +113,7 @@ function mapProductError(err: unknown) {
         : err.code === "CATEGORY_NOT_FOUND" || err.code === "NOT_FOUND"
           ? 404
           : 422;
-    return apiError(status, err.code, err.message);
+    return apiError(status, err.code, err.message, err.field ? { field: err.field } : undefined);
   }
   throw err;
 }

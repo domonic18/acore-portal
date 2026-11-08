@@ -4,7 +4,7 @@ import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/shared/audit";
 import type { ProductStatusValue } from "@/constants/shop";
 import { gameItemExists } from "../sku-check";
-import { resolveHandler } from "@/server/services/shop/handlers/registry";
+import { validateSkuBinding, parseServiceSku } from "@/constants/shop-sku";
 import { ProductAdminError } from "./shared";
 
 export type ProductSaveInput = {
@@ -32,17 +32,30 @@ export type ProductSaveInput = {
 };
 
 export async function saveProduct(input: ProductSaveInput): Promise<{ id: bigint }> {
+  // SKU 契约先于打库校验(纯函数,避免为明显的 SKU 错误白跑一次 world 查询)
+  const binding = validateSkuBinding({
+    type: input.type,
+    sku: input.sku,
+    gameItemId: input.gameItemId ?? null,
+  });
+  if (binding) {
+    throw new ProductAdminError(binding.code, binding.message, binding.field);
+  }
+
   if (input.type === "game_item") {
     if (input.gameItemId == null || !(await gameItemExists(input.gameItemId))) {
       throw new ProductAdminError(
         "SKU_GAME_ITEM_NOT_FOUND",
         `游戏物品 #${input.gameItemId ?? "?"} 不存在,请核对物品 ID。`,
+        "gameItemId",
       );
     }
-  } else if (resolveHandler(input.sku) === null) {
+  } else if (parseServiceSku(input.sku) === null) {
+    // 放行 -copy / -copy-N 派生键(存量副本须可编辑;副本发货缺陷另议)
     throw new ProductAdminError(
       "SKU_HANDLER_UNBOUND",
       "服务类 SKU 未绑定处理器,请使用注册表内的服务键。",
+      "sku",
     );
   }
 
