@@ -91,10 +91,11 @@ services:
     command: npx --yes prisma@6.19.3 migrate deploy --schema prisma/schema-business/schema.prisma
     volumes:
       - ../prisma/schema-business:/app/prisma/schema-business:ro
-    environment:
-      # 默认值与本栈 mysql 服务的账号默认一致(MYSQL_USER/MYSQL_PASSWORD 默认);
-      # 用 --env-file .env.test 覆盖即取该文件里的 DATABASE_URL
-      DATABASE_URL: ${DATABASE_URL:-mysql://acore_portal:acore_portal@mysql:3306/acore_portal}
+    # 与 web 同一个 env_file:迁移必须打 web 实际在用的那个库(容器网络内的 mysql:3306)。
+    # 禁用 ${DATABASE_URL} 插值——compose 插值优先级 shell env > --env-file > .env,
+    # CI 作业级 env 会盖掉 .env.test(曾导致 migrate 拿到 127.0.0.1:3306 而 P1001 连不上)
+    env_file:
+      - ${DEPLOY_ROOT:-..}/.env.test
     depends_on:
       mysql:
         condition: service_healthy
