@@ -186,6 +186,15 @@ test.describe("US2 商城与购物车(T026)", () => {
     await expect(md.getByRole("strong")).toContainText("加粗");
   });
 
+  test("商店页右上角购物车为图标入口(非纯文字,#160)", async ({ page }) => {
+    await page.goto("/shop");
+    const entry = page.getByTestId("shop-cart-entry");
+    await expect(entry).toBeVisible();
+    await expect(entry).toHaveAttribute("href", "/cart");
+    await expect(entry.locator("svg")).toBeVisible();
+    await expect(entry).toHaveText(/购物车/);
+  });
+
   test("越权直发他人 characterGuid → 403 + ownership_violation 审计", async ({ page }) => {
     await login(page);
     const product = await prisma.product.findUniqueOrThrow({
