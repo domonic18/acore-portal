@@ -142,6 +142,25 @@ export const groupSchemas = {
       .max(60, "轮播间隔须为 1-60 秒")
       .optional(),
   }),
+  // 外部工具站地址(M4 US1):rank 排行榜子站与 DKP 独立站,换环境只改 system_config
+  tools: z.object({
+    rankBase: z.string().trim().url("排行榜地址须为合法 URL").optional(),
+    dkpUrl: z.string().trim().url("DKP 地址须为合法 URL").optional(),
+  }),
+  // 腾讯云 COS(对象存储/图片托管):bucket 为开关——空=未配置(整组不生效);
+  // secretKey 只写不读(留空=保持现值),secretId 可回显(便于识别用的是哪把密钥)
+  cos: z.object({
+    bucket: z.string().trim().optional(),
+    region: z.string().trim().optional(),
+    secretId: z.string().trim().optional(),
+    secretKey: z.string().optional(),
+    cdnBase: z.string().trim().optional(),
+  }),
+  // 备份脚本参数(cron 读 system_config):保留天数与游戏库周备份开关
+  backup: z.object({
+    retentionDays: z.coerce.number().int().min(0, "保留天数须为非负整数").optional(),
+    gameWeekly: z.boolean().optional(),
+  }),
 } as const;
 
 /** 字段 → system_config 键;sensitive 键空输入=保持原值 */
@@ -231,6 +250,21 @@ export const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>
     achievementScrolling: "home.achievementScrolling",
     carouselIntervalSec: "home.carouselIntervalSec",
   },
+  tools: {
+    rankBase: "tools.rankBase",
+    dkpUrl: "tools.dkpUrl",
+  },
+  cos: {
+    bucket: "cos.bucket",
+    region: "cos.region",
+    secretId: "cos.secretId",
+    secretKey: "cos.secretKey",
+    cdnBase: "cos.cdnBase",
+  },
+  backup: {
+    retentionDays: "backup.retentionDays",
+    gameWeekly: "backup.gameWeekly",
+  },
 };
 /**
  * 敏感字段处理口径(按「组+字段」登记,不再按字段名全局匹配——
@@ -247,6 +281,7 @@ export const sensitiveFields: Partial<
   smtp: { password: "secret" },
   captcha: { appSecret: "secret", secretKey: "secret" },
   gamedb: { auth: "masked", characters: "masked", world: "masked", eluna: "masked" },
+  cos: { secretKey: "secret" },
 };
 
 /** 取字段的敏感处理口径;非敏感字段返回 undefined */

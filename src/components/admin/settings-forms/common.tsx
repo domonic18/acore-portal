@@ -18,7 +18,10 @@ export type GroupName =
   | "content"
   | "site"
   | "appearance"
-  | "theme";
+  | "theme"
+  | "tools"
+  | "cos"
+  | "backup";
 
 export function SecretInput({
   testid,
