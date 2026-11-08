@@ -160,26 +160,48 @@ USE acore_world;
 
 CREATE TABLE IF NOT EXISTS `item_template` (
   `entry` INT UNSIGNED NOT NULL DEFAULT 0,
-  `name` VARCHAR(128) NOT NULL DEFAULT '',
+  `name` VARCHAR(255) NOT NULL DEFAULT '',
   `quality` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  `stackable` INT NOT NULL DEFAULT 1 COMMENT '最大堆叠数(1=不可堆叠)',
   PRIMARY KEY (`entry`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '物品模板(合成种子子集,无生产数据)';
 
+-- 既有开发/测试库(本脚本引入 stackable 之前建的 3 列表)补列并放宽 name(幂等,可重复执行)。
+-- MySQL 8.4 无 ADD COLUMN IF NOT EXISTS,判存走 information_schema。
+SET @ddl := IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = 'acore_world' AND TABLE_NAME = 'item_template' AND COLUMN_NAME = 'stackable'),
+  'SELECT 1',
+  'ALTER TABLE `item_template` ADD COLUMN `stackable` INT NOT NULL DEFAULT 1 COMMENT ''最大堆叠数(1=不可堆叠)'''
+);
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @ddl := IF(
+  EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = 'acore_world' AND TABLE_NAME = 'item_template' AND COLUMN_NAME = 'name'
+         AND CHARACTER_MAXIMUM_LENGTH >= 255),
+  'SELECT 1',
+  'ALTER TABLE `item_template` MODIFY COLUMN `name` VARCHAR(255) NOT NULL DEFAULT '''''
+);
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- 与业务库 seed 商品(SHOP_FIXTURE gameItemId)一一对应
-INSERT INTO `item_template` (`entry`, `name`, `quality`) VALUES
-  (19019, '测试坐骑·限量', 3),
-  (19020, '测试坐骑·促销中', 3),
-  (19021, '测试坐骑·促销已过期', 3)
-ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);
+-- stackable:19020 模拟可堆叠物品(合剂类,一封邮件可发多个);其余不可堆叠
+INSERT INTO `item_template` (`entry`, `name`, `quality`, `stackable`) VALUES
+  (19019, '测试坐骑·限量', 3, 1),
+  (19020, '测试坐骑·促销中', 3, 20),
+  (19021, '测试坐骑·促销已过期', 3, 1)
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `stackable` = VALUES(`stackable`);
 
 -- 测试专用区间 19500..19699(商品编辑台用例与后台商品集成用例各占一段):
 -- SKU 唯一 ⇒ 每个商品需一个独立且真实存在的物品 entry。
 -- 19000..19199 保留给业务种子与其他测试文件,勿占用。
-INSERT INTO `item_template` (`entry`, `name`, `quality`)
+-- 每 10 个 entry 造一个可堆叠物品(尾部 entry % 10 = 9),覆盖 _stack 派生分支。
+INSERT INTO `item_template` (`entry`, `name`, `quality`, `stackable`)
 WITH RECURSIVE `seq` (`n`) AS (
   SELECT 19500
   UNION ALL
   SELECT `n` + 1 FROM `seq` WHERE `n` < 19699
 )
-SELECT `n`, CONCAT('测试物品·', `n`), 1 + (`n` % 5) FROM `seq`
-ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `quality` = VALUES(`quality`);
+SELECT `n`, CONCAT('测试物品·', `n`), 1 + (`n` % 5), IF(`n` % 10 = 9, 20, 1) FROM `seq`
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `quality` = VALUES(`quality`), `stackable` = VALUES(`stackable`);

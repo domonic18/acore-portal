@@ -32,6 +32,7 @@ async function createProduct(input: {
   name: string;
   type: "game_item" | "service";
   gameItemId?: number;
+  handlerKey?: string;
 }): Promise<bigint> {
   const created = await prisma.product.create({
     data: {
@@ -44,6 +45,7 @@ async function createProduct(input: {
       listed: true,
       price: 100,
       gameItemId: input.gameItemId ?? null,
+      handlerKey: input.handlerKey ?? null,
       categoryId,
     },
     select: { id: true },
@@ -83,6 +85,7 @@ test.beforeAll(async () => {
     slug: `${SLUG_PREFIX}svc`,
     name: `E2E 服务商品 ${RUN}`,
     type: "service",
+    handlerKey: "char-change-race",
   });
   await createProduct({
     sku: "itemsend_19502",
@@ -165,10 +168,14 @@ test.describe("商品增强后台(限购/批量/复制)", () => {
     expect(copies).toBe(1);
     const copy = await prisma.product.findFirstOrThrow({
       where: { slug: { startsWith: `${SLUG_PREFIX}svc-copy` } },
-      select: { status: true, sku: true },
+      select: { status: true, sku: true, handlerKey: true, maxPerUser: true },
     });
     expect(copy.status).toBe("draft");
     expect(copy.sku).toBe(`e2e-svc-${RUN}-copy`);
+    // 处理器键随源商品继承 ⇒ 副本的发货行为与源商品一致(-copy 后缀只作唯一标识)
+    expect(copy.handlerKey).toBe("char-change-race");
+    // 服务类恒限购 1 件(单次购买一次;发货完成后释放额度)
+    expect(copy.maxPerUser).toBe(1);
 
     const itemRow = page.getByRole("row", { name: new RegExp(`E2E 物品商品 ${RUN}`) });
     await expect(itemRow.getByRole("button", { name: "复制" })).toBeDisabled();

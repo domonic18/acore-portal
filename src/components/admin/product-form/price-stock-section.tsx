@@ -95,13 +95,18 @@ export function PriceStockSection({
       <FormField
         label="每人限购(留空=不限购)"
         error={errors.maxPerUser}
-        hint="按用户累计已购件数(不含已取消/退款单)"
+        hint={
+          isService
+            ? "服务类固定限购 1 件:发货完成后释放额度,可再次购买(如改名后再改一次)"
+            : "按用户累计已购件数(不含已取消/退款单)"
+        }
       >
         <Input
           type="number"
           min={1}
           inputMode="numeric"
-          value={values.maxPerUser ?? ""}
+          value={isService ? 1 : (values.maxPerUser ?? "")}
+          disabled={isService}
           onChange={(e) =>
             update({
               maxPerUser:

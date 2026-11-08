@@ -20,8 +20,11 @@ model ConnectionProbe {
 /// 物品模板(只读子集;真实表列远多于此,Prisma 仅映射触碰列)
 model ItemTemplate {
   entry   Int     @id @map("entry")
-  name    String? @db.VarChar(128)
+  name    String? @db.VarChar(255)
   quality Int?
+  /// 最大堆叠数(AC 真表 stackable int default 1):1=不可堆叠,>1=可堆叠。
+  /// 堆叠物品走 itemsend_{id}_stack(一封邮件发 qty 个),非堆叠走 qty 封各 1 个。
+  stackable Int? @map("stackable")
 
   @@map("item_template")
 }

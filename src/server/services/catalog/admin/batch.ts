@@ -50,6 +50,8 @@ function appendSuffix(base: string, suffix: string, max: number): string {
  * 复制商品:仅服务类可复制——物品类 SKU=itemsend_{游戏物品ID} 是商城与游戏世界的
  * 唯一映射契约(宪法铁律③),同一物品不能对应两个 SKU。
  * 副本重置为安全初值(草稿、无促销、无库存),sku/slug 追加 -copy 序号避让。
+ * 处理器键(handler_key)随源商品继承 —— 副本与源商品发货行为一致,
+ * `-copy` 后缀只影响 SKU 唯一标识,不再影响发货(2026-11-08 整改)。
  */
 export async function duplicateProduct(
   id: bigint,
@@ -95,8 +97,10 @@ export async function duplicateProduct(
           stockEnabled: false,
           stock: null,
           lowStockThreshold: source.lowStockThreshold,
-          maxPerUser: source.maxPerUser,
+          // 服务类恒限购 1 件(单次购买一次;发货完成后释放额度,可再次购买)
+          maxPerUser: source.type === "service" ? 1 : source.maxPerUser,
           gameItemId: null,
+          handlerKey: source.handlerKey,
           featured: false,
         },
         select: { id: true },

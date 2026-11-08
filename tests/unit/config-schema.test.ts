@@ -48,7 +48,12 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
       artviewArticleWindowSec: 600,
       trackUnknownIpMaxPerMin: 600,
     });
-    expect(c.notify).toEqual({ pointEmailThreshold: 0 });
+    expect(c.notify).toEqual({
+      pointEmailThreshold: 0,
+      feishuAlertEnabled: false,
+      feishuWebhookUrl: "",
+      feishuWebhookSecret: "",
+    });
     expect(c.captcha).toEqual({
       enabled: false,
       appId: "",
