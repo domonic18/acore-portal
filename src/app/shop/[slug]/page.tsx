@@ -7,7 +7,7 @@ import { SESSION } from "@/constants/session";
 import { getCdnHosts } from "@/lib/config";
 import { renderMarkdown } from "@/lib/markdown";
 import { MARKDOWN_BODY_CLS } from "@/constants/content";
-import { getProductDetail, listRelatedProducts } from "@/server/services/catalog/products";
+import { getProductDetail, listProductFaqs, listRelatedProducts } from "@/server/services/catalog/products";
 import { cartParamFields } from "@/server/services/shop/param-schemas";
 import { listAccountCharacters } from "@/server/services/account/characters";
 import type { CharacterOption } from "@/components/shop/character-select";
@@ -58,6 +58,9 @@ export default async function ProductDetailPage({
     categoryId: detail.categoryId,
     excludeId: detail.id,
   });
+
+  // 常见问题(#159):后台按商品维护,前台只读展示;无问答则整段不渲染
+  const faqs = await listProductFaqs(detail.id);
 
   const fields = cartParamFields(detail.sku, detail.handlerKey);
   const loginHref = `/login?next=${encodeURIComponent(`/shop/${detail.slug}`)}`;
@@ -183,6 +186,30 @@ export default async function ProductDetailPage({
             </p>
           )}
         </section>
+
+        {faqs.length > 0 && (
+          <section
+            aria-label="商品常见问题"
+            data-testid="product-faq"
+            className="flex flex-col gap-3 border-t border-gray-800 pt-4"
+          >
+            <h2 className="text-lg font-semibold">常见问题</h2>
+            <ul className="flex flex-col gap-2">
+              {faqs.map((f) => (
+                <li key={f.id}>
+                  <details className="rounded-md border border-gray-800 px-3 py-2">
+                    <summary className="cursor-pointer text-sm font-medium text-gray-100">
+                      {f.question}
+                    </summary>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-300">
+                      {f.answer}
+                    </p>
+                  </details>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </ContentPanel>
     </main>
   );
