@@ -2,6 +2,7 @@ import "server-only";
 import type { Prisma } from "@/generated/business";
 import { prisma } from "@/lib/db";
 import { ADMIN_PRODUCT_PAGE_SIZE } from "@/constants/pagination";
+import { PRODUCT_TYPE } from "@/constants/shop";
 import { pageSlice, totalPageCount } from "@/lib/pagination";
 import { normalizeProductImages } from "../products";
 
@@ -67,10 +68,20 @@ async function lowStockProductIds(): Promise<bigint[]> {
     .map((r) => r.id);
 }
 
-export async function listAdminProducts(opts: {
+/** 商品列表筛选条件(#152 搜索框 + #156 类别筛选;与低库存筛选可叠加) */
+export type AdminProductFilters = {
+  /** 关键字:名称 / slug / SKU 任一包含即命中 */
+  q?: string;
+  /** 商品类别:物品类 / 服务类 */
+  type?: string;
+  /** 分类 id(所属分类) */
+  categoryId?: bigint;
   lowStock?: boolean;
-  page?: number;
-}): Promise<{
+};
+
+export async function listAdminProducts(
+  opts: AdminProductFilters & { page?: number },
+): Promise<{
   items: AdminProductListItem[];
   page: number;
   totalPages: number;
@@ -80,33 +91,41 @@ export async function listAdminProducts(opts: {
   const { skip, take } = pageSlice(page, ADMIN_PRODUCT_PAGE_SIZE);
   const select = { category: { select: { name: true } } } as const;
 
-  let total: number;
-  let rows: AdminProductRow[];
+  const q = opts.q?.trim();
+  // 类别只认白名单值(用户输入直传 DB 会触发 Prisma 枚举校验失败)
+  const type =
+    opts.type === PRODUCT_TYPE.GAME_ITEM || opts.type === PRODUCT_TYPE.SERVICE
+      ? opts.type
+      : undefined;
+  const where: Prisma.ProductWhereInput = {
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q } },
+            { slug: { contains: q } },
+            { sku: { contains: q } },
+          ],
+        }
+      : {}),
+    ...(type ? { type } : {}),
+    ...(opts.categoryId !== undefined ? { categoryId: opts.categoryId } : {}),
+  };
+  // 低库存判定是「本行 stock ≤ 本行阈值」(列比列,FR-128),Prisma where 表达不了
+  // → 先取低库存 id 集合再与其它筛选条件求交
   if (opts.lowStock) {
-    const ids = await lowStockProductIds();
-    total = ids.length;
-    const pageIds = ids.slice(skip, skip + take);
-    rows =
-      pageIds.length === 0
-        ? []
-        : await prisma.product.findMany({
-            where: { id: { in: pageIds } },
-            include: select,
-            orderBy: { id: "desc" },
-          });
-  } else {
-    const [count, pageRows] = await Promise.all([
-      prisma.product.count(),
-      prisma.product.findMany({
-        include: select,
-        orderBy: { id: "desc" },
-        skip,
-        take,
-      }),
-    ]);
-    total = count;
-    rows = pageRows;
+    where.id = { in: await lowStockProductIds() };
   }
+
+  const [total, rows] = await Promise.all([
+    prisma.product.count({ where }),
+    prisma.product.findMany({
+      where,
+      include: select,
+      orderBy: { id: "desc" },
+      skip,
+      take,
+    }),
+  ]);
 
   return {
     page,
