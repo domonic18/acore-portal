@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { getSessionFromToken } from "@/lib/auth/session";
 import { SESSION } from "@/constants/session";
+import { getPointBalance } from "@/server/services/points/view";
 import { getCartLines } from "@/server/services/shop/cart";
 import { listAccountCharacters } from "@/server/services/account/characters";
 import { ContentPanel } from "@/components/site/content-panel";
@@ -10,7 +11,8 @@ import { LineItemsTable } from "@/components/shop/line-items-table";
 /**
  * T024 购物车页(/cart 旧路径不变 FR-109):游客引导登录(FR-111/112);
  * 登录态行参数逐行可见复核(characterGuid 映射角色名,游戏库不可达降级 #guid);
- * 售罄/下架行可见但标记,结算拦截在 US3 结账层。
+ * 售罄/下架行可见但标记,结算拦截在 US3 结账层;
+ * 结算前展示玩家当前积分与本次需花费积分(#155)。
  * 内容区套 ContentPanel:页面背景图为全站装饰层,文字不可直接压在背景图上。
  */
 
@@ -35,9 +37,11 @@ export default async function CartPage() {
     );
   }
 
-  const [lines, characters] = await Promise.all([
-    getCartLines(BigInt(session.userId)),
-    listAccountCharacters(BigInt(session.userId)).catch(() => null),
+  const userId = BigInt(session.userId);
+  const [lines, characters, balance] = await Promise.all([
+    getCartLines(userId),
+    listAccountCharacters(userId).catch(() => null),
+    getPointBalance(userId),
   ]);
   const guidNames = new Map((characters ?? []).map((c) => [c.guid, c.name]));
   const total = lines.reduce((sum, l) => sum + l.subtotal, 0);
@@ -65,8 +69,21 @@ export default async function CartPage() {
           <>
             <LineItemsTable rows={lines} guidNames={guidNames} editable />
             <footer className="mt-4 flex flex-col items-end gap-3 border-t border-line pt-4">
+              <p className="text-sm text-muted">
+                当前积分:
+                <span
+                  className={
+                    balance !== null && balance < total
+                      ? "font-semibold text-red-400"
+                      : "font-semibold text-heading"
+                  }
+                >
+                  {balance ?? "不可用"}
+                </span>
+              </p>
               <p className="text-lg text-body">
-                合计:<span className="font-bold text-highlight">{total}</span>
+                本次需花费:
+                <span className="font-bold text-highlight">{total}</span> 积分
               </p>
               {blocked && (
                 <p className="text-sm text-highlight">
