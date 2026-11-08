@@ -465,6 +465,7 @@ describe("site 组(CRUD 对齐审计)", () => {
       "site",
       {
         name: "老克塔 LoktaCN",
+        tagline: "",
         icp: "京ICP备E2E000001号",
         qqGroup: "",
         qqGroupQr: "",
@@ -472,6 +473,7 @@ describe("site 组(CRUD 对齐审计)", () => {
       },
       { id: ADMIN_ID },
     );
+    expect((await getConfig()).site.tagline).toBe("");
     expect((await getConfig()).site.qqGroup).toBe("");
     expect((await getConfig()).site.qqGroupQr).toBe("");
     // 加群链接空串=显式清空(群号回落点击复制)
@@ -527,18 +529,8 @@ describe("site 组(CRUD 对齐审计)", () => {
       { id: ADMIN_ID },
     );
     expect(badName).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
+    // 零写入:上面五次非法提交均未落库,现值仍是上一用例留下的
     expect((await getConfig()).site.name).toBe("老克塔 LoktaCN");
-    await saveGroup(
-      "site",
-      {
-        name: "老克塔 LoktaCN",
-        tagline: "",
-        icp: "京ICP备E2E000001号",
-        qqGroup: "10086100",
-        qqGroupQr: "",
-      },
-      { id: ADMIN_ID },
-    );
     expect((await getConfig()).site.tagline).toBe("");
     expect((await getConfig()).site.icp).toBe("京ICP备E2E000001号");
     expect((await getConfig()).site.qqGroup).toBe("");
