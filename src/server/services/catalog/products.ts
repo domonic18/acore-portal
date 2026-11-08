@@ -128,6 +128,7 @@ export type ProductDetail = {
   listed: boolean;
   categoryName: string;
   categorySlug: string;
+  categoryId: string;
 };
 
 /** 详情(draft/不存在 → null 由调用方转 404;listed=false 直链可达带标记 FR-127) */
@@ -159,5 +160,58 @@ export async function getProductDetail(slug: string): Promise<ProductDetail | nu
     listed: row.listed,
     categoryName: row.category.name,
     categorySlug: row.category.slug,
+    categoryId: row.categoryId.toString(),
   };
+}
+
+/** 推荐位默认条数(详情页「其他商品推荐」) */
+export const RELATED_PRODUCT_LIMIT = 4;
+
+/**
+ * 详情页推荐商品(#158):同分类优先、不足时用其他分类补齐。
+ * 只取 published+listed(与列表页同口径),排除当前商品;
+ * 排序同分类在前、其次上架时间倒序,保证结果稳定。
+ */
+export async function listRelatedProducts(opts: {
+  categoryId: string;
+  excludeId: string;
+  limit?: number;
+}): Promise<ProductListItem[]> {
+  const limit = Math.min(Math.max(opts.limit ?? RELATED_PRODUCT_LIMIT, 1), 12);
+  const now = new Date();
+  const excludeId = BigInt(opts.excludeId);
+  const categoryId = BigInt(opts.categoryId);
+
+  const rows = await prisma.product.findMany({
+    where: {
+      status: PRODUCT_STATUS.PUBLISHED,
+      listed: true,
+      id: { not: excludeId },
+    },
+    include: { category: { select: { name: true, slug: true } } },
+  });
+
+  const items: (ProductListItem & { createdAt: Date; categoryId: bigint })[] = rows.map((r) => ({
+    id: r.id.toString(),
+    slug: r.slug,
+    name: r.name,
+    type: r.type,
+    image: normalizeProductImages(r.images)[0] ?? null,
+    price: r.price,
+    effectivePrice: effectivePrice(r, now),
+    onSale: isOnSale(r, now),
+    categoryName: r.category.name,
+    categorySlug: r.category.slug,
+    createdAt: r.createdAt,
+    categoryId: r.categoryId,
+  }));
+
+  items.sort((a, b) => {
+    const aSame = a.categoryId === categoryId ? 0 : 1;
+    const bSame = b.categoryId === categoryId ? 0 : 1;
+    if (aSame !== bSame) return aSame - bSame;
+    return b.createdAt.getTime() - a.createdAt.getTime();
+  });
+
+  return items.slice(0, limit).map(({ createdAt: _c, categoryId: _cid, ...rest }) => rest);
 }

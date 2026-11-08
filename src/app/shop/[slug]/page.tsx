@@ -7,7 +7,7 @@ import { SESSION } from "@/constants/session";
 import { getCdnHosts } from "@/lib/config";
 import { renderMarkdown } from "@/lib/markdown";
 import { MARKDOWN_BODY_CLS } from "@/constants/content";
-import { getProductDetail } from "@/server/services/catalog/products";
+import { getProductDetail, listRelatedProducts } from "@/server/services/catalog/products";
 import { cartParamFields } from "@/server/services/shop/param-schemas";
 import { listAccountCharacters } from "@/server/services/account/characters";
 import type { CharacterOption } from "@/components/shop/character-select";
@@ -15,6 +15,7 @@ import type { CartParamField } from "@/components/shop/add-to-cart-form";
 import { AddToCartForm } from "@/components/shop/add-to-cart-form";
 import { ProductGallery } from "@/components/shop/product-gallery";
 import { ProductViewBeacon } from "@/components/shop/product-view-beacon";
+import { ProductCard } from "@/components/shop/product-card";
 
 /**
  * T021 商品详情(/shop/[slug]):draft/不存在→404;listed=false 直链可达带标记
@@ -51,6 +52,12 @@ export default async function ProductDetailPage({
       gameDbDegraded = true;
     }
   }
+
+  // 推荐位(#158):同分类优先,只取 published+listed(与列表页同口径)
+  const related = await listRelatedProducts({
+    categoryId: detail.categoryId,
+    excludeId: detail.id,
+  });
 
   const fields = cartParamFields(detail.sku, detail.handlerKey);
   const loginHref = `/login?next=${encodeURIComponent(`/shop/${detail.slug}`)}`;
@@ -135,6 +142,32 @@ export default async function ProductDetailPage({
             )}
           </div>
         </div>
+
+        {related.length > 0 && (
+          <section
+            aria-label="其他商品推荐"
+            data-testid="product-related"
+            className="flex flex-col gap-3 border-t border-gray-800 pt-4"
+          >
+            <h2 className="text-lg font-semibold">其他商品推荐</h2>
+            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {related.map((p) => (
+                <li key={p.id}>
+                  <ProductCard
+                    slug={p.slug}
+                    name={p.name}
+                    type={p.type}
+                    image={p.image}
+                    price={p.price}
+                    effectivePrice={p.effectivePrice}
+                    onSale={p.onSale}
+                    categoryName={p.categoryName}
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         <section className="flex flex-col gap-2 border-t border-gray-800 pt-4">
           <h2 className="text-lg font-semibold">商品说明</h2>

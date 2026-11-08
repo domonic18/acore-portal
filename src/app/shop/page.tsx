@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
 import { ContentPanel } from "@/components/site/content-panel";
 import { PaginationNav } from "@/components/ui/pagination";
+import { ProductCard } from "@/components/shop/product-card";
 import { listProducts } from "@/server/services/catalog/products";
 import { listCategories } from "@/server/services/catalog/categories";
 import { PRODUCT_SORT } from "@/constants/shop";
@@ -103,36 +104,16 @@ export default async function ShopPage({
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {result.items.map((p) => (
               <li key={p.id}>
-                <Link
-                  href={`/shop/${p.slug}`}
-                  className="flex flex-col gap-2 rounded-md border border-line p-3 transition-colors hover:border-link"
-                >
-                  {p.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={p.image}
-                      alt={p.name}
-                      loading="lazy"
-                      draggable={false}
-                      className="aspect-square w-full rounded bg-panel-inset object-contain"
-                    />
-                  ) : (
-                    <div
-                      aria-hidden
-                      className="flex aspect-square w-full items-center justify-center rounded bg-panel-inset text-4xl"
-                    >
-                      {p.type === "game_item" ? "⚔" : "🛠"}
-                    </div>
-                  )}
-                  <span className="font-semibold">{p.name}</span>
-                  <span className="text-xs text-gray-400">{p.categoryName}</span>
-                  <span className="flex items-baseline gap-2">
-                    <span className="text-lg font-bold text-amber-400">{p.effectivePrice}</span>
-                    {p.onSale && (
-                      <span className="text-sm text-gray-500 line-through">{p.price}</span>
-                    )}
-                  </span>
-                </Link>
+                <ProductCard
+                  slug={p.slug}
+                  name={p.name}
+                  type={p.type}
+                  image={p.image}
+                  price={p.price}
+                  effectivePrice={p.effectivePrice}
+                  onSale={p.onSale}
+                  categoryName={p.categoryName}
+                />
               </li>
             ))}
           </ul>
