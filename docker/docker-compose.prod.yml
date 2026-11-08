@@ -59,6 +59,9 @@ services:
     logging: *logging
 
   web:
+    # 默认 tag 与 compose 默认命名一致(人工发布零影响);发布脚本按目标提交短号打 tag,
+    # 使回滚 = 切回上一个 tag(镜像不删,回滚秒级)
+    image: ${WEB_IMAGE:-acore-portal-prod-web}
     build:
       context: ..
       dockerfile: docker/web/Dockerfile
@@ -76,6 +79,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      # node:22-slim 无 curl,用内置 fetch;/api/status 探针降级语义恒 200,liveness 口径
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/status').then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped
     logging: *logging
 
@@ -91,8 +101,11 @@ services:
     command: npx --yes prisma@6.19.3 migrate deploy --schema prisma/schema-business/schema.prisma
     volumes:
       - ../prisma/schema-business:/app/prisma/schema-business:ro
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
+    # 与 web 同一个 env_file:迁移必须打 web 实际在用的那个库(容器网络内的 mysql:3306)。
+    # 禁用 ${DATABASE_URL} 插值——compose 插值优先级 shell env > --env-file > .env,
+    # 宿主机 shell 里导出的 DATABASE_URL 会盖掉 .env.prod(见 AGENTS.md 目录规范第 10 条 ⑥)
+    env_file:
+      - ../.env.prod
     depends_on:
       mysql:
         condition: service_healthy
