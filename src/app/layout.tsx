@@ -76,7 +76,12 @@ export default async function RootLayout({
         </HideOnAdmin>
         <div className="flex-1">{children}</div>
         <HideOnAdmin>
-          <SiteFooter icp={footer.icp} copyrightEn={footer.copyrightEn} />
+          <SiteFooter
+            name={footer.name}
+            tagline={footer.tagline}
+            icp={footer.icp}
+            copyrightEn={footer.copyrightEn}
+          />
         </HideOnAdmin>
         <PageViewBeacon />
         <PortalPageBackground pageBackground={pageBackground} />

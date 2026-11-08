@@ -72,6 +72,9 @@ export const groupSchemas = {
     tocEnabled: z.boolean().optional(),
   }),
   site: z.object({
+    // 页脚站点名(必填)+副标题(空串=不渲染该段)
+    name: z.string().trim().min(1, "站点名不能为空").max(64),
+    tagline: z.string().trim().max(100).optional(),
     icp: z.string().trim().max(64),
     // 可选=缺省保持现值(与 home 组口径);空串=显式清空(页脚不渲染)
     copyrightEn: z.string().trim().max(1000).optional(),
@@ -166,6 +169,8 @@ export const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>
   notify: { pointEmailThreshold: "notify.pointEmailThreshold" },
   content: { tocEnabled: "content.tocEnabled" },
   site: {
+    name: "site.name",
+    tagline: "site.tagline",
     icp: "site.icp",
     copyrightEn: "site.copyrightEn",
     qqGroup: "site.qqGroup",

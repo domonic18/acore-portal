@@ -26,6 +26,10 @@ export const DEFAULT_SITE_COPYRIGHT_EN = [
   "These terms and all related materials, logos, and images are copyright © Blizzard Entertainment. This site is in no way associated with or endorsed by Blizzard Entertainment®.",
 ].join("\n");
 
+/** 页脚站点名与副标题默认值(后台可改,存 site.name / site.tagline) */
+export const DEFAULT_SITE_NAME = "老克塔 LoktaCN";
+export const DEFAULT_SITE_TAGLINE = "怀旧公益项目(非营利)";
+
 const configSchema = z.object({
   app: z.object({
     url: z.string().url(),
@@ -126,11 +130,14 @@ const configSchema = z.object({
   content: z.object({
     tocEnabled: z.boolean().default(true),
   }),
-  // 站点标识(CRUD 对齐审计):icp 空=页脚不渲染备案链接,
+  // 站点标识(CRUD 对齐审计):name 为页脚站点名(必填),tagline 为副标题
+  // (空=页脚不渲染该段);icp 空=页脚不渲染备案链接,
   // copyrightEn 空=页脚不渲染英文版权声明(WP 原版商标免责声明逐字迁移);
   // qqGroup 空=侧栏不渲染 QQ 交流群卡,qqGroupQr 空=卡内不渲染二维码
   // (默认=public/qq-group-qr.png,WP 原版页脚素材 qrcode_for_qq.png 迁移)
   site: z.object({
+    name: z.string().default(DEFAULT_SITE_NAME),
+    tagline: z.string().default(DEFAULT_SITE_TAGLINE),
     icp: z.string().default("京ICP备2022035466号"),
     copyrightEn: z.string().default(DEFAULT_SITE_COPYRIGHT_EN),
     qqGroup: z.string().default("184670219"),
@@ -273,6 +280,8 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       tocEnabled: flat["content.tocEnabled"] !== "false",
     },
     site: {
+      name: flat["site.name"] ?? DEFAULT_SITE_NAME,
+      tagline: flat["site.tagline"] ?? DEFAULT_SITE_TAGLINE,
       icp: flat["site.icp"] ?? "京ICP备2022035466号",
       copyrightEn: flat["site.copyrightEn"] ?? DEFAULT_SITE_COPYRIGHT_EN,
       qqGroup: flat["site.qqGroup"] ?? "184670219",
