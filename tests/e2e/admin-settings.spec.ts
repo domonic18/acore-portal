@@ -24,6 +24,9 @@ const SITE_KEYS = [
   "site.qqGroupJoinUrl",
 ];
 const CONTENT_KEYS = ["content.tocEnabled"];
+const TOOLS_KEYS = ["tools.rankBase", "tools.dkpUrl"];
+const COS_KEYS = ["cos.bucket", "cos.region", "cos.secretId", "cos.secretKey", "cos.cdnBase"];
+const BACKUP_KEYS = ["backup.retentionDays", "backup.gameWeekly"];
 const APPEARANCE_KEYS = [
   "appearance.logoUrl",
   "appearance.faviconUrl",
@@ -49,6 +52,9 @@ let siteBackup: { key: string; value: string }[] = [];
 let contentBackup: { key: string; value: string }[] = [];
 let appearanceBackup: { key: string; value: string }[] = [];
 let themeBackup: { key: string; value: string }[] = [];
+let toolsBackup: { key: string; value: string }[] = [];
+let cosBackup: { key: string; value: string }[] = [];
+let backupBackup: { key: string; value: string }[] = [];
 // admin 会话 access token:还原库后用于触发服务端 config 快照重载
 let adminToken = "";
 
@@ -89,6 +95,18 @@ test.beforeAll(async () => {
     where: { key: { in: THEME_KEYS } },
     select: { key: true, value: true },
   });
+  toolsBackup = await prisma.systemConfig.findMany({
+    where: { key: { in: TOOLS_KEYS } },
+    select: { key: true, value: true },
+  });
+  cosBackup = await prisma.systemConfig.findMany({
+    where: { key: { in: COS_KEYS } },
+    select: { key: true, value: true },
+  });
+  backupBackup = await prisma.systemConfig.findMany({
+    where: { key: { in: BACKUP_KEYS } },
+    select: { key: true, value: true },
+  });
 });
 
 test.afterAll(async () => {
@@ -102,6 +120,9 @@ test.afterAll(async () => {
           ...APPEARANCE_KEYS,
           ...CONTENT_KEYS,
           ...THEME_KEYS,
+          ...TOOLS_KEYS,
+          ...COS_KEYS,
+          ...BACKUP_KEYS,
         ],
       },
     },
@@ -113,6 +134,9 @@ test.afterAll(async () => {
     ...appearanceBackup,
     ...contentBackup,
     ...themeBackup,
+    ...toolsBackup,
+    ...cosBackup,
+    ...backupBackup,
   ];
   if (restore.length > 0) {
     await prisma.systemConfig.createMany({ data: restore });
@@ -159,6 +183,9 @@ test.describe.serial("admin 设置页", () => {
       "site",
       "appearance",
       "theme",
+      "tools",
+      "cos",
+      "backup",
     ]) {
       await expect(page.getByTestId(`settings-group-${group}`)).toBeVisible();
     }
@@ -326,6 +353,47 @@ test.describe.serial("admin 设置页", () => {
     await expect(page.getByTestId("settings-result-content")).toContainText("已保存");
     await page.goto("/post/seed-announcement-second");
     await expect(page.getByTestId("article-toc-rail")).toBeVisible();
+  });
+
+  test("tools / cos / backup 三组:保存即时生效,cos 桶名为开关", async ({ page }) => {
+    await login(page, "m1admin", "adminpass123");
+    await page.goto("/admin/settings");
+
+    // tools:换站地址只改配置
+    await page.getByTestId("settings-field-tools-rankBase").fill("https://rank.e2e.test");
+    await page.getByTestId("settings-save-tools").click();
+    await expect(page.getByTestId("settings-result-tools")).toContainText("已保存");
+    const toolsRow = await prisma.systemConfig.findUnique({
+      where: { key: "tools.rankBase" },
+      select: { value: true },
+    });
+    expect(toolsRow?.value).toBe("https://rank.e2e.test");
+
+    // cos:填桶名即启用,其余四项缺一不可 → 报错且不落库
+    const cosBefore = await prisma.systemConfig.findFirst({
+      where: { key: "cos.bucket" },
+      select: { value: true },
+    });
+    await page.getByTestId("settings-field-cos-bucket").fill("bucket-e2e-1250000000");
+    await page.getByTestId("settings-save-cos").click();
+    await expect(page.getByTestId("settings-result-cos")).toContainText("启用 COS 时");
+    const cosAfter = await prisma.systemConfig.findFirst({
+      where: { key: "cos.bucket" },
+      select: { value: true },
+    });
+    expect(cosAfter?.value).toBe(cosBefore?.value);
+    // 还原:桶名清空(未配置)
+    await page.getByTestId("settings-field-cos-bucket").fill("");
+
+    // backup:保留天数落库
+    await page.getByTestId("settings-field-backup-retentionDays").fill("9");
+    await page.getByTestId("settings-save-backup").click();
+    await expect(page.getByTestId("settings-result-backup")).toContainText("已保存");
+    const backupRow = await prisma.systemConfig.findUnique({
+      where: { key: "backup.retentionDays" },
+      select: { value: true },
+    });
+    expect(backupRow?.value).toBe("9");
   });
 
   test("测试发信:Mailpit 收到;坏配置热生效后回显失败摘要", async ({ page }) => {
