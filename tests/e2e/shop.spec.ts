@@ -136,7 +136,7 @@ test.describe("US2 商城与购物车(T026)", () => {
 
     await page.getByRole("button", { name: "增加数量" }).click();
     await expect(page.getByLabel("数量", { exact: true })).toHaveText("2");
-    await expect(page.getByText("小计 1000")).toBeVisible();
+    await expect(page.getByTestId("line-subtotal").first()).toHaveText("1000");
 
     await page.getByRole("button", { name: "移除" }).click();
     await expect(page.getByText("购物车还是空的")).toBeVisible();
@@ -243,5 +243,32 @@ test.describe("US2 商城与购物车(T026)", () => {
     });
     expect(audit).not.toBeNull();
     expect((audit?.payloadJson as { scope?: string }).scope).toBe("cart_add");
+  });
+
+  test("购物车/结算页行项表带产品/价格/数量/小计表头(#154)", async ({ page }) => {
+    await login(page);
+    await page.goto(`/shop/${ITEM_SLUG}`);
+    await page.getByLabel("选择角色").selectOption("10");
+    await page.getByRole("button", { name: "加入购物车" }).click();
+    await expect(page.getByRole("status")).toContainText("已加入购物车");
+
+    const headers = ["产品", "价格", "数量", "小计"];
+    await page.goto("/cart");
+    for (const h of headers) {
+      await expect(page.getByRole("columnheader", { name: h, exact: true })).toBeVisible();
+    }
+    // 行内列含义对得上:小计=单价×数量
+    await expect(page.getByTestId("line-subtotal").first()).toHaveText("500");
+
+    await page.goto("/checkout");
+    for (const h of headers) {
+      await expect(page.getByRole("columnheader", { name: h, exact: true })).toBeVisible();
+    }
+    await expect(page.getByTestId("line-subtotal").first()).toHaveText("500");
+
+    // 清理:移除该行,避免污染后续用例
+    await page.goto("/cart");
+    await page.getByRole("button", { name: "移除" }).click();
+    await expect(page.getByText("购物车还是空的")).toBeVisible();
   });
 });
