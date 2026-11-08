@@ -1,7 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import MDEditor, { commands } from "@uiw/react-md-editor";
+import dynamic from "next/dynamic";
+import {
+  bold,
+  code,
+  codeBlock,
+  divider,
+  image,
+  italic,
+  link,
+  orderedListCommand,
+  quote,
+  strikethrough,
+  table,
+  title,
+  unorderedListCommand,
+} from "@uiw/react-md-editor/commands";
 import { Eye, EyeOff, Image as ImageIcon, Library } from "lucide-react";
 import { uploadMediaFiles } from "@/components/admin/media-library";
 import { MediaPickerModal } from "@/components/admin/media-picker-modal";
@@ -15,29 +30,42 @@ import type { TocItem } from "@/lib/markdown";
  * 专业工具栏(选中包裹/撤销重做/表格代码块等)+全高编辑区;预览面板走
  * /api/admin/markdown-preview 与前台同管线同白名单(400ms 防抖,可收起/并排);
  * 粘贴图片自动上传媒体库插 CDN URL;「媒体库」弹层选图插入光标处。
+ *
+ * 2026-11-08 性能:CodeMirror 整包静态打进 4 个表单路由,单页 JS 达 1.4MB。
+ * 改为 next/dynamic 懒加载 —— 编辑器 chunk 只在真进表单页时才拉。
+ * 工具栏命令走 @uiw/react-md-editor/commands 子路径(3.8KB,不引 CodeMirror)。
  */
 
 type PreviewData = { html: string; toc: TocItem[] };
 
 const PLACEHOLDER = "正文 Markdown(GFM:表格/代码块/删除线均支持)…";
 
+const MDEditor = dynamic(() => import("@uiw/react-md-editor"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full items-center justify-center bg-[#0b1526] text-xs text-[#6482a3]">
+      编辑器加载中…
+    </div>
+  ),
+});
+
 // 内置预览/帮助键关掉(预览用自家白名单面板);保留编辑类命令
 const TOOLBAR_COMMANDS = [
-  commands.title,
-  commands.bold,
-  commands.italic,
-  commands.strikethrough,
-  commands.divider,
-  commands.quote,
-  commands.code,
-  commands.codeBlock,
-  commands.divider,
-  commands.unorderedListCommand,
-  commands.orderedListCommand,
-  commands.table,
-  commands.divider,
-  commands.link,
-  commands.image,
+  title,
+  bold,
+  italic,
+  strikethrough,
+  divider,
+  quote,
+  code,
+  codeBlock,
+  divider,
+  unorderedListCommand,
+  orderedListCommand,
+  table,
+  divider,
+  link,
+  image,
 ];
 
 export function MarkdownEditor({
@@ -186,7 +214,7 @@ export function MarkdownEditor({
       </div>
 
       <div ref={wrapRef} className={`admin-md ${split ? "grid items-start gap-3 lg:grid-cols-2" : ""}`}>
-        <div className="overflow-hidden rounded-lg border border-[#22385a]">
+        <div className="overflow-hidden rounded-lg border border-[#22385a]" style={{ height }}>
           {hydrated ? (
           <MDEditor
             value={value}
