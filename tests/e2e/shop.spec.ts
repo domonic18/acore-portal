@@ -203,6 +203,20 @@ test.describe("US2 商城与购物车(T026)", () => {
     );
   });
 
+  test("详情页展示其他商品推荐(#158)", async ({ page }) => {
+    await page.goto(`/shop/${ITEM_SLUG}`);
+    const related = page.getByTestId("product-related");
+    await expect(related).toBeVisible();
+    await expect(related).toContainText("其他商品推荐");
+    // 同分类的另一件商品出现在推荐位
+    await expect(related.getByText(`E2E 售罄商品 ${RUN}`)).toBeVisible();
+    // 推荐位不含当前商品
+    await expect(related.getByText(`E2E 测试坐骑 ${RUN}`)).toHaveCount(0);
+    // 点击推荐商品可跳转
+    await related.getByText(`E2E 售罄商品 ${RUN}`).click();
+    await expect(page).toHaveURL(new RegExp(`/shop/${SOLDOUT_SLUG}$`));
+  });
+
   test("商店页右上角购物车为图标入口(非纯文字,#160)", async ({ page }) => {
     await page.goto("/shop");
     const entry = page.getByTestId("shop-cart-entry");
