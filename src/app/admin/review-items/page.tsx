@@ -44,6 +44,7 @@ export default async function AdminReviewItemsPage({
           return (
             <Link
               key={f.value}
+              prefetch={false}
               href={`/admin/review-items?resolved=${f.value}`}
               className={`rounded-md px-3 py-1 text-[13px] transition ${FOCUS_RING} ${
                 active

@@ -35,6 +35,7 @@ export default async function AdminOrderDetailPage({
         </Badge>
         <span className="text-sm font-medium text-[#e8c877]">{order.pointCost} 积分</span>
         <Link
+          prefetch={false}
           href="/admin/orders"
           className="rounded text-sm text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60"
         >
@@ -47,6 +48,7 @@ export default async function AdminOrderDetailPage({
           <dt className="text-[#6482a3]">用户</dt>
           <dd>
             <Link
+              prefetch={false}
               href={`/admin/users/${order.user.id}`}
               className="rounded text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60"
             >

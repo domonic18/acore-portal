@@ -30,7 +30,7 @@ export default async function AdminPageEditPage({ params }: { params: { id: stri
         <Link href={`/${page.slug}`} className={backLinkCls}>
           前台查看 ↗
         </Link>
-        <Link href="/admin/pages" className={backLinkCls}>
+        <Link prefetch={false} href="/admin/pages" className={backLinkCls}>
           ← 返回列表
         </Link>
       </div>

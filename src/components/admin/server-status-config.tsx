@@ -83,6 +83,7 @@ export function ServerStatusConfigForm({
         <span className="text-xs text-[#6482a3]">
           唯一配置入口在{" "}
           <Link
+            prefetch={false}
             href="/admin/progression"
             className="rounded text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60"
           >

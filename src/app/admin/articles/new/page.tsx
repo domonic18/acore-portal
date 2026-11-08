@@ -11,6 +11,7 @@ export default async function AdminArticleNewPage() {
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-bold">新建文章</h1>
         <Link
+          prefetch={false}
           href="/admin/articles"
           className={`rounded text-sm text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline ${FOCUS_RING}`}
         >

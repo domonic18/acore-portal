@@ -40,6 +40,7 @@ export default async function AdminOrdersPage({
           return (
             <Link
               key={f.value}
+              prefetch={false}
               href={f.value ? `/admin/orders?status=${f.value}` : "/admin/orders"}
               className={`rounded-md px-3 py-1 text-[13px] transition ${FOCUS_RING} ${
                 active
@@ -74,6 +75,7 @@ export default async function AdminOrdersPage({
               <Tr key={o.id}>
                 <Td>
                   <Link
+                    prefetch={false}
                     href={`/admin/orders/${o.id}`}
                     className="rounded font-mono text-xs text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60"
                   >

@@ -98,6 +98,7 @@ export function StatsSalesPanel({
       actions={
         <div className="flex items-center gap-2">
           <Link
+            prefetch={false}
             href="/admin/stats?sales=30d"
             className={`rounded-full border px-2.5 py-0.5 text-[12px] transition ${
               salesRange === "30d"
@@ -108,6 +109,7 @@ export function StatsSalesPanel({
             近 30 天
           </Link>
           <Link
+            prefetch={false}
             href="/admin/stats"
             className={`rounded-full border px-2.5 py-0.5 text-[12px] transition ${
               salesRange === "all"

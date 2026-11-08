@@ -30,7 +30,7 @@ export default async function AdminArticleEditPage({
         <Link href={`/post/${article.slug}`} className={backLinkCls}>
           前台查看 ↗
         </Link>
-        <Link href="/admin/articles" className={backLinkCls}>
+        <Link prefetch={false} href="/admin/articles" className={backLinkCls}>
           ← 返回列表
         </Link>
       </div>
