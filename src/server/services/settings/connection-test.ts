@@ -1,4 +1,5 @@
 import "server-only";
+import { probeCos } from "@/lib/cos/probe";
 import { probeGameDb } from "@/lib/db/connection-probe";
 import { rawExecuteCommand } from "@/server/soap/client";
 
@@ -47,5 +48,17 @@ export type GameDbTarget = (typeof GAME_DB_TARGETS)[number];
 export async function testGameDbConnection(url: string): Promise<ConnectionTestResult> {
   const startedAt = Date.now();
   const result = await probeGameDb(url);
+  return { ...result, latencyMs: Date.now() - startedAt };
+}
+
+/** COS 探测(候选桶名与凭据):headBucket 只读桶元信息 */
+export async function testCosConnection(params: {
+  bucket: string;
+  region: string;
+  secretId: string;
+  secretKey: string;
+}): Promise<ConnectionTestResult> {
+  const startedAt = Date.now();
+  const result = await probeCos(params);
   return { ...result, latencyMs: Date.now() - startedAt };
 }

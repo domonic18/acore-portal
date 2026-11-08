@@ -99,5 +99,21 @@ export async function getSettingsView(): Promise<SettingsView> {
         ]),
       ) as SettingsView["theme"]["assets"],
     },
+    tools: {
+      rankBase: config.tools.rankBase,
+      dkpUrl: config.tools.dkpUrl,
+    },
+    cos: {
+      configured: config.cos !== undefined,
+      bucket: config.cos?.bucket ?? "",
+      region: config.cos?.region ?? "",
+      secretId: config.cos?.secretId ?? "",
+      cdnBase: config.cos?.cdnBase ?? "",
+      secretKeyConfigured: (config.cos?.secretKey ?? "") !== "",
+    },
+    backup: {
+      retentionDays: config.backup?.retentionDays ?? 30,
+      gameWeekly: config.backup?.gameWeekly ?? true,
+    },
   };
 }

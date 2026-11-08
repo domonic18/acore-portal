@@ -1,5 +1,6 @@
 import "server-only";
 import { buildConfigFromRows, getConfig, reloadSystemConfig, ConfigValidationError } from "@/lib/config";
+import { resetCosClient } from "@/lib/cos/client";
 import { prisma } from "@/lib/db/business";
 import { resetGameDbClients } from "@/lib/db/reset-gamedb";
 import { getTransporter } from "@/lib/mail";
@@ -84,6 +85,19 @@ export async function saveSettingsGroup(
     }
   }
 
+  // COS 以 bucket 为开关:填了桶名即启用,五项须齐全(口令位按 secret 口径回填现值);
+  // bucket 留空=未配置,其余项照旧留存,便于日后重新启用而不必重填密钥
+  if (group === "cos" && next["cos.bucket"]) {
+    const required = ["cos.region", "cos.secretId", "cos.secretKey", "cos.cdnBase"];
+    if (required.some((key) => !next[key])) {
+      return {
+        ok: false,
+        code: "VALIDATION_FAILED",
+        message: "启用 COS 时 region/secretId/secretKey/cdnBase 须全部填写",
+      };
+    }
+  }
+
   // 候选行整表校验:失败零写入(configSchema 兜底,如未来新增跨组约束)
   const allRows = await prisma.systemConfig.findMany({
     select: { key: true, value: true },
@@ -131,6 +145,10 @@ export async function saveSettingsGroup(
     // 免重启换库(在途请求可能因连接被断开而失败,属已知取舍)
     if (changedKeys.some((key) => key.startsWith("gamedb."))) {
       await resetGameDbClients();
+    }
+    // COS SDK 实例内含旧凭据:丢弃后下次调用按新配置重建,免重启换密钥
+    if (changedKeys.some((key) => key.startsWith("cos."))) {
+      resetCosClient();
     }
   }
 

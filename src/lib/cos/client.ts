@@ -36,3 +36,11 @@ export async function getCosClient(): Promise<{ client: Cos; config: CosConfig }
   cached = { client, config };
   return cached;
 }
+
+/**
+ * 重置缓存的 client(后台改 COS 密钥后热生效,免重启):
+ * 实例内含旧凭据,不丢弃则换密钥要等进程重启。
+ */
+export function resetCosClient(): void {
+  cached = null;
+}
