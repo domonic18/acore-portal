@@ -5,6 +5,8 @@ import type { SettingsView } from "@/lib/settings-types";
 import { GroupSection, SaveBar, TextAreaRow, TextRow, useGroupSave } from "./common";
 
 export function SiteGroup({ view }: { view: SettingsView["site"] }) {
+  const [name, setName] = useState(view.name);
+  const [tagline, setTagline] = useState(view.tagline);
   const [icp, setIcp] = useState(view.icp);
   const [copyrightEn, setCopyrightEn] = useState(view.copyrightEn);
   const [qqGroup, setQqGroup] = useState(view.qqGroup);
@@ -16,9 +18,29 @@ export function SiteGroup({ view }: { view: SettingsView["site"] }) {
     <GroupSection
       name="site"
       title="站点信息"
-      description="页脚备案/版权与侧栏 QQ 交流群;备案号/版权声明/群号留空=前台对应元素不显示"
+      description="页脚站点名/副标题/备案/版权与侧栏 QQ 交流群;副标题/备案号/版权声明/群号留空=前台对应元素不显示"
     >
-      <TextRow label="ICP 备案号" testid="settings-field-site-icp" value={icp} onChange={setIcp} placeholder="京ICP备…(留空隐藏)" />
+      <TextRow
+        label="站点名"
+        testid="settings-field-site-name"
+        value={name}
+        onChange={setName}
+        placeholder="老克塔 LoktaCN"
+      />
+      <TextRow
+        label="站点副标题"
+        testid="settings-field-site-tagline"
+        value={tagline}
+        onChange={setTagline}
+        placeholder="怀旧公益项目(非营利,留空隐藏)"
+      />
+      <TextRow
+        label="ICP 备案号"
+        testid="settings-field-site-icp"
+        value={icp}
+        onChange={setIcp}
+        placeholder="京ICP备…(留空隐藏)"
+      />
       <TextAreaRow
         label="英文版权声明"
         testid="settings-field-site-copyrightEn"
@@ -53,7 +75,7 @@ export function SiteGroup({ view }: { view: SettingsView["site"] }) {
         busy={busy}
         saved={saved}
         error={error}
-        onSave={() => save("site", { icp, copyrightEn, qqGroup, qqGroupQr, qqGroupJoinUrl })}
+        onSave={() => save("site", { name, tagline, icp, copyrightEn, qqGroup, qqGroupQr, qqGroupJoinUrl })}
       />
     </GroupSection>
   );

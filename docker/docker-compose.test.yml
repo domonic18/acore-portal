@@ -6,6 +6,12 @@
 # worldserver/authserver 二期接入:SOAP 暂指栈内 mock,boot 自检 degraded 不阻塞
 # 加固口径照内部同族项目的 prod compose:全服务 restart+日志旋转,web 健康检查,TZ 上海
 # (mysql 容器保持 UTC:DATETIME 为字面量语义,改时区=存量数据迁移,另案处理)
+#
+# 【路径参数化】部署根走环境变量,默认值 = 本地开发原路径(零影响):
+#   DEPLOY_ROOT —— 部署根目录(默认 `..`,即本仓根);自动部署时指向部署根,
+#                  其下含 `.env.test` 与 `workspace/`(持久卷根),**在 git 检出之外**
+#   WEB_IMAGE   —— web 镜像 tag(默认与 compose 默认同名);自动部署按 sha 打 tag 以支持秒级回滚
+# 自动部署手册见 docs/ops/staging-deploy.md。
 name: acore-portal-test
 
 x-logging: &logging
@@ -27,7 +33,7 @@ services:
       MYSQL_USER: acore_portal
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-acore_portal}
     volumes:
-      - ../workspace/mysql-test:/var/lib/mysql
+      - ${DEPLOY_ROOT:-..}/workspace/mysql-test:/var/lib/mysql
       - ../scripts/dev/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
@@ -42,7 +48,7 @@ services:
     ports:
       - "127.0.0.1:6382:6379"
     volumes:
-      - ../workspace/redis-test:/data
+      - ${DEPLOY_ROOT:-..}/workspace/redis-test:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -72,19 +78,44 @@ services:
     restart: unless-stopped
     logging: *logging
 
+  # 一次性迁移服务(profiles=migrate,默认不起):与生产栈同形态。
+  # MySQL 只绑 127.0.0.1(本机可达),迁移可在宿主机直接跑 prisma CLI;
+  # 本服务用于「自动部署时容器网络内跑迁移」,不发布任何端口。
+  # 用法: docker compose --env-file ../.env.test -f docker/docker-compose.test.yml --profile migrate run --rm migrate
+  migrate:
+    image: node:22-slim
+    profiles: ["migrate"]
+    working_dir: /app
+    # prisma CLI 是 devDependency,生产镜像里没有(见 docker/web/Dockerfile 的 --prod 瘦身);
+    # 这里用 npx 按版本拉取,与 package.json 锁定的 6.19.3 保持一致(改版本须同步)
+    command: npx --yes prisma@6.19.3 migrate deploy --schema prisma/schema-business/schema.prisma
+    volumes:
+      - ../prisma/schema-business:/app/prisma/schema-business:ro
+    # 与 web 同一个 env_file:迁移必须打 web 实际在用的那个库(容器网络内的 mysql:3306)。
+    # 禁用 ${DATABASE_URL} 插值——compose 插值优先级 shell env > --env-file > .env,
+    # CI 作业级 env 会盖掉 .env.test(曾导致 migrate 拿到 127.0.0.1:3306 而 P1001 连不上)
+    env_file:
+      - ${DEPLOY_ROOT:-..}/.env.test
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
   web:
+    # 默认 tag 与 compose 默认命名一致(本地开发零影响);自动部署按 sha 打 tag 以支持秒级回滚
+    image: ${WEB_IMAGE:-acore-portal-test-web}
     build:
       context: ..
       dockerfile: docker/web/Dockerfile
     env_file:
-      - ../.env.test
+      - ${DEPLOY_ROOT:-..}/.env.test
     environment:
       TZ: Asia/Shanghai # 404 日键/邮件模板按北京日期切;DB 时间戳走驱动会话转换不受影响
     ports:
       - "9000:3000" # frpc dev.17aitech.com → 宿主 9000(必须 0.0.0.0 可达)
     volumes:
       # 无 COS 时的媒体本地上传回退(容器重建不丢图)
-      - ../workspace/uploads:/app/workspace/uploads
+      - ${DEPLOY_ROOT:-..}/workspace/uploads:/app/workspace/uploads
     depends_on:
       mysql:
         condition: service_healthy

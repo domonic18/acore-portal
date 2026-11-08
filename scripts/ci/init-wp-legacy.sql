@@ -5,7 +5,7 @@
 -- CI 没有那份 dump,若不建库,这些用例在库缺失时整文件报错(而非用例失败)。
 --
 -- 口径:
--- - 只建用例 fixture 实际触碰的 14 张表,列定义与生产 WP dump 导出的结构一致;
+-- - 只建用例 fixture 实际触碰的 15 张表,列定义与生产 WP dump 导出的结构一致;
 -- - 零数据:用例自行在 seedFixture 里造行,不需要任何存量数据;
 -- - sql_mode 放开 NO_ZERO_DATE:WP 表的 datetime 默认值是 '0000-00-00 00:00:00',
 --   MySQL 8.4 默认 sql_mode 拒绝该默认值(生产导入 WP dump 时同样放宽)。
@@ -171,7 +171,8 @@ CREATE TABLE IF NOT EXISTS `wp_baiduseo_zhizhu` (
   `address` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NOT NULL,
   `type` bigint NOT NULL DEFAULT '200',
   `num` bigint DEFAULT '1',
-  UNIQUE KEY `id` (`id`)
+  UNIQUE KEY `id` (`id`),
+  KEY `idx_baidu_type_time_num` (`type`,`time`,`num`)
 ) ENGINE=InnoDB AUTO_INCREMENT=108632 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -219,8 +220,28 @@ CREATE TABLE IF NOT EXISTS `wp_statistics_visitor` (
   KEY `device` (`device`),
   KEY `model` (`model`),
   KEY `location` (`location`),
-  KEY `ip` (`ip`)
+  KEY `ip` (`ip`),
+  KEY `idx_visitor_device_counter` (`device`,`last_counter`),
+  KEY `idx_visitor_platform_counter` (`platform`,`last_counter`),
+  KEY `idx_visitor_agent_counter` (`agent`,`last_counter`),
+  KEY `idx_visitor_location_counter` (`location`,`last_counter`),
+  KEY `idx_visitor_source_counter` (`source_name`,`last_counter`),
+  KEY `idx_visitor_referred_counter` (`referred`(64),`last_counter`)
 ) ENGINE=InnoDB AUTO_INCREMENT=289957 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE IF NOT EXISTS `wp_statistics_pages` (
+  `page_id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `uri` varchar(190) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NOT NULL,
+  `type` varchar(180) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NOT NULL,
+  `date` date NOT NULL,
+  `count` int NOT NULL,
+  `id` int NOT NULL,
+  PRIMARY KEY (`page_id`),
+  KEY `uri` (`uri`),
+  KEY `date` (`date`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;

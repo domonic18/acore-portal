@@ -41,7 +41,7 @@ export default async function AdminPagesPage() {
               return (
                 <Tr key={p.id}>
                   <Td className="whitespace-nowrap">
-                    <Link href={`/admin/pages/${p.id}`} className={linkCls}>
+                    <Link prefetch={false} href={`/admin/pages/${p.id}`} className={linkCls}>
                       {p.title}
                     </Link>
                   </Td>
@@ -55,7 +55,7 @@ export default async function AdminPagesPage() {
                   <Td className="text-xs text-[#6482a3]">{p.updatedAt.slice(0, 10)}</Td>
                   <Td>
                     <div className="flex items-center gap-2">
-                      <Link href={`/admin/pages/${p.id}`} className={linkCls}>
+                      <Link prefetch={false} href={`/admin/pages/${p.id}`} className={linkCls}>
                         编辑
                       </Link>
                       {core ? (

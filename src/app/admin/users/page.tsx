@@ -50,6 +50,7 @@ export default async function AdminUsersPage({
         </Button>
         {query && (
           <Link
+            prefetch={false}
             href="/admin/users"
             className={`rounded text-sm text-[#6482a3] underline-offset-2 hover:text-[#a8d9f5] hover:underline ${FOCUS_RING}`}
           >
@@ -70,6 +71,7 @@ export default async function AdminUsersPage({
           ) : (
             <Link
               key={t.value || "all"}
+              prefetch={false}
               href={`/admin/users${t.value ? `?role=${t.value}` : ""}`}
               className={`rounded-md border border-transparent px-3 py-1 text-[#93b2ce] transition hover:bg-[#13233a] hover:text-[#dcebf7] ${FOCUS_RING}`}
             >
@@ -100,6 +102,7 @@ export default async function AdminUsersPage({
               <Tr key={u.id}>
                 <Td>
                   <Link
+                    prefetch={false}
                     href={`/admin/users/${u.id}`}
                     className="rounded text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60"
                   >

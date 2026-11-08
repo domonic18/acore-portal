@@ -18,6 +18,7 @@ export function DashboardQuickLinks() {
           <Link
             key={item.href}
             href={item.href}
+            prefetch={false}
             className={`flex flex-col items-center gap-1.5 rounded-xl border border-[#22385a] bg-[#13233a] px-2 py-3 text-center text-[12px] text-[#93b2ce] transition hover:border-[#6fb7e0]/40 hover:text-[#dcebf7] ${FOCUS_RING}`}
           >
             <NavIcon icon={item.icon} className="h-4.5 w-4.5 text-[#6fb7e0]" />

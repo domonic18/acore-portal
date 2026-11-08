@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { MEDIA_CATEGORY_VIDEO, MEDIA_DEFAULT_CATEGORY } from "@/constants/media";
 import { MEDIA_PAGE_SIZE } from "@/constants/pagination";
-import { paginate } from "@/lib/pagination";
+import { pageSlice, totalPageCount } from "@/lib/pagination";
 import {
   MIME_BY_EXT,
   deleteLocalMedia,
@@ -222,19 +222,21 @@ export async function listMediaAssets(opts: {
       ? { mimeType: { startsWith: opts.mimeKind === "video" ? "video/" : "image/" } }
       : {}),
   };
-  const total = await prisma.mediaAsset.count({ where });
-  const { totalPages, skip, take } = paginate(total, page, MEDIA_PAGE_SIZE);
-  const rows = await prisma.mediaAsset.findMany({
-    where,
-    orderBy: { id: "desc" },
-    skip,
-    take,
-  });
-  const grouped = await prisma.mediaAsset.groupBy({ by: ["category"], _count: { _all: true } });
+  const { skip, take } = pageSlice(page, MEDIA_PAGE_SIZE);
+  const [total, rows, grouped] = await Promise.all([
+    prisma.mediaAsset.count({ where }),
+    prisma.mediaAsset.findMany({
+      where,
+      orderBy: { id: "desc" },
+      skip,
+      take,
+    }),
+    prisma.mediaAsset.groupBy({ by: ["category"], _count: { _all: true } }),
+  ]);
   const counts = Object.fromEntries(grouped.map((g) => [g.category, g._count._all]));
   return {
     page,
-    totalPages,
+    totalPages: totalPageCount(total, MEDIA_PAGE_SIZE),
     total,
     pageSize: MEDIA_PAGE_SIZE,
     counts,

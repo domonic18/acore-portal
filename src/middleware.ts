@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { SESSION } from "@/constants/session";
+import { ADMIN_SURFACE_HEADER, ADMIN_SURFACE_VALUE } from "@/constants/admin";
 import { normalizeLegacyKey } from "@/constants/legacy-routes";
 import { edgeEnv } from "@/lib/env-edge";
 
@@ -70,7 +71,10 @@ export async function middleware(req: NextRequest) {
         const { payload } = await jwtVerify(token, secret);
         if (pathname.startsWith("/account")) return NextResponse.next();
         if (pathname.startsWith("/admin") && payload.role === "admin") {
-          return NextResponse.next();
+          // 后台是独立控制台:打标记让根布局省掉门户装饰大图(见 constants/admin.ts)
+          const reqHeaders = new Headers(req.headers);
+          reqHeaders.set(ADMIN_SURFACE_HEADER, ADMIN_SURFACE_VALUE);
+          return NextResponse.next({ request: { headers: reqHeaders } });
         }
       } catch {
         // 签名/过期问题 → 走登录引导

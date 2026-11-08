@@ -3,7 +3,7 @@ import { THEME_IDS } from "@/constants/theme";
 
 /**
  * 设置分组 schema 与行键映射(T030):
- * 组级全量提交——敏感字段(password/secretKey/apiPassword)optional,
+ * 组级全量提交——敏感字段按「组+字段」定口径(见 sensitiveFields),
  * 空/缺省语义在 save.ts 的 keep 分支处理。
  * 每个字段对应一条 system_config 行,行键 = 组名.字段名(theme 组为二级点号)。
  */
@@ -23,6 +23,25 @@ export const dlUrlSchema = z.union([
 ]);
 
 export const groupSchemas = {
+  // 站点对外地址(生产与测试环境不同;换环境只改后台,不重构建镜像)
+  app: z.object({
+    url: z.string().trim().url("站点地址须为合法 URL"),
+  }),
+  // SOAP 通道(世界服命令层):改完即时生效,无需重启
+  soap: z.object({
+    url: z.string().trim().url("SOAP 地址须为合法 URL"),
+    user: z.string().trim().min(1, "SOAP 账号必填"),
+    // 口令只写不读:留空=保持原值
+    password: z.string().optional(),
+    realm: z.string().trim().default("Dev"),
+  }),
+  // 游戏四库连接串:含口令,回显脱敏、提交值等于脱敏形态即视为未改
+  gamedb: z.object({
+    auth: z.string().optional(),
+    characters: z.string().optional(),
+    world: z.string().optional(),
+    eluna: z.string().optional(),
+  }),
   smtp: z.object({
     host: z.string().min(1, "host 必填"),
     port: z.coerce.number().int().positive(),
@@ -72,6 +91,9 @@ export const groupSchemas = {
     tocEnabled: z.boolean().optional(),
   }),
   site: z.object({
+    // 页脚站点名(必填)+副标题(空串=不渲染该段)
+    name: z.string().trim().min(1, "站点名不能为空").max(64),
+    tagline: z.string().trim().max(100).optional(),
     icp: z.string().trim().max(64),
     // 可选=缺省保持现值(与 home 组口径);空串=显式清空(页脚不渲染)
     copyrightEn: z.string().trim().max(1000).optional(),
@@ -124,6 +146,21 @@ export const groupSchemas = {
 
 /** 字段 → system_config 键;sensitive 键空输入=保持原值 */
 export const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>> = {
+  app: {
+    url: "app.url",
+  },
+  soap: {
+    url: "soap.url",
+    user: "soap.user",
+    password: "soap.password",
+    realm: "soap.realm",
+  },
+  gamedb: {
+    auth: "gamedb.auth",
+    characters: "gamedb.characters",
+    world: "gamedb.world",
+    eluna: "gamedb.eluna",
+  },
   smtp: {
     host: "smtp.host",
     port: "smtp.port",
@@ -166,6 +203,8 @@ export const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>
   notify: { pointEmailThreshold: "notify.pointEmailThreshold" },
   content: { tocEnabled: "content.tocEnabled" },
   site: {
+    name: "site.name",
+    tagline: "site.tagline",
     icp: "site.icp",
     copyrightEn: "site.copyrightEn",
     qqGroup: "site.qqGroup",
@@ -193,8 +232,28 @@ export const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>
     carouselIntervalSec: "home.carouselIntervalSec",
   },
 };
-/** 敏感字段:空串输入=保持原值(不落库、不覆盖) */
-export const sensitiveFields = new Set(["password", "secretKey", "apiPassword", "appSecret"]);
+/**
+ * 敏感字段处理口径(按「组+字段」登记,不再按字段名全局匹配——
+ * 全局集合会把新组里同名的 password/secretKey 误判成另一组的字段):
+ * - secret:只写不读,明文永不回显;空串=保持原值
+ * - masked:读回脱敏值(连接串口令以 *** 替换);提交值等于脱敏形态=未改
+ */
+export type SensitiveMode = "secret" | "masked";
+
+export const sensitiveFields: Partial<
+  Record<keyof typeof groupSchemas, Partial<Record<string, SensitiveMode>>>
+> = {
+  soap: { password: "secret" },
+  smtp: { password: "secret" },
+  captcha: { appSecret: "secret", secretKey: "secret" },
+  gamedb: { auth: "masked", characters: "masked", world: "masked", eluna: "masked" },
+};
+
+/** 取字段的敏感处理口径;非敏感字段返回 undefined */
+export function sensitiveMode(group: string, field: string): SensitiveMode | undefined {
+  const perGroup = sensitiveFields[group as keyof typeof sensitiveFields];
+  return perGroup?.[field];
+}
 
 export function isSettingsGroup(group: string): group is keyof typeof groupSchemas {
   return group in groupSchemas;

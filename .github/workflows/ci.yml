@@ -1,4 +1,4 @@
-# CI:质量门禁(check)+ 生产构建(build)+ 集成测试(integration)
+# CI/CD:质量门禁(check)+ 生产构建(build)+ 集成测试(integration)+ 迁移守卫 + 测试环境自动部署
 #
 # 档位说明:
 #   check       —— lint + typecheck + 单元测试(快,每个 PR 必跑)
@@ -10,20 +10,27 @@
 #   integration —— 集成测试(认证/限速/订单/看板等真库用例)。
 #                  需 MySQL + Redis 服务容器;游戏四库结构复用 dev 栈同一份 initdb
 #                  脚本,CI 不另造 schema/账号口径(scripts/ci/provision.sh)。
+#   db-migration-guard / db-incremental-guard —— 迁移守卫(业务库唯一 schema 真相源):
+#                  从零重放 / 幂等重放 / 无漂移 / 增量与从零一致 / 新迁移 SQL 可手工重放。
+#                  守卫不过 → 绝不部署(详见 docs/ops/staging-deploy.md)。
+#   deploy-staging —— 预发布环境自动部署(push develop 时,自托管 runner 落 Mac Mini 常驻栈)。
+#                  生产栈仍人工发布,理由见 docs/ops/production-deploy.md §7.2。
 #
 # E2E 单独成档(.github/workflows/e2e.yml):需浏览器与邮件替身,耗时与 flake 面
-# 都与上面三档不同量级,拆开便于按需停用而不拖累 PR 反馈。
+# 都与上面几档不同量级,拆开便于按需停用而不拖累 PR 反馈。
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
   workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # develop 分支不打断在跑的流水线:中断会连带砍掉进行中的部署(半新半旧状态);
+  # 新 push 排队接续即可。main/PR 仍按最新一次为准。
+  cancel-in-progress: ${{ github.ref != 'refs/heads/develop' }}
 
 env:
   DATABASE_URL: mysql://acore_portal:acore_portal@127.0.0.1:3306/acore_portal
@@ -127,3 +134,211 @@ jobs:
           echo "soap-mock 未就绪"; cat /tmp/soap-mock.log; exit 1
       - name: 集成测试
         run: pnpm exec vitest run tests/integration
+
+  # ============================================================
+  # 迁移守卫:业务库唯一 schema 真相源(prisma/schema-business)
+  # ============================================================
+
+  db-migration-guard:
+    name: 迁移守卫 / 从零重放·幂等·无漂移
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: acore_portal
+          MYSQL_USER: acore_portal
+          MYSQL_PASSWORD: acore_portal
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    env:
+      GUARD_DB_URL: mysql://root:root@127.0.0.1:3306/guard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 静态幂等检查(MySQL 口径)
+        run: pnpm lint:migrations
+      - name: 建库
+        run: docker exec $MYSQL_CID mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "CREATE DATABASE guard"
+        env:
+          MYSQL_CID: ${{ job.services.mysql.id }}
+      - name: 从零重放全部迁移
+        run: pnpm exec prisma migrate deploy --schema prisma/schema-business/schema.prisma
+        env:
+          DATABASE_URL: ${{ env.GUARD_DB_URL }}
+      - name: 断言迁移账本(全部应用成功、无回滚)
+        run: |
+          set -euo pipefail
+          read -r total finished rolled <<<"$(docker exec $MYSQL_CID mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -B guard \
+            -e "SELECT COUNT(*), SUM(finished_at IS NOT NULL), SUM(rolled_back_at IS NOT NULL) FROM _prisma_migrations;" 2>/dev/null)"
+          expected="$(find prisma/schema-business/migrations -name migration.sql | wc -l | tr -d ' ')"
+          echo "账本: total=$total finished=$finished rolled_back=$rolled 期望条数=$expected"
+          [ "$total" = "$expected" ] || { echo "✗ 迁移条数不符(期望 $expected)"; exit 1; }
+          [ "$finished" = "$expected" ] || { echo "✗ 有未成功应用的迁移"; exit 1; }
+          [ "$rolled" = "0" ] || { echo "✗ 有被回滚的迁移"; exit 1; }
+        env:
+          MYSQL_CID: ${{ job.services.mysql.id }}
+      - name: 幂等重放(再跑一次必须零应用)
+        run: |
+          set -euo pipefail
+          out="$(pnpm exec prisma migrate deploy --schema prisma/schema-business/schema.prisma 2>&1)"
+          echo "$out"
+          echo "$out" | grep -qi "no pending migrations" || { echo "✗ 二次重放未处于幂等态"; exit 1; }
+        env:
+          DATABASE_URL: ${{ env.GUARD_DB_URL }}
+      - name: 断言无漂移(库结构 = datamodel)
+        run: |
+          pnpm exec prisma migrate diff --from-url "$GUARD_DB_URL" \
+            --to-schema-datamodel prisma/schema-business/schema.prisma --exit-code
+        env:
+          DATABASE_URL: ${{ env.GUARD_DB_URL }}
+      - name: 断言核心表齐备
+        run: |
+          set -euo pipefail
+          for t in user point_transaction shop_order page_view_event system_config; do
+            n="$(docker exec $MYSQL_CID mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -B information_schema \
+              -e "SELECT COUNT(*) FROM tables WHERE table_schema='guard' AND table_name='$t';" 2>/dev/null)"
+            [ "$n" = "1" ] || { echo "✗ 缺表: $t"; exit 1; }
+          done
+          echo "✓ 核心表齐备"
+        env:
+          MYSQL_CID: ${{ job.services.mysql.id }}
+      - name: 运行时幂等重放(放行名单外的新迁移必须可重放)
+        run: |
+          set -euo pipefail
+          allow="$(mktemp)"
+          grep -v '^#' scripts/ci/migration-idempotency-allowlist.txt | grep -v '^$' | sort > "$allow"
+          new="$(ls -1 prisma/schema-business/migrations | grep -v '^migration_lock.toml$' | sort | comm -23 - "$allow")"
+          if [ -z "$new" ]; then
+            echo "无放行名单外的新迁移,跳过"
+            exit 0
+          fi
+          echo "新迁移: $new"
+          for m in $new; do
+            echo "重放: $m"
+            pnpm exec prisma db execute --file "prisma/schema-business/migrations/$m/migration.sql" \
+              --schema prisma/schema-business/schema.prisma
+          done
+        env:
+          DATABASE_URL: ${{ env.GUARD_DB_URL }}
+
+  db-incremental-guard:
+    name: 迁移守卫 / 线上基线→本次增量 无漂移
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: acore_portal
+          MYSQL_USER: acore_portal
+          MYSQL_PASSWORD: acore_portal
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    env:
+      INC_DB_URL: mysql://root:root@127.0.0.1:3306/guard_inc
+      FRESH_DB_URL: mysql://root:root@127.0.0.1:3306/guard_fresh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: 抽线上基线(origin/main 的迁移集)
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          git worktree add --detach "$RUNNER_TEMP/guard-base" origin/main
+          echo "基线迁移数: $(find "$RUNNER_TEMP/guard-base/prisma/schema-business/migrations" -name migration.sql | wc -l)"
+      - name: 建库
+        run: docker exec $MYSQL_CID mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "CREATE DATABASE guard_inc; CREATE DATABASE guard_fresh;"
+        env:
+          MYSQL_CID: ${{ job.services.mysql.id }}
+      - name: 增量路径(先基线,再本分支)
+        run: |
+          set -euo pipefail
+          pnpm exec prisma migrate deploy --schema "$RUNNER_TEMP/guard-base/prisma/schema-business/schema.prisma"
+          pnpm exec prisma migrate deploy --schema prisma/schema-business/schema.prisma
+        env:
+          DATABASE_URL: ${{ env.INC_DB_URL }}
+      - name: 从零路径(本分支全量)
+        run: pnpm exec prisma migrate deploy --schema prisma/schema-business/schema.prisma
+        env:
+          DATABASE_URL: ${{ env.FRESH_DB_URL }}
+      - name: 断言增量与从零一致
+        run: |
+          set -euo pipefail
+          pnpm exec prisma migrate diff --from-url "$INC_DB_URL" \
+            --to-schema-datamodel prisma/schema-business/schema.prisma --exit-code
+          pnpm exec prisma migrate diff --from-url "$FRESH_DB_URL" \
+            --to-schema-datamodel prisma/schema-business/schema.prisma --exit-code
+          pnpm exec prisma migrate diff --from-url "$INC_DB_URL" --to-url "$FRESH_DB_URL" --exit-code
+      - name: 断言迁移集合一致
+        run: |
+          set -euo pipefail
+          docker exec $MYSQL_CID mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -B guard_inc \
+            -e "SELECT migration_name FROM _prisma_migrations ORDER BY migration_name;" 2>/dev/null > /tmp/inc.txt
+          docker exec $MYSQL_CID mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -B guard_fresh \
+            -e "SELECT migration_name FROM _prisma_migrations ORDER BY migration_name;" 2>/dev/null > /tmp/fresh.txt
+          diff -u /tmp/inc.txt /tmp/fresh.txt || { echo "✗ 增量与从零的迁移集合不一致"; exit 1; }
+          expected="$(find prisma/schema-business/migrations -name migration.sql | wc -l | tr -d ' ')"
+          got="$(wc -l < /tmp/inc.txt | tr -d ' ')"
+          echo "迁移集合: 增量=$got 从零=$(wc -l < /tmp/fresh.txt | tr -d ' ') 期望=$expected"
+          [ "$got" = "$expected" ] || { echo "✗ 增量路径未覆盖全部迁移"; exit 1; }
+        env:
+          MYSQL_CID: ${{ job.services.mysql.id }}
+
+  # ============================================================
+  # 预发布环境自动部署(push develop;自托管 runner 落 Mac Mini 常驻栈)
+  # 生产栈仍人工发布,理由见 docs/ops/production-deploy.md §7.2
+  # ============================================================
+
+  deploy-staging:
+    name: 部署预发布环境 / Mac Mini 常驻栈
+    needs: [check, build, integration, db-migration-guard, db-incremental-guard]
+    # 仓库变量未配置时整体跳过(未注册 runner 前不让流水线排队等 runner)
+    # 允许 workflow_dispatch 在 develop 上手动触发:首次上线前可先手动验证整条链路
+    if: >-
+      github.ref == 'refs/heads/develop' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      vars.DEPLOY_ROOT != ''
+    runs-on: [self-hosted]
+    timeout-minutes: 60
+    # 部署串行:两次部署撞车会留下半新半旧的栈
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: portal
+    env:
+      DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: portal
+      - name: 解析镜像 tag
+        run: echo "WEB_IMAGE=acore-portal-test:${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
+      - name: 部署(构建→迁移→滚动→健康检查,失败自动回滚镜像)
+        run: bash scripts/ops/deploy-staging.sh
+

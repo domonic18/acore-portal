@@ -50,6 +50,7 @@ export default async function AdminForumPage({
           return (
             <Link
               key={key}
+              prefetch={false}
               href={`/admin/forum${key === "threads" ? "?tab=threads" : ""}`}
               role="tab"
               aria-selected={active}
@@ -152,6 +153,7 @@ async function ThreadsSection({
           筛选
         </Button>
         <Link
+          prefetch={false}
           href="/admin/forum?tab=threads"
           className={`rounded text-sm text-[#6482a3] underline-offset-2 hover:text-[#a8d9f5] hover:underline ${FOCUS_RING}`}
         >

@@ -7,7 +7,7 @@ import {
   INVITATION_LIMITS,
   INVITATION_PREFIX_PATTERN,
 } from "@/constants/invitation";
-import { paginate } from "@/lib/pagination";
+import { pageSlice, totalPageCount } from "@/lib/pagination";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/shared/audit";
 import { UsersAdminError } from "./shared";
@@ -35,18 +35,20 @@ export async function listInvitationCodes(opts: { page?: number }): Promise<{
   total: number;
 }> {
   const page = Number.isInteger(opts.page) && opts.page! > 0 ? opts.page! : 1;
-  const total = await prisma.invitationCode.count();
-  const { totalPages, skip, take } = paginate(total, page, ADMIN_INVITATION_PAGE_SIZE);
-  const rows = await prisma.invitationCode.findMany({
-    orderBy: { id: "desc" },
-    skip,
-    take,
-    include: { uses: { include: { user: { select: { username: true } } } } },
-  });
+  const { skip, take } = pageSlice(page, ADMIN_INVITATION_PAGE_SIZE);
+  const [total, rows] = await Promise.all([
+    prisma.invitationCode.count(),
+    prisma.invitationCode.findMany({
+      orderBy: { id: "desc" },
+      skip,
+      take,
+      include: { uses: { include: { user: { select: { username: true } } } } },
+    }),
+  ]);
   const now = Date.now();
   return {
     page,
-    totalPages,
+    totalPages: totalPageCount(total, ADMIN_INVITATION_PAGE_SIZE),
     total,
     items: rows.map((c) => ({
       id: c.id.toString(),

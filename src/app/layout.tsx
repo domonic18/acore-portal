@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { SiteFooter } from "@/components/site/footer";
 import { HideOnAdmin } from "@/components/site/chrome-gate";
 import { SiteHeaderClient } from "@/components/site/header-client";
 import { PageViewBeacon } from "@/components/site/page-view-beacon";
+import { PortalPageBackground } from "@/components/site/portal-page-background";
 import { getSiteFooterView, getSiteHeaderView } from "@/server/services/site/chrome";
 import { getActiveTheme } from "@/server/services/site/theme";
 import { getConfig } from "@/lib/config";
+import { ADMIN_SURFACE_HEADER, ADMIN_SURFACE_VALUE } from "@/constants/admin";
 import "@/styles/globals.css";
 
 /** 配置不可用(build 期预渲染/库未就绪)时的 favicon 兜底,与 configSchema 默认值一致 */
@@ -45,12 +48,16 @@ export default async function RootLayout({
     getSiteFooterView(),
     getActiveTheme(),
   ]);
+  // 后台表面(middleware 打标):不挂门户装饰大图,省掉每页 244KB 的 background.jpg 下载
+  const isAdminSurface =
+    (await headers()).get(ADMIN_SURFACE_HEADER) === ADMIN_SURFACE_VALUE;
+  const pageBackground = backgroundLayer(
+    "var(--theme-page-overlay)",
+    theme.assets.pageBackgroundUrl,
+  );
   // 主题变量挂在 <html>:CSS 自定义属性沿 DOM 继承,页头/内容面板无需逐层传参
   const themeStyle = {
-    "--theme-page-background": backgroundLayer(
-      "var(--theme-page-overlay)",
-      theme.assets.pageBackgroundUrl,
-    ),
+    "--theme-page-background": isAdminSurface ? "none" : pageBackground,
     "--theme-header-background": backgroundLayer(
       "var(--theme-header-overlay)",
       theme.assets.headerBackgroundUrl,
@@ -69,9 +76,15 @@ export default async function RootLayout({
         </HideOnAdmin>
         <div className="flex-1">{children}</div>
         <HideOnAdmin>
-          <SiteFooter icp={footer.icp} copyrightEn={footer.copyrightEn} />
+          <SiteFooter
+            name={footer.name}
+            tagline={footer.tagline}
+            icp={footer.icp}
+            copyrightEn={footer.copyrightEn}
+          />
         </HideOnAdmin>
         <PageViewBeacon />
+        <PortalPageBackground pageBackground={pageBackground} />
       </body>
     </html>
   );

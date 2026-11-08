@@ -83,6 +83,7 @@ export function AdminShell({
                     <li key={navItem.href} className="shrink-0">
                       <Link
                         href={navItem.href}
+                        prefetch={false}
                         aria-current={active ? "page" : undefined}
                         className={`group flex items-center gap-2.5 whitespace-nowrap rounded-lg border px-3 py-2 text-[13px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60 lg:rounded-none lg:border-0 lg:border-l-2 lg:px-6 lg:py-[11px] lg:text-[14px] ${
                           active
@@ -170,6 +171,7 @@ export function AdminShell({
                         <li key={navItem.href}>
                           <Link
                             href={navItem.href}
+                            prefetch={false}
                             aria-current={active ? "page" : undefined}
                             onClick={() => setDrawerOpen(false)}
                             className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60 ${

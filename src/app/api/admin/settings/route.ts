@@ -5,7 +5,7 @@ import { requireApiAdmin } from "@/server/session-guard";
 import { getSettingsView } from "@/server/services/settings/view";
 import { saveSettingsGroup } from "@/server/services/settings/save";
 
-// GET:五组掩码态视图(password/secretKey/apiPassword 只回布尔,不回明文)
+// GET:分组掩码态视图(只写不读者只回布尔,连接串回脱敏串,任何明文凭据不回)
 export async function GET(req: NextRequest) {
   const guard = await requireApiAdmin(req);
   if (!guard.ok) return apiError(guard.status, guard.code, guard.message);

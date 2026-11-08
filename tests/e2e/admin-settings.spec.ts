@@ -14,7 +14,15 @@ import { reloadServerConfig } from "./helpers/config-reload";
 const prisma = new PrismaClient();
 const SMTP_KEYS = ["smtp.host", "smtp.port", "smtp.user", "smtp.password", "smtp.from"];
 const SECURITY_KEYS = ["security.loginMaxFails", "security.loginWindowSec", "security.loginLockSec"];
-const SITE_KEYS = ["site.icp", "site.copyrightEn", "site.qqGroup", "site.qqGroupQr", "site.qqGroupJoinUrl"];
+const SITE_KEYS = [
+  "site.name",
+  "site.tagline",
+  "site.icp",
+  "site.copyrightEn",
+  "site.qqGroup",
+  "site.qqGroupQr",
+  "site.qqGroupJoinUrl",
+];
 const CONTENT_KEYS = ["content.tocEnabled"];
 const APPEARANCE_KEYS = [
   "appearance.logoUrl",
@@ -139,7 +147,19 @@ test.describe.serial("admin 设置页", () => {
     ).toHaveAttribute("href", "/admin/settings");
     await page.goto("/admin/settings");
 
-    for (const group of ["smtp", "captcha", "security", "notify", "content", "site", "appearance", "theme"]) {
+    for (const group of [
+      "app",
+      "soap",
+      "gamedb",
+      "smtp",
+      "captcha",
+      "security",
+      "notify",
+      "content",
+      "site",
+      "appearance",
+      "theme",
+    ]) {
       await expect(page.getByTestId(`settings-group-${group}`)).toBeVisible();
     }
     // 服务端 config 是进程级快照:经 UI 保存密码触发 reloadSystemConfig 后,
@@ -154,6 +174,24 @@ test.describe.serial("admin 设置页", () => {
     // 掩码红线:页面任何位置不出现明文
     const html = await page.content();
     expect(html).not.toContain(SMTP_SECRET);
+  });
+
+  test("游戏库连接串:脱敏回显,提交脱敏形态=未改", async ({ page }) => {
+    await login(page, "m1admin", "adminpass123");
+    const row = await prisma.systemConfig.findFirst({ where: { key: "gamedb.characters" } });
+    const password = row ? new URL(row.value).password : "";
+    await page.goto("/admin/settings");
+
+    const field = page.getByTestId("settings-field-gamedb-characters");
+    await expect(field).toHaveValue(/:\*\*\*@/);
+    // 掩码红线:连接串的口令不在页面上
+    if (password) expect(await page.content()).not.toContain(password);
+
+    // 提交脱敏形态 → 视为未改,库里真值不变(不能被 *** 覆盖)
+    await page.getByTestId("settings-save-gamedb").click();
+    await expect(page.getByTestId("settings-result-gamedb")).toContainText("已保存");
+    const after = await prisma.systemConfig.findFirst({ where: { key: "gamedb.characters" } });
+    expect(after?.value).toBe(row?.value);
   });
 
   test("保存校验:非法值 422 回显;合法保存即时生效", async ({ page }) => {
@@ -187,8 +225,11 @@ test.describe.serial("admin 设置页", () => {
     await login(page, "m1admin", "adminpass123");
     await page.goto("/admin/settings");
 
-    // site 组:备案号+英文版权声明 → 页脚;QQ 群号+二维码 → 首页侧栏卡
+    // site 组:站点名+副标题+备案号+英文版权声明 → 页脚;QQ 群号+二维码 → 首页侧栏卡
+    const siteName = `老克塔 E2E${Date.now().toString(36)}`;
     const icp = `京ICP备E2E${Date.now().toString(36)}号`;
+    await page.getByTestId("settings-field-site-name").fill(siteName);
+    await page.getByTestId("settings-field-site-tagline").fill("E2E 副标题");
     await page.getByTestId("settings-field-site-icp").fill(icp);
     await page.getByTestId("settings-field-site-copyrightEn").fill("E2E copyright line.");
     await page.getByTestId("settings-field-site-qqGroup").fill("88888888");
@@ -198,6 +239,9 @@ test.describe.serial("admin 设置页", () => {
     await expect(page.getByTestId("settings-result-site")).toContainText("已保存");
     await page.goto("/");
     const footer = page.getByRole("contentinfo");
+    // 站点名/副标题/备案号/英文声明均在页脚版权行即时生效
+    await expect(footer).toContainText(siteName);
+    await expect(footer).toContainText("E2E 副标题");
     await expect(footer).toContainText(icp);
     await expect(footer).toContainText("E2E copyright line.");
     // QQ 群展示与 Powered by AzerothCore 已随 2026-11-05 页脚文案调整下线

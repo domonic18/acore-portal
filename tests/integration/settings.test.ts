@@ -9,7 +9,13 @@ vi.mock("@/lib/mail", () => ({
 }));
 
 import { prisma } from "@/lib/db/business";
-import { DEFAULT_SITE_COPYRIGHT_EN, reloadSystemConfig, getConfig } from "@/lib/config";
+import {
+  DEFAULT_SITE_COPYRIGHT_EN,
+  DEFAULT_SITE_NAME,
+  DEFAULT_SITE_TAGLINE,
+  reloadSystemConfig,
+  getConfig,
+} from "@/lib/config";
 import { AUDIT_ACTION } from "@/constants/audit";
 import { getSettingsView } from "@/server/services/settings/view";
 import { saveSettingsGroup as saveGroup, sendTestMail } from "@/server/services/settings/save";
@@ -58,6 +64,8 @@ const SECURITY_KEYS = [
 ];
 const NOTIFY_KEYS = ["notify.pointEmailThreshold"];
 const SITE_KEYS = [
+  "site.name",
+  "site.tagline",
   "site.icp",
   "site.copyrightEn",
   "site.qqGroup",
@@ -384,6 +392,8 @@ describe("site 组(CRUD 对齐审计)", () => {
     await delKeys(SITE_KEYS);
     const config = await getConfig();
     expect(config.site).toEqual({
+      name: DEFAULT_SITE_NAME,
+      tagline: DEFAULT_SITE_TAGLINE,
       icp: "京ICP备2022035466号",
       copyrightEn: DEFAULT_SITE_COPYRIGHT_EN,
       qqGroup: "184670219",
@@ -399,11 +409,19 @@ describe("site 组(CRUD 对齐审计)", () => {
   it("site 组保存 → 落库+热生效;审计只落键名不落值", async () => {
     const result = await saveGroup(
       "site",
-      { icp: "京ICP备E2E000001号", qqGroup: "10086100", qqGroupQr: "/uploads/qq-qr.png" },
+      {
+        name: "老克塔 LoktaCN",
+        icp: "京ICP备E2E000001号",
+        qqGroup: "10086100",
+        qqGroupQr: "/uploads/qq-qr.png",
+      },
       { id: ADMIN_ID },
     );
     expect(result).toEqual({ ok: true });
     expect((await getConfig()).site).toEqual({
+      name: "老克塔 LoktaCN",
+      // tagline 缺省=保持(无行则回落默认),不进 diff;copyrightEn 同缺省=回落默认
+      tagline: DEFAULT_SITE_TAGLINE,
       icp: "京ICP备E2E000001号",
       // copyrightEn 缺省=保持(无行则回落默认),不进 diff;qqGroupJoinUrl 同缺省=回落默认
       copyrightEn: DEFAULT_SITE_COPYRIGHT_EN,
@@ -415,13 +433,14 @@ describe("site 组(CRUD 对齐审计)", () => {
     expect((audit!.payloadJson as { group?: string }).group).toBe("site");
     expect(
       Object.keys((audit!.payloadJson as { diff: Record<string, string> }).diff).sort(),
-    ).toEqual(["site.icp", "site.qqGroup", "site.qqGroupQr"].sort());
+    ).toEqual(["site.icp", "site.name", "site.qqGroup", "site.qqGroupQr"].sort());
     expect(JSON.stringify(audit!.payloadJson)).not.toContain("京ICP备E2E000001号");
     // copyrightEn 覆写与显式清空(空串=页脚隐藏英文声明);
     // qqGroup 空串=侧栏隐藏 QQ 卡,qqGroupQr 空串=卡内不渲染二维码
     await saveGroup(
       "site",
       {
+        name: "老克塔 LoktaCN",
         icp: "京ICP备E2E000001号",
         copyrightEn: "Custom EN line.",
         qqGroup: "10086100",
@@ -433,6 +452,7 @@ describe("site 组(CRUD 对齐审计)", () => {
     await saveGroup(
       "site",
       {
+        name: "老克塔 LoktaCN",
         icp: "京ICP备E2E000001号",
         copyrightEn: "",
         qqGroup: "10086100",
@@ -443,37 +463,51 @@ describe("site 组(CRUD 对齐审计)", () => {
     expect((await getConfig()).site.copyrightEn).toBe("");
     await saveGroup(
       "site",
-      { icp: "京ICP备E2E000001号", qqGroup: "", qqGroupQr: "", qqGroupJoinUrl: "" },
+      {
+        name: "老克塔 LoktaCN",
+        tagline: "",
+        icp: "京ICP备E2E000001号",
+        qqGroup: "",
+        qqGroupQr: "",
+        qqGroupJoinUrl: "",
+      },
       { id: ADMIN_ID },
     );
+    expect((await getConfig()).site.tagline).toBe("");
     expect((await getConfig()).site.qqGroup).toBe("");
     expect((await getConfig()).site.qqGroupQr).toBe("");
     // 加群链接空串=显式清空(群号回落点击复制)
     expect((await getConfig()).site.qqGroupJoinUrl).toBe("");
   });
 
-  it("site 组:icp 超长/QQ 群号非数字/二维码非法地址 422 零写入", async () => {
+  it("site 组:icp 超长/QQ 群号非数字/二维码非法地址/站点名为空 422 零写入", async () => {
     const badIcp = await saveGroup(
       "site",
-      { icp: "x".repeat(65), qqGroup: "10086100", qqGroupQr: "" },
+      { name: "老克塔 LoktaCN", icp: "x".repeat(65), qqGroup: "10086100", qqGroupQr: "" },
       { id: ADMIN_ID },
     );
     expect(badIcp).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
     const badGroup = await saveGroup(
       "site",
-      { icp: "京ICP备E2E000001号", qqGroup: "not-a-number", qqGroupQr: "" },
+      { name: "老克塔 LoktaCN", icp: "京ICP备E2E000001号", qqGroup: "not-a-number", qqGroupQr: "" },
       { id: ADMIN_ID },
     );
     expect(badGroup).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
     const badQr = await saveGroup(
       "site",
-      { icp: "京ICP备E2E000001号", qqGroup: "10086100", qqGroupQr: "javascript:alert(1)" },
+      {
+        name: "老克塔 LoktaCN",
+        icp: "京ICP备E2E000001号",
+        qqGroup: "10086100",
+        qqGroupQr: "javascript:alert(1)",
+      },
       { id: ADMIN_ID },
     );
     expect(badQr).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
     const badJoin = await saveGroup(
       "site",
       {
+        name: "老克塔 LoktaCN",
         icp: "京ICP备E2E000001号",
         qqGroup: "10086100",
         qqGroupQr: "",
@@ -482,6 +516,22 @@ describe("site 组(CRUD 对齐审计)", () => {
       { id: ADMIN_ID },
     );
     expect(badJoin).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
+    // 站点名必填:清空=422(页脚不能没有站名);副标题可清空=页脚不渲染该段
+    const badName = await saveGroup(
+      "site",
+      {
+        name: "",
+        tagline: "",
+        icp: "京ICP备E2E000001号",
+        qqGroup: "10086100",
+        qqGroupQr: "",
+      },
+      { id: ADMIN_ID },
+    );
+    expect(badName).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });
+    // 零写入:上面五次非法提交均未落库,现值仍是上一用例留下的
+    expect((await getConfig()).site.name).toBe("老克塔 LoktaCN");
+    expect((await getConfig()).site.tagline).toBe("");
     expect((await getConfig()).site.icp).toBe("京ICP备E2E000001号");
     expect((await getConfig()).site.qqGroup).toBe("");
     expect((await getConfig()).site.qqGroupQr).toBe("");

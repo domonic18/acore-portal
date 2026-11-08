@@ -176,3 +176,9 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml --profile 
 加 GitHub Environments + `main` 分支保护 + 人工审批 → 流水线内跑 §7.1 的同一组命令,
 让发布与回滚共用一份脚本,避免两套流程漂移。
 
+> **2026-11-08 补记**:上面的「门户 CI 没有 deploy job」指的是**生产栈**。
+> **测试栈**已先行自动化(`push develop` → 自托管 runner 重建 web 镜像 + 迁移守卫闸门 + 失败自动回滚镜像),
+> 手册见 [staging-deploy.md](staging-deploy.md)。两者的差别正是 §7.2 第 2、3 条说的那两条:
+> 测试栈跑在自有机器上、无真实流量、数据可重灌,风险与收益都比生产低一个量级;
+> 生产仍按 §7.1 人工发布。
+

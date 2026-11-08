@@ -161,6 +161,7 @@ export function ProductQuickEditRow({ product }: { product: QuickEditProduct }) 
         </td>
         <td className="whitespace-nowrap px-3 py-2.5">
           <Link
+            prefetch={false}
             href={`/admin/products/${product.id}`}
             className="rounded text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60"
           >

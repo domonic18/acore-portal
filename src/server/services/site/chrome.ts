@@ -18,16 +18,22 @@ export type SiteHeaderView = {
 };
 
 export type SiteFooterView = {
+  /** 站点名(页脚版权行首段) */
+  name: string;
+  /** 站点副标题(留空=页脚不渲染该段) */
+  tagline: string | null;
   icp: string | null;
   copyrightEn: string | null;
 };
 
-/** 全站页脚取数(FR-204):备案号与英文版权声明(留空不渲染) */
+/** 全站页脚取数(FR-204):站点名/副标题/备案号/英文版权声明(留空不渲染) */
 export async function getSiteFooterView(): Promise<SiteFooterView> {
   const site = await getConfig()
     .then((c) => c.site)
     .catch(() => null);
   return {
+    name: site?.name || "",
+    tagline: site?.tagline || null,
     icp: site?.icp || null,
     copyrightEn: site?.copyrightEn || null,
   };

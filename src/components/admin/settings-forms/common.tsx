@@ -8,6 +8,9 @@ import { Switch } from "@/components/ui/switch";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 export type GroupName =
+  | "app"
+  | "soap"
+  | "gamedb"
   | "smtp"
   | "captcha"
   | "security"
