@@ -41,6 +41,7 @@ export default async function AdminUserDetailPage({
           余额 {user.balance} 积分
         </span>
         <Link
+          prefetch={false}
           href="/admin/users"
           className="rounded text-sm text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60"
         >

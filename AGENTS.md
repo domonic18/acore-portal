@@ -101,7 +101,7 @@ src/
 scripts/         # 宿主机侧脚本,按用途分子域
 ├── dev/         # 开发辅助(seed/initdb fixture/SOAP mock)
 ├── verify/      # 验收自检(soap-check/sc001-login)
-├── ops/         # 线上运维/事故响应脚本(强制改密等;只走 service 层原语,不直写凭据)
+├── ops/         # 线上运维/事故响应脚本(强制改密等;只走 service 层原语,不直写凭据);另含 archive-indexes.sql(wp_legacy 存档库分析索引 DDL,一次性人工执行;改的是源库故不在 migrate/)
 ├── migrate/     # WP→新库数据迁移(清洗/对账 SQL 与脚本);migrate/lib/ = 连接与口径共享层(db.mjs 连接串/schema 前缀、admin.mjs 切换期管理员引导),migrate/rehearse.mjs = 迁移链编排器(权威顺序),migrate/reconcile.mjs = 全链统一对账断言器
 └── ci/          # CI 环境自举(游戏四库结构+WP 存量库空壳 / system_config 基线;只供 GitHub Actions)
 docker/          # 部署资产:web/Dockerfile + caddy/Caddyfile + 三套 compose
@@ -124,6 +124,7 @@ docs/            # 文档中心
 6. **配置分域收口**（宪法 v1.0.2）：env 仅存引导级凭据（业务库/Redis 连接串 + SESSION_SECRET），统一经 `lib/env.ts` 校验；游戏四库连接串与业务通道配置（SMTP/SOAP/app.url/腾讯云验证码/COS 等）存业务库 `system_config` 表，统一经 `lib/config.ts` 读取（启动预热 + 进程内缓存；游戏库 client 惰性建连，改连接需重启；管理端改通道配置后调 `reloadSystemConfig`），禁止散点直读 `process.env`、禁止在新代码引入 env 版业务配置
 7. **compose 三分**（2026-11-06 沉淀）：`docker/` 下 dev/test/prod 三套 compose 各自独立成文件，禁止跨环境复用服务定义。**生产栈（`docker-compose.prod.yml`）禁含测试替身**——`mailpit`（生产接真实 SMTP）、`soap-mock`（生产 `soap.url` 指真实 worldserver）、`scripts/dev/initdb` 挂载（含种子账号 `m1admin/adminpass123`）三者一律不进生产；生产 DB 不发布端口（迁移走 `--profile migrate` 一次性服务，备份走 `docker exec`）。新增测试用容器时同步在 prod 文件头部的「刻意排除清单」登记原因与替代方案
 8. **启动钩子依赖图无 node-only 包**（2026-11-06 沉淀）：Next 14 会为 `src/instrumentation.ts` 额外编译一份 edge 产物，其传递依赖图内出现 `ioredis`/`mysql2`/`node:*` 等 node-only 包 → edge 编译报 `Can't resolve 'stream'`，**next dev 与 next build 双双失败**（2026-11-06 PR-0 曾因此静默炸掉整个 E2E，根因离报错点隔了三层 import）。因此：启动链可达的模块（`shared/audit.ts`、`shop/delivery.ts` 等）只许依赖 prisma，Redis 依赖另立文件（`shared/audit-dedup.ts`）。守卫：`tests/unit/instrumentation-graph.test.ts`（红测试，新增 node-only 依赖即失败）
+9. **后台内链一律 `prefetch={false}`**（2026-11-08 沉淀）：后台页面是动态路由（会话/DB），Next 14 对它们的视口预取**只回约 120B 存根**（不含页面数据），且 hover 也不触发完整预取——即预取对点击零收益，只徒增每页 15~25 个请求（实测 `/admin` 36→11 个请求）。`src/app/admin/**` 与 `src/components/admin/**` 内的 `/admin*` 链接一律显式 `prefetch={false}`；指向站外公开页的链接（`/post/*`、`/forum/thread/*`）保留默认预取
 
 ## Code style
 

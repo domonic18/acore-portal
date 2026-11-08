@@ -1,14 +1,24 @@
 /** 分页切片:页码公式单一来源(前后端共用,无 IO) */
+export function pageSlice(page: number, pageSize: number): { skip: number; take: number } {
+  return { skip: (page - 1) * pageSize, take: pageSize };
+}
+
+/** 总页数:行数与页长推导(与 pageSlice 同源) */
+export function totalPageCount(total: number, pageSize: number): number {
+  return Math.max(1, Math.ceil(total / pageSize));
+}
+
+/**
+ * 分页切片 + 总页数。
+ * 总数未知时先取 pageSlice 并行跑 count,拿到 total 再补 totalPageCount
+ * (skip/take 不依赖 total,故 count 与 findMany 可并行)。
+ */
 export function paginate(
   total: number,
   page: number,
   pageSize: number,
 ): { totalPages: number; skip: number; take: number } {
-  return {
-    totalPages: Math.max(1, Math.ceil(total / pageSize)),
-    skip: (page - 1) * pageSize,
-    take: pageSize,
-  };
+  return { totalPages: totalPageCount(total, pageSize), ...pageSlice(page, pageSize) };
 }
 
 /** 数字页码窗口:≤7 全列,否则 首/…/当前±1/…/末(null=省略号) */

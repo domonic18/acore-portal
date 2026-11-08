@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/business";
 import { ADMIN_USER_PAGE_SIZE } from "@/constants/pagination";
-import { paginate } from "@/lib/pagination";
+import { pageSlice, totalPageCount } from "@/lib/pagination";
 
 export async function listAdminUsers(opts: {
   query?: string;
@@ -36,27 +36,29 @@ export async function listAdminUsers(opts: {
   if (opts.role === "user" || opts.role === "moderator" || opts.role === "admin") {
     where.role = opts.role;
   }
-  const total = await prisma.user.count({ where });
-  const { totalPages, skip, take } = paginate(total, page, ADMIN_USER_PAGE_SIZE);
-  const rows = await prisma.user.findMany({
-    where,
-    orderBy: { id: "desc" },
-    skip,
-    take,
-    select: {
-      id: true,
-      username: true,
-      nickname: true,
-      email: true,
-      role: true,
-      status: true,
-      createdAt: true,
-      pointAccount: { select: { balance: true } },
-    },
-  });
+  const { skip, take } = pageSlice(page, ADMIN_USER_PAGE_SIZE);
+  const [total, rows] = await Promise.all([
+    prisma.user.count({ where }),
+    prisma.user.findMany({
+      where,
+      orderBy: { id: "desc" },
+      skip,
+      take,
+      select: {
+        id: true,
+        username: true,
+        nickname: true,
+        email: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        pointAccount: { select: { balance: true } },
+      },
+    }),
+  ]);
   return {
     page,
-    totalPages,
+    totalPages: totalPageCount(total, ADMIN_USER_PAGE_SIZE),
     total,
     users: rows.map((u) => ({
       id: u.id.toString(),

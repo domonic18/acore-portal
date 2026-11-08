@@ -9,6 +9,7 @@ export default function AdminPageNewPage() {
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-bold">新建静态页</h1>
         <Link
+          prefetch={false}
           href="/admin/pages"
           className={`rounded text-sm text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline ${FOCUS_RING}`}
         >

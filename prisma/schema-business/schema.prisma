@@ -189,6 +189,7 @@ model User {
   forumPostsAuthored   ForumPost[]   @relation("ForumPostAuthor")
   notifications      Notification[]
 
+  @@index([createdAt])
   @@map("user")
 }
 
@@ -284,6 +285,7 @@ model PointTransaction {
   badgeGrants BadgeGrant[]
 
   @@index([userId, createdAt])
+  @@index([type, createdAt])
   @@map("point_transaction")
 }
 
@@ -475,6 +477,7 @@ model Order {
 
   @@index([userId, createdAt])
   @@index([status])
+  @@index([createdAt])
   @@map("shop_order")
 }
 
@@ -826,5 +829,8 @@ model PageViewEvent {
 
   @@index([createdAt])
   @@index([path, createdAt])
+  // 看板 UV(PV 表 COUNT(DISTINCT visitor_id))与 Top10 路径聚合的覆盖索引:
+  // 范围扫描 created_at 后 path/visitor_id 均可在索引内取,免回表
+  @@index([createdAt, path, visitorId])
   @@map("page_view_event")
 }

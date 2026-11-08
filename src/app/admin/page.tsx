@@ -89,6 +89,7 @@ export default async function AdminHomePage() {
             title="最新订单"
             actions={
               <Link
+                prefetch={false}
                 href="/admin/orders"
                 className="rounded text-[13px] text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60"
               >

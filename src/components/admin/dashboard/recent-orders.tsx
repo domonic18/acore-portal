@@ -37,6 +37,7 @@ export function DashboardRecentOrders({ orders }: { orders: RecentOrder[] }) {
             <Tr key={o.id}>
               <Td>
                 <Link
+                  prefetch={false}
                   href={`/admin/orders/${o.id}`}
                   className="rounded font-mono text-xs text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60"
                 >

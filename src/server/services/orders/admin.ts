@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { ORDER_ITEM_DELIVERY_STATUS, ORDER_STATUS, type OrderStatusValue } from "@/constants/shop";
 import { ADMIN_ORDER_PAGE_SIZE } from "@/constants/pagination";
-import { paginate } from "@/lib/pagination";
+import { pageSlice, totalPageCount } from "@/lib/pagination";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { POINT_TX_TYPE } from "@/constants/points";
 import { writeAudit } from "@/server/services/shared/audit";
@@ -48,26 +48,28 @@ export async function listAdminOrders(opts: { status?: string; page?: number }):
     ? (opts.status as OrderStatusValue)
     : undefined;
   const where = status ? { status } : {};
-  const total = await prisma.order.count({ where });
-  const { totalPages, skip, take } = paginate(total, page, ADMIN_ORDER_PAGE_SIZE);
-  const rows = await prisma.order.findMany({
-    where,
-    orderBy: { id: "desc" },
-    skip,
-    take,
-    select: {
-      id: true,
-      orderNo: true,
-      status: true,
-      pointCost: true,
-      createdAt: true,
-      user: { select: { username: true, nickname: true } },
-      _count: { select: { items: true } },
-    },
-  });
+  const { skip, take } = pageSlice(page, ADMIN_ORDER_PAGE_SIZE);
+  const [total, rows] = await Promise.all([
+    prisma.order.count({ where }),
+    prisma.order.findMany({
+      where,
+      orderBy: { id: "desc" },
+      skip,
+      take,
+      select: {
+        id: true,
+        orderNo: true,
+        status: true,
+        pointCost: true,
+        createdAt: true,
+        user: { select: { username: true, nickname: true } },
+        _count: { select: { items: true } },
+      },
+    }),
+  ]);
   return {
     page,
-    totalPages,
+    totalPages: totalPageCount(total, ADMIN_ORDER_PAGE_SIZE),
     total,
     orders: rows.map((o) => ({
       id: o.id.toString(),
@@ -189,21 +191,23 @@ export async function listMigrationReviews(opts: {
   const resolved =
     opts.resolved === "1" ? true : opts.resolved === "all" ? undefined : false;
   const where = resolved === undefined ? {} : { resolvedAt: resolved ? { not: null } : null };
-  const total = await prisma.migrationReviewItem.count({ where });
-  const { totalPages, skip, take } = paginate(total, page, ADMIN_ORDER_PAGE_SIZE);
-  const rows = await prisma.migrationReviewItem.findMany({
-    where,
-    orderBy: { id: "asc" },
-    skip,
-    take,
-    select: {
-      id: true,
-      legacyWpOrderId: true,
-      reason: true,
-      detail: true,
-      resolvedAt: true,
-    },
-  });
+  const { skip, take } = pageSlice(page, ADMIN_ORDER_PAGE_SIZE);
+  const [total, rows] = await Promise.all([
+    prisma.migrationReviewItem.count({ where }),
+    prisma.migrationReviewItem.findMany({
+      where,
+      orderBy: { id: "asc" },
+      skip,
+      take,
+      select: {
+        id: true,
+        legacyWpOrderId: true,
+        reason: true,
+        detail: true,
+        resolvedAt: true,
+      },
+    }),
+  ]);
   // 存量单可能已被脚本外途径清理:order 缺行时列表仍展示(review 行为真相源)
   const orderRows = await prisma.order.findMany({
     where: { legacyWpOrderId: { in: rows.map((r) => r.legacyWpOrderId) } },
@@ -218,7 +222,7 @@ export async function listMigrationReviews(opts: {
   const orderMap = new Map(orderRows.map((o) => [o.legacyWpOrderId, o]));
   return {
     page,
-    totalPages,
+    totalPages: totalPageCount(total, ADMIN_ORDER_PAGE_SIZE),
     total,
     items: rows.map((r) => {
       const o = orderMap.get(r.legacyWpOrderId);

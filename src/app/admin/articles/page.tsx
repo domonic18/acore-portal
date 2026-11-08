@@ -66,6 +66,7 @@ export default async function AdminArticlesPage({
               <Tr key={a.id}>
                 <Td>
                   <Link
+                    prefetch={false}
                     href={`/admin/articles/${a.id}`}
                     className={`rounded text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline ${FOCUS_RING}`}
                   >
@@ -86,6 +87,7 @@ export default async function AdminArticlesPage({
                 <Td>
                   <div className="flex items-center gap-2">
                     <Link
+                      prefetch={false}
                       href={`/admin/articles/${a.id}`}
                       className={`rounded text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline ${FOCUS_RING}`}
                     >
