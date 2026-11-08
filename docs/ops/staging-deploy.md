@@ -27,7 +27,8 @@ check ─┬─ build ─┬─ integration ─┬─ db-migration-guard ─┬�
        └─────────┴───────────────┴───────────────────────┘
 ```
 
-- **只有 `push` 到 `develop` 且全绿才部署**；PR 与 `main` push 只跑门禁不部署。
+- **`push` 到 `develop` 且全绿才部署**；PR 与 `main` push 只跑门禁不部署。
+  另可 `workflow_dispatch` 手动触发(选 `develop` 分支)——首次上线前用它验证整条链路。
 - 仓库变量 `DEPLOY_ROOT` 未配置时,整个作业**跳过**
   (不是排队等 runner)——未注册 runner 前流水线不会挂起。
 - `develop` 分支的流水线**不打断**在跑的那次(`cancel-in-progress` 仅在非 develop 生效):
@@ -53,17 +54,29 @@ mkdir -p ~/Workspace/actions-runner/acore-portal && cd ~/Workspace/actions-runne
 要求:runner 运行用户具备 docker 权限;`_work` 落在本地盘且空间够放镜像层。
 **不传 `--labels` / `--no-default-labels`**:默认标签就是工作流里的 `self-hosted`。
 
+> **坑:从别的 runner 目录拷贝安装包时,`bin` / `externals` 软链必须指向本目录内的副本**
+> (`ln -sfn .../acore-portal/bin.2.338.2 bin`)。若软链仍指向别的仓的 runner 目录,
+> `Runner.Listener` 会把根目录认成那个仓,报 `Cannot configure the runner because it is already configured`。
+>
+> **坑:runner 版本要对**——GitHub 拒收过期的 runner 包。拷贝本机在跑的那份安装目录,
+> 别用旧的安装包;核验方式 `./bin/Runner.Listener --version`。
+
 ---
 
 ## 3. 仓库变量(Settings → Secrets and variables → Actions → Variables)
 
 | 变量 | 含义 | 备注 |
 | --- | --- | --- |
-| `DEPLOY_ROOT` | 部署根目录 | 其下含 `.env.test` 与 `workspace/`;须**在 git 检出之外**,填绝对路径 |
+| `DEPLOY_ROOT` | 部署根目录 | 其下含 `.env.test` 与 `workspace/`;须填**绝对路径**,且与 CI 的代码检出**物理隔离** |
 
 > 路径一律走仓库变量,**不写进 YAML**(本仓是公开仓,文档与工作流不得出现本机路径)。
 > 变量缺失 → 作业跳过。测试栈不需要任何 secret(不连远端主机、不推镜像仓库);
 > 将来生产自动化时沿用同族命名 `DEPLOY_HOST` / `DEPLOY_PATH` / `DEPLOY_SSH_KEY` / `DEPLOY_KNOWN_HOSTS`。
+>
+> **取值口径**:部署根取「工作副本」即可(本地这份仓库的绝对路径)——它已经同时含
+> `.env.test` 与 `workspace/`,而 CI 的代码检出落在 runner 的 `_work/` 下,两者天然隔离,
+> 不用搬迁任何数据。**注意**:公开仓的 Actions 变量对所有人可读,故该值会暴露维护者本机路径;
+> 若不接受,改填一个不含仓库的专用目录(把 `.env.test` 与 `workspace/` 挪过去)即可,流水线无需改动。
 
 ---
 
@@ -100,7 +113,7 @@ $DEPLOY_ROOT/               # 仓库变量 vars.DEPLOY_ROOT,绝对路径
 1) 记回滚锚点:当前运行容器的镜像 tag(首次部署则无)
 2) 构建:docker compose build web            → 镜像 tag = acore-portal-test:<sha7>
 3) 迁移:docker compose --profile migrate run --rm migrate   (schema 先行)
-4) 滚动:docker compose up -d --wait         (只重建 web;mysql/redis 配置未变则不动)
+4) 滚动:docker compose up -d --wait         (web 必重建;其他服务仅在声明配置漂移时被 compose 归位)
 5) 健康检查:http://127.0.0.1:9000/api/status 须 200
 6) 记录当前部署提交号到 $DEPLOY_ROOT/current-sha
 ```
@@ -124,7 +137,12 @@ $DEPLOY_ROOT/               # 仓库变量 vars.DEPLOY_ROOT,绝对路径
 - ❌ 不执行 `docker compose down -v` / 不删卷 / 不删 `$DEPLOY_ROOT`
 - ❌ 不在部署根或卷根里做 `git clean -x`
 - ❌ 不改 `scripts/dev/initdb` 的挂载(测试替身,生产栈禁有)
-- ✅ 只重建 web 容器;mysql/redis 的数据卷原地复用
+- ✅ web 容器必重建;其他服务**只在声明配置漂移时**被 compose 归位重建
+  (例:redis 换成 digest 引用、soap-mock 服务改名——这类漂移是「手工起的栈」与「仓库里的
+  compose 文件」之间的历史差,首次自动部署会一次性归位,之后不再发生)
+- ✅ **数据卷原地复用,从不删除**:mysql / redis / uploads 都是 bind mount 到
+  `$DEPLOY_ROOT/workspace/`;容器重建不动目录内容(实测重建后 5660 用户 / 1911 订单 /
+  10369 积分流水、迁移账本 26 条全 finished 完好)
 - ✅ `.env.test` 与卷根永不入 git
 
 ---
@@ -157,12 +175,30 @@ $DEPLOY_ROOT/               # 仓库变量 vars.DEPLOY_ROOT,绝对路径
 | 迁移守卫红:lint 报某条迁移 | 新迁移缺幂等守卫 | 按提示改写,或加 `-- guard: <理由>` 注释豁免 |
 | 迁移守卫红:漂移 | 迁移 SQL 与 datamodel 不一致 | 重新生成迁移(`pnpm db:migrate`)并复核 diff |
 | 部署失败已自动回滚 | 构建/迁移/健康检查任一环节 | 看作业日志定位;测试栈已回到上一版,业务不受影响 |
+| 迁移报 `P1001: Can't reach database server at 127.0.0.1:3306` | migrate 容器拿到了回环地址——compose 插值优先级 **shell env > `--env-file` > `.env`**,CI 作业级 env 里的 `DATABASE_URL` 盖掉了 `.env.test` | compose 里 migrate **禁用 `${DATABASE_URL}` 插值**,改用与 web 同一个 `env_file` |
+| `docker compose ps` 里 web 镜像显示成 `sha256:…` 摘要 | compose 记录的是解析后的镜像 ID;回滚锚点取的就是这个值 | 正常现象;`docker images` 里能看到对应的 `acore-portal-test:<sha7>` tag |
 | 站点异常但流水线绿 | 手工改动过容器或数据 | 栈是常驻的,状态以 `docker compose -f docker/docker-compose.test.yml ps` 为准 |
 
 ---
 
-## 10. 变更记录
+## 10. 实跑验证(2026-11-08)
+
+| 场景 | 结果 |
+| --- | --- |
+| `push develop` 首次自动部署 | 迁移步骤失败(`P1001`)→ 失败发生在 `switched=1` 之前,**web 未被触碰**,仍跑旧镜像且健康;数据完好 |
+| 修复后 `push develop` 重跑 | 部署成功(2m42s);web 换成 `acore-portal-test:<sha7>`,`/api/status` 200;mysql 容器**未重建**;数据 5660 用户 / 1911 订单 / 10369 积分流水、账本 26/26 |
+| `workflow_dispatch` 手动重跑 | 成功(1m3s);mysql / redis / soap-mock / mailpit **均未重建**,只有 web 重建 → 幂等 |
+| 迁移守卫(两个作业) | 全绿,各约 50s |
+
+> 首次部署时 redis / soap-mock 被重建一次:那是「手工起的栈」与「仓库里的 compose 文件」之间的
+> 历史配置漂移(redis 用的 digest 引用、soap-mock 服务改名),**不是部署逻辑重建它们**。
+> 之后配置一致,再部署不再重建。
+
+---
+
+## 11. 变更记录
 
 | 日期 | 内容 |
 | --- | --- |
 | 2026-11-08 | 初稿:测试栈自动部署落地(迁移守卫 + 自托管 runner + 部署/回滚脚本 + 数据红线) |
+| 2026-11-08 | 实跑验证后修订:compose 插值被 CI env 覆盖的坑与改法、容器重建的真实语义、幂等重跑实测 |
