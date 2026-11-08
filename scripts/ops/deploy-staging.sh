@@ -93,7 +93,10 @@ for _ in $(seq 1 30); do
   fi
   sleep 2
 done
-curl -fsS "$HEALTH_URL" >/dev/null || { echo "✗ 健康检查失败" >&2; exit 1; }
+curl -fsS "$HEALTH_URL" >/dev/null || {
+  echo "✗ 健康检查失败" >&2
+  false # 失败即触发 ERR trap → 回滚镜像(直接 exit 不会触发 trap)
+}
 
 mkdir -p "$DEPLOY_ROOT"
 printf '%s\n' "${GITHUB_SHA:-unknown}" >"$DEPLOY_ROOT/current-sha"
