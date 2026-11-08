@@ -171,7 +171,8 @@ CREATE TABLE IF NOT EXISTS `wp_baiduseo_zhizhu` (
   `address` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NOT NULL,
   `type` bigint NOT NULL DEFAULT '200',
   `num` bigint DEFAULT '1',
-  UNIQUE KEY `id` (`id`)
+  UNIQUE KEY `id` (`id`),
+  KEY `idx_baidu_type_time_num` (`type`,`time`,`num`)
 ) ENGINE=InnoDB AUTO_INCREMENT=108632 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -219,7 +220,13 @@ CREATE TABLE IF NOT EXISTS `wp_statistics_visitor` (
   KEY `device` (`device`),
   KEY `model` (`model`),
   KEY `location` (`location`),
-  KEY `ip` (`ip`)
+  KEY `ip` (`ip`),
+  KEY `idx_visitor_device_counter` (`device`,`last_counter`),
+  KEY `idx_visitor_platform_counter` (`platform`,`last_counter`),
+  KEY `idx_visitor_agent_counter` (`agent`,`last_counter`),
+  KEY `idx_visitor_location_counter` (`location`,`last_counter`),
+  KEY `idx_visitor_source_counter` (`source_name`,`last_counter`),
+  KEY `idx_visitor_referred_counter` (`referred`(64),`last_counter`)
 ) ENGINE=InnoDB AUTO_INCREMENT=289957 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
