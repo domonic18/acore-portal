@@ -271,4 +271,21 @@ test.describe("US2 商城与购物车(T026)", () => {
     await page.getByRole("button", { name: "移除" }).click();
     await expect(page.getByText("购物车还是空的")).toBeVisible();
   });
+
+  test("购物车页显示当前积分与本次需花费积分(#155)", async ({ page }) => {
+    await login(page);
+    await page.goto(`/shop/${ITEM_SLUG}`);
+    await page.getByLabel("选择角色").selectOption("10");
+    await page.getByRole("button", { name: "加入购物车" }).click();
+    await expect(page.getByRole("status")).toContainText("已加入购物车");
+
+    await page.goto("/cart");
+    await expect(page.getByText("当前积分:")).toBeVisible();
+    await expect(page.getByText("本次需花费:")).toBeVisible();
+    // 本次需花费 = 行小计合计(单价 500 × 1)
+    await expect(page.getByText(/本次需花费:\s*500\s*积分/)).toBeVisible();
+
+    await page.getByRole("button", { name: "移除" }).click();
+    await expect(page.getByText("购物车还是空的")).toBeVisible();
+  });
 });
