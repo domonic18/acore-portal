@@ -93,7 +93,7 @@ export default async function AdminUserDetailPage({
                 className="rounded-full border border-[#e8c877]/30 bg-[#e8c877]/10 px-3 py-1 text-sm text-[#e8c877]"
               >
                 {g.name}(Lv.{g.level})
-                <span className="ml-2 text-xs text-[#6482a3]">
+                <span className="ml-2 whitespace-nowrap text-xs text-[#6482a3]">
                   {new Date(g.grantedAt).toLocaleDateString("zh-CN")}
                 </span>
               </li>
