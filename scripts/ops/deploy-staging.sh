@@ -67,7 +67,16 @@ on_error() {
 trap on_error ERR
 
 log "构建镜像 ${WEB_IMAGE}"
-"${COMPOSE[@]}" build web
+# 构建信息随镜像产物固化(见 docker/web/Dockerfile):构建时间显式指定上海时区,
+# 不依赖 runner 本机时区;提交号与镜像 tag 同源,便于页脚核对版本。
+BUILD_TIME="$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M')"
+APP_SHA="${GITHUB_SHA:-unknown}"
+APP_SHA="${APP_SHA:0:7}"
+echo "构建信息: ${BUILD_TIME} / ${APP_SHA}"
+"${COMPOSE[@]}" build \
+  --build-arg BUILD_TIME="$BUILD_TIME" \
+  --build-arg APP_SHA="$APP_SHA" \
+  web
 
 log "迁移(一次性服务,schema 先行)"
 "${COMPOSE[@]}" --profile migrate run --rm migrate

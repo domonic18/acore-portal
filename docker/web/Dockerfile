@@ -5,6 +5,10 @@
 # 构建期注入占位 env:仅为满足 src/lib/env.ts 模块加载 fail-fast 校验,
 # 运行时真实值以 compose env_file(.env.test/.env.prod)为准;
 # runtime 层不再烘焙占位 env,缺失时 fail-fast 如实报错。
+#
+# 构建信息(BUILD_TIME/APP_SHA)同理走构建期内联:NEXT_PUBLIC_* 由 next build
+# 固化进产物,运行期不再依赖 env,避免「容器 env 与镜像产物说法不一致」。
+# 缺省 unknown → 页面据此不渲染构建信息行(本地手工构建的情形)。
 FROM node:22-slim AS builder
 
 RUN apt-get update \
@@ -26,6 +30,12 @@ ENV NODE_ENV=production \
   SESSION_SECRET="build-time-placeholder-secret-000000" \
   DATABASE_URL="mysql://build:build@localhost:3306/build" \
   REDIS_URL="redis://localhost:6379/0"
+
+# 构建信息:自动部署由 deploy-staging.sh 以 --build-arg 传入
+ARG BUILD_TIME=unknown
+ARG APP_SHA=unknown
+ENV NEXT_PUBLIC_BUILD_TIME=$BUILD_TIME \
+  NEXT_PUBLIC_APP_SHA=$APP_SHA
 
 RUN pnpm build
 
