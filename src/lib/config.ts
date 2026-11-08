@@ -325,12 +325,22 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
   };
 }
 
+/** 配置校验失败(只报字段路径与原因,任何值不回显);后台保存路径据此改写成用户可读提示 */
+export class ConfigValidationError extends Error {
+  readonly issues: string;
+  constructor(issues: string) {
+    super(`system_config 配置校验失败(检查 system_config 表): ${issues}`);
+    this.name = "ConfigValidationError";
+    this.issues = issues;
+  }
+}
+
 function parseConfig(raw: ReturnType<typeof flattenToSchema>): SystemConfig {
   const parsed = configSchema.safeParse(raw);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
     // 只报缺失/格式,不回显任何值
-    throw new Error(`system_config 配置校验失败(检查 system_config 表): ${issues}`);
+    throw new ConfigValidationError(issues);
   }
   return parsed.data;
 }

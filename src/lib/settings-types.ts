@@ -13,6 +13,24 @@ export type ThemeAssets = {
 };
 
 export type SettingsView = {
+  app: {
+    /** 站点对外地址(生产/测试各自不同,后台可改) */
+    url: string;
+  };
+  soap: {
+    url: string;
+    user: string;
+    realm: string;
+    /** 口令只写不读:只回是否已配置 */
+    passwordConfigured: boolean;
+  };
+  gamedb: {
+    /** 四个游戏库的连接串(口令已脱敏为 ***) */
+    auth: string;
+    characters: string;
+    world: string;
+    eluna: string;
+  };
   smtp: {
     host: string;
     port: number;

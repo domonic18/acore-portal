@@ -147,7 +147,19 @@ test.describe.serial("admin 设置页", () => {
     ).toHaveAttribute("href", "/admin/settings");
     await page.goto("/admin/settings");
 
-    for (const group of ["smtp", "captcha", "security", "notify", "content", "site", "appearance", "theme"]) {
+    for (const group of [
+      "app",
+      "soap",
+      "gamedb",
+      "smtp",
+      "captcha",
+      "security",
+      "notify",
+      "content",
+      "site",
+      "appearance",
+      "theme",
+    ]) {
       await expect(page.getByTestId(`settings-group-${group}`)).toBeVisible();
     }
     // 服务端 config 是进程级快照:经 UI 保存密码触发 reloadSystemConfig 后,
@@ -162,6 +174,24 @@ test.describe.serial("admin 设置页", () => {
     // 掩码红线:页面任何位置不出现明文
     const html = await page.content();
     expect(html).not.toContain(SMTP_SECRET);
+  });
+
+  test("游戏库连接串:脱敏回显,提交脱敏形态=未改", async ({ page }) => {
+    await login(page, "m1admin", "adminpass123");
+    const row = await prisma.systemConfig.findFirst({ where: { key: "gamedb.characters" } });
+    const password = row ? new URL(row.value).password : "";
+    await page.goto("/admin/settings");
+
+    const field = page.getByTestId("settings-field-gamedb-characters");
+    await expect(field).toHaveValue(/:\*\*\*@/);
+    // 掩码红线:连接串的口令不在页面上
+    if (password) expect(await page.content()).not.toContain(password);
+
+    // 提交脱敏形态 → 视为未改,库里真值不变(不能被 *** 覆盖)
+    await page.getByTestId("settings-save-gamedb").click();
+    await expect(page.getByTestId("settings-result-gamedb")).toContainText("已保存");
+    const after = await prisma.systemConfig.findFirst({ where: { key: "gamedb.characters" } });
+    expect(after?.value).toBe(row?.value);
   });
 
   test("保存校验:非法值 422 回显;合法保存即时生效", async ({ page }) => {
