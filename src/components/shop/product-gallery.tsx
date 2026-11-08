@@ -23,7 +23,7 @@ export function ProductGallery({
     return (
       <div
         aria-hidden
-        className="flex h-64 items-center justify-center rounded border border-gray-800 bg-gradient-to-br from-indigo-950 to-gray-900 text-7xl"
+        className="flex aspect-square w-full items-center justify-center rounded border border-line bg-panel-inset text-7xl"
       >
         {fallbackIcon}
       </div>
@@ -39,7 +39,7 @@ export function ProductGallery({
           alt={alt}
           draggable={false}
           onError={() => setBroken((prev) => ({ ...prev, [main]: true }))}
-          className="h-64 w-full rounded border border-gray-800 bg-gradient-to-br from-indigo-950 to-gray-900 object-contain"
+          className="aspect-square w-full rounded border border-line bg-panel-inset object-contain"
         />
       </a>
       {images.length > 1 && (
