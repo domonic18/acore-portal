@@ -1,0 +1,33 @@
+# 迁移幂等放行名单(历史 forward-only 迁移)
+#
+# 背景:Prisma 迁移靠 _prisma_migrations ledger 保证不重放;但 MySQL DDL 非事务,
+# 迁移中途失败会留半截 schema,运维需手工重放 SQL —— 故新迁移必须「重放安全」。
+# 本名单收录**立此检查之前**的全部历史迁移(它们已应用过,不追改);
+# 名单之外的新迁移一律接受幂等检查(MySQL 8.4 口径)。
+# 单条语句可用 `-- guard: <理由>` 注释豁免。
+20261023080206
+20261023215444_add_system_config
+20261024035511
+20261024035903
+20261024105255_m3_enums_and_product_featured
+20261024105325_m3_content_progression_media
+20261024105344_m3_forum
+20261024111257_m3_progression_phase_date_nullable
+20261024120000_m3_body_md_snake_case
+20261025005834_m4_notification
+20261026010000_progression_icon
+20261026051950
+20261026071558_product_images_detail_md
+20261026084400_media_asset_category
+20261031000000_product_max_per_user
+20261101020158_sidebar_cards
+20261103031634
+20261103152133
+20261103152149
+20261105053000_sidebar_component
+20261105063537_forum_post_deleted_via_thread
+20261105064624_delivery_claim_and_soap_unknown
+20261105103435_toc_enabled_page_level
+20261106130000_banner_video
+20261106160000_page_view_event
+20261107233205_add_created_at_and_page_view_covering_indexes
