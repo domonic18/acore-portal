@@ -431,10 +431,27 @@ model Product {
   category   ProductCategory @relation(fields: [categoryId], references: [id])
   cartItems  CartItem[]
   orderItems OrderItem[]
+  faqs       ProductFaq[]
 
   @@index([categoryId, status])
   @@index([status, listed])
   @@map("product")
+}
+
+/// 商品常见问题(详情页 FAQ;后台按商品 CRUD,sort 小者在前)
+model ProductFaq {
+  id        BigInt   @id @default(autoincrement())
+  productId BigInt   @map("product_id")
+  question  String   @db.VarChar(255)
+  answer    String   @db.Text
+  sort      Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sort])
+  @@map("product_faq")
 }
 
 /// 购物车行(无唯一约束:同商品不同参数=独立行,同参数合并为应用层行为,research R6)
