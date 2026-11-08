@@ -1,6 +1,7 @@
 import "server-only";
 import { getWorldDb } from "@/lib/db/world";
 import { GameDbError } from "@/server/services/shared/game-identity";
+import { LOCALE_ZH_CN, isMissingLocaleTable, zhNamesByEntry } from "@/server/services/shared/item-locale";
 
 /**
  * 游戏物品检索(后台商品编辑页的物品选择器):
@@ -26,8 +27,6 @@ const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
 /** 中文名检索的候选上限:避免一次模糊匹配把整张本地化表拉进内存 */
 const LOCALE_CANDIDATE_CAP = 200;
-/** 中文本地化语言标记(AC 真表 locale 取值) */
-const LOCALE_ZH_CN = "zhCN";
 
 type ItemRow = {
   entry: number;
@@ -35,35 +34,6 @@ type ItemRow = {
   quality: number | null;
   stackable: number | null;
 };
-
-/** 表缺失(精简游戏库)时按「无本地化数据」处理,不算检索失败 */
-function isMissingLocaleTable(err: unknown): boolean {
-  const e = err as { code?: string; message?: string } | null;
-  if (e?.code === "P2021") return true;
-  const msg = `${e?.message ?? ""} ${String(err)}`;
-  return /item_template_locale/i.test(msg) && /does not exist|doesn't exist|1146/i.test(msg);
-}
-
-/** 按 entry 批量取 zhCN 中文名;表缺失或出错 → 返回空映射(降级) */
-async function zhNamesByEntry(entries: number[]): Promise<Map<number, string>> {
-  const map = new Map<number, string>();
-  if (entries.length === 0) return map;
-  try {
-    const db = await getWorldDb();
-    const rows = await db.itemTemplateLocale.findMany({
-      where: { locale: LOCALE_ZH_CN, id: { in: entries } },
-      select: { id: true, name: true },
-    });
-    for (const r of rows) {
-      if (r.name) map.set(r.id, r.name);
-    }
-  } catch (err) {
-    if (!isMissingLocaleTable(err)) {
-      console.error("[game-items] item_template_locale lookup failed", err);
-    }
-  }
-  return map;
-}
 
 /** 中文名模糊匹配出的 entry 候选;表缺失 → 空数组 */
 async function zhCandidateEntries(q: string, cap: number): Promise<number[]> {
