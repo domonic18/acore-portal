@@ -55,6 +55,8 @@ export async function getSettingsView(): Promise<SettingsView> {
     notify: { pointEmailThreshold: config.notify.pointEmailThreshold },
     content: { tocEnabled: config.content.tocEnabled },
     site: {
+      name: config.site.name,
+      tagline: config.site.tagline,
       icp: config.site.icp,
       copyrightEn: config.site.copyrightEn,
       qqGroup: config.site.qqGroup,

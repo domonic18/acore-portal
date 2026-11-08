@@ -56,6 +56,18 @@ export function displayUserName(u: { username: string | null; nickname?: string 
 }
 
 /**
+ * 分段拼接(页脚版权行):空段(未配置/留空隐藏)不参与,分隔符统一 " · "。
+ * 例:["© 2026", "老克塔 LoktaCN", "怀旧公益项目(非营利)"]
+ *   → "© 2026 · 老克塔 LoktaCN · 怀旧公益项目(非营利)"
+ */
+export function joinSegments(segments: readonly (string | null | undefined)[]): string {
+  return segments
+    .map((s) => (s ?? "").trim())
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/**
  * ISO 时间 → datetime-local 输入值(本地时区 YYYY-MM-DDTHH:mm);空/非法回 null。
  * 独立于客户端组件模块:RSC 页面需直接调用(从 "use client" 模块导入非组件导出
  * 只会得到客户端引用代理,服务端调用会抛 "is not a function")。

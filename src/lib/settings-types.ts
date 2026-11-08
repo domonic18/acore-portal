@@ -61,6 +61,8 @@ export type SettingsView = {
   notify: { pointEmailThreshold: number };
   content: { tocEnabled: boolean };
   site: {
+    name: string;
+    tagline: string;
     icp: string;
     copyrightEn: string;
     qqGroup: string;

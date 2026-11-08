@@ -14,7 +14,15 @@ import { reloadServerConfig } from "./helpers/config-reload";
 const prisma = new PrismaClient();
 const SMTP_KEYS = ["smtp.host", "smtp.port", "smtp.user", "smtp.password", "smtp.from"];
 const SECURITY_KEYS = ["security.loginMaxFails", "security.loginWindowSec", "security.loginLockSec"];
-const SITE_KEYS = ["site.icp", "site.copyrightEn", "site.qqGroup", "site.qqGroupQr", "site.qqGroupJoinUrl"];
+const SITE_KEYS = [
+  "site.name",
+  "site.tagline",
+  "site.icp",
+  "site.copyrightEn",
+  "site.qqGroup",
+  "site.qqGroupQr",
+  "site.qqGroupJoinUrl",
+];
 const CONTENT_KEYS = ["content.tocEnabled"];
 const APPEARANCE_KEYS = [
   "appearance.logoUrl",
@@ -187,8 +195,11 @@ test.describe.serial("admin 设置页", () => {
     await login(page, "m1admin", "adminpass123");
     await page.goto("/admin/settings");
 
-    // site 组:备案号+英文版权声明 → 页脚;QQ 群号+二维码 → 首页侧栏卡
+    // site 组:站点名+副标题+备案号+英文版权声明 → 页脚;QQ 群号+二维码 → 首页侧栏卡
+    const siteName = `老克塔 E2E${Date.now().toString(36)}`;
     const icp = `京ICP备E2E${Date.now().toString(36)}号`;
+    await page.getByTestId("settings-field-site-name").fill(siteName);
+    await page.getByTestId("settings-field-site-tagline").fill("E2E 副标题");
     await page.getByTestId("settings-field-site-icp").fill(icp);
     await page.getByTestId("settings-field-site-copyrightEn").fill("E2E copyright line.");
     await page.getByTestId("settings-field-site-qqGroup").fill("88888888");
@@ -198,6 +209,9 @@ test.describe.serial("admin 设置页", () => {
     await expect(page.getByTestId("settings-result-site")).toContainText("已保存");
     await page.goto("/");
     const footer = page.getByRole("contentinfo");
+    // 站点名/副标题/备案号/英文声明均在页脚版权行即时生效
+    await expect(footer).toContainText(siteName);
+    await expect(footer).toContainText("E2E 副标题");
     await expect(footer).toContainText(icp);
     await expect(footer).toContainText("E2E copyright line.");
     // QQ 群展示与 Powered by AzerothCore 已随 2026-11-05 页脚文案调整下线

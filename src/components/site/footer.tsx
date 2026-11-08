@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { APP_SHA, BUILD_TIME, formatBuildInfo } from "@/constants/version";
+import { joinSegments } from "@/lib/format";
 
 /**
  * 全站页脚(M3 US1 T018,FR-204;2026-10 设计稿对齐):居中链接 + 版权行;
@@ -9,14 +10,24 @@ import { APP_SHA, BUILD_TIME, formatBuildInfo } from "@/constants/version";
  * 值与镜像产物绑定,用于人工核对线上是不是最新版本。
  */
 export function SiteFooter({
+  name,
+  tagline,
   icp,
   copyrightEn,
 }: {
+  name: string;
+  tagline: string | null;
   icp: string | null;
   copyrightEn: string | null;
 }) {
   // 本地手工构建无构建信息(常量为空)→ 整行不渲染
   const buildInfo = formatBuildInfo(BUILD_TIME, APP_SHA);
+  // 版权行分段:「© 年份 站点名」为一段(沿用 WP 原站口径,年份与站名以空格分隔),
+  // 副标题另起一段用 " · " 分隔;留空段不拼,分隔符随之省略
+  const copyrightLine = joinSegments([
+    `© ${new Date().getFullYear()}${name ? ` ${name}` : ""}`,
+    tagline,
+  ]);
 
   return (
     <footer className="mt-12 border-t border-line bg-footer">
@@ -39,7 +50,7 @@ export function SiteFooter({
           </Link>
         </div>
         <p>
-          © {new Date().getFullYear()} 老克塔 LoktaCN · 怀旧公益项目(非营利)
+          {copyrightLine}
           {icp && (
             <>
               {" · "}
