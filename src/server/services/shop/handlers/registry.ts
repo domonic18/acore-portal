@@ -63,6 +63,9 @@ const exactHandlers = new Map<string, DeliveryHandler>([
   [nameUnlockHandler.skuKey, nameUnlockHandler],
 ]);
 
+/** 精确键处理器清单(后台商品「服务类型」下拉与 SKU 契约测试以此为对齐基准) */
+export const EXACT_HANDLER_KEYS: readonly string[] = [...exactHandlers.keys()];
+
 export function resolveHandler(sku: string): DeliveryHandler | null {
   if (sku.startsWith(ITEMSEND_SKU_PREFIX)) return itemSendHandler;
   if (sku.startsWith(TRANSMOG_ITEM_SKU_PREFIX)) return transmogItemHandler;

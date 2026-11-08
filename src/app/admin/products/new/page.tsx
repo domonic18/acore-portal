@@ -5,7 +5,7 @@ import { ProductForm } from "@/components/admin/product-form";
 export default async function NewProductPage() {
   const categories = await listAdminCategories();
   return (
-    <div className="flex flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-4">
       <h1 className="text-2xl font-bold">新建商品</h1>
       <ProductForm
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}

@@ -14,7 +14,7 @@ CREATE DATABASE IF NOT EXISTS eluna DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb
 
 -- ===== 连接账号与权限(防写根本防线,research R5) =====
 -- 只读账号:四库仅 SELECT
-CREATE USER 'acore_reader'@'%' IDENTIFIED BY 'reader_pass';
+CREATE USER IF NOT EXISTS 'acore_reader'@'%' IDENTIFIED BY 'reader_pass';
 GRANT SELECT ON acore_auth.* TO 'acore_reader'@'%';
 GRANT SELECT ON acore_characters.* TO 'acore_reader'@'%';
 GRANT SELECT ON acore_world.* TO 'acore_reader'@'%';
@@ -22,7 +22,7 @@ GRANT SELECT ON eluna.* TO 'acore_reader'@'%';
 
 -- auth 写账号:仅 account 表 INSERT/UPDATE + 全库 SELECT(注册/改密契约写)
 -- (account 表级 GRANT 在下方 CREATE TABLE 之后执行——MySQL 不允许对不存在的表授权)
-CREATE USER 'acore_auth_writer'@'%' IDENTIFIED BY 'auth_writer_pass';
+CREATE USER IF NOT EXISTS 'acore_auth_writer'@'%' IDENTIFIED BY 'auth_writer_pass';
 GRANT SELECT ON acore_auth.* TO 'acore_auth_writer'@'%';
 
 -- 业务库账号放宽(dev 便利):Prisma migrate dev 需要 shadow database
@@ -73,7 +73,11 @@ CREATE TABLE IF NOT EXISTS `account` (
 INSERT INTO `account` (`id`, `username`, `salt`, `verifier`, `email`, `reg_mail`) VALUES
   (1, 'LEGACYUSER', UNHEX('855394CC86AFE0293692D8DB7236327B319E35BC6949716FB1121E99A4CFF03B'), UNHEX('6A6CA58E1E5347D0FD848A0F0C1472207B3FC922EC1B938F61D67E082546D22B'), 'legacy@example.local', 'legacy@example.local'),
   (2, 'BCRYPTUSER', UNHEX('2FFCC3E8343633767DF0DA24ED96E5D182AF02457996E25C056A6BFDC1F82DB2'), UNHEX('65D4A8F149D206B0B9455C6E9A8CCA9032B1D241D1328372812DCD78E28A942B'), 'bcrypt@example.local', 'bcrypt@example.local'),
-  (3, 'M1ADMIN', UNHEX('A0D46F316FA2B2C6A99466F31A5CBE75B76E6695510B757C1F381642DD0369F1'), UNHEX('2D323276636D378074832D5C58666BEC973DB92286DB5E7AF78343E15B9CD618'), 'admin@example.local', 'admin@example.local');
+  (3, 'M1ADMIN', UNHEX('A0D46F316FA2B2C6A99466F31A5CBE75B76E6695510B757C1F381642DD0369F1'), UNHEX('2D323276636D378074832D5C58666BEC973DB92286DB5E7AF78343E15B9CD618'), 'admin@example.local', 'admin@example.local')
+-- 幂等:重复执行脚本不会因主键/唯一键冲突中断(后面还有数据种子段)
+ON DUPLICATE KEY UPDATE
+  `salt` = VALUES(`salt`), `verifier` = VALUES(`verifier`),
+  `email` = VALUES(`email`), `reg_mail` = VALUES(`reg_mail`);
 
 -- account 表已存在,补授权(写契约:注册 INSERT / 改密 UPDATE,research R5)
 GRANT INSERT, UPDATE ON acore_auth.account TO 'acore_auth_writer'@'%';
@@ -124,10 +128,13 @@ CREATE TABLE IF NOT EXISTS `characters` (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '角色(合成种子,无生产数据)';
 
 -- 合成种子:LEGACYUSER(id=1)名下 3 个 60 年代角色(S4 越权/归属校验用)
+-- 幂等:ON DUPLICATE KEY UPDATE(重复执行不会因主键冲突中断脚本)
 INSERT INTO `characters` (`guid`, `account`, `name`, `race`, `class`, `gender`, `level`, `map`, `zone`, `online`, `health`) VALUES
   (10, 1, 'Oldwarrior', 1, 4, 0, 60, 0, 1519, 0, 4200),
   (11, 1, 'Oldmage', 7, 8, 1, 60, 0, 1519, 0, 2900),
-  (12, 1, 'Oldpriest', 10, 5, 0, 47, 1, 215, 0, 1900);
+  (12, 1, 'Oldpriest', 10, 5, 0, 47, 1, 215, 0, 1900)
+ON DUPLICATE KEY UPDATE
+  `name` = VALUES(`name`), `level` = VALUES(`level`), `health` = VALUES(`health`);
 
 -- ===== acore_characters.recovery_item(物品恢复只读列表,与生产模块表同构) =====
 -- 旧站 acore-wp-plugin 同源:SELECT Id, ItemEntry FROM recovery_item WHERE Guid = ?
@@ -140,6 +147,9 @@ CREATE TABLE IF NOT EXISTS `recovery_item` (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '待恢复物品(合成种子,无生产数据)';
 
 -- 合成种子:Oldwarrior(guid=10)2 件可恢复物品;Oldmage(guid=11)1 件
+-- 幂等:本表无业务唯一键(生产同构表只有自增 Id),故先清掉本次合成种子再插入——
+-- 否则重复执行脚本会让同一物品出现多行,物品恢复列表出现重复项(E2E 计数断言会假红)
+DELETE FROM `recovery_item` WHERE `Guid` IN (10, 11) AND `ItemEntry` IN (19019, 17182, 22630);
 INSERT INTO `recovery_item` (`Guid`, `ItemEntry`) VALUES
   (10, 19019),
   (10, 17182),
@@ -161,3 +171,15 @@ INSERT INTO `item_template` (`entry`, `name`, `quality`) VALUES
   (19020, '测试坐骑·促销中', 3),
   (19021, '测试坐骑·促销已过期', 3)
 ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);
+
+-- 测试专用区间 19500..19699(商品编辑台用例与后台商品集成用例各占一段):
+-- SKU 唯一 ⇒ 每个商品需一个独立且真实存在的物品 entry。
+-- 19000..19199 保留给业务种子与其他测试文件,勿占用。
+INSERT INTO `item_template` (`entry`, `name`, `quality`)
+WITH RECURSIVE `seq` (`n`) AS (
+  SELECT 19500
+  UNION ALL
+  SELECT `n` + 1 FROM `seq` WHERE `n` < 19699
+)
+SELECT `n`, CONCAT('测试物品·', `n`), 1 + (`n` % 5) FROM `seq`
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `quality` = VALUES(`quality`);
