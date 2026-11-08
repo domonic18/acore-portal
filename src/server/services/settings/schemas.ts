@@ -85,6 +85,10 @@ export const groupSchemas = {
   }),
   notify: z.object({
     pointEmailThreshold: z.coerce.number().int().min(0),
+    // 飞书告警开关(非敏感);webhook 地址与密钥为只写不读,留空=保持现值
+    feishuAlertEnabled: z.boolean().optional(),
+    feishuWebhookUrl: z.string().trim().optional(),
+    feishuWebhookSecret: z.string().trim().optional(),
   }),
   // 内容域:目录开关;optional=缺省保持现值(组级全量提交口径)
   content: z.object({
@@ -141,6 +145,25 @@ export const groupSchemas = {
       .min(1, "轮播间隔须为 1-60 秒")
       .max(60, "轮播间隔须为 1-60 秒")
       .optional(),
+  }),
+  // 外部工具站地址(M4 US1):rank 排行榜子站与 DKP 独立站,换环境只改 system_config
+  tools: z.object({
+    rankBase: z.string().trim().url("排行榜地址须为合法 URL").optional(),
+    dkpUrl: z.string().trim().url("DKP 地址须为合法 URL").optional(),
+  }),
+  // 腾讯云 COS(对象存储/图片托管):bucket 为开关——空=未配置(整组不生效);
+  // secretKey 只写不读(留空=保持现值),secretId 可回显(便于识别用的是哪把密钥)
+  cos: z.object({
+    bucket: z.string().trim().optional(),
+    region: z.string().trim().optional(),
+    secretId: z.string().trim().optional(),
+    secretKey: z.string().optional(),
+    cdnBase: z.string().trim().optional(),
+  }),
+  // 备份脚本参数(cron 读 system_config):保留天数与游戏库周备份开关
+  backup: z.object({
+    retentionDays: z.coerce.number().int().min(0, "保留天数须为非负整数").optional(),
+    gameWeekly: z.boolean().optional(),
   }),
 } as const;
 
@@ -200,7 +223,12 @@ export const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>
     artviewArticleWindowSec: "security.artviewArticleWindowSec",
     trackUnknownIpMaxPerMin: "security.trackUnknownIpMaxPerMin",
   },
-  notify: { pointEmailThreshold: "notify.pointEmailThreshold" },
+  notify: {
+    pointEmailThreshold: "notify.pointEmailThreshold",
+    feishuAlertEnabled: "notify.feishuAlertEnabled",
+    feishuWebhookUrl: "notify.feishuWebhookUrl",
+    feishuWebhookSecret: "notify.feishuWebhookSecret",
+  },
   content: { tocEnabled: "content.tocEnabled" },
   site: {
     name: "site.name",
@@ -231,6 +259,21 @@ export const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>
     achievementScrolling: "home.achievementScrolling",
     carouselIntervalSec: "home.carouselIntervalSec",
   },
+  tools: {
+    rankBase: "tools.rankBase",
+    dkpUrl: "tools.dkpUrl",
+  },
+  cos: {
+    bucket: "cos.bucket",
+    region: "cos.region",
+    secretId: "cos.secretId",
+    secretKey: "cos.secretKey",
+    cdnBase: "cos.cdnBase",
+  },
+  backup: {
+    retentionDays: "backup.retentionDays",
+    gameWeekly: "backup.gameWeekly",
+  },
 };
 /**
  * 敏感字段处理口径(按「组+字段」登记,不再按字段名全局匹配——
@@ -247,6 +290,9 @@ export const sensitiveFields: Partial<
   smtp: { password: "secret" },
   captcha: { appSecret: "secret", secretKey: "secret" },
   gamedb: { auth: "masked", characters: "masked", world: "masked", eluna: "masked" },
+  cos: { secretKey: "secret" },
+  // 飞书 webhook 地址本身含 bot key,密钥同理 → 两者都只写不读
+  notify: { feishuWebhookUrl: "secret", feishuWebhookSecret: "secret" },
 };
 
 /** 取字段的敏感处理口径;非敏感字段返回 undefined */

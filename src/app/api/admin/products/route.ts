@@ -38,6 +38,7 @@ const productSchema = z
     lowStockThreshold: z.coerce.number().int().min(0).nullable().optional(),
     maxPerUser: z.coerce.number().int().min(1).nullable().optional(),
     gameItemId: z.coerce.number().int().positive().nullable().optional(),
+    handlerKey: z.string().trim().max(64).nullable().optional(),
     status: z.enum(["draft", "published"]),
     listed: z.boolean(),
     featured: z.boolean().optional(),
@@ -113,7 +114,7 @@ function mapProductError(err: unknown) {
         : err.code === "CATEGORY_NOT_FOUND" || err.code === "NOT_FOUND"
           ? 404
           : 422;
-    return apiError(status, err.code, err.message);
+    return apiError(status, err.code, err.message, err.field ? { field: err.field } : undefined);
   }
   throw err;
 }

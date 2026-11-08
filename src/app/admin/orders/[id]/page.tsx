@@ -88,7 +88,8 @@ export default async function AdminOrderDetailPage({
           {order.items.map((item) => (
             <Tr key={item.id}>
               <Td>
-                {item.name}
+                {/* 商品名不逐字折行(#48 移动端排版):中文名允许换行会竖排成多行 */}
+                <span className="block whitespace-nowrap">{item.name}</span>
                 <span className="mt-0.5 block whitespace-nowrap text-xs text-[#6482a3]">
                   /shop/{item.productSlug}
                 </span>

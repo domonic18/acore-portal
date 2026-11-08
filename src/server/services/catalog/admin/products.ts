@@ -3,8 +3,8 @@ import { prisma } from "@/lib/db";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/shared/audit";
 import type { ProductStatusValue } from "@/constants/shop";
-import { gameItemExists } from "../sku-check";
-import { resolveHandler } from "@/server/services/shop/handlers/registry";
+import { getGameItem } from "../game-items";
+import { validateSkuBinding } from "@/constants/shop-sku";
 import { ProductAdminError } from "./shared";
 
 export type ProductSaveInput = {
@@ -26,24 +26,40 @@ export type ProductSaveInput = {
   lowStockThreshold?: number | null;
   maxPerUser?: number | null;
   gameItemId?: number | null;
+  /** 服务类发货处理器键(注册表内的 6 个键);物品类为 null */
+  handlerKey?: string | null;
   status: ProductStatusValue;
   listed: boolean;
   featured?: boolean;
 };
 
 export async function saveProduct(input: ProductSaveInput): Promise<{ id: bigint }> {
+  // 物品类先查 world 物品模板:既要确认存在,也要拿可堆叠性(stackable)校验 _stack 后缀
+  const gameItem =
+    input.type === "game_item" && input.gameItemId != null
+      ? await getGameItem(input.gameItemId)
+      : null;
+
+  // SKU 契约先于其余校验(纯函数,避免为明显的 SKU 错误白跑一次 world 查询)
+  const binding = validateSkuBinding({
+    type: input.type,
+    sku: input.sku,
+    gameItemId: input.gameItemId ?? null,
+    handlerKey: input.handlerKey ?? null,
+    stackable: gameItem?.stackable ?? null,
+  });
+  if (binding) {
+    throw new ProductAdminError(binding.code, binding.message, binding.field);
+  }
+
   if (input.type === "game_item") {
-    if (input.gameItemId == null || !(await gameItemExists(input.gameItemId))) {
+    if (input.gameItemId == null || !gameItem) {
       throw new ProductAdminError(
         "SKU_GAME_ITEM_NOT_FOUND",
         `游戏物品 #${input.gameItemId ?? "?"} 不存在,请核对物品 ID。`,
+        "gameItemId",
       );
     }
-  } else if (resolveHandler(input.sku) === null) {
-    throw new ProductAdminError(
-      "SKU_HANDLER_UNBOUND",
-      "服务类 SKU 未绑定处理器,请使用注册表内的服务键。",
-    );
   }
 
   if (input.salePrice != null && input.salePrice >= input.price) {
@@ -89,8 +105,10 @@ export async function saveProduct(input: ProductSaveInput): Promise<{ id: bigint
     stock: input.stockEnabled ? (input.stock ?? 0) : null,
     lowStockThreshold: input.lowStockThreshold ?? null,
     featured: input.featured ?? false,
-    maxPerUser: input.maxPerUser ?? null,
+    // 服务类恒限购 1 件(单次购买一次;发货完成后释放额度,可再次购买)
+    maxPerUser: input.type === "service" ? 1 : (input.maxPerUser ?? null),
     gameItemId: input.type === "game_item" ? (input.gameItemId ?? null) : null,
+    handlerKey: input.type === "service" ? (input.handlerKey ?? null) : null,
   };
   if (input.id) {
     const hit = await prisma.product.updateMany({ where: { id: input.id }, data });

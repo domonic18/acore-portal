@@ -32,7 +32,10 @@ const ORCHESTRATION_EDGES = {
   sidebar: ["status", "content"],
 };
 export default [
-  { ignores: ["node_modules/**", ".next/**", "src/generated/**", "next-env.d.ts"] },
+  {
+    // workspace/ 是 gitignore 的宿主机持久数据(含临时 git worktree 副本),不是本仓源码
+    ignores: ["node_modules/**", ".next/**", "src/generated/**", "next-env.d.ts", "workspace/**"],
+  },
   // next 规则只对 src 生效:其旧版插件在 ESLint 9 下对 scripts/tests 等非 JSX 文件会崩溃
   ...compat
     .extends("next/core-web-vitals")

@@ -153,25 +153,52 @@ test.describe("US5 运营后台(T055)", () => {
     await expect(page.getByRole("heading", { name: "运营后台" })).toHaveCount(0);
   });
 
-  test("商品新建:非法 gameItemId 422 呈现;合法 SKU 保存入列表(FR-126)", async ({
+  test("商品新建:物品选择器自动派生 SKU,只读且保存入列表(FR-126)", async ({
     page,
   }) => {
     await login(page, "m1admin", "adminpass123");
     await page.goto("/admin/products/new");
 
-    await page.getByLabel(/游戏物品 ID/).fill("99999999");
-    await page.getByLabel(/SKU/).fill("itemsend_bad");
-    await page.getByLabel("名称").fill(`E2E 后台商品 ${RUN}`);
-    await page.getByLabel(/别名 slug/).fill(`${SLUG_PREFIX}bad-${RUN}`);
-    await page.getByRole("button", { name: "保存" }).click();
-    await expect(page.getByText("99999999 不存在")).toBeVisible();
+    // 选物品 → SKU 自动派生(不再手写 itemsend_{id}),派生结果只读
+    await page.getByLabel("搜索游戏物品").fill("19019");
+    await page.getByTestId("game-item-option-19019").click();
+    await expect(page.getByLabel("SKU")).toHaveValue("itemsend_19019");
+    await expect(page.getByLabel("SKU")).toHaveAttribute("readonly", "");
 
-    await page.getByLabel(/游戏物品 ID/).fill("19019");
-    await page.getByLabel(/SKU/).fill(`itemsend_e2e${RUN}`);
+    await page.getByLabel("名称").fill(`E2E 后台商品 ${RUN}`);
     await page.getByLabel(/别名 slug/).fill(`${SLUG_PREFIX}good-${RUN}`);
     await page.getByRole("button", { name: "保存" }).click();
     await expect(page).toHaveURL(/\/admin\/products$/);
     await expect(page.getByText(`E2E 后台商品 ${RUN}`)).toBeVisible();
+  });
+
+  test("商品保存校验:SKU 与所选物品不一致 → 422 SKU_ITEM_MISMATCH(发货按 SKU 解析物品)", async ({
+    page,
+  }) => {
+    await login(page, "m1admin", "adminpass123");
+    await page.goto("/admin/products/new");
+
+    const res = await page.request.post("/api/admin/products", {
+      data: {
+        type: "game_item",
+        sku: "itemsend_19019",
+        name: `E2E 不一致商品 ${RUN}`,
+        slug: `${SLUG_PREFIX}mismatch-${RUN}`,
+        description: "",
+        images: [],
+        detailMd: "",
+        categoryId: "1",
+        price: 100,
+        stockEnabled: false,
+        gameItemId: 19020,
+        status: "draft",
+        listed: true,
+      },
+    });
+    expect(res.status()).toBe(422);
+    const body = (await res.json()) as { error?: { code?: string; field?: string } };
+    expect(body.error?.code).toBe("SKU_ITEM_MISMATCH");
+    expect(body.error?.field).toBe("sku");
   });
 
   test("商品表单图片编辑器与 Markdown 详情编辑器(WP 对齐)", async ({ page }) => {

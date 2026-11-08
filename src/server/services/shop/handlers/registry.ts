@@ -63,8 +63,24 @@ const exactHandlers = new Map<string, DeliveryHandler>([
   [nameUnlockHandler.skuKey, nameUnlockHandler],
 ]);
 
-export function resolveHandler(sku: string): DeliveryHandler | null {
+/** 精确键处理器清单(后台商品「服务类型」下拉与 SKU 契约测试以此为对齐基准) */
+export const EXACT_HANDLER_KEYS: readonly string[] = [...exactHandlers.keys()];
+
+/**
+ * 解析发货处理器:
+ * 物品类走前缀路由(itemsend_ / transmog-item_,SKU 本身即发货依据);
+ * 服务类走**处理器键**(product.handler_key / order_item.handler_key 快照)——
+ * SKU 只是唯一标识,复制产生的 `-copy` 派生 SKU 不再影响发货。
+ * 两者皆未命中 ⇒ null(保存被拒 + 发货层防御性拒绝 DELIVERY_NO_HANDLER)。
+ */
+export function resolveHandler(
+  sku: string,
+  handlerKey?: string | null,
+): DeliveryHandler | null {
   if (sku.startsWith(ITEMSEND_SKU_PREFIX)) return itemSendHandler;
   if (sku.startsWith(TRANSMOG_ITEM_SKU_PREFIX)) return transmogItemHandler;
-  return exactHandlers.get(sku) ?? null;
+  // 服务类:处理器键优先;缺省时回落到「SKU 本身就是注册键」的存量形态
+  const key = handlerKey?.trim() || (exactHandlers.has(sku) ? sku : "");
+  if (!key) return null;
+  return exactHandlers.get(key) ?? null;
 }

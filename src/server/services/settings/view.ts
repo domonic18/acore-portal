@@ -69,7 +69,12 @@ export async function getSettingsView(): Promise<SettingsView> {
       artviewArticleWindowSec: config.security.artviewArticleWindowSec,
       trackUnknownIpMaxPerMin: config.security.trackUnknownIpMaxPerMin,
     },
-    notify: { pointEmailThreshold: config.notify.pointEmailThreshold },
+    notify: {
+      pointEmailThreshold: config.notify.pointEmailThreshold,
+      feishuAlertEnabled: config.notify.feishuAlertEnabled,
+      feishuWebhookConfigured: config.notify.feishuWebhookUrl !== "",
+      feishuWebhookSecretConfigured: config.notify.feishuWebhookSecret !== "",
+    },
     content: { tocEnabled: config.content.tocEnabled },
     site: {
       name: config.site.name,
@@ -98,6 +103,22 @@ export async function getSettingsView(): Promise<SettingsView> {
           },
         ]),
       ) as SettingsView["theme"]["assets"],
+    },
+    tools: {
+      rankBase: config.tools.rankBase,
+      dkpUrl: config.tools.dkpUrl,
+    },
+    cos: {
+      configured: config.cos !== undefined,
+      bucket: config.cos?.bucket ?? "",
+      region: config.cos?.region ?? "",
+      secretId: config.cos?.secretId ?? "",
+      cdnBase: config.cos?.cdnBase ?? "",
+      secretKeyConfigured: (config.cos?.secretKey ?? "") !== "",
+    },
+    backup: {
+      retentionDays: config.backup?.retentionDays ?? 30,
+      gameWeekly: config.backup?.gameWeekly ?? true,
     },
   };
 }

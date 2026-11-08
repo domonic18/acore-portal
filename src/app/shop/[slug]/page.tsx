@@ -15,11 +15,11 @@ import type { CartParamField } from "@/components/shop/add-to-cart-form";
 import { AddToCartForm } from "@/components/shop/add-to-cart-form";
 import { ProductGallery } from "@/components/shop/product-gallery";
 import { ProductViewBeacon } from "@/components/shop/product-view-beacon";
-import { WowheadItemLink } from "@/components/shop/wowhead-item-link";
 
 /**
  * T021 商品详情(/shop/[slug]):draft/不存在→404;listed=false 直链可达带标记
- * (FR-127);促销划线价(FR-115 服务端判定);物品类 Wowhead 浮窗(离线降级外链);
+ * (FR-127);促销划线价(FR-115 服务端判定);
+ * 物品资料不再外链 Wowhead(大陆不可达,#153);
  * 加购区登录态渲染角色下拉,游戏库不可达降级提示不阻塞浏览;
  * 图库+说明区 Markdown(WP 对齐:featured image+带图正文;detailMd 空=回退简介)。
  */
@@ -52,7 +52,7 @@ export default async function ProductDetailPage({
     }
   }
 
-  const fields = cartParamFields(detail.sku);
+  const fields = cartParamFields(detail.sku, detail.handlerKey);
   const loginHref = `/login?next=${encodeURIComponent(`/shop/${detail.slug}`)}`;
   // 详情 Markdown 与文章同管线同白名单(图片域=站内+CDN);detailMd 空回退简介——
   // 存量商品简介是 WP 遗留 HTML(<p>/<a>),直出会把标签当文字显示,同样走管线渲染
@@ -112,10 +112,6 @@ export default async function ProductDetailPage({
                   <>库存 {detail.stock}</>
                 )}
               </p>
-            )}
-
-            {detail.type === "game_item" && detail.gameItemId !== null && (
-              <WowheadItemLink itemId={detail.gameItemId} />
             )}
 
             {gameDbDegraded && (

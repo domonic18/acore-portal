@@ -384,6 +384,40 @@ describe("商品限购(per-user purchase limit)", () => {
     await expect(checkoutCart(user.id)).resolves.toMatchObject({ pointCost: 100 });
   });
 
+  it("服务类限购:单次 1 件;发货完成后释放额度,可再次购买(改名后再改一次)", async () => {
+    const user = await makeGameUser("rich", "limit-service");
+    const product = await makeInlineProduct("limit-service", {
+      type: "service",
+      sku: `char-change-name-${RUN}-svc`,
+      handlerKey: "char-change-name",
+      maxPerUser: 1,
+      price: 100,
+      gameItemId: null,
+    });
+    const params = { characterGuid: user.guid };
+
+    // 一次下单只办一次(服务类恒限购 1 件)
+    expect(await addToCart({ userId: user.id, productId: product.id, qty: 2, params })).toEqual({
+      ok: false,
+      reason: "PURCHASE_LIMIT_EXCEEDED",
+    });
+    expect(
+      await addToCart({ userId: user.id, productId: product.id, qty: 1, params }),
+    ).toMatchObject({ ok: true });
+    await expect(checkoutCart(user.id)).resolves.toMatchObject({ pointCost: 100 });
+
+    // 订单在途(paid)⇒ 额度占用,不可再下单
+    expect(
+      await addToCart({ userId: user.id, productId: product.id, qty: 1, params }),
+    ).toEqual({ ok: false, reason: "PURCHASE_LIMIT_EXCEEDED" });
+
+    // 发货完成(completed)⇒ 释放额度,可再次购买
+    await prisma.order.updateMany({ where: { userId: user.id }, data: { status: "completed" } });
+    expect(
+      await addToCart({ userId: user.id, productId: product.id, qty: 1, params }),
+    ).toMatchObject({ ok: true });
+  });
+
   it("购物车累加与改数超限即拦(同参数合并/改数路径)", async () => {
     const user = await makeGameUser("rich", "limit-cart");
     const product = await makeInlineProduct("limit-cart", {

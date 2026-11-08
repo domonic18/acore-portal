@@ -94,7 +94,7 @@ export default async function AdminOrdersPage({
                 </Td>
                 <Td className="text-[#93b2ce]">{o.itemCount}</Td>
                 <Td className="font-medium text-[#e8c877]">{o.pointCost}</Td>
-                <Td className="text-xs text-[#6482a3]">
+                <Td className="whitespace-nowrap text-xs text-[#6482a3]">
                   {new Date(o.createdAt).toLocaleString("zh-CN")}
                 </Td>
               </Tr>

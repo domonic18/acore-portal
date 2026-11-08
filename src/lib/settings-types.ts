@@ -76,7 +76,12 @@ export type SettingsView = {
     artviewArticleWindowSec: number;
     trackUnknownIpMaxPerMin: number;
   };
-  notify: { pointEmailThreshold: number };
+  notify: {
+    pointEmailThreshold: number;
+    feishuAlertEnabled: boolean;
+    feishuWebhookConfigured: boolean;
+    feishuWebhookSecretConfigured: boolean;
+  };
   content: { tocEnabled: boolean };
   site: {
     name: string;
@@ -96,5 +101,29 @@ export type SettingsView = {
   theme: {
     active: ThemeId;
     assets: Record<ThemeId, ThemeAssets>;
+  };
+  tools: {
+    /** 排行榜子站地址 */
+    rankBase: string;
+    /** DKP 独立站地址 */
+    dkpUrl: string;
+  };
+  cos: {
+    /** 已配置(整组生效):bucket 非空 */
+    configured: boolean;
+    bucket: string;
+    region: string;
+    /** SecretId(密钥对标识,可回显以便识别用的是哪把密钥) */
+    secretId: string;
+    /** CDN 访问前缀 */
+    cdnBase: string;
+    /** SecretKey 只写不读:只回是否已配置 */
+    secretKeyConfigured: boolean;
+  };
+  backup: {
+    /** 备份保留天数(0=只留当日) */
+    retentionDays: number;
+    /** 游戏库周备份开关 */
+    gameWeekly: boolean;
   };
 };

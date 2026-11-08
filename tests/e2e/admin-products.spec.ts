@@ -32,6 +32,7 @@ async function createProduct(input: {
   name: string;
   type: "game_item" | "service";
   gameItemId?: number;
+  handlerKey?: string;
 }): Promise<bigint> {
   const created = await prisma.product.create({
     data: {
@@ -44,6 +45,7 @@ async function createProduct(input: {
       listed: true,
       price: 100,
       gameItemId: input.gameItemId ?? null,
+      handlerKey: input.handlerKey ?? null,
       categoryId,
     },
     select: { id: true },
@@ -62,32 +64,35 @@ test.beforeAll(async () => {
     })
   ).id;
 
+  // 物品类商品的 SKU 必须是 itemsend_{真实存在的物品ID}(编辑页保存会做交叉校验),
+  // 取 19500+ 测试区间(见 scripts/dev/initdb/init-game-schemas.sql)
   limitId = await createProduct({
-    sku: `e2e-limit-${RUN}`,
+    sku: "itemsend_19500",
     slug: `${SLUG_PREFIX}limit`,
     name: `E2E 限购商品 ${RUN}`,
     type: "game_item",
-    gameItemId: 19019,
+    gameItemId: 19500,
   });
   batchId = await createProduct({
-    sku: `e2e-batch-${RUN}`,
+    sku: "itemsend_19501",
     slug: `${SLUG_PREFIX}batch`,
     name: `E2E 批量商品 ${RUN}`,
     type: "game_item",
-    gameItemId: 19020,
+    gameItemId: 19501,
   });
   await createProduct({
     sku: `e2e-svc-${RUN}`,
     slug: `${SLUG_PREFIX}svc`,
     name: `E2E 服务商品 ${RUN}`,
     type: "service",
+    handlerKey: "char-change-race",
   });
   await createProduct({
-    sku: `e2e-item-${RUN}`,
+    sku: "itemsend_19502",
     slug: `${SLUG_PREFIX}item`,
     name: `E2E 物品商品 ${RUN}`,
     type: "game_item",
-    gameItemId: 19021,
+    gameItemId: 19502,
   });
 });
 
@@ -163,10 +168,14 @@ test.describe("商品增强后台(限购/批量/复制)", () => {
     expect(copies).toBe(1);
     const copy = await prisma.product.findFirstOrThrow({
       where: { slug: { startsWith: `${SLUG_PREFIX}svc-copy` } },
-      select: { status: true, sku: true },
+      select: { status: true, sku: true, handlerKey: true, maxPerUser: true },
     });
     expect(copy.status).toBe("draft");
     expect(copy.sku).toBe(`e2e-svc-${RUN}-copy`);
+    // 处理器键随源商品继承 ⇒ 副本的发货行为与源商品一致(-copy 后缀只作唯一标识)
+    expect(copy.handlerKey).toBe("char-change-race");
+    // 服务类恒限购 1 件(单次购买一次;发货完成后释放额度)
+    expect(copy.maxPerUser).toBe(1);
 
     const itemRow = page.getByRole("row", { name: new RegExp(`E2E 物品商品 ${RUN}`) });
     await expect(itemRow.getByRole("button", { name: "复制" })).toBeDisabled();
@@ -223,5 +232,30 @@ test.describe("商品增强后台(限购/批量/复制)", () => {
     await expect(form.getByLabel("启用库存")).toBeDisabled();
     await expect(form.getByText("服务类商品不使用库存")).toBeVisible();
     await form.getByRole("button", { name: "取消" }).click();
+  });
+
+  test("列表筛选器:关键字搜索 + 商品类别筛选(#152/#156)", async ({ page }) => {
+    await login(page);
+    await page.goto("/admin/products");
+
+    // 关键字:命中名称
+    await page.getByLabel("搜索商品").fill(`E2E 限购商品 ${RUN}`);
+    await page.getByRole("button", { name: "筛选" }).click();
+    await expect(page).toHaveURL(/q=/);
+    await expect(page.getByRole("link", { name: `E2E 限购商品 ${RUN}` })).toBeVisible();
+
+    // 类别筛选与服务类叠加:只留服务类
+    await page.getByLabel("商品类别").selectOption("service");
+    await page.getByRole("button", { name: "筛选" }).click();
+    await expect(page).toHaveURL(/type=service/);
+    await expect(page.getByRole("link", { name: `E2E 限购商品 ${RUN}` })).toHaveCount(0);
+
+    // 所属分类筛选:选中夹具分类后仍能看到该分类下的商品
+    await page.getByLabel("搜索商品").fill("");
+    await page.getByLabel("商品类别").selectOption("");
+    await page.getByLabel("所属分类").selectOption(categoryId.toString());
+    await page.getByRole("button", { name: "筛选" }).click();
+    await expect(page).toHaveURL(/category=/);
+    await expect(page.getByRole("link", { name: `E2E 限购商品 ${RUN}` })).toBeVisible();
   });
 });
