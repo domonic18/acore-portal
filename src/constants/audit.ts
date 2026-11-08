@@ -81,6 +81,8 @@ export const AUDIT_ACTION = {
   SETTINGS_CHANGED: "settings_changed",
   /** M4 设置页测试发信(category=admin;记 to) */
   SETTINGS_TEST_MAIL: "settings_test_mail",
+  /** 后台测试连接(category=admin;只记通道名与成败,任何连接参数/口令不落) */
+  SETTINGS_TEST_CONNECTION: "settings_test_connection",
   /** M4 后台角色变更(category=admin;payload 含前后角色;成功即吊销目标全部会话) */
   USER_ROLE_CHANGE: "user_role_change",
   /** 商品删除(category=shop;仅限零订单商品,payload 含 sku/name;有订单走下架) */

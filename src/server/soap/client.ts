@@ -56,12 +56,19 @@ export class SoapOutcomeUnknownError extends Error {
   }
 }
 
-/** 抛错语义:超时/连接/鉴权/HTTP 错误/Fault 均按失败处理,由 execute 决定重试与落库 */
+/** SOAP 连接参数(连接串存 system_config;测试连接可传候选值,不落库) */
+export type SoapConnection = { url: string; user: string; password: string };
+
+/**
+ * 抛错语义:超时/连接/鉴权/HTTP 错误/Fault 均按失败处理,由 execute 决定重试与落库
+ * @param conn 覆盖连接参数(后台「测试连接」用候选值);缺省取当前配置
+ */
 export async function rawExecuteCommand(
   command: string,
   timeoutMs: number,
+  conn?: SoapConnection,
 ): Promise<string> {
-  const { soap } = await getConfig();
+  const soap = conn ?? (await getConfig()).soap;
   const auth = Buffer.from(`${soap.user}:${soap.password}`, "utf8").toString("base64");
   const envelope =
     `<?xml version="1.0" encoding="utf-8"?>` +
