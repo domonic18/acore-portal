@@ -57,6 +57,20 @@ describe("resolveHandler 路由(T037)", () => {
     expect(resolveHandler("itemsend")).toBeNull();
   });
 
+  test("服务类按 handler_key 路由:副本 SKU 不再命中不了注册表(2026-11-08 整改)", () => {
+    // SKU 只是唯一标识,发货依据取 handler_key ⇒ 副本( -copy )照样能发货
+    expect(resolveHandler("char-change-name-copy", "char-change-name")).toBe(charRenameHandler);
+    expect(resolveHandler("char-change-race-copy-2", "char-change-race")).toBe(
+      charChangeRaceHandler,
+    );
+    // 无 handler_key 且 SKU 本身不是注册键 → 不发(避免猜错处理器)
+    expect(resolveHandler("char-change-name-copy", null)).toBeNull();
+    // 存量形态:SKU 本身就是注册键时仍可路由(handler_key 缺省回落)
+    expect(resolveHandler("char-change-name")).toBe(charRenameHandler);
+    // handler_key 优先于 SKU 前缀之外的一切
+    expect(resolveHandler("whatever-sku", "item-restoration")).toBe(itemRestoreHandler);
+  });
+
   test("全部处理器都声明 validateSchema 且与参数矩阵同源(引用相等)", () => {
     expect(itemSendHandler.validateSchema).toBe(ITEM_SEND_PARAM_SCHEMA);
     for (const handler of EXACT_HANDLERS) {

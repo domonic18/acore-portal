@@ -21,6 +21,7 @@ export default async function EditProductPage({
     id: product.id,
     type: product.type,
     sku: product.sku,
+    handlerKey: product.handlerKey,
     name: product.name,
     slug: product.slug,
     description: product.description,

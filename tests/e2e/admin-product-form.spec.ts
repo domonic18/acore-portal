@@ -11,12 +11,14 @@ import { PrismaClient } from "../../src/generated/business";
  *
  * 物品 entry 取 19500+ 测试区间(见 scripts/dev/initdb/init-game-schemas.sql);
  * SKU 全局唯一 ⇒ 每个用例占用独立 entry。
+ * 该区间按种子规则 stackable = (entry % 10 === 9 ? 20 : 1)⇒ 19519 可堆叠、19510 不可。
  */
 const prisma = new PrismaClient();
 const RUN = Date.now().toString(36);
 const SLUG_PREFIX = `e2epf-${RUN}-`;
 const CATEGORY_SLUG = `e2epf-cat-${RUN}`;
 const PICK_ENTRY = 19510;
+const STACK_ENTRY = 19519;
 const EDIT_ENTRY = 19520;
 const MEDIA_NAME = `e2epf-media-${RUN}.png`;
 const MEDIA_URL = `/images/e2epf-media-${RUN}.png`;
@@ -107,7 +109,22 @@ test.describe("商品编辑台(物品选择器 / SKU 派生 / 图片面板)", ()
     await expect(sku).toHaveValue(`itemsend_${PICK_ENTRY}`);
   });
 
-  test("服务类:下拉选处理器,SKU 即处理器键(无自由文本框)", async ({ page }) => {
+  test("可堆叠物品:自动勾选「一封邮件发多个」并派生 _stack SKU", async ({ page }) => {
+    await login(page);
+    await page.goto("/admin/products/new");
+
+    await page.getByLabel("搜索游戏物品").fill(String(STACK_ENTRY));
+    await page.getByTestId(`game-item-option-${STACK_ENTRY}`).click();
+
+    await expect(page.getByRole("switch", { name: "一封邮件发多个" })).toBeChecked();
+    await expect(page.getByLabel("SKU", { exact: true })).toHaveValue(
+      `itemsend_${STACK_ENTRY}_stack`,
+    );
+    // 堆叠标记随选择器结果可见(品质色点 + 可堆叠角标)
+    await expect(page.getByText(`可堆叠 ×20`)).toBeVisible();
+  });
+
+  test("服务类:下拉选处理器,SKU 自动取处理器键(只读)", async ({ page }) => {
     await login(page);
     await page.goto("/admin/products/new");
 
@@ -115,8 +132,10 @@ test.describe("商品编辑台(物品选择器 / SKU 派生 / 图片面板)", ()
     const serviceSelect = page.getByLabel("服务类型", { exact: true });
     await serviceSelect.selectOption("char-change-name");
     await expect(serviceSelect).toHaveValue("char-change-name");
-    // 服务类没有自由文本 SKU 输入框:SKU 只能来自处理器注册表
-    await expect(page.getByLabel("SKU", { exact: true })).toHaveCount(0);
+    // 服务类的 SKU 只是商品唯一标识:自动取处理器键,不可手改(发货依据是 handler_key)
+    const sku = page.getByLabel("SKU", { exact: true });
+    await expect(sku).toHaveValue("char-change-name");
+    await expect(sku).toHaveAttribute("readonly", "");
   });
 
   test("高级区手改 SKU 与所选物品不一致 → 实时红字且拦下保存", async ({ page }) => {

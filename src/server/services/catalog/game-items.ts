@@ -4,8 +4,9 @@ import { GameDbError } from "@/server/services/shared/game-identity";
 
 /**
  * 游戏物品检索(后台商品编辑页的物品选择器):
- * 数据源 world.item_template —— **只读子集,仅映射 entry/name/quality 三列**
- * (真实表列远多于此,但生产真表列名未核实,故 Prisma 不多映射一列)。
+ * 数据源 world.item_template —— **只读子集,仅映射 entry/name/quality/stackable 四列**
+ * (真实表列远多于此,故 Prisma 不多映射一列;stackable 已与 AC 真表核对:
+ * `stackable int default 1`,1=不可堆叠,>1=可堆叠)。
  * 因此选择器只能按 物品ID / 名称 / 品质 检索,没有图标、没有需求等级。
  */
 
@@ -13,6 +14,8 @@ export type GameItemHit = {
   entry: number;
   name: string | null;
   quality: number | null;
+  /** 最大堆叠数(1=不可堆叠;>1 ⇒ SKU 须带 _stack,一封邮件发多个) */
+  stackable: number | null;
 };
 
 const DEFAULT_LIMIT = 20;
@@ -30,7 +33,7 @@ export async function searchGameItems(params: {
     const db = await getWorldDb();
     return await db.itemTemplate.findMany({
       where: q === "" ? undefined : /^\d+$/.test(q) ? { entry: Number(q) } : { name: { contains: q } },
-      select: { entry: true, name: true, quality: true },
+      select: { entry: true, name: true, quality: true, stackable: true },
       take: limit,
       orderBy: [{ quality: "desc" }, { entry: "asc" }],
     });
@@ -46,7 +49,7 @@ export async function getGameItem(entry: number): Promise<GameItemHit | null> {
     const db = await getWorldDb();
     return await db.itemTemplate.findUnique({
       where: { entry },
-      select: { entry: true, name: true, quality: true },
+      select: { entry: true, name: true, quality: true, stackable: true },
     });
   } catch (err) {
     console.error("[game-items] item_template lookup failed", err);

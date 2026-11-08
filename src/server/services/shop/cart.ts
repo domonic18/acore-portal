@@ -60,7 +60,12 @@ export async function addToCart(input: {
     return { ok: false, reason: "NOT_PUBLISHED" };
   }
 
-  const validated = validateCartParams(product.sku, input.params);
+  // 服务类单次限购 1 件(改名/转种族等一次性服务,一次下单只办一次)
+  if (product.type === "service" && qty > 1) {
+    return { ok: false, reason: "PURCHASE_LIMIT_EXCEEDED" };
+  }
+
+  const validated = validateCartParams(product.sku, input.params, product.handlerKey);
   if (!validated.ok) return validated;
 
   // 角色归属(参数矩阵所有 SKU 均含 characterGuid):越权即审计(FR-120)
@@ -92,7 +97,9 @@ export async function addToCart(input: {
 
   // 限购软拦截(加购即提示;结账事务内为强制关)。同一商品多行合并计数。
   if (product.maxPerUser != null) {
-    const purchased = await getUserPurchasedQty(prisma, input.userId, [input.productId]);
+    const purchased = await getUserPurchasedQty(prisma, input.userId, [
+      { id: product.id, type: product.type },
+    ]);
     const already = purchased.get(product.id.toString()) ?? 0;
     const inCart = rows.reduce((sum, r) => sum + r.qty, 0);
     if (already + inCart + qty > product.maxPerUser) {
@@ -141,7 +148,7 @@ export async function updateCartItem(input: {
     where: { id: input.itemId, userId: input.userId },
     include: {
       product: {
-        select: { id: true, stockEnabled: true, stock: true, maxPerUser: true },
+        select: { id: true, type: true, stockEnabled: true, stock: true, maxPerUser: true },
       },
     },
   });
@@ -150,14 +157,21 @@ export async function updateCartItem(input: {
   const soldOut = row.product.stockEnabled && (row.product.stock ?? 0) <= 0;
   if (soldOut && input.qty > row.qty) return { ok: false, reason: "OUT_OF_STOCK" };
 
-  // 限购软拦截:已购 + 同商品其他行 + 本行新数量 > 上限即拒(减数天然放行)
+  // 服务类单次限购 1 件
+  if (row.product.type === "service" && input.qty > 1) {
+    return { ok: false, reason: "PURCHASE_LIMIT_EXCEEDED" };
+  }
+
+  // 限购软拦截:已占额度 + 同商品其他行 + 本行新数量 > 上限即拒(减数天然放行)
   if (row.product.maxPerUser != null) {
     const siblings = await prisma.cartItem.findMany({
       where: { userId: input.userId, productId: row.productId, id: { not: row.id } },
       select: { qty: true },
     });
     const otherInCart = siblings.reduce((sum, r) => sum + r.qty, 0);
-    const purchased = await getUserPurchasedQty(prisma, input.userId, [row.productId]);
+    const purchased = await getUserPurchasedQty(prisma, input.userId, [
+      { id: row.productId, type: row.product.type },
+    ]);
     const already = purchased.get(row.productId.toString()) ?? 0;
     if (already + otherInCart + input.qty > row.product.maxPerUser) {
       return { ok: false, reason: "PURCHASE_LIMIT_EXCEEDED" };

@@ -12,7 +12,7 @@ const querySchema = z.object({
 
 /**
  * 游戏物品检索(后台商品编辑页的物品选择器):
- * world.item_template 只读子集(entry/name/quality);库不可达 → 503 拒绝放行,
+ * world.item_template 只读子集(entry/name/quality/stackable);库不可达 → 503 拒绝放行,
  * 前端据此禁用保存(不产出未经物品校验的商品)。
  */
 export async function GET(req: NextRequest) {
