@@ -13,6 +13,7 @@ export type LineItemRow = {
   name: string;
   slug: string;
   sku: string;
+  image: string | null;
   unitPrice: number;
   qty: number;
   subtotal: number;
@@ -76,12 +77,23 @@ export function LineItemsTable({
               <tr key={row.id} className="border-b border-line/60 align-top">
                 <td className="px-3 py-3">
                   <div className="flex items-center gap-3">
-                    <div
-                      aria-hidden
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded bg-panel-inset text-xl"
-                    >
-                      {row.sku.startsWith(ITEMSEND_SKU_PREFIX) ? "⚔" : "🛠"}
-                    </div>
+                    {row.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={row.image}
+                        alt={row.name}
+                        loading="lazy"
+                        draggable={false}
+                        className="h-12 w-12 shrink-0 rounded bg-panel-inset object-contain"
+                      />
+                    ) : (
+                      <div
+                        aria-hidden
+                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded bg-panel-inset text-xl"
+                      >
+                        {row.sku.startsWith(ITEMSEND_SKU_PREFIX) ? "⚔" : "🛠"}
+                      </div>
+                    )}
                     <div className="flex min-w-48 flex-1 flex-col gap-1">
                       <Link
                         href={`/shop/${row.slug}`}

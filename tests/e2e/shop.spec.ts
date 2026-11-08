@@ -273,12 +273,15 @@ test.describe("US2 商城与购物车(T026)", () => {
     }
     // 行内列含义对得上:小计=单价×数量
     await expect(page.getByTestId("line-subtotal").first()).toHaveText("500");
+    // 行项显示商品主图,不是占位图标(#172)
+    await expect(page.getByRole("img", { name: `E2E 测试坐骑 ${RUN}` })).toBeVisible();
 
     await page.goto("/checkout");
     for (const h of headers) {
       await expect(page.getByRole("columnheader", { name: h, exact: true })).toBeVisible();
     }
     await expect(page.getByTestId("line-subtotal").first()).toHaveText("500");
+    await expect(page.getByRole("img", { name: `E2E 测试坐骑 ${RUN}` })).toBeVisible();
 
     // 清理:移除该行,避免污染后续用例
     await page.goto("/cart");
