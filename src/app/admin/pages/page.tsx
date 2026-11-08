@@ -52,7 +52,7 @@ export default async function AdminPagesPage() {
                     </Badge>
                   </Td>
                   <Td className="text-[#93b2ce]">{p.sortOrder}</Td>
-                  <Td className="text-xs text-[#6482a3]">{p.updatedAt.slice(0, 10)}</Td>
+                  <Td className="whitespace-nowrap text-xs text-[#6482a3]">{p.updatedAt.slice(0, 10)}</Td>
                   <Td>
                     <div className="flex items-center gap-2">
                       <Link prefetch={false} href={`/admin/pages/${p.id}`} className={linkCls}>
