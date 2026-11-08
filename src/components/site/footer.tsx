@@ -54,13 +54,13 @@ export function SiteFooter({
             </>
           )}
         </p>
-        {buildInfo && (
-          <p className="text-[11px] leading-5 text-muted">{buildInfo}</p>
-        )}
         {copyrightEn && (
           <p className="max-w-3xl whitespace-pre-line text-center text-[11px] leading-5 text-muted">
             {copyrightEn}
           </p>
+        )}
+        {buildInfo && (
+          <p className="text-[11px] leading-5 text-muted">{buildInfo}</p>
         )}
       </div>
     </footer>
