@@ -376,6 +376,81 @@ describe("US5 商品保存校验(T045,FR-126)", () => {
   });
 });
 
+/**
+ * 后台商品列表筛选(#152 搜索框 + #156 类别筛选):
+ * q 命中名称/slug/SKU,type 命中物品类/服务类,categoryId 命中所属分类,
+ * 三者与 lowStock 可叠加;非法 type 回落为不限。
+ */
+describe("listAdminProducts 筛选(#152/#156)", () => {
+  const itemSlug = `${SLUG_PREFIX}filt-item`;
+  const svcSlug = `${SLUG_PREFIX}filt-svc`;
+
+  beforeAll(async () => {
+    await saveProduct(
+      itemInput(allocPlainEntry(), {
+        slug: itemSlug,
+        name: `筛选测试物品 ${RUN}`,
+      }),
+    );
+    await saveProduct(
+      serviceInput(serviceKey(), {
+        slug: svcSlug,
+        name: `筛选测试服务 ${RUN}`,
+      }),
+    );
+  });
+
+  it("q 按名称命中", async () => {
+    const hit = await listAdminProducts({ q: "筛选测试物品" });
+    expect(hit.items.map((i) => i.slug)).toContain(itemSlug);
+    expect(hit.items.map((i) => i.slug)).not.toContain(svcSlug);
+  });
+
+  it("q 按 slug 命中", async () => {
+    const hit = await listAdminProducts({ q: svcSlug });
+    expect(hit.items.map((i) => i.slug)).toContain(svcSlug);
+  });
+
+  it("q 按 SKU 命中", async () => {
+    const sku = (await listAdminProducts({ q: "筛选测试物品" })).items.find(
+      (i) => i.slug === itemSlug,
+    )?.sku;
+    expect(sku).toBeTruthy();
+    const hit = await listAdminProducts({ q: sku! });
+    expect(hit.items.map((i) => i.slug)).toContain(itemSlug);
+  });
+
+  it("type 区分物品类与服务类", async () => {
+    const items = await listAdminProducts({ type: PRODUCT_TYPE.GAME_ITEM, q: "筛选测试" });
+    expect(items.items.map((i) => i.slug)).toContain(itemSlug);
+    expect(items.items.map((i) => i.slug)).not.toContain(svcSlug);
+
+    const services = await listAdminProducts({ type: PRODUCT_TYPE.SERVICE, q: "筛选测试" });
+    expect(services.items.map((i) => i.slug)).toContain(svcSlug);
+    expect(services.items.map((i) => i.slug)).not.toContain(itemSlug);
+  });
+
+  it("非法 type 回落为不限(不因枚举非法而报错)", async () => {
+    const all = await listAdminProducts({ type: "__bogus__", q: "筛选测试" });
+    expect(all.items.map((i) => i.slug)).toEqual(
+      expect.arrayContaining([itemSlug, svcSlug]),
+    );
+  });
+
+  it("categoryId 命中所属分类", async () => {
+    const hit = await listAdminProducts({ categoryId });
+    expect(hit.items.map((i) => i.slug)).toContain(itemSlug);
+    const miss = await listAdminProducts({ categoryId: categoryId + 999_999n });
+    expect(miss.items.map((i) => i.slug)).not.toContain(itemSlug);
+  });
+
+  it("筛选与低库存可叠加", async () => {
+    const hit = await listAdminProducts({ lowStock: true, q: "筛选测试" });
+    // 夹具未启用库存 ⇒ 不属低库存
+    expect(hit.items.map((i) => i.slug)).not.toContain(itemSlug);
+  });
+});
+
 describe("deleteProduct(零订单删除/有订单拒绝)", () => {
   it("有订单拒绝且零写;零订单删除清购物车+审计", async () => {
     const buyer = await prisma.user.findUniqueOrThrow({
