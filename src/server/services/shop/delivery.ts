@@ -68,7 +68,7 @@ export async function driveOrderDelivery(orderId: bigint): Promise<void> {
   for (const item of order.items) {
     if (item.deliveryStatus === ORDER_ITEM_DELIVERY_STATUS.DELIVERED) continue;
 
-    const handler = resolveHandler(item.sku);
+    const handler = resolveHandler(item.sku, item.handlerKey);
     if (!handler || gameAccountId === null) {
       errors.push(`${item.sku}: DELIVERY_NO_HANDLER`);
       await prisma.orderItem.update({

@@ -404,7 +404,8 @@ model ProductCategory {
 model Product {
   id                BigInt        @id @default(autoincrement())
   type              ProductType
-  sku               String        @unique @db.VarChar(64) // itemsend_{id} 或处理器键(FR-126 保存校验)
+  sku               String        @unique @db.VarChar(64) // 唯一标识:物品类 itemsend_{id},服务类任意唯一串
+  handlerKey        String?       @map("handler_key") @db.VarChar(64) // 服务类发货处理器键(与 SKU 解耦,FR-126)
   name              String        @db.VarChar(128)
   slug              String        @unique @db.VarChar(128)
   description       String        @db.Text
@@ -487,6 +488,7 @@ model OrderItem {
   orderId             BigInt                   @map("order_id")
   productId           BigInt                   @map("product_id")
   sku                 String                   @db.VarChar(64) // 下单时刻快照
+  handlerKey          String?                  @map("handler_key") @db.VarChar(64) // 服务类处理器键快照(发货依据)
   name                String                   @db.VarChar(128)
   unitPrice           Int                      @map("unit_price") // 生效价快照
   qty                 Int
