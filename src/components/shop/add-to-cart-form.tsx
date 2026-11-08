@@ -17,6 +17,7 @@ export type CartParamField = "characterGuid" | "restoreItemEntry" | "unlockName"
 type RestorableItem = {
   entry: number;
   name: string | null;
+  nameZh: string | null;
   quality: number | null;
   restorable: boolean;
 };
@@ -183,7 +184,7 @@ export function AddToCartForm({
                       color: ITEM_QUALITY_COLOR[it.quality ?? 1] ?? "var(--theme-foreground)",
                     }}
                   >
-                    {it.name ?? `物品 #${it.entry}`}
+                    {it.nameZh ?? it.name ?? `物品 #${it.entry}`}
                   </span>
                   {!it.restorable && <span className="text-xs text-muted">(数据缺失,暂不可恢复)</span>}
                 </label>

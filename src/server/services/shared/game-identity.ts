@@ -2,6 +2,7 @@ import "server-only";
 import { getCharactersDb } from "@/lib/db/characters";
 import { getWorldDb } from "@/lib/db/world";
 import { authDb } from "@/lib/db/auth";
+import { zhNamesByEntry } from "@/server/services/shared/item-locale";
 
 /**
  * 游戏库只读基础层(跨域基础,AGENTS 域服务禁互引):
@@ -79,6 +80,8 @@ export async function characterOwnedBy(accountId: number, guid: number): Promise
 export type RestorableItem = {
   entry: number;
   name: string | null;
+  /** 中文名(item_template_locale zhCN,issue #174);无本地化行或表缺失时为 null */
+  nameZh: string | null;
   quality: number | null;
   count: number;
   /** world.item_template 命中;数据缺失的行不可恢复(T041 M2 语义) */
@@ -88,7 +91,8 @@ export type RestorableItem = {
 /**
  * 只读恢复列表(recovery_item 表,旧站同源)。
  * M2 起 join world.item_template 补名称/质量色并给 restorable 标记
- * (模板缺失行可展示但不可恢复);world 不可达与角色库同视为 GameDbError。
+ * (模板缺失行可展示但不可恢复);中文名经 item-locale 回填,表缺失降级为 null。
+ * world 不可达与角色库同视为 GameDbError。
  */
 export async function listRestorableItems(guid: number): Promise<RestorableItem[]> {
   try {
@@ -99,18 +103,20 @@ export async function listRestorableItems(guid: number): Promise<RestorableItem[
     });
     if (rows.length === 0) return [];
     const entries = [...new Set(rows.map((r) => r.itemEntry))];
-    const templates = await (
-      await getWorldDb()
-    ).itemTemplate.findMany({
-      where: { entry: { in: entries } },
-      select: { entry: true, name: true, quality: true },
-    });
+    const [templates, zhNames] = await Promise.all([
+      (await getWorldDb()).itemTemplate.findMany({
+        where: { entry: { in: entries } },
+        select: { entry: true, name: true, quality: true },
+      }),
+      zhNamesByEntry(entries),
+    ]);
     const byEntry = new Map(templates.map((t) => [t.entry, t]));
     return rows.map((r) => {
       const t = byEntry.get(r.itemEntry);
       return {
         entry: r.itemEntry,
         name: t?.name ?? null,
+        nameZh: zhNames.get(r.itemEntry) ?? null,
         quality: t?.quality ?? null,
         count: 1,
         restorable: t !== undefined,

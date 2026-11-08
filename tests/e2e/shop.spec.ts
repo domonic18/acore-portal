@@ -14,6 +14,7 @@ const RUN = Date.now().toString(36);
 const CATEGORY_SLUG = `e2eshop-${RUN}`;
 const ITEM_SLUG = `e2eshop-item-${RUN}`;
 const SOLDOUT_SLUG = `e2eshop-soldout-${RUN}`;
+const RESTORE_SLUG = `e2eshop-restore-${RUN}`;
 const TAMPER_GUID = 20;
 
 async function login(page: Page) {
@@ -69,6 +70,17 @@ test.beforeAll(async () => {
         stockEnabled: true,
         stock: 0,
         gameItemId: 19021,
+        categoryId: category.id,
+      },
+      {
+        sku: `item-restore-${RUN}`,
+        slug: RESTORE_SLUG,
+        name: `E2E 物品恢复 ${RUN}`,
+        description: "恢复列表中文名",
+        type: "service",
+        handlerKey: "item-restoration",
+        status: "published",
+        price: 100,
         categoryId: category.id,
       },
     ],
@@ -167,6 +179,18 @@ test.describe("US2 商城与购物车(T026)", () => {
     await page.goto(`/shop/${SOLDOUT_SLUG}`);
     await expect(page.getByText("已售罄", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "已售罄" })).toBeDisabled();
+  });
+
+  test("物品恢复选物列表显示中文名,无模板行回落 #entry(#174)", async ({ page }) => {
+    await login(page);
+    await page.goto(`/shop/${RESTORE_SLUG}`);
+    await page.getByLabel("选择角色").selectOption("10");
+    // seed:guid 10 → 19019(模板+zhCN)/ 17182(无模板行)
+    await expect(page.getByText("限量测试坐骑")).toBeVisible();
+    await expect(page.getByText("物品 #17182")).toBeVisible();
+    await expect(page.getByText("(数据缺失,暂不可恢复)")).toBeVisible();
+    // 有中文名时不再展示英文名
+    await expect(page.getByText("测试坐骑·限量")).toHaveCount(0);
   });
 
   test("商品图片图库与详情 Markdown(2026-10-26 WP 对齐)", async ({ page }) => {
