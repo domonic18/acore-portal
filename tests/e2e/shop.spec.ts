@@ -186,6 +186,23 @@ test.describe("US2 商城与购物车(T026)", () => {
     await expect(md.getByRole("strong")).toContainText("加粗");
   });
 
+  test("商品图片不再带紫色渐变底(#157)", async ({ page }) => {
+    await page.goto("/shop");
+    const card = page.getByRole("listitem").filter({ hasText: `E2E 测试坐骑 ${RUN}` });
+    const img = card.getByRole("img", { name: `E2E 测试坐骑 ${RUN}` });
+    await expect(img).toBeVisible();
+    // 期望:图片完整显示 + 背景与站点风格一致(中性面板色),不再是紫色渐变
+    await expect(img).not.toHaveClass(/from-indigo-950/);
+    await expect(img).toHaveClass(/bg-panel-inset/);
+    await expect(img).toHaveClass(/aspect-square/);
+
+    await page.goto(`/shop/${ITEM_SLUG}`);
+    const gallery = page.getByTestId("product-gallery");
+    await expect(gallery.getByRole("img", { name: `E2E 测试坐骑 ${RUN}` })).not.toHaveClass(
+      /from-indigo-950/,
+    );
+  });
+
   test("越权直发他人 characterGuid → 403 + ownership_violation 审计", async ({ page }) => {
     await login(page);
     const product = await prisma.product.findUniqueOrThrow({
