@@ -195,6 +195,15 @@ test.describe("US2 商城与购物车(T026)", () => {
     await expect(entry).toHaveText(/购物车/);
   });
 
+  test("商品详情不再外链 Wowhead(大陆不可达,#153)", async ({ page }) => {
+    await page.goto(`/shop/${ITEM_SLUG}`);
+    await expect(page.getByRole("link", { name: /Wowhead/i })).toHaveCount(0);
+    const hrefs = await page
+      .locator('a[href*="wowhead.com"], a[href*="zamimg.com"]')
+      .evaluateAll((els) => els.map((e) => e.getAttribute("href")));
+    expect(hrefs).toEqual([]);
+  });
+
   test("越权直发他人 characterGuid → 403 + ownership_violation 审计", async ({ page }) => {
     await login(page);
     const product = await prisma.product.findUniqueOrThrow({
