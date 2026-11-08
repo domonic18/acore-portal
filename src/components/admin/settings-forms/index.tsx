@@ -1,24 +1,31 @@
 "use client";
 
 import type { SettingsView } from "@/lib/settings-types";
+import { AppGroup } from "./app-group";
 import { AppearanceGroup } from "./appearance-group";
 import { CaptchaGroup } from "./captcha-group";
 import { ContentGroup } from "./content-group";
+import { GameDbGroup } from "./gamedb-group";
 import { NotifyGroup } from "./notify-group";
 import { SecurityGroup } from "./security-group";
 import { SiteGroup } from "./site-group";
 import { SmtpGroup } from "./smtp-group";
+import { SoapGroup } from "./soap-group";
 import { TestMailCard } from "./test-mail-card";
 import { ThemeGroup } from "./theme-group";
 
 /**
- * 八组设置表单+测试发信卡片(T032;api-admin-m4 契约)。
- * 敏感字段(smtp.password/captcha.appSecret/captcha.secretKey)只写不读:
- * 已配置显「已配置,留空保持」占位,空提交=保持原值,非空=覆写。
+ * 十一组设置表单+测试发信卡片(T032;api-admin-m4 契约)。
+ * 敏感字段按组+字段定口径:只写不读者(smtp/captcha/soap 口令)已配置显
+ * 「已配置,留空保持」,空提交=保持原值;连接串(game库)回显脱敏串,
+ * 提交值等于脱敏形态或口令位仍是 *** 时按未改处理。
  */
 export function SettingsForms({ view }: { view: SettingsView }) {
   return (
     <div className="flex flex-col gap-4">
+      <AppGroup view={view.app} />
+      <SoapGroup view={view.soap} />
+      <GameDbGroup view={view.gamedb} />
       <SmtpGroup view={view.smtp} />
       <CaptchaGroup view={view.captcha} />
       <SecurityGroup view={view.security} />

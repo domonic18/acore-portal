@@ -1,17 +1,34 @@
 import "server-only";
 import { getConfig } from "@/lib/config";
+import { maskConnectionUrl } from "@/lib/format";
 import type { SettingsView } from "@/lib/settings-types";
 import { THEME_IDS, isThemeId, DEFAULT_THEME } from "@/constants/theme";
 
 /**
- * 设置视图(T030;api-admin-m4 契约):按组返回,敏感字段只回掩码态布尔
- * (passwordConfigured/secretKeyConfigured),任何明文凭据不出本模块。
+ * 设置视图(T030;api-admin-m4 契约):按组返回,敏感字段只回掩码态
+ * (passwordConfigured 布尔 / 连接串脱敏串),任何明文凭据不出本模块。
  */
 export type { SettingsView };
 
 export async function getSettingsView(): Promise<SettingsView> {
   const config = await getConfig();
   return {
+    app: {
+      url: config.app.url,
+    },
+    soap: {
+      url: config.soap.url,
+      user: config.soap.user,
+      realm: config.soap.realm,
+      passwordConfigured: config.soap.password !== "",
+    },
+    gamedb: {
+      // 连接串含口令:回显脱敏形态(host/库名可见,口令 ***)
+      auth: maskConnectionUrl(config.gamedb.auth),
+      characters: maskConnectionUrl(config.gamedb.characters),
+      world: maskConnectionUrl(config.gamedb.world),
+      eluna: maskConnectionUrl(config.gamedb.eluna),
+    },
     smtp: {
       host: config.smtp.host,
       port: config.smtp.port,

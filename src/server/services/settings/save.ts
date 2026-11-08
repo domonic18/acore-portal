@@ -1,6 +1,7 @@
 import "server-only";
-import { buildConfigFromRows, getConfig, reloadSystemConfig } from "@/lib/config";
+import { buildConfigFromRows, getConfig, reloadSystemConfig, ConfigValidationError } from "@/lib/config";
 import { prisma } from "@/lib/db/business";
+import { resetGameDbClients } from "@/lib/db/reset-gamedb";
 import { getTransporter } from "@/lib/mail";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/shared/audit";
@@ -8,14 +9,16 @@ import {
   groupKeys,
   groupSchemas,
   isSettingsGroup,
-  sensitiveFields,
+  sensitiveMode,
 } from "@/server/services/settings/schemas";
+import { resolveSubmittedValue } from "@/server/services/settings/values";
 
 /**
  * 设置保存与测试发信(T030;api-admin-m4 契约):
- * 组级全量提交——非空敏感字段=覆写,空/缺省=保持不变;
+ * 组级全量提交——敏感字段按组+字段口径处理(secret=空即保持、masked=回传脱敏值即未改),
  * 先以候选行整表校验(buildConfigFromRows)再落库,校验失败零写入;
  * upsert → reloadSystemConfig 热生效 → 审计 SETTINGS_CHANGED(只落键名/diff 标记,任何值不落)。
+ * 游戏库连接串变更额外重置进程内 client(免重启换库)。
  * sendTestMail 直发不入 outbox,业务成败回显不抛 5xx,错误摘要按配置值脱敏。
  */
 
@@ -50,7 +53,8 @@ export async function saveSettingsGroup(
   const current = Object.fromEntries(currentRows.map((r) => [r.key, r.value]));
 
   // 缺省(undefined,请求未带该字段)=保持现值,无行则跳过回落 flatten 默认;
-  // 敏感字段空串=保持原值;其余字段直接序列化
+  // 敏感字段按组+字段口径处理(secret 空串=保持;masked 回传脱敏值=未改);
+  // 其余字段直接序列化
   const next: Record<string, string> = {};
   for (const field of fields) {
     const key = keys[field];
@@ -60,11 +64,7 @@ export async function saveSettingsGroup(
       if (current[key] !== undefined) next[key] = current[key]!;
       continue;
     }
-    if (sensitiveFields.has(field) && raw === "") {
-      next[key] = current[key] ?? "";
-    } else {
-      next[key] = String(raw);
-    }
+    next[key] = resolveSubmittedValue(current[key], String(raw), sensitiveMode(group, field));
   }
 
   // captcha 组合校验(enabled=true 必须四件套齐全,保持语义含原值)先行给出命名错误码
@@ -100,7 +100,12 @@ export async function saveSettingsGroup(
     return {
       ok: false,
       code: "VALIDATION_FAILED",
-      message: err instanceof Error ? err.message : "配置校验失败",
+      message:
+        err instanceof ConfigValidationError
+          ? `配置校验失败:${err.issues}`
+          : err instanceof Error
+            ? err.message
+            : "配置校验失败",
     };
   }
 
@@ -122,12 +127,17 @@ export async function saveSettingsGroup(
       ),
     );
     await reloadSystemConfig();
+    // 游戏库 client 在进程内缓存了旧连接串:重置后下次调用按新配置重建,
+    // 免重启换库(在途请求可能因连接被断开而失败,属已知取舍)
+    if (changedKeys.some((key) => key.startsWith("gamedb."))) {
+      await resetGameDbClients();
+    }
   }
 
   // 审计只落组名/键名/掩码标记,任何值不落(数据-model §5)
   const sensitiveKeys = changedKeys.filter((key) => {
     const field = Object.keys(keys).find((f) => keys[f] === key);
-    return field !== undefined && sensitiveFields.has(field);
+    return field !== undefined && sensitiveMode(group, field) !== undefined;
   });
   await writeAudit({
     category: AUDIT_CATEGORY.ADMIN,
