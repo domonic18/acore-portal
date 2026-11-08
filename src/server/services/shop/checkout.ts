@@ -69,10 +69,10 @@ const ORDER_NO_COLLISION_RETRIES = 3;
 async function runCheckoutPrechecks(userId: bigint): Promise<void> {
   const rows = await prisma.cartItem.findMany({
     where: { userId },
-    include: { product: { select: { sku: true } } },
+    include: { product: { select: { sku: true, handlerKey: true } } },
   });
   for (const row of rows) {
-    if (!validateCartParams(row.product.sku, row.params).ok) {
+    if (!validateCartParams(row.product.sku, row.params, row.product.handlerKey).ok) {
       throw new CheckoutError(
         "PRECHECK_FAILED",
         "购物车中存在参数不完整的商品,请移除后重新加购。",
@@ -82,6 +82,7 @@ async function runCheckoutPrechecks(userId: bigint): Promise<void> {
 
   const prechecks: {
     sku: string;
+    handlerKey: string | null;
     params: unknown;
     run: (ctx: {
       userId: bigint;
@@ -91,8 +92,15 @@ async function runCheckoutPrechecks(userId: bigint): Promise<void> {
     }) => Promise<void>;
   }[] = [];
   for (const row of rows) {
-    const precheck = resolveHandler(row.product.sku)?.precheck;
-    if (precheck) prechecks.push({ sku: row.product.sku, params: row.params, run: precheck });
+    const precheck = resolveHandler(row.product.sku, row.product.handlerKey)?.precheck;
+    if (precheck) {
+      prechecks.push({
+        sku: row.product.sku,
+        handlerKey: row.product.handlerKey,
+        params: row.params,
+        run: precheck,
+      });
+    }
   }
   if (prechecks.length === 0) return;
 
@@ -104,8 +112,8 @@ async function runCheckoutPrechecks(userId: bigint): Promise<void> {
   if (gameAccountId === null) {
     throw new CheckoutError("PRECHECK_FAILED", "游戏账号不存在,无法办理该服务。");
   }
-  for (const { sku, params, run } of prechecks) {
-    const parsed = validateCartParams(sku, params);
+  for (const { sku, handlerKey, params, run } of prechecks) {
+    const parsed = validateCartParams(sku, params, handlerKey);
     if (!parsed.ok) {
       throw new CheckoutError("PRECHECK_FAILED", "商品参数不完整,请重新加购。");
     }
@@ -156,7 +164,8 @@ async function checkoutOnce(userId: bigint): Promise<CheckoutResult> {
 
     // 限购(事务内强制关):已购 + 本次购物车件数(同商品多行合并)> maxPerUser 即拦。
     // 插在扣分前,失败整体回滚零写入。
-    const limited = rows.filter((r) => r.product.maxPerUser != null);
+    // 服务类恒限购 1 件(单次购买一次;发货完成后释放额度,可再次购买)
+    const limited = rows.filter((r) => r.product.maxPerUser != null || r.product.type === "service");
     if (limited.length > 0) {
       const cartQtyByProduct = new Map<string, number>();
       for (const r of rows) {
@@ -166,16 +175,17 @@ async function checkoutOnce(userId: bigint): Promise<CheckoutResult> {
       const purchased = await getUserPurchasedQty(
         tx,
         userId,
-        limited.map((r) => r.productId),
+        limited.map((r) => ({ id: r.productId, type: r.product.type })),
       );
       for (const r of limited) {
         const key = r.productId.toString();
         const already = purchased.get(key) ?? 0;
         const requested = cartQtyByProduct.get(key) ?? 0;
-        if (already + requested > r.product.maxPerUser!) {
+        const cap = r.product.type === "service" ? 1 : r.product.maxPerUser!;
+        if (already + requested > cap) {
           throw new CheckoutError(
             "PURCHASE_LIMIT_EXCEEDED",
-            `商品「${r.product.name}」每人限购 ${r.product.maxPerUser} 件,您已购买 ${already} 件。`,
+            `商品「${r.product.name}」每人限购 ${cap} 件,您已购买 ${already} 件。`,
           );
         }
       }
@@ -206,6 +216,7 @@ async function checkoutOnce(userId: bigint): Promise<CheckoutResult> {
           create: rows.map((r) => ({
             productId: r.productId,
             sku: r.product.sku,
+            handlerKey: r.product.handlerKey,
             name: r.product.name,
             unitPrice: effectivePrice(r.product, now),
             qty: r.qty,

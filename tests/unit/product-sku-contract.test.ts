@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  SERVICE_SKU_OPTIONS,
+  SERVICE_HANDLER_OPTIONS,
   buildItemSendSku,
   buildTransmogSku,
+  deriveServiceSku,
   deriveSku,
+  isServiceHandlerKey,
   isStackSku,
-  parseServiceSku,
   skuItemId,
   validateSkuBinding,
 } from "@/constants/shop-sku";
@@ -47,25 +48,36 @@ describe("SKU 契约:派生与解析", () => {
 
 describe("SKU 契约:服务处理器键", () => {
   it("下拉选项与发货处理器注册表的精确键集合一致", () => {
-    expect(SERVICE_SKU_OPTIONS.map((o) => o.key).sort()).toEqual([...EXACT_HANDLER_KEYS].sort());
+    expect(SERVICE_HANDLER_OPTIONS.map((o) => o.key).sort()).toEqual([...EXACT_HANDLER_KEYS].sort());
   });
 
-  it("注册表键与 -copy 派生键均可解析;未知键为 null", () => {
+  it("注册表键均可识别;未知键与物品类前缀不可识别", () => {
     for (const key of EXACT_HANDLER_KEYS) {
-      expect(parseServiceSku(key)).toEqual({ handlerKey: key, copySuffix: "" });
+      expect(isServiceHandlerKey(key)).toBe(true);
     }
-    expect(parseServiceSku("char-change-name-copy")).toEqual({
-      handlerKey: "char-change-name",
-      copySuffix: "-copy",
-    });
-    expect(parseServiceSku("char-change-name-copy-2")).toEqual({
-      handlerKey: "char-change-name",
-      copySuffix: "-copy-2",
-    });
-    // 副本的副本(存量复制链)同样可解析
-    expect(parseServiceSku("char-change-name-copy-2-copy")?.handlerKey).toBe("char-change-name");
-    expect(parseServiceSku("no-such-handler")).toBeNull();
-    expect(parseServiceSku("itemsend_19019")).toBeNull();
+    expect(isServiceHandlerKey("no-such-handler")).toBe(false);
+    expect(isServiceHandlerKey("itemsend_19019")).toBe(false);
+  });
+
+  it("服务类 SKU 派生:新建取处理器键;换选时同步;已有自定义 SKU 保持原值", () => {
+    expect(deriveServiceSku({ handlerKey: "char-change-name", currentSku: null })).toBe(
+      "char-change-name",
+    );
+    expect(
+      deriveServiceSku({
+        handlerKey: "char-change-race",
+        currentSku: "char-change-name",
+        previousHandlerKey: "char-change-name",
+      }),
+    ).toBe("char-change-race");
+    // 副本/自定义 SKU 与换选前的处理器键无关 → 保持原值
+    expect(
+      deriveServiceSku({
+        handlerKey: "char-change-race",
+        currentSku: "char-change-name-copy",
+        previousHandlerKey: "char-change-name",
+      }),
+    ).toBe("char-change-name-copy");
   });
 });
 
@@ -101,11 +113,57 @@ describe("SKU 契约:交叉校验", () => {
       validateSkuBinding({ type: "service", sku: "itemsend_19019", gameItemId: null })?.code,
     ).toBe("SKU_TYPE_MISMATCH");
     expect(
-      validateSkuBinding({ type: "service", sku: "char-change-name", gameItemId: null }),
+      validateSkuBinding({
+        type: "service",
+        sku: "char-change-name",
+        gameItemId: null,
+        handlerKey: "char-change-name",
+      }),
     ).toBeNull();
     expect(
       validateSkuBinding({ type: "service", sku: "no-such-handler", gameItemId: null })?.code,
     ).toBe("SKU_HANDLER_UNBOUND");
+    // 处理器键缺失 → 拒绝(SKU 只作唯一标识,发货靠 handler_key)
+    expect(
+      validateSkuBinding({ type: "service", sku: "char-change-name", gameItemId: null })?.code,
+    ).toBe("SKU_HANDLER_UNBOUND");
+    // 副本 SKU 放行:唯一标识可自定,发货依据取 handler_key
+    expect(
+      validateSkuBinding({
+        type: "service",
+        sku: "char-change-name-copy",
+        gameItemId: null,
+        handlerKey: "char-change-name",
+      }),
+    ).toBeNull();
+  });
+
+  it("物品类:可堆叠物品必须带 _stack 后缀(否则多件发多封邮件)", () => {
+    expect(
+      validateSkuBinding({
+        type: "game_item",
+        sku: "itemsend_19019",
+        gameItemId: 19019,
+        stackable: 20,
+      })?.code,
+    ).toBe("SKU_STACK_REQUIRED");
+    expect(
+      validateSkuBinding({
+        type: "game_item",
+        sku: "itemsend_19019_stack",
+        gameItemId: 19019,
+        stackable: 20,
+      }),
+    ).toBeNull();
+    // 不可堆叠物品不带 _stack
+    expect(
+      validateSkuBinding({
+        type: "game_item",
+        sku: "itemsend_19019",
+        gameItemId: 19019,
+        stackable: 1,
+      }),
+    ).toBeNull();
   });
 });
 
@@ -113,6 +171,7 @@ describe("表单字段校验", () => {
   const base: ProductFormValues = {
     type: "game_item",
     sku: "itemsend_19019",
+    handlerKey: null,
     name: "测试商品",
     slug: "test-item",
     description: "",

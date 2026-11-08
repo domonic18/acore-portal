@@ -38,6 +38,7 @@ const productSchema = z
     lowStockThreshold: z.coerce.number().int().min(0).nullable().optional(),
     maxPerUser: z.coerce.number().int().min(1).nullable().optional(),
     gameItemId: z.coerce.number().int().positive().nullable().optional(),
+    handlerKey: z.string().trim().max(64).nullable().optional(),
     status: z.enum(["draft", "published"]),
     listed: z.boolean(),
     featured: z.boolean().optional(),

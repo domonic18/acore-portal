@@ -47,8 +47,8 @@ export function ProductForm({
                 categories={categories}
                 skuOverride={form.skuOverride}
                 stack={form.stack}
-                onSelectItem={(entry) => update({ gameItemId: entry })}
-                onSelectService={(key) => update({ sku: key })}
+                onSelectItem={form.selectItem}
+                onSelectService={form.selectService}
                 onToggleStack={form.toggleStack}
                 onEnableOverride={form.enableSkuOverride}
                 onDisableOverride={form.disableSkuOverride}

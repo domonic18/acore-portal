@@ -18,14 +18,14 @@ import { AUDIT_ACTION } from "@/constants/audit";
 import { GameDbError } from "@/server/services/shared/game-identity";
 
 const skuCheckState = vi.hoisted(() => ({ fail: false }));
-vi.mock("@/server/services/catalog/sku-check", async (importOriginal) => {
+vi.mock("@/server/services/catalog/game-items", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("@/server/services/catalog/sku-check")>();
+    await importOriginal<typeof import("@/server/services/catalog/game-items")>();
   return {
     ...actual,
-    gameItemExists: async (entry: number) => {
+    getGameItem: async (entry: number) => {
       if (skuCheckState.fail) throw new GameDbError("物品模板库不可用");
-      return actual.gameItemExists(entry);
+      return actual.getGameItem(entry);
     },
   };
 });
@@ -45,9 +45,27 @@ let categoryId = 0n;
 
 // 物品 entry 取自 19500+ 专用测试区间(见 scripts/dev/initdb/init-game-schemas.sql):
 // SKU 唯一 ⇒ 每个商品需要一个独立且真实存在的物品 entry。
+// 种子规则:区间内 entry % 10 = 9 的物品 stackable=20(可堆叠)⇒ SKU 必须带 _stack。
 const ITEM_ENTRY_BASE = 19500;
 let entryCursor = ITEM_ENTRY_BASE;
 function allocEntry(): number {
+  return entryCursor++;
+}
+
+/** 按种子规则派生物品类 SKU(可堆叠物品须带 _stack,否则服务端报 SKU_STACK_REQUIRED) */
+function skuFor(entry: number): string {
+  return entry % 10 === 9 ? `itemsend_${entry}_stack` : `itemsend_${entry}`;
+}
+
+/** 取一个不可堆叠的 entry(变形/transmog SKU 不带 _stack,须配不可堆叠物品) */
+function allocPlainEntry(): number {
+  while (entryCursor % 10 === 9) entryCursor += 1;
+  return entryCursor++;
+}
+
+/** 取一个可堆叠的 entry(种子规则:entry % 10 = 9 ⇒ stackable=20) */
+function allocStackEntry(): number {
+  while (entryCursor % 10 !== 9) entryCursor += 1;
   return entryCursor++;
 }
 
@@ -72,21 +90,22 @@ function baseInput(overrides: Partial<Parameters<typeof saveProduct>[0]> = {}) {
 
 /** 物品类夹具:SKU 必须与所选物品一致(新契约),entry 从测试区间分配 */
 function itemInput(entry: number, overrides: Partial<Parameters<typeof saveProduct>[0]> = {}) {
-  return baseInput({ ...overrides, sku: `itemsend_${entry}`, gameItemId: entry });
+  return baseInput({ ...overrides, sku: skuFor(entry), gameItemId: entry });
 }
 
-/** 服务类夹具:SKU 必须是发货处理器注册表内的键 */
-function serviceInput(key: string, overrides: Partial<Parameters<typeof saveProduct>[0]> = {}) {
+/** 服务类夹具:SKU 只是唯一标识,发货依据取 handler_key(默认角色转种族) */
+function serviceInput(sku: string, overrides: Partial<Parameters<typeof saveProduct>[0]> = {}) {
   return baseInput({
     ...overrides,
     type: PRODUCT_TYPE.SERVICE,
-    sku: key,
+    sku,
+    handlerKey: overrides.handlerKey === undefined ? "char-change-race" : overrides.handlerKey,
     gameItemId: null,
   });
 }
 
 // 服务类 SKU 全局唯一(注册表只有 6 个键,且种子商品已占用其中 5 个):
-// 测试夹具走 -copy-N 派生形态(parseServiceSku 放行),数字后缀保证跨用例/跨运行唯一。
+// 测试夹具走 -copy-N 派生形态(SKU 已是纯标识,可自定义),数字后缀保证跨用例/跨运行唯一。
 let serviceCursor = 0;
 function serviceKey(): string {
   serviceCursor += 1;
@@ -202,7 +221,7 @@ describe("US5 商品保存校验(T045,FR-126)", () => {
   });
 
   it("物品类 SKU 可为 transmog-item_{id};_stack 形态同样放行", async () => {
-    const entry = allocEntry();
+    const entry = allocPlainEntry();
     const transmog = await saveProduct(
       baseInput({
         sku: `transmog-item_${entry}`,
@@ -221,6 +240,17 @@ describe("US5 商品保存校验(T045,FR-126)", () => {
     expect(stack.id).toBeDefined();
   });
 
+  it("可堆叠物品缺 _stack 后缀 → 422 SKU_STACK_REQUIRED(否则多件会发多封邮件)", async () => {
+    const entry = allocStackEntry();
+    const err = await errDetail(
+      saveProduct(
+        baseInput({ sku: `itemsend_${entry}`, gameItemId: entry, slug: `${SLUG_PREFIX}xstackmiss` }),
+      ),
+    );
+    expect(err.code).toBe("SKU_STACK_REQUIRED");
+    expect(err.field).toBe("sku");
+  });
+
   it("服务类副本 SKU(-copy)仍可保存(存量副本须可编辑)", async () => {
     const saved = await saveProduct(
       serviceInput(serviceKey(), { slug: `${SLUG_PREFIX}xcopy` }),
@@ -228,11 +258,22 @@ describe("US5 商品保存校验(T045,FR-126)", () => {
     expect(saved.id).toBeDefined();
   });
 
-  it("服务类 SKU 未绑处理器 → 422 SKU_HANDLER_UNBOUND;物品类前缀 → SKU_TYPE_MISMATCH;注册表键放行", async () => {
+  it("服务类未绑处理器 → 422 SKU_HANDLER_UNBOUND;物品类前缀 → SKU_TYPE_MISMATCH;副本 SKU 放行", async () => {
     expect(
       await errCode(
         saveProduct(
-          serviceInput("no-such-handler", { slug: `${SLUG_PREFIX}svc-unbound` }),
+          serviceInput(serviceKey(), {
+            slug: `${SLUG_PREFIX}svc-unbound`,
+            handlerKey: "no-such-handler",
+          }),
+        ),
+      ),
+    ).toBe("SKU_HANDLER_UNBOUND");
+    // 未选处理器 → 拒绝(SKU 已退化为纯标识,发货靠 handler_key)
+    expect(
+      await errCode(
+        saveProduct(
+          serviceInput(serviceKey(), { slug: `${SLUG_PREFIX}svc-nokey`, handlerKey: null }),
         ),
       ),
     ).toBe("SKU_HANDLER_UNBOUND");
@@ -469,7 +510,9 @@ describe("批量上下架与复制(二期商城增强)", () => {
     expect(copy1.stock).toBeNull();
     expect(copy1.salePrice).toBeNull();
     expect(copy1.price).toBe(250);
-    expect(copy1.maxPerUser).toBe(2);
+    // 服务类恒限购 1 件;副本继承发货处理器(handler_key)⇒ 副本不再命中不了注册表
+    expect(copy1.maxPerUser).toBe(1);
+    expect(copy1.handlerKey).toBe("char-change-race");
 
     const second = await duplicateProduct(source.id, DEL_ACTOR);
     const copy2 = await prisma.product.findUniqueOrThrow({ where: { id: second.id } });
