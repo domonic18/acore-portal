@@ -117,7 +117,7 @@ export default async function AdminUsersPage({
                   <Badge tone={u.status === "active" ? "ok" : "danger"}>{u.status}</Badge>
                 </Td>
                 <Td className="text-[#e8c877]">{u.balance ?? "—"}</Td>
-                <Td className="text-xs text-[#6482a3]">
+                <Td className="whitespace-nowrap text-xs text-[#6482a3]">
                   {new Date(u.createdAt).toLocaleDateString("zh-CN")}
                 </Td>
               </Tr>

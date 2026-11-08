@@ -35,7 +35,8 @@ export function Th({
 }) {
   return (
     <th
-      className={`border-b border-[#22385a] px-3 py-2.5 text-xs font-normal text-[#6482a3] ${className}`}
+      // 表头不折行(#48 移动端逐字竖排);窄屏由表格外壳横滚承担
+      className={`whitespace-nowrap border-b border-[#22385a] px-3 py-2.5 text-xs font-normal text-[#6482a3] ${className}`}
     >
       {children}
     </th>

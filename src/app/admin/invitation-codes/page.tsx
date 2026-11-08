@@ -65,7 +65,7 @@ export default async function AdminInvitationCodesPage({
                   <Td className="text-xs text-[#93b2ce]">
                     {c.usedBy.length ? c.usedBy.join(", ") : "—"}
                   </Td>
-                  <Td className="text-xs text-[#6482a3]">
+                  <Td className="whitespace-nowrap text-xs text-[#6482a3]">
                     {c.expiresAt ? new Date(c.expiresAt).toLocaleDateString("zh-CN") : "永久"}
                   </Td>
                   <Td>

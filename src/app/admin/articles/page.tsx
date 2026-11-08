@@ -81,7 +81,7 @@ export default async function AdminArticlesPage({
                   </Badge>
                 </Td>
                 <Td className="text-[#93b2ce]">{a.views}</Td>
-                <Td className="text-xs text-[#6482a3]">
+                <Td className="whitespace-nowrap text-xs text-[#6482a3]">
                   {a.publishedAt ? a.publishedAt.slice(0, 10) : "—"}
                 </Td>
                 <Td>
