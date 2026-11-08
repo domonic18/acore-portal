@@ -203,6 +203,15 @@ test.describe("US2 商城与购物车(T026)", () => {
     );
   });
 
+  test("商店页右上角购物车为图标入口(非纯文字,#160)", async ({ page }) => {
+    await page.goto("/shop");
+    const entry = page.getByTestId("shop-cart-entry");
+    await expect(entry).toBeVisible();
+    await expect(entry).toHaveAttribute("href", "/cart");
+    await expect(entry.locator("svg")).toBeVisible();
+    await expect(entry).toHaveText(/购物车/);
+  });
+
   test("商品详情不再外链 Wowhead(大陆不可达,#153)", async ({ page }) => {
     await page.goto(`/shop/${ITEM_SLUG}`);
     await expect(page.getByRole("link", { name: /Wowhead/i })).toHaveCount(0);

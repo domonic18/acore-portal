@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ShoppingCart } from "lucide-react";
 import { ContentPanel } from "@/components/site/content-panel";
 import { PaginationNav } from "@/components/ui/pagination";
 import { listProducts } from "@/server/services/catalog/products";
@@ -46,7 +47,12 @@ export default async function ShopPage({
       <ContentPanel className="mx-auto flex max-w-6xl flex-col gap-6 p-5 lg:p-6">
         <header className="flex items-center justify-between border-b border-gray-800 pb-3">
           <h1 className="text-2xl font-bold">商城</h1>
-          <Link href="/cart" className="text-sm text-gray-300 hover:text-white">
+          <Link
+            href="/cart"
+            data-testid="shop-cart-entry"
+            className="inline-flex items-center gap-2 rounded-md border border-gray-700 px-3 py-1.5 text-sm text-gray-200 transition-colors hover:border-amber-400 hover:text-amber-300"
+          >
+            <ShoppingCart className="h-4 w-4" aria-hidden="true" />
             购物车
           </Link>
         </header>
