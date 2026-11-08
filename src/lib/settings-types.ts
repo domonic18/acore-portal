@@ -76,7 +76,12 @@ export type SettingsView = {
     artviewArticleWindowSec: number;
     trackUnknownIpMaxPerMin: number;
   };
-  notify: { pointEmailThreshold: number };
+  notify: {
+    pointEmailThreshold: number;
+    feishuAlertEnabled: boolean;
+    feishuWebhookConfigured: boolean;
+    feishuWebhookSecretConfigured: boolean;
+  };
   content: { tocEnabled: boolean };
   site: {
     name: string;

@@ -6,6 +6,7 @@ import { writeAudit } from "@/server/services/shared/audit";
 import { resolveGameAccountId } from "@/server/services/shared/game-identity";
 import type { ValidatedCartParams } from "./param-schemas";
 import { resolveHandler, type OrderItemCtx } from "./handlers/registry";
+import { sendDeliveryFailureAlert } from "./delivery-alert";
 import { transitionOrder } from "./state-machine";
 
 /**
@@ -161,6 +162,15 @@ export async function driveOrderDelivery(orderId: bigint): Promise<void> {
     where: { id: orderId },
     data: { deliveryError: summary, deliveryClaimUntil: null },
   });
+  // 告警只报「首次落到 delivery_failed」:人工重试再失败不重复打扰
+  if (order.status !== ORDER_STATUS.DELIVERY_FAILED) {
+    void sendDeliveryFailureAlert({
+      orderId: order.id.toString(),
+      username: order.user.username,
+      items: order.items.map((i) => ({ name: i.name, sku: i.sku })),
+      error: summary,
+    }).catch((err) => console.error("[delivery-alert] 发货失败告警异常:", err));
+  }
 }
 
 /**
