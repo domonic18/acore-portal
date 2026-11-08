@@ -140,6 +140,12 @@ describe("商品 FAQ 后台 CRUD(#159)", () => {
       reorderProductFaqs({ productId, ids: [items[0]!.id, "999999999"] }, ACTOR),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect((await listAdminProductFaqs(productId)).map((i) => i.id)).toEqual(reversed);
+
+    // 只传子集 → VALIDATION_FAILED(子集 sort 会与未传行撞值,顺序被静默打乱)
+    await expect(
+      reorderProductFaqs({ productId, ids: [items[0]!.id] }, ACTOR),
+    ).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
+    expect((await listAdminProductFaqs(productId)).map((i) => i.id)).toEqual(reversed);
   });
 
   it("删除问答:删后不再返回;删不存在的报 NOT_FOUND", async () => {

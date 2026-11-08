@@ -116,19 +116,27 @@ export async function deleteProductFaq(
 
 /**
  * 重排:传入该商品 FAQ 的完整 id 顺序,按序重写 sort(0 起)。
- * 传单条 id 的子集也允许(只重排子集),但 id 必须属于该商品。
+ * 必须覆盖该商品的全部问答——只传子集会让子集 sort 与未传行撞值,
+ * 顺序被静默打乱,故不完整即拒。
  */
 export async function reorderProductFaqs(
   input: { productId: bigint; ids: string[] },
   actorId: bigint,
 ): Promise<void> {
   const ids = input.ids.map((s) => BigInt(s));
-  const owned = await prisma.productFaq.findMany({
-    where: { productId: input.productId, id: { in: ids } },
+  const all = await prisma.productFaq.findMany({
+    where: { productId: input.productId },
     select: { id: true },
   });
+  const owned = all.filter((a) => ids.includes(a.id));
   if (owned.length !== ids.length) {
     throw new ProductAdminError("NOT_FOUND", "常见问题不存在。");
+  }
+  if (all.length !== ids.length) {
+    throw new ProductAdminError(
+      "VALIDATION_FAILED",
+      "排序必须覆盖该商品的全部常见问题,请刷新后重试。",
+    );
   }
 
   await prisma.$transaction(
