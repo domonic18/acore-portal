@@ -1,0 +1,168 @@
+# 预发布环境自动部署手册(staging-deploy)
+
+> 适用范围:**测试栈**(Mac Mini 常驻栈,公网入口 `dev.17aitech.com`)。
+> 流水线作业名沿用同族惯例叫 `deploy-staging`;**部署对象仍是本仓的测试栈**
+> (compose 项目名 `acore-portal-test`、env 文件 `.env.test`、数据目录 `workspace/mysql-test`)——
+> 作业名统一的是**流水线侧的命名**,不是栈本身的身份。
+> **生产栈不在本手册范围**——生产仍是人工发布,理由与将来自动化路径见
+> [production-deploy.md §7](production-deploy.md)。生产自动化的待核对问题见
+> [ci-deploy-pipeline-plan.md](../plan/ci-deploy-pipeline-plan.md)。
+
+---
+
+## 0. 一句话
+
+`push → develop` 且**质量门禁 + 迁移守卫全绿** → 自托管 runner 在 Mac Mini 上重建测试栈 web 镜像并滚动；
+**失败自动回滚镜像**；MySQL / Redis 数据卷原地复用,不动。
+
+---
+
+## 1. 触发与门禁
+
+作业 `deploy-staging` 定义在 `.github/workflows/ci.yml`,依赖链：
+
+```
+check ─┬─ build ─┬─ integration ─┬─ db-migration-guard ─┬─ deploy-staging
+       │         │               │                       │
+       └─────────┴───────────────┴───────────────────────┘
+```
+
+- **只有 `push` 到 `develop` 且全绿才部署**；PR 与 `main` push 只跑门禁不部署。
+- 仓库变量 `DEPLOY_ROOT` 未配置时,整个作业**跳过**
+  (不是排队等 runner)——未注册 runner 前流水线不会挂起。
+- `develop` 分支的流水线**不打断**在跑的那次(`cancel-in-progress` 仅在非 develop 生效):
+  中断会连带砍掉进行中的部署,留下半新半旧状态。新 push 排队接续即可。
+
+---
+
+## 2. 前置:自托管 runner(人工,一次)
+
+部署作业跑在**自托管 runner** 上(`runs-on: [self-hosted]`),因为它要操作本机的 docker 与栈目录。
+命名沿用本机既有惯例:runner 名 `macmini-<仓库名>`、只用默认标签(`self-hosted` / `macOS` / `ARM64`),
+每个仓库一份独立 runner 实例(目录 `~/Workspace/actions-runner/<仓库名>/`),故无需自定义标签来区分。
+
+注册令牌必须**本人**在仓库 Settings → Actions → Runners 生成;命令形如:
+
+```bash
+mkdir -p ~/Workspace/actions-runner/acore-portal && cd ~/Workspace/actions-runner/acore-portal
+# 下载 actions-runner(osx-arm64)并解压后:
+./config.sh --url <本仓 URL> --token <注册令牌> --name macmini-acore-portal
+./run.sh          # 建议注册为 launchd 常驻服务,保证开机自启
+```
+
+要求:runner 运行用户具备 docker 权限;`_work` 落在本地盘且空间够放镜像层。
+**不传 `--labels` / `--no-default-labels`**:默认标签就是工作流里的 `self-hosted`。
+
+---
+
+## 3. 仓库变量(Settings → Secrets and variables → Actions → Variables)
+
+| 变量 | 含义 | 备注 |
+| --- | --- | --- |
+| `DEPLOY_ROOT` | 部署根目录 | 其下含 `.env.test` 与 `workspace/`;须**在 git 检出之外**,填绝对路径 |
+
+> 路径一律走仓库变量,**不写进 YAML**(本仓是公开仓,文档与工作流不得出现本机路径)。
+> 变量缺失 → 作业跳过。测试栈不需要任何 secret(不连远端主机、不推镜像仓库);
+> 将来生产自动化时沿用同族命名 `DEPLOY_HOST` / `DEPLOY_PATH` / `DEPLOY_SSH_KEY` / `DEPLOY_KNOWN_HOSTS`。
+
+---
+
+## 4. 目录布局(硬约束:数据与密钥在 git 检出之外)
+
+```
+$DEPLOY_ROOT/               # 仓库变量 vars.DEPLOY_ROOT,绝对路径
+├── .env.test               # web 服务 env(凭据,永不入 git)
+└── workspace/              # 持久卷根
+    ├── mysql-test/         # MySQL 数据目录(快照,不可再生)
+    ├── redis-test/
+    └── uploads/
+
+代码检出:runner 工作目录 _work/<repo>/<repo>/portal   ← 与上面两者物理隔离
+```
+
+代码检出被 checkout 清理(`git clean`)也不会碰到数据与凭据。
+
+`docker/docker-compose.test.yml` 的路径与镜像 tag 已参数化,默认值 = 本地开发原路径:
+
+| 变量 | 默认值 | 作用 |
+| --- | --- | --- |
+| `DEPLOY_ROOT` | `..`(本仓根) | 部署根;`.env.test` 与 `workspace/` 都从它下面取 |
+| `WEB_IMAGE` | `acore-portal-test-web` | web 镜像 tag(部署时按 sha 打 tag,便于回滚) |
+
+---
+
+## 5. 部署流程
+
+由 `scripts/ops/deploy-staging.sh` 执行(发布与回滚**同源一份脚本**,避免两套流程漂移):
+
+```
+0) 预检:env 文件存在 / 卷目录存在且非空(空目录=误指,拒绝)/ compose 可用
+1) 记回滚锚点:当前运行容器的镜像 tag(首次部署则无)
+2) 构建:docker compose build web            → 镜像 tag = acore-portal-test:<sha7>
+3) 迁移:docker compose --profile migrate run --rm migrate   (schema 先行)
+4) 滚动:docker compose up -d --wait         (只重建 web;mysql/redis 配置未变则不动)
+5) 健康检查:http://127.0.0.1:9000/api/status 须 200
+6) 记录当前部署提交号到 $DEPLOY_ROOT/current-sha
+```
+
+**顺序不可反**:新镜像引入的 schema 变更靠第 3 步补上;漏跑则新代码读不到新列。
+
+---
+
+## 6. 回滚
+
+- 回滚 = **切回上一个镜像 tag**(秒级,不重新构建)。
+- 脚本内置 ERR trap:第 4 步之后任一环节失败,自动用上一版镜像重建 web 容器,并在作业日志里写明回滚目标。
+- **数据库不回滚**:迁移 forward-only,新迁移不改旧列语义,旧代码能跑在已迁移的 schema 上。
+  迁移本身出问题时的处置:`prisma migrate resolve --rolled-back <迁移名>` + 手工修复
+  (新迁移必须**可手工重放**——这正是迁移守卫静态检查的约束)。
+
+---
+
+## 7. 数据安全红线
+
+- ❌ 不执行 `docker compose down -v` / 不删卷 / 不删 `$DEPLOY_ROOT`
+- ❌ 不在部署根或卷根里做 `git clean -x`
+- ❌ 不改 `scripts/dev/initdb` 的挂载(测试替身,生产栈禁有)
+- ✅ 只重建 web 容器;mysql/redis 的数据卷原地复用
+- ✅ `.env.test` 与卷根永不入 git
+
+---
+
+## 8. 迁移守卫(部署的前置闸门)
+
+两个守卫作业在部署之前跑,**守卫不过 → 绝不部署**:
+
+| 作业 | 断言 |
+| --- | --- |
+| `db-migration-guard` | ① 全部迁移从零重放成功 ② 二次重放零应用(幂等) ③ 库结构 = datamodel(无漂移) ④ 核心表齐备 ⑤ 新迁移 SQL 可手工重放(静态检查 + 运行时重放) |
+| `db-incremental-guard` | ① `origin/main` 的迁移集(= 线上基线)增量到本分支 ② 本分支从零重放 ③ 两条路径结构完全一致且都无漂移 ④ 迁移集合一致 |
+
+静态检查规则(MySQL 8.4 口径,MySQL 无 `CREATE INDEX IF NOT EXISTS` 这类 MariaDB 语法,
+所以索引/列的守卫用 `information_schema` 判存)见 `scripts/ci/check-migration-idempotency.ts`。
+历史迁移在 `scripts/ci/migration-idempotency-allowlist.txt` 里放行(立此检查之前已应用过,不追改);
+新迁移必须通过,单条语句可用 `-- guard: <理由>` 注释豁免。
+
+本地跑:`pnpm lint:migrations`。
+
+---
+
+## 9. 故障排查
+
+| 现象 | 原因 | 处理 |
+| --- | --- | --- |
+| 作业一直排队 | 本仓的自托管 runner 未注册或离线 | 注册 runner(§2,名 `macmini-acore-portal`) |
+| 作业秒跳 | 仓库变量未配置 | 配 `DEPLOY_ROOT` |
+| 预检报「持久卷目录为空」 | `DEPLOY_ROOT` 指错 | 指向真实含 `workspace/mysql-test` 的目录 |
+| 迁移守卫红:lint 报某条迁移 | 新迁移缺幂等守卫 | 按提示改写,或加 `-- guard: <理由>` 注释豁免 |
+| 迁移守卫红:漂移 | 迁移 SQL 与 datamodel 不一致 | 重新生成迁移(`pnpm db:migrate`)并复核 diff |
+| 部署失败已自动回滚 | 构建/迁移/健康检查任一环节 | 看作业日志定位;测试栈已回到上一版,业务不受影响 |
+| 站点异常但流水线绿 | 手工改动过容器或数据 | 栈是常驻的,状态以 `docker compose -f docker/docker-compose.test.yml ps` 为准 |
+
+---
+
+## 10. 变更记录
+
+| 日期 | 内容 |
+| --- | --- |
+| 2026-11-08 | 初稿:测试栈自动部署落地(迁移守卫 + 自托管 runner + 部署/回滚脚本 + 数据红线) |

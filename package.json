@@ -10,6 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "lint:migrations": "tsx scripts/ci/check-migration-idempotency.ts",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
