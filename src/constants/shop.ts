@@ -115,6 +115,12 @@ export const DELIVERY_STATUS_LABEL: Record<OrderItemDeliveryStatusValue, string>
 /** 低库存默认阈值(存量坐骑阈值=1,后台可按商品覆盖) */
 export const DEFAULT_LOW_STOCK_THRESHOLD = 1;
 
+/** 商品 FAQ 字段上限(后台表单与服务端校验共用一份,避免两处漂移) */
+export const PRODUCT_FAQ_LIMITS = {
+  questionMax: 255,
+  answerMax: 4000,
+} as const;
+
 /** WoW 物品质量色(T041 恢复选物列表渲染;0-5 为 60 年代标准档) */
 export const ITEM_QUALITY_COLOR: Record<number, string> = {
   0: "#9d9d9d", // 粗糙

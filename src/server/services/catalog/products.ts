@@ -164,6 +164,30 @@ export async function getProductDetail(slug: string): Promise<ProductDetail | nu
   };
 }
 
+/** 商品常见问题(FAQ)条目(前台展示) */
+export type ProductFaqItem = {
+  id: string;
+  question: string;
+  answer: string;
+};
+
+/**
+ * 商品 FAQ(#159):按 sort 升序(同序按 id)返回该商品的问答。
+ * 详情页用手风琴呈现,无问答时不渲染整段。
+ */
+export async function listProductFaqs(productId: string): Promise<ProductFaqItem[]> {
+  const rows = await prisma.productFaq.findMany({
+    where: { productId: BigInt(productId) },
+    orderBy: [{ sort: "asc" }, { id: "asc" }],
+    select: { id: true, question: true, answer: true },
+  });
+  return rows.map((r) => ({
+    id: r.id.toString(),
+    question: r.question,
+    answer: r.answer,
+  }));
+}
+
 /** 推荐位默认条数(详情页「其他商品推荐」) */
 export const RELATED_PRODUCT_LIMIT = 4;
 
