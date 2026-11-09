@@ -253,10 +253,49 @@ export async function renderMarkdown(
   return { html: String(file), toc };
 }
 
+/** 块级标签集合(wpautop 同源):紧邻这些标签的换行不产生 <br> */
+const WP_BLOCK_TAGS =
+  "table|thead|tfoot|caption|col|colgroup|tbody|tr|td|th|div|dl|dd|dt|ul|ol|li|pre|form|map|area|blockquote|address|math|style|p|h[1-6]|hr|fieldset|legend|section|article|aside|hgroup|header|footer|nav|figure|figcaption|details|menu|summary";
+// <pre> 占位符(私有区字符,正文不可能出现)参与块级邻接清理
+const WP_BLOCK_OR_PRE_PLACEHOLDER = `</?(?:${WP_BLOCK_TAGS})[^>]*>|\\uE000\\d+\\uE001`;
+const WP_BR_AFTER_BLOCK = new RegExp(
+  `(${WP_BLOCK_OR_PRE_PLACEHOLDER})\\s*(?:<br\\s*/?>\\s*)+`,
+  "gi",
+);
+const WP_BR_BEFORE_BLOCK = new RegExp(
+  `(?:<br\\s*/?>\\s*)+(${WP_BLOCK_OR_PRE_PLACEHOLDER})`,
+  "gi",
+);
+
+/**
+ * 存量 WP 正文换行还原(wpautop 的换行子集):wp_posts.post_content 是裸文本,
+ * WP 渲染靠 wpautop() 把 \n 转 <p>/<br>;迁移入库只重写图片 URL,裸 \n 在 HTML
+ * 里折叠成空格 → 帖子正文坨成一段(快照库 334/734 条存量帖受影响)。按「单
+ * 换行 = <br>」还原(与 markdown 管线 remarkBreaks 同口径);<pre> 内容原样
+ * 保护;紧邻块级标签的换行不产生 <br>(块间距由块元素自身承担)。不做 <p>
+ * 包裹——正文已有大量显式 <p>,包裹混排会产生非法嵌套。
+ */
+function wpautopLineBreaks(html: string): string {
+  if (!html.includes("\n")) return html;
+  const pres: string[] = [];
+  const marked = html
+    .replace(/\r\n?/g, "\n")
+    .replace(/<pre\b[\s\S]*?<\/pre\s*>/gi, (m) => {
+      pres.push(m);
+      return `${pres.length - 1}`;
+    });
+  return marked
+    .replace(/\n/g, "<br />\n")
+    .replace(WP_BR_AFTER_BLOCK, "$1\n")
+    .replace(WP_BR_BEFORE_BLOCK, "\n$1")
+    .replace(/(\d+)/g, (_, i) => pres[Number(i)] ?? "");
+}
+
 /**
  * 存量论坛 HTML 渲染(research R4):rehype-parse fragment → wowhead 标注 →
  * 图片域白名单 → 同一 sanitize 白名单 → stringify。迁移层只做图片 URL 重写,
  * XSS 白名单收口渲染层单点(R4 二次纵深),正文域白名单同 markdown。
+ * 入口先跑 wpautopLineBreaks 还原裸换行(见其注释)。
  */
 export async function renderLegacyHtml(
   html: string,
@@ -270,6 +309,6 @@ export async function renderLegacyHtml(
     .use(rehypeWpItalic)
     .use(rehypeSanitize, sanitizeSchema as never)
     .use(rehypeStringify)
-    .process(html);
+    .process(wpautopLineBreaks(html));
   return String(file);
 }

@@ -102,7 +102,8 @@ test.beforeAll(async () => {
       floor: 1,
       authorUserId: moderator.id,
       authorName: "m3moderator",
-      contentHtml: "<p>E2E 主贴正文</p>",
+      contentHtml:
+        "<p>E2E 主贴正文</p>\n<blockquote><strong>标题：</strong>内容一\n\n<strong>说明：</strong>内容二</blockquote>",
       legacyWpPostId: 9_952_000,
     },
   });
@@ -207,6 +208,18 @@ test.describe("US5 论坛(T041)", () => {
       select: { viewCount: true },
     });
     expect(after.viewCount).toBe(seedThread.viewCount + 1);
+  });
+
+  test("存量帖正文换行还原:裸换行渲染为分行,不再坨成一段(wpautop 口径)", async ({
+    page,
+  }) => {
+    await page.goto(`/forum/thread/${threadId}`);
+    const quote = page.locator("blockquote").filter({ hasText: "标题：" });
+    await expect(quote).toBeVisible();
+    // 双换行 = 空行:裸 \n 无 <br> 时浏览器折叠成空格,两段文字会连排成一坨
+    const text = await quote.innerText();
+    expect(text).toMatch(/内容一\s*\n+\s*说明：/s);
+    await expect(page.getByText("E2E 主贴正文")).toBeVisible();
   });
 
   test("版主 API 越权:游客 401;user 403+审计(SC-207)", async ({ page, request }) => {
