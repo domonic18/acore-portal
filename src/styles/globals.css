@@ -308,6 +308,20 @@ body {
   color: var(--textarea-text-color);
 }
 
+/* 编辑区观感对齐站点表单口径(与水合前 textarea 兜底同节奏):
+ * ① vditor setPadding 会给 IR 区行内写死桌面端 ≥35px 左右内边距(为 TOC/脚注等
+ *    块标签留的吊出沟槽,论坛工具栏不暴露这些块)——文字距框过远,输入区边界感
+ *    模糊(用户反馈);!important 压行内样式,垂直 12px 对齐 p-3
+ * ② 焦点态框线提亮 + 光晕,与站点输入框 focus ring(ring-2 ring-link/60)同语言,
+ *    「哪里是可输入区」一眼可辨 */
+.vditor-forum .vditor-ir pre.vditor-reset {
+  padding: 12px 16px !important;
+}
+.vditor-forum .vditor:focus-within {
+  border-color: var(--theme-line-strong);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-link) 60%, transparent);
+}
+
 /* ---------- 论坛受限色板(帖内渲染 + 编辑区即时预览双作用域) ---------- */
 /* 颜色值与 src/constants/forum-palette.ts 单源同步(扩色三处同改,AGENTS 规则 22) */
 .forum-post-body .c-red,

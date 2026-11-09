@@ -13,6 +13,51 @@ import {
 
 const MAX_CONTENT = 20_000;
 
+/** 色板开标记的原文形态(IR DOM 里 code.vditor-ir_marker 的 textContent) */
+const PALETTE_OPEN_RE = new RegExp(
+  `^<span class="c-(${FORUM_TEXT_PALETTE.map((c) => c.key).join("|")})">$`,
+);
+
+/** IR 模式把内联 HTML 渲染成隐藏代码标记节点(span[data-type=html-inline] 内的
+ * code.vditor-ir__marker),正文是夹在开/闭标记之间的裸文本节点,CSS 无法命中
+ * ⇒ 上色后编辑区视觉零变化(所见即所得缺口)。此处把「开标记..闭标记」整段包进
+ * <span class="c-x"> 预览层:Lute 序列化只读标记节点文本,对包裹层零感知(已实测
+ * VditorIRDOM2Md 往返无损),着色走既有 .vditor-reset .c-x 双作用域样式 */
+function retagPaletteSpans(pre: HTMLElement) {
+  for (const marker of pre.querySelectorAll<HTMLElement>(
+    'span[data-type="html-inline"] > code.vditor-ir__marker',
+  )) {
+    const color = PALETTE_OPEN_RE.exec(marker.textContent ?? "")?.[1];
+    if (!color) continue;
+    const open = marker.parentElement;
+    if (!open || open.parentElement?.dataset.palette) continue; // 已包,幂等
+    const seq: ChildNode[] = [];
+    let node: ChildNode | null = open;
+    let closed = false;
+    while (node) {
+      seq.push(node);
+      if (
+        node !== open &&
+        node instanceof HTMLElement &&
+        node.dataset.type === "html-inline" &&
+        node.querySelector(":scope > code.vditor-ir__marker")?.textContent === "</span>"
+      ) {
+        closed = true;
+        break;
+      }
+      node = node.nextSibling;
+    }
+    if (!closed) continue; // 未闭合(跨块/残片):不包,帖内渲染不受影响
+    const first = seq[0];
+    if (!first) continue;
+    const wrap = document.createElement("span");
+    wrap.className = `c-${color}`;
+    wrap.dataset.palette = color;
+    open.parentElement!.insertBefore(wrap, first);
+    for (const n of seq) wrap.appendChild(n);
+  }
+}
+
 /** 文字颜色组(受限色板)。子项必须走自定义 click:IR 模式的 processToolbar 只认
  * 固定命令名(bold/italic/…),prefix/suffix 对未知命令名直接落空不插入。click 的
  * vditor 参数是内部 IVditor(无原型方法),经组件 ref 拿公共实例,取选区文本后
@@ -76,6 +121,8 @@ export function VditorEditor({
     // 清空挂载元素 innerHTML,共享同一 el 会互相抹掉)
     const mount = document.createElement("div");
     host.appendChild(mount);
+    // IR 区根节点(pre.vditor-reset):retag 预览层的操作对象
+    const irPre = () => mount.querySelector<HTMLElement>(".vditor-ir pre.vditor-reset");
     let ready = false;
     const vd = new Vditor(mount, {
       cdn: "/vditor",
@@ -88,7 +135,12 @@ export function VditorEditor({
       placeholder,
       height: Math.max(rows * 34, 200),
       value,
-      input: (v) => onChangeRef.current(v.slice(0, MAX_CONTENT)),
+      input: (v) => {
+        onChangeRef.current(v.slice(0, MAX_CONTENT));
+        // processAfterRender 在块重渲染后同步调本回调,此刻标记节点已是终态
+        const pre = irPre();
+        if (pre) retagPaletteSpans(pre);
+      },
       toolbar: [
         "headings",
         "bold",
@@ -143,6 +195,8 @@ export function VditorEditor({
         if (vd.getValue() !== valueRef.current) {
           vd.setValue(valueRef.current);
         }
+        const pre = irPre();
+        if (pre) retagPaletteSpans(pre);
       },
     });
     vdRef.current = vd;
