@@ -271,6 +271,11 @@ const WP_BR_BEFORE_BLOCK = new RegExp(
   `(?:<br\\s*/?>\\s*)+(${WP_BLOCK_OR_PRE_PLACEHOLDER})`,
   "gi",
 );
+// 标签内换行占位符(私有区字符,正文不可能出现):与 <pre> 占位同机制
+const WP_TAG_NEWLINE = "\uE002";
+// 标签起点按 HTML5 规则判定:< 之后须是 ASCII 字母或 ! / ?,否则 < 是正文文本
+// (如 C++ 代码的 `x < 1.0f`)。据此切出「标签内部」区间,区间内的换行不转 <br>
+const WP_HTML_TAG = /<[a-zA-Z!/?][^>]*>?/g;
 
 /**
  * 存量 WP 正文换行还原(wpautop 的换行子集):wp_posts.post_content 是裸文本,
@@ -279,6 +284,10 @@ const WP_BR_BEFORE_BLOCK = new RegExp(
  * 换行 = <br>」还原(与 markdown 管线 remarkBreaks 同口径);<pre> 内容原样
  * 保护;紧邻块级标签的换行不产生 <br>(块间距由块元素自身承担)。不做 <p>
  * 包裹——正文已有大量显式 <p>,包裹混排会产生非法嵌套。
+ *
+ * 标签内部换行同样保护(WP wpautop 走 wp_replace_in_html_tags 保护标签内换行):
+ * 盲替换会把 <br /> 注进标签内部,渲染时该标签变成畸形(属性丢失,标签残片
+ * 漏成正文可见文本)。
  */
 function wpautopLineBreaks(html: string): string {
   if (!html.includes("\n")) return html;
@@ -288,12 +297,14 @@ function wpautopLineBreaks(html: string): string {
     .replace(/<pre\b[\s\S]*?<\/pre\s*>/gi, (m) => {
       pres.push(m);
       return `${pres.length - 1}`;
-    });
+    })
+    .replace(WP_HTML_TAG, (m) => m.replace(/\n/g, WP_TAG_NEWLINE));
   return marked
     .replace(/\n/g, "<br />\n")
     .replace(WP_BR_AFTER_BLOCK, "$1\n")
     .replace(WP_BR_BEFORE_BLOCK, "\n$1")
-    .replace(/(\d+)/g, (_, i) => pres[Number(i)] ?? "");
+    .replace(/(\d+)/g, (_, i) => pres[Number(i)] ?? "")
+    .replace(/\uE002/g, "\n");
 }
 
 /**

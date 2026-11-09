@@ -261,4 +261,22 @@ describe("存量 WP 正文换行还原(renderLegacyHtml,wpautop 换行子集)", 
     expect(legacy).toContain("<p>单行正文</p>");
     expect(legacy).not.toContain("<br");
   });
+
+  it("跨行标签内部换行不注 <br>(标签保持完整,属性不丢)", async () => {
+    // WP wpautop 走 wp_replace_in_html_tags 保护标签内换行;盲替换会把 <br />
+    // 注进标签里 → 该标签畸形化(属性丢失,标签残片漏成正文可见文本)
+    const legacy = await renderLegacyHtml(
+      '<p>前</p>\n<img src="/uploads/a.jpg"\nalt="说明">\n<p>后</p>',
+    );
+    expect(legacy).toContain('<img src="/uploads/a.jpg" alt="说明">');
+    expect(legacy).not.toMatch(/<img[^>]*<br/);
+    // 损坏形态是标签残片漏成正文可见文本:剥掉标签后不应再出现 alt=
+    expect(legacy.replace(/<[^>]*>/g, "")).not.toContain("alt=");
+  });
+
+  it("正文里的 < 不是标签起点时,换行仍转 <br>(C++ 帖防回归)", async () => {
+    // 标签起点按 HTML5 规则判(< 后须字母/!//?);`x < 1.0f` 的 < 是正文文本
+    const legacy = await renderLegacyHtml("<p>if (x < 1)\ny = 2;</p>");
+    expect(legacy).toMatch(/if \(x &#x3C; 1\)<br\s*\/?>\s*y = 2;/);
+  });
 });
