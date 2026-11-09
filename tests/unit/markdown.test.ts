@@ -5,6 +5,7 @@ import {
   MARKDOWN_BODY_CLS,
   TUTORIAL_ANCHOR_ALIASES,
 } from "@/constants/content";
+import { FORUM_TEXT_PALETTE } from "@/constants/forum-palette";
 
 /**
  * T008 MD 渲染管线单测(R3/R3b):
@@ -191,5 +192,73 @@ describe("markdown 渲染管线(T008)", () => {
     expect(MARKDOWN_BODY_CLS).toContain("list-decimal");
     expect(MARKDOWN_BODY_CLS).toContain("list-disc");
     expect(FORUM_POST_BODY_CLS).toContain("[&_strong]");
+  });
+
+  it("论坛受限色板:登记色 c-red 类名保留,style 仍被剥(AGENTS 规则 22)", async () => {
+    const { html } = await render(
+      '<span class="c-red">重点</span>与<span class="c-red" style="color:green">内联样式</span>',
+    );
+    expect(html).toContain('<span class="c-red">重点</span>');
+    expect(html).not.toContain("style=");
+    expect(html).not.toContain("color:green");
+  });
+
+  it("色板外类名被清空值但不放行(c-pink/自定义类不外泄)", async () => {
+    const { html } = await render(
+      '<span class="c-pink">未登记色</span>与<span class="custom-x">自定义</span>',
+    );
+    expect(html).toContain('<span class="">未登记色</span>');
+    expect(html).toContain('<span class="">自定义</span>');
+    expect(html).not.toContain("c-pink");
+    expect(html).not.toContain("custom-x");
+  });
+
+  it("全部登记色键均通过白名单(与 constants/forum-palette 单源)", async () => {
+    for (const c of FORUM_TEXT_PALETTE) {
+      const { html } = await render(`<span class="c-${c.key}">字</span>`);
+      expect(html).toContain(`class="c-${c.key}"`);
+    }
+  });
+});
+
+describe("存量 WP 正文换行还原(renderLegacyHtml,wpautop 换行子集)", () => {
+  // 快照库真实形态(公告帖):<p> 与 <blockquote> 块间换行不产生 <br>,
+  // 块内 </strong>：⏎⏎<strong> 的换行必须还原为分行
+  const WP_SAMPLE = [
+    "<p>问题提交格式：</p>",
+    '<blockquote><strong>问题标题(必填)</strong>：',
+    "",
+    "<strong>问题详细描述(必填)：</strong>",
+    "",
+    "<strong>附带说明(可选)</strong>：</blockquote>",
+    "<p>例如：</p>",
+  ].join("\n");
+
+  it("块内换行转 <br>(双换行=空行),块级标签紧邻换行不产生 <br>", async () => {
+    const legacy = await renderLegacyHtml(WP_SAMPLE);
+    expect(legacy).toMatch(/<\/strong>：(<br\s*\/?>\s*){2}<strong>/);
+    expect(legacy).not.toMatch(/<\/p>\s*<br/);
+    expect(legacy).not.toMatch(/<br\s*\/?>\s*<blockquote/);
+    expect(legacy).not.toMatch(/<\/blockquote>\s*<br/);
+    expect(legacy).not.toMatch(/<br\s*\/?>\s*<p>/);
+  });
+
+  it("单换行同样分行(WP wpautop $br=true 同口径)", async () => {
+    const legacy = await renderLegacyHtml("<p>第一步\n第二步\n第三步</p>");
+    expect(legacy).toMatch(/第一步<br\s*\/?>\s*第二步<br\s*\/?>\s*第三步/);
+  });
+
+  it("<pre> 代码块内换行保持原样,不注入 <br>", async () => {
+    const legacy = await renderLegacyHtml("<p>代码：</p>\n<pre>SELECT 1;\nSELECT 2;</pre>");
+    expect(legacy).toContain("<pre>SELECT 1;\nSELECT 2;</pre>");
+    expect(legacy).not.toContain("SELECT 1;<br");
+    // pre 前的换行是块级邻接,不产生 <br>
+    expect(legacy).not.toMatch(/<\/p>\s*<br/);
+  });
+
+  it("无换行内容原样直通", async () => {
+    const legacy = await renderLegacyHtml("<p>单行正文</p>");
+    expect(legacy).toContain("<p>单行正文</p>");
+    expect(legacy).not.toContain("<br");
   });
 });
