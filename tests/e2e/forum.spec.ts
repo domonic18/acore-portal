@@ -625,8 +625,13 @@ test.describe("发帖回帖(#34 2026-11-04;编辑器 vditor IR 升级 2026-11-09
     const composer = page.getByTestId("forum-composer");
     await composer.locator('.vditor-toolbar button[data-type="forum-color"]').click();
     await composer.locator('button[data-type="forum-c-red"]').click();
-    // 编辑区代码层落入类标记(IR 呈现为 html-inline 标记节点,非样式化)
+    // 编辑区代码层落入类标记,retag 预览层实时着色(所见即所得;
+    // 包裹层 textContent 含隐藏标记源码,文字断言只看发布后帖内)
     await expect(composer.locator(".vditor-ir")).toContainText('class="c-red"');
+    await expect(composer.locator('.vditor-ir [data-palette="red"]')).toHaveCSS(
+      "color",
+      "rgb(248, 113, 113)",
+    );
     await page.getByRole("button", { name: "发布主题" }).click();
     await expect(page).toHaveURL(/\/forum\/thread\/\d+$/, { timeout: 15_000 });
 
