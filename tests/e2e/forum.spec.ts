@@ -526,6 +526,46 @@ test.describe("发帖回帖(#34 2026-11-04;编辑器 vditor IR 升级 2026-11-09
     }
   });
 
+  test("移动端窄屏:工具栏单行横滑,色板弹层完整可见且上色不回归(移动端工具栏优化)", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await login(page, "legacyuser", "oldpass123");
+    await page.goto(`/forum/${POST_BOARD_SLUG}/new`);
+    const composer = page.getByTestId("forum-composer");
+    const toolbar = composer.locator(".vditor-toolbar");
+    await expect(toolbar).toBeVisible();
+    // 单行(≤40px):不再 8 行折行占满编辑区
+    const tbBox = await toolbar.boundingBox();
+    expect(tbBox).not.toBeNull();
+    expect(tbBox!.height).toBeLessThanOrEqual(40);
+    // 横滑:工具栏内容宽超可视宽(17 个按钮收进一行)
+    expect(await toolbar.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+    // 编辑区可见(工具栏只占一行,输入区不被挤没)
+    await expect(composer.locator(".vditor-ir pre.vditor-reset")).toBeVisible();
+
+    // 上色链路在窄屏完整可用:选中 → 滚入色板按钮 → 弹层 → 红
+    await fillComposer(page, "移动端重点内容");
+    await page.keyboard.press("Home");
+    await page.keyboard.press("Shift+End");
+    const colorBtn = composer.locator('.vditor-toolbar button[data-type="forum-color"]');
+    await colorBtn.scrollIntoViewIfNeeded();
+    await colorBtn.click();
+    const red = composer.locator('button[data-type="forum-c-red"]');
+    await expect(red).toBeVisible();
+    // 弹层 fixed 落位在工具栏下方且完整落在视口内(不被横滑容器裁剪)
+    const redBox = await red.boundingBox();
+    expect(redBox).not.toBeNull();
+    expect(redBox!.x).toBeGreaterThanOrEqual(0);
+    expect(redBox!.x + redBox!.width).toBeLessThanOrEqual(375);
+    expect(redBox!.y).toBeGreaterThanOrEqual(tbBox!.y + tbBox!.height - 2);
+    await red.click();
+    await expect(composer.locator('.vditor-ir [data-palette="red"]')).toHaveCSS(
+      "color",
+      "rgb(248, 113, 113)",
+    );
+  });
+
   test("legacyuser 发主题全链路:表单→主题页(楼层1 Markdown 渲染)→版块列表可见", async ({
     page,
   }) => {

@@ -124,6 +124,7 @@ export function VditorEditor({
     // IR 区根节点(pre.vditor-reset):retag 预览层的操作对象
     const irPre = () => mount.querySelector<HTMLElement>(".vditor-ir pre.vditor-reset");
     let ready = false;
+    let hintObserver: MutationObserver | null = null;
     const vd = new Vditor(mount, {
       cdn: "/vditor",
       mode: "ir",
@@ -197,10 +198,54 @@ export function VditorEditor({
         }
         const pre = irPre();
         if (pre) retagPaletteSpans(pre);
+        // 窄屏横滑工具栏的弹层(色板/标题下拉):挂载点在 overflow 容器内,默认
+        // 绝对定位垂到工具栏下方必被裁剪(globals.css 窄屏已改 position:fixed)。
+        // vditor 开面板在 click 处理内部有异步路径,按事件钩时序不稳 ⇒ 改
+        // MutationObserver 盯 style 翻转:display 变 block 的瞬间落位到工具栏
+        // 下方并按视口夹紧(回调在绘制前的微任务点运行,无闪烁);横滑即收起
+        // (fixed 弹层不随滚动项移动,留着只会悬空)
+        const toolbar = mount.querySelector<HTMLElement>(".vditor-toolbar");
+        if (toolbar) {
+          const hints = [...toolbar.querySelectorAll<HTMLElement>(".vditor-hint")];
+          const placeHint = (hint: HTMLElement) => {
+            if (!window.matchMedia("(max-width: 640px)").matches) {
+              if (hint.style.top || hint.style.left) {
+                hint.style.top = "";
+                hint.style.left = "";
+              }
+              return;
+            }
+            const btn = hint.parentElement?.querySelector("button");
+            if (!btn) return;
+            const top = `${Math.round(toolbar.getBoundingClientRect().bottom + 4)}px`;
+            const br = btn.getBoundingClientRect();
+            const w = hint.offsetWidth;
+            const left = `${Math.round(
+              Math.min(Math.max(8, br.left + br.width / 2 - w / 2), window.innerWidth - w - 8),
+            )}px`;
+            // 同值守卫:本函数在 style 变更的观察回调里执行,写回不同值会再触发观察
+            if (hint.style.top !== top) hint.style.top = top;
+            if (hint.style.left !== left) hint.style.left = left;
+          };
+          hintObserver = new MutationObserver(() => {
+            for (const hint of hints) {
+              if (hint.style.display === "block") placeHint(hint);
+            }
+          });
+          for (const hint of hints) {
+            hintObserver.observe(hint, { attributes: true, attributeFilter: ["style"] });
+          }
+          toolbar.addEventListener("scroll", () => {
+            for (const hint of hints) {
+              if (hint.style.display === "block") hint.style.display = "none";
+            }
+          });
+        }
       },
     });
     vdRef.current = vd;
     return () => {
+      hintObserver?.disconnect();
       if (ready) vd.destroy();
       if (vdRef.current === vd) {
         vdRef.current = null;
