@@ -322,6 +322,48 @@ body {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-link) 60%, transparent);
 }
 
+/* 窄屏工具栏:单行横滑(微信/知乎等移动端编辑器行业惯例,2026-11-09 用户反馈
+ * 工具栏 8 行占满编辑区)。vditor 工具栏无内建响应式折叠,17 个按钮按块级
+ * 自然换行;改 flex 单行 + overflow-x 滑动,末位按钮截断即「可滑」视觉提示。
+ * 分隔符在横滑条里只剩噪音,窄屏隐藏;字数 counter sticky 贴右始终可见 */
+@media (max-width: 640px) {
+  .vditor-forum .vditor-toolbar {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .vditor-forum .vditor-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+  .vditor-forum .vditor-toolbar > * {
+    flex-shrink: 0;
+  }
+  .vditor-forum .vditor-toolbar .vditor-toolbar__divider {
+    display: none;
+  }
+  .vditor-forum .vditor-toolbar .vditor-counter {
+    position: sticky;
+    right: 0;
+    background: var(--theme-panel);
+  }
+  /* 工具栏弹层(色板/标题下拉):横滑容器的 overflow 会裁掉一切越出盒子的
+   * 内容,弹层默认挂在工具栏项下、垂进编辑区必被裁;窄屏改 fixed 脱离裁剪,
+   * 坐标由组件 JS 在打开瞬间落位到工具栏下方(见 vditor-editor.tsx)。
+   * width:max-content:fixed 后可用宽=视口-left,不钉死会让菜单行宽随定位漂移;
+   * 箭头三角随默认定位设计,重定位后不再指向按钮,隐藏 */
+  .vditor-forum .vditor-toolbar .vditor-hint {
+    position: fixed;
+    top: auto;
+    left: auto;
+    width: max-content;
+  }
+  .vditor-forum .vditor-toolbar .vditor-hint::before,
+  .vditor-forum .vditor-toolbar .vditor-hint::after {
+    display: none;
+  }
+}
+
 /* ---------- 论坛受限色板(帖内渲染 + 编辑区即时预览双作用域) ---------- */
 /* 颜色值与 src/constants/forum-palette.ts 单源同步(扩色三处同改,AGENTS 规则 22) */
 .forum-post-body .c-red,
