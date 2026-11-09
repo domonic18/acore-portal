@@ -13,6 +13,7 @@ import rehypeStringify from "rehype-stringify";
 import { visit, SKIP } from "unist-util-visit";
 import type { Element, Root, Text } from "hast";
 import { toSameSiteHref } from "@/constants/legacy-routes";
+import { FORUM_PALETTE_CLASS_RE } from "@/constants/forum-palette";
 
 /**
  * Markdown 渲染管线收口(M3 research R3):
@@ -45,7 +46,11 @@ const sanitizeSchema = {
     h4: ["id"],
     h5: ["id"],
     h6: ["id"],
-    span: [["className", /^hljs[-\w]*$/]],
+    // span 类名白名单:代码高亮 hljs-* + 论坛受限色板 c-{key}(AGENTS 规则 22,
+    // 色键单源 src/constants/forum-palette.ts;style 属性仍全局剥离)。
+    // 同名属性的多正则必须写在同一条 PropertyDefinition(多条目=分别校验,任一
+    // 失败会把值清成空串)
+    span: [["className", /^hljs[-\w]*$/, FORUM_PALETTE_CLASS_RE]],
     a: [
       ...(defaultSchema.attributes?.a ?? []),
       ["dataWowhead", /^(item|spell|npc|quest)=\d+$/],
