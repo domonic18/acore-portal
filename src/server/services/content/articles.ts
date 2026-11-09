@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
-import { getConfig } from "@/lib/config";
+import { getCdnHosts, getConfig } from "@/lib/config";
+import { isAllowedImageSrc } from "@/lib/markdown";
 import { ARCHIVE_PAGE_SIZE } from "@/constants/pagination";
 import {
   ARTVIEW_IP_WINDOW_SEC,
@@ -43,6 +44,18 @@ export async function listLatestNews(limit = 5) {
   });
 }
 
+/**
+ * 归档列表封面:正文首个图片(markdown 或内联 HTML 形态),
+ * 域白名单与渲染硬闸共用 isAllowedImageSrc——列表封面可见 ⇔ 详情页正文图片可见。
+ */
+function extractCoverFromBody(md: string, cdnHosts: readonly string[]): string | null {
+  const m =
+    md.match(/!\[[^\]]*\]\(([^)\s]+)[^)]*\)/) ?? md.match(/<img[^>]+src=["']([^"']+)["']/i);
+  const src = m?.[1];
+  if (!src) return null;
+  return isAllowedImageSrc(src, cdnHosts) ? src : null;
+}
+
 /** 归档列表(FR-209):published 过滤,publishedAt 倒序,10/页分页,标题搜索 */
 export async function listArchiveArticles(opts: {
   categorySlug?: string;
@@ -57,7 +70,7 @@ export async function listArchiveArticles(opts: {
     ...(opts.categorySlug ? { category: { slug: opts.categorySlug } } : {}),
     ...(opts.q ? { title: { contains: opts.q } } : {}),
   };
-  const [items, total] = await Promise.all([
+  const [rows, total, cdnHosts] = await Promise.all([
     prisma.article.findMany({
       where,
       orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
@@ -67,12 +80,18 @@ export async function listArchiveArticles(opts: {
         slug: true,
         title: true,
         excerpt: true,
+        bodyMd: true,
         publishedAt: true,
         views: true,
       },
     }),
     prisma.article.count({ where }),
+    getCdnHosts(),
   ]);
+  const items = rows.map(({ bodyMd, ...rest }) => ({
+    ...rest,
+    cover: extractCoverFromBody(bodyMd, cdnHosts),
+  }));
   return { items, total, page, pageSize };
 }
 

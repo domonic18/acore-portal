@@ -8,15 +8,18 @@ type ArchiveListItem = {
   slug: string;
   title: string;
   excerpt: string | null;
+  cover: string | null;
   publishedAt: Date | null;
   views: number;
 };
 
 /**
  * 归档页共用壳(T023,FR-209;2026-10 ardot p04 对齐):
- * 面包屑 + 大标题/总数 + 行卡列表(资讯两列卡) + 数字分页 + 右栏。
+ * 面包屑 + 大标题/总数 + 列表 + 数字分页 + 右栏。
  * 三分类路由(announcements/news/guides)共用本组件(devlog 为单页 Markdown,不走归档);
  * 数据由页面层经 getArchiveView 取得后下发。
+ * 列表为单一 bg-panel 容器(条目间不露站点背景图,2026-11-09 用户反馈);
+ * 资讯 cards 布局带正文首图封面(cover 为空则纯文字卡)。
  */
 export function ArchivePage({
   categorySlug,
@@ -93,36 +96,50 @@ export function ArchivePage({
               {q ? "没有匹配的文章。" : "暂无文章。"}
             </p>
           ) : layout === "cards" ? (
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {items.map((a) => (
-                <li key={a.slug} className="min-w-0">
-                  <Link
-                    href={`/post/${encodeURIComponent(a.slug)}`}
-                    className="group flex h-full min-w-0 flex-col rounded-xl border border-line bg-panel p-5 transition hover:border-line-strong hover:bg-panel-hover"
-                  >
-                    <div className="mb-2 flex items-center gap-2 text-[11.5px]">
-                      <span className="shrink-0 rounded bg-chip px-1.5 py-0.5 font-medium text-link">
-                        {title}
-                      </span>
-                      <span className="shrink-0 text-muted">
-                        {a.publishedAt && formatDate(a.publishedAt)}
-                      </span>
-                    </div>
-                    <h3 className="line-clamp-2 break-words text-[15.5px] font-semibold leading-6 text-heading group-hover:text-link">
-                      {a.title}
-                    </h3>
-                    {a.excerpt && (
-                      <p className="mt-2 line-clamp-2 break-words text-[13px] leading-6 text-body">
-                        {a.excerpt}
-                      </p>
-                    )}
-                    <p className="mt-auto pt-3 text-[12.5px] text-muted">
-                      {a.views} 次阅读
-                    </p>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <div className="rounded-xl border border-line bg-panel p-4 sm:p-5">
+              <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+                {items.map((a) => (
+                  <li key={a.slug} className="min-w-0">
+                    <Link
+                      href={`/post/${encodeURIComponent(a.slug)}`}
+                      className="group flex h-full min-w-0 flex-col overflow-hidden rounded-lg transition hover:bg-panel-hover"
+                    >
+                      {a.cover && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={a.cover}
+                          alt={a.title}
+                          loading="lazy"
+                          draggable={false}
+                          className="aspect-[16/9] w-full object-cover"
+                        />
+                      )}
+                      <div className="flex flex-1 flex-col p-4">
+                        <div className="mb-2 flex items-center gap-2 text-[11.5px]">
+                          <span className="shrink-0 rounded bg-chip px-1.5 py-0.5 font-medium text-link">
+                            {title}
+                          </span>
+                          <span className="shrink-0 text-muted">
+                            {a.publishedAt && formatDate(a.publishedAt)}
+                          </span>
+                        </div>
+                        <h3 className="line-clamp-2 break-words text-[15.5px] font-semibold leading-6 text-heading group-hover:text-link">
+                          {a.title}
+                        </h3>
+                        {a.excerpt && (
+                          <p className="mt-2 line-clamp-2 break-words text-[13px] leading-6 text-body">
+                            {a.excerpt}
+                          </p>
+                        )}
+                        <p className="mt-auto pt-3 text-[12.5px] text-muted">
+                          {a.views} 次阅读
+                        </p>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : layout === "log" ? (
             <ul className="overflow-hidden rounded-xl border border-line bg-panel">
               {items.map((a, i) => {
@@ -159,14 +176,14 @@ export function ArchivePage({
               })}
             </ul>
           ) : (
-            <ul className="space-y-3">
+            <ul className="overflow-hidden rounded-xl border border-line bg-panel">
               {items.map((a) => {
                 const iso = a.publishedAt ? formatDate(a.publishedAt) : "";
                 return (
-                  <li key={a.slug}>
+                  <li key={a.slug} className="border-t border-line first:border-t-0">
                     <Link
                       href={`/post/${encodeURIComponent(a.slug)}`}
-                      className="group flex items-start gap-5 rounded-xl border border-line bg-panel px-5 py-4 transition hover:border-line-strong hover:bg-panel-hover"
+                      className="group flex items-start gap-5 px-5 py-4 transition hover:bg-panel-hover"
                     >
                       <div className="w-[90px] shrink-0 text-right">
                         <div className="text-[15px] font-semibold text-body">
