@@ -11,3 +11,5 @@ test-results/
 .specify/
 docs/
 specs/
+# vditor 资产由 dev/build 脚本链在容器内拷贝,不从构建上下文带入(镜像自洽,不依赖开发机状态)
+public/vditor/

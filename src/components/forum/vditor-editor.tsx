@@ -44,7 +44,7 @@ function colorToolbarItem(vdRef: RefObject<Vditor | null>) {
 /**
  * 论坛正文编辑器(Vditor IR 即时渲染,Typora 式编辑即所见):
  * - 代码层仍是纯 Markdown,与后端 contentHtml 契约/renderMarkdown 管线零改动;
- * - 运行时资产自托管 cdn:"/vditor"(postinstall 拷贝,禁 unpkg 默认源);
+ * - 运行时资产自托管 cdn:"/vditor"(dev/build 脚本链拷贝,禁 unpkg 默认源);
  * - 编辑区关闭 Lute sanitize(受限色板靠内联 span 类标记渲染;XSS 真闸门
  *   在服务端 rehype-sanitize 白名单,不在编辑器);
  * - 图片上传接管 upload.handler:工具栏按钮/粘贴/拖拽统一走 /api/forum/upload。
