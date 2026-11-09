@@ -28,7 +28,7 @@ dist/
 build/
 # scripts/build/ 是入库的构建辅助脚本目录(vditor 资产拷贝等),不吃上面的 build/ 通配
 !scripts/build/
-# vditor 运行时静态资产(postinstall 从 node_modules 拷贝的产物,不入库)
+# vditor 运行时静态资产(dev/build 脚本链从 node_modules 拷贝的产物,不入库)
 public/vditor/
 .next/
 *.log

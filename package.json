@@ -6,9 +6,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "postinstall": "node scripts/build/copy-vditor-assets.mjs",
+    "dev": "node scripts/build/copy-vditor-assets.mjs && next dev",
+    "build": "node scripts/build/copy-vditor-assets.mjs && next build",
     "start": "next start",
     "lint": "eslint .",
     "lint:migrations": "tsx scripts/ci/check-migration-idempotency.ts",
