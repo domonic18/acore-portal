@@ -52,8 +52,8 @@ pnpm db:migrate                                # 业务库迁移
 pnpm db:seed                                   # 开发种子数据(scripts/dev/seed.ts)
 pnpm soap:mock                                 # 本地 SOAP worldserver 模拟(开发/联调用)
 pnpm dev                                       # 开发服务器
-make check                                     # 质量门禁: lint + typecheck + vitest(397 用例)
-pnpm test:e2e                                  # Playwright E2E 关态档(151 场景, 含路由兼容 301/商城结账/商品增强(含列表快速编辑)/内容前台(含内容区底色/下载锚点/侧栏吸顶/快捷操作指南静态页+308)/侧栏快捷入口后台/渐进计划后台(含配图本地上传)/论坛管理(tab 双区+发帖回帖)/状态卡/工具页/通知/看板/SEO)
+make check                                     # 质量门禁: lint + typecheck + vitest(101 文件 / 797 用例)
+pnpm test:e2e                                  # Playwright E2E 关态档(208 场景 / 30 文件, 含路由兼容 301/商城结账/商品增强(含列表快速编辑)/内容前台(含内容区底色/下载锚点/侧栏吸顶/快捷操作指南静态页+308)/侧栏快捷入口后台/渐进计划后台(含配图本地上传)/论坛管理(tab 双区+发帖回帖)/状态卡/工具页/通知/看板/SEO)
 pnpm test:e2e:captcha                         # E2E 开态档(E2E_CAPTCHA=1;腾讯云验证码无官方测试密钥,本档只跑人机校验专项)
 pnpm verify:soap                               # SOAP 通道连通性自检(连真实 worldserver 或 mock)
 pnpm verify:sc001                              # SC-001 老用户双格式登录验收(读 workspace/verify-credentials.txt)
@@ -118,7 +118,7 @@ docs/            # 文档中心
 
 **目录规范（2026-10-23 CodeReview 沉淀，借鉴内部同族项目）**:
 1. **目录即架构**：新增一级/域目录须先修订本节（借鉴内部同族项目的《代码目录结构规范》守门做法）
-2. **services 分域**：`services/` 根目录禁新增平文件，新域一律 `services/<域>/`（现有 auth/points/shop/orders/catalog/users-admin/images/account/content/progression/forum/status/media/home/notification/stats/settings/seo/sidebar/tools/site/security 均此模式）。跨域基础服务**只**入 `services/shared/`、不再单独占业务域目录，当前为审计 `audit`、发信队列 `mail-outbox`、用户 token `user-token`、积分账本 `ledger`、积分通知 `points-notify`、路由映射 `route-map`、游戏身份 `game-identity`、站点身份 `site-identity`、审计去重 `audit-dedup`（借鉴内部同族项目按子域分包、根目录禁平文件）。**域间横向 import 由 eslint-plugin-boundaries 机械拦截**：域服务只能引用 `services/shared/*` 与 `eslint.config.mjs` 中 `ORCHESTRATION_EDGES` 登记的编排边，未登记直接 lint 失败（issue #6）
+2. **services 分域**：`services/` 根目录禁新增平文件，新域一律 `services/<域>/`（现有 auth/points/shop/orders/catalog/users-admin/images/account/content/progression/forum/status/media/home/notification/stats/settings/seo/sidebar/tools/site/security 均此模式；二期规划域：mcp 商品运营 MCP / feed 内容聚合 / search 站内搜索 / assistant AI 助手，**目录随对应里程碑落地时创建**，落地前先在此登记）。跨域基础服务**只**入 `services/shared/`、不再单独占业务域目录，当前为审计 `audit`、发信队列 `mail-outbox`、用户 token `user-token`、积分账本 `ledger`、积分通知 `points-notify`、路由映射 `route-map`、游戏身份 `game-identity`、站点身份 `site-identity`、审计去重 `audit-dedup`（借鉴内部同族项目按子域分包、根目录禁平文件）。**域间横向 import 由 eslint-plugin-boundaries 机械拦截**：域服务只能引用 `services/shared/*` 与 `eslint.config.mjs` 中 `ORCHESTRATION_EDGES` 登记的编排边，未登记直接 lint 失败（issue #6）
 3. **app 层禁直连 prisma**：app/ 下 RSC 页面与 Route Handler（`src/app/api/**`）只做校验/会话/编排，数据组装一律收敛 service 层（页面私有取数函数放 `services/<域>/`）；`grep -rn 'from "@/lib/db"' src/app` 应为空
 4. **components 准入**：`components/ui/` 只收 ≥2 个消费者的通用组件；页面私有组件与 page 同目录（colocation）；域组件入 `components/<域>/`；禁止另起 `app/_components/` 等第四类目录。展示组件保持无 IO——需要会话/库数据的异步壳放页面层（取数经 `services/<域>/` 的 view 函数，如 `getSidebarView`/`getArchiveView`/`getSiteHeaderView`），组件只接收 props
 5. **业务域服务禁互引**：`services/auth` 与 `services/shop` 等域间不直接 import，经 `services/shared/` 或上层编排（防循环依赖，借鉴内部同族项目）
