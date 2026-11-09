@@ -5,6 +5,7 @@ import {
   MARKDOWN_BODY_CLS,
   TUTORIAL_ANCHOR_ALIASES,
 } from "@/constants/content";
+import { FORUM_TEXT_PALETTE } from "@/constants/forum-palette";
 
 /**
  * T008 MD 渲染管线单测(R3/R3b):
@@ -191,6 +192,32 @@ describe("markdown 渲染管线(T008)", () => {
     expect(MARKDOWN_BODY_CLS).toContain("list-decimal");
     expect(MARKDOWN_BODY_CLS).toContain("list-disc");
     expect(FORUM_POST_BODY_CLS).toContain("[&_strong]");
+  });
+
+  it("论坛受限色板:登记色 c-red 类名保留,style 仍被剥(AGENTS 规则 22)", async () => {
+    const { html } = await render(
+      '<span class="c-red">重点</span>与<span class="c-red" style="color:green">内联样式</span>',
+    );
+    expect(html).toContain('<span class="c-red">重点</span>');
+    expect(html).not.toContain("style=");
+    expect(html).not.toContain("color:green");
+  });
+
+  it("色板外类名被清空值但不放行(c-pink/自定义类不外泄)", async () => {
+    const { html } = await render(
+      '<span class="c-pink">未登记色</span>与<span class="custom-x">自定义</span>',
+    );
+    expect(html).toContain('<span class="">未登记色</span>');
+    expect(html).toContain('<span class="">自定义</span>');
+    expect(html).not.toContain("c-pink");
+    expect(html).not.toContain("custom-x");
+  });
+
+  it("全部登记色键均通过白名单(与 constants/forum-palette 单源)", async () => {
+    for (const c of FORUM_TEXT_PALETTE) {
+      const { html } = await render(`<span class="c-${c.key}">字</span>`);
+      expect(html).toContain(`class="c-${c.key}"`);
+    }
   });
 });
 
