@@ -19,8 +19,6 @@ export const STATUS_REDIS_KEYS = {
   probeLockTtlSeconds: 5,
   peakPrefix: "status:peak:",
   peakTtlSeconds: 48 * 60 * 60,
-  portrait: "m3:portrait",
-  portraitTtlSeconds: 60,
 } as const;
 
 /** 未抢到单飞锁时的等待上限(毫秒):持锁者通常 1s 内写完缓存 */

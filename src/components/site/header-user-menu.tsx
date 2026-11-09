@@ -3,17 +3,19 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { UserAvatar } from "@/components/site/user-avatar";
 
 /**
  * 页头账户菜单(#84 从 header-client 拆出):头像按钮 + 下拉菜单 + 登出;
  * 点击外部/Esc 关闭菜单。积分显示在菜单顶部(2026-11-05 从页头 chip 收敛至此)。
+ * 头像为名字缩略图(与账号总览同口径),非随机角色图(2026-11-09 用户反馈)。
  */
 export function HeaderUserMenu({
-  portraitUrl,
+  avatarName,
   points,
   isAdmin,
 }: {
-  portraitUrl: string;
+  avatarName: string;
   points: number;
   isAdmin: boolean;
 }) {
@@ -62,16 +64,9 @@ export function HeaderUserMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center overflow-hidden rounded-lg border border-line-strong hover:border-highlight/60"
+        className="flex items-center rounded-full border border-line-strong hover:border-highlight/60"
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={portraitUrl}
-          alt="随机角色头像"
-          width={36}
-          height={36}
-          className="h-9 w-9 object-cover"
-        />
+        <UserAvatar name={avatarName} className="h-9 w-9 text-base" />
       </button>
       {open && (
         <div
