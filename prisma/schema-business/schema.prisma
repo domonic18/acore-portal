@@ -424,6 +424,7 @@ model Product {
   maxPerUser        Int?          @map("max_per_user") // 每用户累计可购件数;null=不限购
   gameItemId        Int?          @map("game_item_id")
   featured          Boolean       @default(false) // 首页精选区块(R14;后台表单开关,M3)
+  featuredSort      Int           @default(0) @map("featured_sort") // 精选展示序(0 起;管理台全量重写)
   legacyWpProductId Int?          @unique @map("legacy_wp_product_id") // 存量映射幂等键
   createdAt         DateTime      @default(now()) @map("created_at")
   updatedAt         DateTime      @updatedAt @map("updated_at")
