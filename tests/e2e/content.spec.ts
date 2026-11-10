@@ -460,8 +460,29 @@ test.describe("首页四区块(T027)", () => {
     await prisma.$disconnect();
   });
 
-  test("公告/服务器状态(含当前阶段)/精选商品齐备", async ({ page }) => {
+  // 精选商品区仅登录可见(口径同顶部菜单 authOnly,2026-11-10 用户反馈)
+  async function loginAsUser(page: Page) {
+    await page.goto("/login");
+    await page.getByLabel("用户名").fill("legacyuser");
+    await page.getByLabel("密码", { exact: true }).fill("oldpass123");
+    await page.getByRole("button", { name: "登录" }).click();
+    await expect(page).toHaveURL(/\/account\/overview$/);
     await page.goto("/");
+  }
+
+  test("游客:精选商品区与快捷入口「积分商店」隐藏(口径同顶部菜单)", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "最新公告" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "精选商品", exact: true })).toHaveCount(0);
+    const quick = page.locator("main section").filter({ hasText: "补丁生效方法" }).first();
+    await expect(quick.getByRole("link", { name: "积分商店", exact: true })).toHaveCount(0);
+    // 同组其余入口不受影响
+    await expect(quick.getByRole("link", { name: "英雄榜" })).toBeVisible();
+    await expect(quick.getByRole("link", { name: "开发日志" })).toBeVisible();
+  });
+
+  test("公告/服务器状态(含当前阶段)/精选商品齐备", async ({ page }) => {
+    await loginAsUser(page);
     await expect(page.getByRole("heading", { name: "最新公告" })).toBeVisible();
     await expect(
       page.getByTestId("home-server-status").getByRole("heading", { name: "服务器状态" }),
@@ -472,10 +493,13 @@ test.describe("首页四区块(T027)", () => {
     const featured = page.getByRole("heading", { name: "精选商品" });
     await expect(featured).toBeVisible();
     await expect(page.locator("main").getByRole("link", { name: /积分/ }).first()).toBeVisible();
+    // 登录态:快捷入口「积分商店」可见(与游客隐藏用例互为对照)
+    const quick = page.locator("main section").filter({ hasText: "补丁生效方法" }).first();
+    await expect(quick.getByRole("link", { name: "积分商店", exact: true })).toBeVisible();
   });
 
   test("精选商品轮播:主图/名称/积分,箭头可切换", async ({ page }) => {
-    await page.goto("/");
+    await loginAsUser(page);
     const card = page
       .getByRole("heading", { name: "精选商品" })
       .locator("xpath=ancestor::section[1]");
