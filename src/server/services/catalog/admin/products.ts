@@ -7,6 +7,15 @@ import { getGameItem } from "../game-items";
 import { validateSkuBinding } from "@/constants/shop-sku";
 import { ProductAdminError } from "./shared";
 
+/** 下一精选展示序:追加到当前精选末位(空集=0);精选开关与管理台共用 */
+export async function nextFeaturedSort(): Promise<number> {
+  const agg = await prisma.product.aggregate({
+    where: { featured: true },
+    _max: { featuredSort: true },
+  });
+  return (agg._max.featuredSort ?? -1) + 1;
+}
+
 export type ProductSaveInput = {
   id?: bigint;
   type: "game_item" | "service";
@@ -86,6 +95,21 @@ export async function saveProduct(input: ProductSaveInput): Promise<{ id: bigint
     );
   }
 
+  // 新晋精选:展示序追加到末位(max+1),不打乱管理台已排定的首页顺序;
+  // 保持精选不变时不动 featuredSort
+  let featuredSort: number | undefined;
+  if (input.featured) {
+    const wasFeatured = input.id
+      ? (
+          await prisma.product.findUnique({
+            where: { id: input.id },
+            select: { featured: true },
+          })
+        )?.featured
+      : false;
+    if (!wasFeatured) featuredSort = await nextFeaturedSort();
+  }
+
   const data = {
     type: input.type,
     sku: input.sku,
@@ -105,6 +129,7 @@ export async function saveProduct(input: ProductSaveInput): Promise<{ id: bigint
     stock: input.stockEnabled ? (input.stock ?? 0) : null,
     lowStockThreshold: input.lowStockThreshold ?? null,
     featured: input.featured ?? false,
+    ...(featuredSort !== undefined ? { featuredSort } : {}),
     // 服务类恒限购 1 件(单次购买一次;发货完成后释放额度,可再次购买)
     maxPerUser: input.type === "service" ? 1 : (input.maxPerUser ?? null),
     gameItemId: input.type === "game_item" ? (input.gameItemId ?? null) : null,
@@ -161,6 +186,7 @@ export async function updateProductQuickEdit(
       salePrice: true,
       stockEnabled: true,
       stock: true,
+      featured: true,
     },
   });
   if (!product) throw new ProductAdminError("NOT_FOUND", "商品不存在。");
@@ -185,6 +211,10 @@ export async function updateProductQuickEdit(
     ...(input.status !== undefined ? { status: input.status } : {}),
     ...(input.listed !== undefined ? { listed: input.listed } : {}),
     ...(input.featured !== undefined ? { featured: input.featured } : {}),
+    // 新晋精选:展示序追加末位,不打乱管理台已排定的首页顺序
+    ...(input.featured === true && !product.featured
+      ? { featuredSort: await nextFeaturedSort() }
+      : {}),
   };
 
   const hit = await prisma.product.updateMany({ where: { id }, data });

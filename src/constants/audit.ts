@@ -97,6 +97,8 @@ export const AUDIT_ACTION = {
   PRODUCT_FAQ_SAVED: "product_faq_saved",
   /** 商品 FAQ 删除(category=shop;payload 只记 productId/faqId) */
   PRODUCT_FAQ_DELETED: "product_faq_deleted",
+  /** 首页精选商品管理(category=shop;加入/移除记 productId+sku,重排只记 orderedIds) */
+  PRODUCT_FEATURED_SAVED: "product_featured_saved",
   /** 首页轮播物料管理(category=content;payload 含 id/title/enabled) */
   HOME_BANNER_SAVED: "home_banner_saved",
   HOME_BANNER_DELETED: "home_banner_deleted",

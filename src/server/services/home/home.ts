@@ -18,7 +18,7 @@ export async function getHomeBlocks() {
     listLatestAnnouncements(5),
     prisma.product.findMany({
       where: { status: "published", listed: true, featured: true },
-      orderBy: [{ id: "asc" }],
+      orderBy: [{ featuredSort: "asc" }, { id: "asc" }],
       take: FEATURED_TAKE,
       select: {
         slug: true,

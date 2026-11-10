@@ -6,12 +6,18 @@ import { PrismaClient } from "../../src/generated/business";
  * ① 越权:legacyuser 访问 /admin/home → middleware 重定向;POST /api/admin/banners 403;
  * ② 轮播闭环:新建→首页可见→停用→首页隐藏→删除;
  * ③ 成就嵌入:url/高度/滚动条三参数保存→首页 iframe 属性即时生效;url 清空→整块隐藏。
+ * ④ 精选商品管理(2026-11-10):加入→上下移排序→首页按序展示→移出。
  * fixture:banners 按 RUN 前缀隔离,home.* 配置键用后删除(回落 flatten 默认)。
  */
 const prisma = new PrismaClient();
 const RUN = Date.now().toString(36);
 const TITLE_A = `e2ebanner${RUN}-A`;
 const TITLE_B = `e2ebanner${RUN}-B`;
+const FEAT_PREFIX = `e2efeat-${RUN}`;
+const featIds: string[] = [];
+const featSlug = (k: string) => `${FEAT_PREFIX}-${k}`;
+const FEAT_NAME_A = `E2E 精选甲 ${RUN}`;
+const FEAT_NAME_B = `E2E 精选乙 ${RUN}`;
 
 async function login(page: Page, username: string, password: string) {
   await page.goto("/login");
@@ -23,22 +29,75 @@ async function login(page: Page, username: string, password: string) {
 
 test.beforeAll(async () => {
   await prisma.homeBanner.deleteMany({ where: { title: { startsWith: `e2ebanner${RUN}` } } });
+  // 精选管理夹具:两件已上架未精选商品(用例内经管理台加入)
+  await prisma.product.deleteMany({ where: { slug: { startsWith: `${FEAT_PREFIX}-` } } });
+  await prisma.productCategory.deleteMany({ where: { slug: `${FEAT_PREFIX}-cat` } });
+  const cat = await prisma.productCategory.create({
+    data: { name: `E2E 精选分类 ${RUN}`, slug: `${FEAT_PREFIX}-cat`, sort: 99 },
+    select: { id: true },
+  });
+  await prisma.product.createMany({
+    data: [
+      {
+        type: "game_item",
+        sku: featSlug("a"),
+        slug: featSlug("a"),
+        name: FEAT_NAME_A,
+        description: "",
+        images: ["/images/legacy-missing.svg"],
+        categoryId: cat.id,
+        price: 100,
+        status: "published",
+        listed: true,
+      },
+      {
+        type: "game_item",
+        sku: featSlug("b"),
+        slug: featSlug("b"),
+        name: FEAT_NAME_B,
+        description: "",
+        images: ["/images/legacy-missing.svg"],
+        categoryId: cat.id,
+        price: 200,
+        status: "published",
+        listed: true,
+      },
+    ],
+  });
+  const rows = await prisma.product.findMany({
+    where: { slug: { startsWith: `${FEAT_PREFIX}-` } },
+    select: { id: true },
+  });
+  featIds.push(...rows.map((r) => r.id.toString()));
 });
 
 test.afterAll(async () => {
   // 审计取回后 JS 过滤(MySQL JsonFilter 不支持 path 数组语法)
   const audits = await prisma.auditLog.findMany({
-    where: { action: { in: ["home_banner_saved", "home_banner_deleted", "settings_changed"] } },
+    where: { action: { in: ["home_banner_saved", "home_banner_deleted", "settings_changed", "product_featured_saved"] } },
     select: { id: true, payloadJson: true },
   });
   const ids = audits
     .filter((a) => {
-      const p = a.payloadJson as { bannerId?: string; title?: string; group?: string };
-      return p.group === "home" || p.title?.startsWith(`e2ebanner${RUN}`) === true;
+      const p = a.payloadJson as {
+        bannerId?: string;
+        title?: string;
+        group?: string;
+        productId?: string;
+        orderedIds?: string[];
+      };
+      return (
+        p.group === "home" ||
+        p.title?.startsWith(`e2ebanner${RUN}`) === true ||
+        (p.productId != null && featIds.includes(p.productId)) ||
+        (Array.isArray(p.orderedIds) && p.orderedIds.some((id) => featIds.includes(id)))
+      );
     })
     .map((a) => a.id);
   if (ids.length) await prisma.auditLog.deleteMany({ where: { id: { in: ids } } });
   await prisma.homeBanner.deleteMany({ where: { title: { startsWith: `e2ebanner${RUN}` } } });
+  await prisma.product.deleteMany({ where: { slug: { startsWith: `${FEAT_PREFIX}-` } } });
+  await prisma.productCategory.deleteMany({ where: { slug: `${FEAT_PREFIX}-cat` } });
   await prisma.systemConfig.deleteMany({ where: { key: { startsWith: "home." } } });
   await prisma.$disconnect();
 });
@@ -146,6 +205,90 @@ test("轮播闭环:新建→首页可见→停用隐藏→删除", async ({ page
     .click();
   await expect(page.getByTestId("banner-card").filter({ hasText: TITLE_A })).toHaveCount(0);
   expect(await prisma.homeBanner.findFirst({ where: { title: TITLE_A } })).toBeNull();
+});
+
+test("精选商品管理:加入→上下移排序→首页按序展示→移出", async ({ page }) => {
+  test.setTimeout(60_000);
+  await login(page, "m1admin", "adminpass123");
+  await page.goto("/admin/home");
+  const section = page
+    .getByRole("heading", { name: "精选商品", exact: true })
+    .locator("xpath=ancestor::section[1]");
+
+  // 加入甲、乙(下拉按 id 选,避免拼接展示文案)
+  const select = section.getByLabel("选择商品");
+  await expect(select).toBeEnabled();
+  await select.selectOption(featIds[0]!);
+  await section.getByRole("button", { name: "加入精选" }).click();
+  await expect(
+    section.getByTestId("featured-row").filter({ hasText: FEAT_NAME_A }),
+  ).toBeVisible();
+  await select.selectOption(featIds[1]!);
+  await section.getByRole("button", { name: "加入精选" }).click();
+  await expect(
+    section.getByTestId("featured-row").filter({ hasText: FEAT_NAME_B }),
+  ).toBeVisible();
+
+  // 乙上移到甲前:库内 featuredSort 乙 < 甲(其他 spec 的精选夹具可能并行存在,只比相对序)
+  await section
+    .getByTestId("featured-row")
+    .filter({ hasText: FEAT_NAME_B })
+    .getByRole("button", { name: `上移「${FEAT_NAME_B}」` })
+    .click();
+  await expect
+    .poll(async () => {
+      const rows = await prisma.product.findMany({
+        where: { id: { in: featIds.map((id) => BigInt(id)) } },
+        select: { slug: true, featuredSort: true },
+      });
+      const bySlug = new Map(rows.map((r) => [r.slug, r.featuredSort]));
+      return (bySlug.get(featSlug("b")) ?? -1) < (bySlug.get(featSlug("a")) ?? -1);
+    })
+    .toBe(true);
+
+  // 首页(登录态)精选区按管理台顺序轮播:轮播一次只渲染当前一件,
+  // 期望序镜像 getHomeBlocks 契约(featuredSort asc,id asc,前 4 件),逐件翻页核对
+  await page.goto("/");
+  const featSection = page
+    .getByRole("heading", { name: "精选商品", exact: true })
+    .locator("xpath=ancestor::section[1]");
+  const expected = (
+    await prisma.product.findMany({
+      where: { featured: true, status: "published", listed: true },
+      orderBy: [{ featuredSort: "asc" }, { id: "asc" }],
+      take: 4,
+      select: { slug: true },
+    })
+  ).map((r) => `/shop/${encodeURIComponent(r.slug)}`);
+  const seen: (string | null)[] = [];
+  for (let i = 0; i < expected.length; i++) {
+    if (i > 0) await featSection.getByRole("button", { name: "下一件商品" }).click();
+    seen.push(await featSection.locator('a[href^="/shop/"]').getAttribute("href"));
+  }
+  expect(seen).toEqual(expected);
+  // 乙上移后在甲前(content.spec 的精选夹具并行存在时 take:4 可能截掉甲,
+  // 乙(与甲的相对序)已由上方库内 poll 断言兜底,这里只要求乙可见)
+  expect(seen).toContain(`/shop/${featSlug("b")}`);
+
+  // 移出乙:行消失,库内 featured=false
+  await page.goto("/admin/home");
+  await section
+    .getByTestId("featured-row")
+    .filter({ hasText: FEAT_NAME_B })
+    .getByRole("button", { name: "移出精选" })
+    .click();
+  await expect(
+    section.getByTestId("featured-row").filter({ hasText: FEAT_NAME_B }),
+  ).toHaveCount(0);
+  await expect
+    .poll(async () => {
+      const row = await prisma.product.findUnique({
+        where: { slug: featSlug("b") },
+        select: { featured: true },
+      });
+      return row?.featured;
+    })
+    .toBe(false);
 });
 
 test("成就嵌入:url/滚动条配置→首页 iframe 即时生效", async ({ page }) => {

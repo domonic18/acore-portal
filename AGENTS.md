@@ -144,6 +144,8 @@ docs/            # 文档中心
 
 24. **归档列表的封面图与统一背景容器口径**（2026-11-09 沉淀，资讯/公告/资料梳理用户反馈）：① **前台列表页必须是单一 `bg-panel` 容器**——条目间不露站点背景图（页面背景图是全站装饰层，孤立条目卡会视觉割裂）；`archive-page.tsx` 三种布局共用此口径：cards 外层容器包住栅格（条目自身无边框，hover 高亮），rows/log 用分隔线模式（容器 `overflow-hidden rounded-xl border border-line bg-panel` + 条目 `border-t first:border-t-0`）；新增前台列表页照此办理，**禁再造孤立条目卡**；② **列表封面 = `bodyMd` 首图**——Article 无封面列，封面从正文首个图片提取（markdown `![]()` 或内联 `<img>`，`articles.ts` 的 `extractCoverFromBody`）；**域白名单判定唯一收口在 `lib/markdown.ts` 的 `isAllowedImageSrc`**（渲染硬闸 `rehypeImageAllowlist` 与封面提取共用——列表封面可见 ⇔ 详情页正文图片可见，白名单外域图不做封面），禁在别处另写前缀判断；无图文章回落纯文字卡，不强造占位图；③ **前台封面用原生 `<img>`**（站点口径，无 next/image remotePatterns 负担）：`aspect-[16/9] w-full object-cover` + `loading="lazy"`，alt 取文章标题
 
+25. **首页精选商品的登录门控与排序管理口径**（2026-11-10 沉淀，精选商品用户反馈）：① **登录门控**——首页右栏「精选商品」区仅登录用户可见（`src/app/page.tsx` 用 `getServerSession()` 包整区），口径同顶部菜单「积分商店」；页面快捷入口列表用 `authOnly` 标记统一拦截，**不要在链接渲染处另写角色判断**；② **排序是数据不是数组序**——`product.featured_sort` 落库，管理台（`/admin/home` 精选卡）重排按传入 id 顺序**重写全量** dense 0..n-1（沿用规则 21 的 FAQ 口径），子集一律拒（`SET_MISMATCH`→409 提示刷新），移出后剩余重写连续序；③ **加入 = `max+1` 追加末位**——所有把商品置为精选的入口（快速编辑、商品表单保存、管理台加入）统一走 `catalog/admin/products.ts` 的 `nextFeaturedSort()`，新精选不打乱首页既有顺序，**禁止散点各自取序**；④ **服务归属**——精选管理编排在 `services/home/featured.ts`，`nextFeaturedSort` 放 `catalog`（boundaries 编排边 home→catalog 单向，catalog 不得反向引 home）；⑤ **审计**——`PRODUCT_FEATURED_SAVED`：加入/移出记 productId+sku+featured，重排只记 orderedIds（正文类信息不入审计）；⑥ **首页回退语义**——精选不足 4 件时以最新上架商品补位（`getHomeBlocks` 既有逻辑），管理台空态文案与此对齐，勿在管理台另造"必填精选"约束
+
 ## Code style
 
 - **通用**: KISS / YAGNI / DRY；SOLID 相关时应用；优先行业标准库而非自定义实现；现代框架特性优先
