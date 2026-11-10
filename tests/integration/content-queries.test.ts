@@ -133,6 +133,35 @@ describe("归档查询(T021 FR-209)", () => {
     expect(out.items).toHaveLength(0);
     expect(out.total).toBe(12);
   });
+
+  it("列表封面=正文首图,须过图片域白名单(资讯卡片封面,与 rehypeImageAllowlist 同口径)", async () => {
+    const mk = (slug: string, bodyMd: string) =>
+      prisma.article
+        .create({
+          data: {
+            slug: `${slug}-${RUN}`,
+            title: `T21 ${slug}`,
+            bodyMd,
+            categoryId: catId,
+            status: "published",
+            publishedAt: new Date(),
+          },
+          select: { slug: true },
+        })
+        .then((a) => {
+          created.articles.push(a.slug);
+          return a.slug;
+        });
+    await mk("cover-relative", "前文\n\n![封面](/uploads/a.png)\n\n后文");
+    await mk("cover-evil", "![外链封面](https://evil.example/x.png)");
+    await mk("cover-none", "纯文字正文,没有图");
+    const list = await listArchiveArticles({ categorySlug: CAT_SLUG, pageSize: 50 });
+    const coverOf = (prefix: string) =>
+      list.items.find((a) => a.slug.startsWith(prefix))?.cover;
+    expect(coverOf("cover-relative")).toBe("/uploads/a.png");
+    expect(coverOf("cover-evil")).toBeNull();
+    expect(coverOf("cover-none")).toBeNull();
+  });
 });
 
 describe("views 原子自增(T021 SC-203 增量半)", () => {

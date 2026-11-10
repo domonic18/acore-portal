@@ -87,6 +87,17 @@ function rehypeLegacyLinks() {
   };
 }
 
+/**
+ * 图片域白名单判定(纯函数):站内相对路径或 cdnHosts 白名单域。
+ * 渲染硬闸(rehypeImageAllowlist)与归档列表封面提取(articles.ts)共用,
+ * 两处口径必须一致——列表封面可见 ⇔ 详情页正文图片可见。
+ */
+export function isAllowedImageSrc(src: string, cdnHosts: readonly string[]): boolean {
+  return (
+    src.startsWith("/") || cdnHosts.some((host) => src.startsWith(`https://${host}/`))
+  );
+}
+
 /** 图片域白名单:非法 src 的 img 整节点移除(渲染期硬闸,迁移期重写为前提) */
 function rehypeImageAllowlist(cdnHosts: readonly string[]) {
   return (tree: Root) => {
@@ -95,10 +106,7 @@ function rehypeImageAllowlist(cdnHosts: readonly string[]) {
         return undefined;
       }
       const src = (node.properties?.src as string | undefined) ?? "";
-      const allowed =
-        src.startsWith("/") ||
-        cdnHosts.some((host) => src.startsWith(`https://${host}/`));
-      if (allowed) return undefined;
+      if (isAllowedImageSrc(src, cdnHosts)) return undefined;
       (parent.children as Element[]).splice(index, 1);
       return [SKIP, index];
     });

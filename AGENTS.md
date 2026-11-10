@@ -142,6 +142,8 @@ docs/            # 文档中心
 
 23. **用户头像口径与前台窄屏排版**（2026-11-09 沉淀）：① **头像唯一口径是名字缩略图**——页头与账号总览统一走 `components/site/user-avatar.tsx`（名字首字符 + 职业色底，`constants/characters.ts` 的 `characterAvatar`），**禁随机角色头像**（原 `services/shared/portrait.ts` 按 `ORDER BY RAND()` 抽样 + Redis 60s TTL ⇒ 用户看到头像一直变，且与账号总览不一致；该服务已删除）；游戏角色头像（种族图）只在「我的角色」页按角色展示，与用户头像不是一回事；② **会话载荷不含用户名**——session 只有 `{userId, role, jti}`，页头取昵称须查 `prisma.user`（`getSiteHeaderView` 内 `Promise.all` 并行，失败降级空名），不为此扩 JWT 契约；③ **前台窄屏信息区纵向排版**——账号总览这类「头像 + 若干标签值 + 统计块」的行，窄屏改纵向（`flex-col md:flex-row`）+ 标签/值成对结构（标签 `shrink-0`、值 `min-w-0` + `overflow-wrap:anywhere`），统计块 `whitespace-nowrap` 独占一行，不与信息行抢宽导致折行；④ **前台表格窄屏靠横滚**——沿用规则 20 的口径（`overflow-x-auto` 外壳 + 表体 `min-w-*` + 表头/数值/时间列 `whitespace-nowrap` + 备注列留可折行空间），但前台表格**不套用后台 `components/ui/table.tsx`**（该组件写死后台配色）；⑤ **长值断行口径不变**——邮箱等长 token 用 `overflow-wrap:anywhere` + `word-break:keep-all`（#43 口径，优先自然边界断行）
 
+24. **归档列表的封面图与统一背景容器口径**（2026-11-09 沉淀，资讯/公告/资料梳理用户反馈）：① **前台列表页必须是单一 `bg-panel` 容器**——条目间不露站点背景图（页面背景图是全站装饰层，孤立条目卡会视觉割裂）；`archive-page.tsx` 三种布局共用此口径：cards 外层容器包住栅格（条目自身无边框，hover 高亮），rows/log 用分隔线模式（容器 `overflow-hidden rounded-xl border border-line bg-panel` + 条目 `border-t first:border-t-0`）；新增前台列表页照此办理，**禁再造孤立条目卡**；② **列表封面 = `bodyMd` 首图**——Article 无封面列，封面从正文首个图片提取（markdown `![]()` 或内联 `<img>`，`articles.ts` 的 `extractCoverFromBody`）；**域白名单判定唯一收口在 `lib/markdown.ts` 的 `isAllowedImageSrc`**（渲染硬闸 `rehypeImageAllowlist` 与封面提取共用——列表封面可见 ⇔ 详情页正文图片可见，白名单外域图不做封面），禁在别处另写前缀判断；无图文章回落纯文字卡，不强造占位图；③ **前台封面用原生 `<img>`**（站点口径，无 next/image remotePatterns 负担）：`aspect-[16/9] w-full object-cover` + `loading="lazy"`，alt 取文章标题
+
 ## Code style
 
 - **通用**: KISS / YAGNI / DRY；SOLID 相关时应用；优先行业标准库而非自定义实现；现代框架特性优先

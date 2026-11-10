@@ -23,6 +23,8 @@ test.describe("归档(T023 FR-209)", () => {
     await expect(page.getByText("共 13 篇").first()).toBeVisible();
     const list = page.locator("main ul >> nth=0");
     await expect(list.locator("li")).toHaveCount(10);
+    // 列表为单一 bg-panel 容器(条目间不露站点背景图,2026-11-09 用户反馈)
+    await expect(list).toHaveClass(/bg-panel/);
     // 种子按日期倒序:最新种子公告在页 1 顶部
     await expect(list.locator("li").first()).toContainText("欢迎来到老克塔");
     await expect(page.getByText("草稿:未发布公告")).toHaveCount(0);
@@ -47,6 +49,27 @@ test.describe("归档(T023 FR-209)", () => {
     await expect(page).toHaveURL(/\/announcements$/);
     // 「共 N 篇」在标题副行与分页汇总各出现一次(设计稿双处),取标题副行
     await expect(page.getByText("共 13 篇").first()).toBeVisible();
+  });
+
+  test("资讯卡片:正文首图作封面,条目并入单一背景容器(2026-11-09 用户反馈)", async ({
+    page,
+  }) => {
+    await page.goto("/news");
+    await expect(page.getByText("共 1 篇").first()).toBeVisible();
+    // 限定列表区(右栏热门资讯也链接到同一文章,避免 strict mode 撞车)
+    const card = page
+      .locator("main ul >> nth=0")
+      .locator("a[href='/post/seed-news-cover']");
+    await expect(card).toBeVisible();
+    await expect(card.locator("img")).toHaveAttribute(
+      "src",
+      "/images/banner-wotlk.svg",
+    );
+    // 条目自身无边框(0px):边框与背景统一由外层 bg-panel 容器承载,
+    // 条目之间不再露出站点背景图
+    expect(await card.evaluate((el) => getComputedStyle(el).borderTopWidth)).toBe(
+      "0px",
+    );
   });
 });
 
