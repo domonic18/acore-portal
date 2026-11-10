@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { SITE_PAGE_TYPES, type SitePageType } from "@/constants/content";
 import {
   SIDEBAR_LIMITS,
@@ -135,7 +136,7 @@ export function SidebarCardRow({
       data-testid={`sidebar-card-${card.key}`}
       className="flex flex-col border-t border-[#1b2f4d] py-1 first:border-t-0"
     >
-      <div className="flex flex-wrap items-center gap-3 py-2">
+      <div className="flex items-center gap-3 py-2">
         <span className="w-5 shrink-0 text-right text-xs text-[#6482a3]">{index + 1}</span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-[#dcebf7]">
@@ -148,37 +149,39 @@ export function SidebarCardRow({
               : " · 未选页面(前台不显示)"}
           </p>
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          aria-expanded={expanded}
-          data-testid={`sidebar-card-${card.key}-toggle`}
-          disabled={busy}
-          onClick={onToggleExpand}
-        >
-          {expanded ? "收起" : "编辑"}
-        </Button>
-        <span className="flex gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <Button
             type="button"
             variant="secondary"
             size="sm"
+            aria-expanded={expanded}
+            data-testid={`sidebar-card-${card.key}-toggle`}
+            disabled={busy}
+            onClick={onToggleExpand}
+          >
+            {expanded ? "收起" : "编辑"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-label={`上移「${displayName}」`}
             data-testid={`sidebar-move-card-${card.key}-up`}
             disabled={busy || index === 0}
             onClick={() => onMove(-1)}
           >
-            上移「{displayName}」
+            <ChevronUp aria-hidden="true" className="h-4 w-4" />
           </Button>
           <Button
             type="button"
-            variant="secondary"
+            variant="ghost"
             size="sm"
+            aria-label={`下移「${displayName}」`}
             data-testid={`sidebar-move-card-${card.key}-down`}
             disabled={busy || index === total - 1}
             onClick={() => onMove(1)}
           >
-            下移「{displayName}」
+            <ChevronDown aria-hidden="true" className="h-4 w-4" />
           </Button>
           <Button
             type="button"
@@ -188,9 +191,9 @@ export function SidebarCardRow({
             disabled={busy}
             onClick={onRemove}
           >
-            删除卡
+            删除
           </Button>
-        </span>
+        </div>
       </div>
 
       {expanded ? (

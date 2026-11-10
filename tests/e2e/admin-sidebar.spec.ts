@@ -117,6 +117,14 @@ test("admin 编辑卡片+新增卡片 → 前台侧栏即时生效", async ({ pa
   await page.getByTestId("sidebar-card-patch-toggle").click();
   await expect(page.getByTestId("sidebar-card-patch-link-0-href")).toHaveCount(0);
 
+  // 行操作为图标按钮(可访问名走 aria-label):客户端下载下移一位 → 行序即时对调
+  await page.getByRole("button", { name: "下移「客户端下载」" }).click();
+  const [clientTop, patchTop] = await Promise.all([
+    page.getByTestId("sidebar-card-client").boundingBox(),
+    page.getByTestId("sidebar-card-patch").boundingBox(),
+  ]).then((boxes) => [boxes[0]?.y, boxes[1]?.y]);
+  expect(clientTop!).toBeGreaterThan(patchTop!);
+
   // 新增一张卡(默认页面范围=静态页,新卡自动展开直接可填)
   await page.getByTestId("sidebar-add-card").click();
   // 卡容器与内部输入同前缀(data-testid=sidebar-card-<key>[-字段]),限定 div 取容器
