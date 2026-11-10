@@ -146,6 +146,8 @@ docs/            # 文档中心
 
 25. **首页精选商品的登录门控与排序管理口径**（2026-11-10 沉淀，精选商品用户反馈）：① **登录门控**——首页右栏「精选商品」区仅登录用户可见（`src/app/page.tsx` 用 `getServerSession()` 包整区），口径同顶部菜单「积分商店」；页面快捷入口列表用 `authOnly` 标记统一拦截，**不要在链接渲染处另写角色判断**；② **排序是数据不是数组序**——`product.featured_sort` 落库，管理台（`/admin/home` 精选卡）重排按传入 id 顺序**重写全量** dense 0..n-1（沿用规则 21 的 FAQ 口径），子集一律拒（`SET_MISMATCH`→409 提示刷新），移出后剩余重写连续序；③ **加入 = `max+1` 追加末位**——所有把商品置为精选的入口（快速编辑、商品表单保存、管理台加入）统一走 `catalog/admin/products.ts` 的 `nextFeaturedSort()`，新精选不打乱首页既有顺序，**禁止散点各自取序**；④ **服务归属**——精选管理编排在 `services/home/featured.ts`，`nextFeaturedSort` 放 `catalog`（boundaries 编排边 home→catalog 单向，catalog 不得反向引 home）；⑤ **审计**——`PRODUCT_FEATURED_SAVED`：加入/移出记 productId+sku+featured，重排只记 orderedIds（正文类信息不入审计）；⑥ **首页回退语义**——精选不足 4 件时以最新上架商品补位（`getHomeBlocks` 既有逻辑），管理台空态文案与此对齐，勿在管理台另造"必填精选"约束
 
+26. **UI 基础组件的 className 合并必须走 tailwind-merge**（2026-11-10 沉淀，后台商品筛选条各占一行用户反馈）：① **根因**——`Input`/`Select` 等组件内建默认类含 `w-full`，调用方追加 `w-auto`/`w-52` 等宽度类时字符串拼接无法去重，而 Tailwind 同属性两个类按**生成顺序**决胜（实测构建产物中 `.w-full` 恒排最后）⇒ 内建 `w-full` 恒赢、调用方宽度覆盖全部静默失效，筛选条每项 100% 宽各占一行；② **口径**——`components/ui/` 基础组件合并外部 className 一律 `twMerge(内建类, className)`（tailwind-merge 会按后者优先消解同组冲突），**禁再写模板字符串拼接**；新增内建默认宽度等可被调用方覆盖的类时同样适用；③ **排查手法**——同属性类冲突不报错不告警，只能实测 DOM 宽度或查构建产物中类的先后顺序（`.next/static/css/`），定位「布局与写的类不符」时优先怀疑此类冲突
+
 ## Code style
 
 - **通用**: KISS / YAGNI / DRY；SOLID 相关时应用；优先行业标准库而非自定义实现；现代框架特性优先
