@@ -538,6 +538,25 @@ test("纯图 banner:标题留空可保存,首页渲染图片无文字叠层(WP �
   }
 });
 
+test("空物料兜底:无任何轮播物料时首页回落默认图,区域不空白(2026-11-11 用户反馈)", async ({ page }) => {
+  await login(page, "m1admin", "adminpass123");
+  // 快照并清空全部物料(含停用):轮播区域应回落默认 hero 图,而非整块消失留白
+  const snapshot = await prisma.homeBanner.findMany();
+  await prisma.homeBanner.deleteMany({});
+  try {
+    await page.goto("/");
+    const carSection = page.locator('section[aria-label="首页轮播"]');
+    await expect(carSection.locator('img[src="/home-hero.jpg"]')).toBeVisible();
+    // 默认形态:无文字叠层、无切换控件
+    await expect(carSection.locator("h2")).toHaveCount(0);
+    await expect(carSection.getByRole("button")).toHaveCount(0);
+  } finally {
+    await prisma.homeBanner.createMany({
+      data: snapshot.map(({ id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...rest }) => rest),
+    });
+  }
+});
+
 /**
  * 轮播视频(2026-11-06):媒体库上传视频(服务端按 mime 落「视频」分类)→ 物料配
  * videoUrl → 首页静音循环播放(imageUrl 作封面/poster);视频解码失败回退封面图。
