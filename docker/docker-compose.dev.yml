@@ -2,6 +2,11 @@
 # ⚠️ 开发栈,严禁用于生产:mailpit/soap-mock 是测试替身,且 initdb 会灌入种子账号(m1admin/adminpass123)
 #    生产栈见 docker/docker-compose.prod.yml(独立文件,不含上述容器)
 # 数据落 workspace/(宿主机持久化,重置=删 workspace/<dir> 目录;数据目录重建时才执行 initdb)
+# 全新卷重置顺序坑(2026-11-11 实测):init-system-config.sql 只 INSERT,system_config 表
+# 要靠 Prisma 迁移建,全新卷首启必在 initdb 阶段失败退出(游戏四库已建好)。恢复三步:
+#   docker start acore-portal-dev-mysql-1(数据已存在,initdb 跳过)
+#   pnpm db:deploy(建业务表)→ docker exec -i acore-portal-dev-mysql-1 \
+#     sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" acore_portal' < scripts/dev/initdb/init-system-config.sql
 # 游戏四库仅结构 fixture + 合成种子,无生产数据(宪法 V)
 # 端口 3307/6381: 本机 3306/6379 已被既有 acore 开发环境占用
 name: acore-portal-dev
