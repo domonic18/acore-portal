@@ -7,6 +7,7 @@ import { STEPS } from "../../scripts/migrate/rehearse.mjs";
 /**
  * 迁移链守卫(2026-11-07 迁移就绪度收口):
  * ① 链里的每一步都必须登记在 STEPS——漏登记 = 切换日少导一段数据且无人发现;
+ *    (rehearse/reconcile=链编排器,cos-clean=切换日桶盘点清理,均链外工具,不入 STEPS)
  * ② 迁移脚本里不得再出现硬编码的目标 schema 前缀或 host:port 默认连接串
  *    (前者会让「连 A 库、SQL 写 B 库」,后者曾让 slug-normalize 静默打到测试栈 3308);
  * ③ STEPS 的依赖边不得成环,且引用��� id 必须存在。
@@ -26,7 +27,7 @@ describe("迁移链登记", () => {
     const registered = new Set(STEPS.map((s) => s.file));
     const missing = scriptFiles(MIGRATE_DIR)
       .map((f) => path.basename(f))
-      .filter((name) => !registered.has(name) && name !== "rehearse.mjs" && name !== "reconcile.mjs");
+      .filter((name) => !registered.has(name) && name !== "rehearse.mjs" && name !== "reconcile.mjs" && name !== "cos-clean.mjs");
     expect(missing).toEqual([]);
   });
 
