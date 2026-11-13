@@ -51,6 +51,12 @@ pnpm migrate:rehearse --target acore_portal_rehearsal --fresh --yes \
 
 ### 媒体组前置(否则编排器会拦停)
 
+- **uploads 目录必须显式给**:`--uploads-dir <dir>`。`cos-upload.mjs` 的默认值是**开发机路径**
+  (`~/Code/lokta/files/wordpress/wp-content/uploads`),生产环境不存在 → 媒体组第一步直接退出,
+  整条链断在开头(2026-11-14 生产切换前发现)。编排器在媒体组开跑前会先校验该目录存在,
+  缺失即以退出码 2 拦停并提示怎么给。
+  - 生产容器内路径:旧站 uploads 目录以**只读**挂载进 web 容器(prod compose 的 `/wp-uploads`),
+    宿主侧用符号链接指向旧栈的 `wp-content/uploads`,仓库里不写死绝对路径。
 - **目标库须有管理员**:`media_asset.uploaded_by` 是非空外键,而迁移链只导 `role=user` 的存量用户,
   **链本身不建管理员**。用 `MIGRATE_ADMIN_USERNAME` / `MIGRATE_ADMIN_PASSWORD` 让编排器代建
   (口令只从 env 读,建完在后台改密);或提前在目标库注册后提权。
