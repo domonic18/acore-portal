@@ -5,18 +5,12 @@ import {
   listBadges,
 } from "@/server/services/users-admin/admin";
 import { POINT_TX_TYPE_LABEL } from "@/constants/points";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableEmpty, Td, Th, THead, Tr } from "@/components/ui/table";
 import { UserActions } from "@/components/admin/user-actions";
+import { RoleBadge } from "@/components/admin/role-badge";
 import { displayUserName } from "@/lib/format";
 
-const ROLE_TONE: Record<string, "accent" | "warn" | "muted"> = {
-  admin: "accent",
-  moderator: "warn",
-  user: "muted",
-};
-
-/** 用户详情(FR-130):余额/徽章/近 10 条流水+手调与授予操作。 */
+/** 用户详情(FR-130):余额/徽章/近 10 条流水+角色分配、手调与授予操作。 */
 export default async function AdminUserDetailPage({
   params,
 }: {
@@ -34,9 +28,7 @@ export default async function AdminUserDetailPage({
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold text-[#dcebf7]">{displayUserName(user)}</h1>
-        <Badge tone={ROLE_TONE[user.role] ?? "muted"} className="text-[13px]">
-          {user.role}
-        </Badge>
+        <RoleBadge role={user.role} className="text-[13px]" />
         <span className="text-sm font-medium text-[#e8c877]">
           余额 {user.balance} 积分
         </span>
@@ -78,6 +70,7 @@ export default async function AdminUserDetailPage({
 
       <UserActions
         userId={user.id.toString()}
+        role={user.role}
         badges={badges.map((b) => ({ id: b.id, name: `${b.name}(Lv.${b.level})` }))}
       />
 

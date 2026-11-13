@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { listAdminUsers } from "@/server/services/users-admin/admin";
-import { RoleSelect } from "@/components/admin/role-select";
+import { RoleBadge } from "@/components/admin/role-badge";
 import { AdminPager } from "@/components/ui/pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ const ROLE_TABS = [
   { value: "user", label: "user" },
 ] as const;
 
-/** 用户列表(FR-130):用户名/昵称/邮箱模糊搜索+角色筛选+分页;行内分配角色(改后吊销目标会话)。 */
+/** 用户列表(FR-130):用户名/昵称/邮箱模糊搜索+角色筛选+分页;角色列只读徽章,分配入口在用户详情页(2026-11-11 用户反馈:行内下拉易被误认为编辑框)。 */
 export default async function AdminUsersPage({
   searchParams,
 }: {
@@ -111,7 +111,7 @@ export default async function AdminUsersPage({
                 </Td>
                 <Td className="text-[#93b2ce]">{u.email}</Td>
                 <Td>
-                  <RoleSelect userId={u.id} role={u.role} />
+                  <RoleBadge role={u.role} />
                 </Td>
                 <Td>
                   <Badge tone={u.status === "active" ? "ok" : "danger"}>{u.status}</Badge>

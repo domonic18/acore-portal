@@ -4,7 +4,7 @@ import { hashPhpass } from "../../src/lib/auth/phpass";
 
 /**
  * M4 用户角色权限管理 E2E:
- * ① m1admin 行内改角色 → 落库+审计+「会话已重置」提示;角色 tab 筛选;
+ * ① m1admin 详情页改角色 → 落库+审计+「会话已重置」提示;列表角色列为只读徽章;角色 tab 筛选;
  * ② 自改拒绝(422 SELF_ROLE_CHANGE 呈现,角色不变);
  * ③ legacyuser 越权 API 403。
  * fixture:RUN 后缀用户直写(phpass 哈希可登录),用后还原(含审计)。
@@ -23,18 +23,23 @@ async function login(page: Page, username: string, password: string) {
 }
 
 let userId = "";
+let adminId = "";
 
 test.beforeAll(async () => {
-  const user = await prisma.user.create({
-    data: {
-      username: USERNAME,
-      email: `${USERNAME}@test.local`,
-      passwordHash: hashPhpass(PASSWORD),
-      passwordAlgo: "phpass",
-      role: "user",
-    },
-  });
+  const [user, admin] = await Promise.all([
+    prisma.user.create({
+      data: {
+        username: USERNAME,
+        email: `${USERNAME}@test.local`,
+        passwordHash: hashPhpass(PASSWORD),
+        passwordAlgo: "phpass",
+        role: "user",
+      },
+    }),
+    prisma.user.findUniqueOrThrow({ where: { username: "m1admin" }, select: { id: true } }),
+  ]);
   userId = user.id.toString();
+  adminId = admin.id.toString();
 });
 
 test.afterAll(async () => {
@@ -51,7 +56,7 @@ test.afterAll(async () => {
   await prisma.$disconnect();
 });
 
-test("改角色落库+审计+会话重置提示;角色 tab 筛选", async ({ page }) => {
+test("改角色落库+审计+会话重置提示;列表只读徽章;角色 tab 筛选", async ({ page }) => {
   await login(page, "m1admin", "adminpass123");
   await page.goto("/admin/users");
   await page.getByLabel("用户名/昵称/邮箱搜索").fill(USERNAME);
@@ -59,10 +64,16 @@ test("改角色落库+审计+会话重置提示;角色 tab 筛选", async ({ pag
   const row = page.getByRole("row", { name: new RegExp(USERNAME) });
   await expect(row).toBeVisible();
 
-  const select = row.getByLabel("分配角色");
-  await expect(select).toBeEnabled(); // hydration 同步点:水合前 select disabled,事件会丢
-  await select.selectOption("moderator");
-  await expect(row.getByText("已保存,该用户会话已重置")).toBeVisible();
+  // 列表角色列是只读徽章(2026-11-11 用户反馈:下拉易被误认为编辑框),分配入口在详情页
+  await expect(page.getByLabel("分配角色")).toHaveCount(0);
+  await expect(row.getByText("user", { exact: true })).toBeVisible();
+
+  await row.getByRole("link", { name: new RegExp(USERNAME) }).click();
+  await expect(page).toHaveURL(new RegExp(`/admin/users/${userId}$`));
+
+  await page.getByLabel("角色").selectOption("moderator");
+  await page.getByRole("button", { name: "分配角色" }).click();
+  await expect(page.getByText("已保存,该用户会话已重置")).toBeVisible();
 
   const db = await prisma.user.findUniqueOrThrow({ where: { id: BigInt(userId) } });
   expect(db.role).toBe("moderator");
@@ -78,6 +89,7 @@ test("改角色落库+审计+会话重置提示;角色 tab 筛选", async ({ pag
   expect(audit!.payloadJson).toMatchObject({ oldRole: "user", newRole: "moderator" });
 
   // 角色 tab 筛选:moderator 下仅 fixture,m1admin 不在
+  await page.getByRole("link", { name: "← 返回列表" }).click();
   await page.getByRole("link", { name: "moderator", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/users\?role=moderator$/);
   await expect(page.getByRole("row", { name: new RegExp(USERNAME) })).toBeVisible();
@@ -86,14 +98,10 @@ test("改角色落库+审计+会话重置提示;角色 tab 筛选", async ({ pag
 
 test("自改拒绝:m1admin 改自己角色 → 422 提示且角色不变", async ({ page }) => {
   await login(page, "m1admin", "adminpass123");
-  await page.goto("/admin/users");
-  await page.getByLabel("用户名/昵称/邮箱搜索").fill("m1admin");
-  await page.getByRole("button", { name: "搜索" }).click();
-  const row = page.getByRole("row", { name: /m1admin/ });
-  const select = row.getByLabel("分配角色");
-  await expect(select).toBeEnabled();
-  await select.selectOption("user");
-  await expect(row.getByRole("alert")).toContainText("不能修改自己的角色");
+  await page.goto(`/admin/users/${adminId}`);
+  await page.getByLabel("角色").selectOption("user");
+  await page.getByRole("button", { name: "分配角色" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "不能修改自己的角色" })).toBeVisible();
 
   const db = await prisma.user.findUniqueOrThrow({ where: { username: "m1admin" }, select: { role: true } });
   expect(db.role).toBe("admin");

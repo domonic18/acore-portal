@@ -102,7 +102,8 @@ test.beforeAll(async () => {
       floor: 1,
       authorUserId: moderator.id,
       authorName: "m3moderator",
-      contentHtml: "<p>E2E 主贴正文</p>",
+      contentHtml:
+        "<p>E2E 主贴正文</p>\n<blockquote><strong>标题：</strong>内容一\n\n<strong>说明：</strong>内容二</blockquote>",
       legacyWpPostId: 9_952_000,
     },
   });
@@ -209,6 +210,18 @@ test.describe("US5 论坛(T041)", () => {
     expect(after.viewCount).toBe(seedThread.viewCount + 1);
   });
 
+  test("存量帖正文换行还原:裸换行渲染为分行,不再坨成一段(wpautop 口径)", async ({
+    page,
+  }) => {
+    await page.goto(`/forum/thread/${threadId}`);
+    const quote = page.locator("blockquote").filter({ hasText: "标题：" });
+    await expect(quote).toBeVisible();
+    // 双换行 = 空行:裸 \n 无 <br> 时浏览器折叠成空格,两段文字会连排成一坨
+    const text = await quote.innerText();
+    expect(text).toMatch(/内容一\s*\n+\s*说明：/s);
+    await expect(page.getByText("E2E 主贴正文")).toBeVisible();
+  });
+
   test("版主 API 越权:游客 401;user 403+审计(SC-207)", async ({ page, request }) => {
     const guest = await request.post(`/api/forum/moderate/thread/${threadId}/pin`, {
       data: { pinned: true },
@@ -262,8 +275,9 @@ test.describe("US5 论坛(T041)", () => {
     await expect(page.getByText("【已关闭】")).toBeHidden();
 
     // 软删 → 回版块列表且主题不再可见;库内数据保留
+    // exact:新版编辑器工具栏「删除线」按钮与「删除」子串冲突(strict mode)
     page.on("dialog", (d) => d.accept());
-    await page.getByRole("button", { name: "删除" }).click();
+    await page.getByRole("button", { name: "删除", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/forum/${BOARD_SLUG}$`));
     await expect(page.getByText(`E2E 版主链路主题 ${RUN}`)).toBeHidden();
 
@@ -407,7 +421,7 @@ test.describe("US5 论坛(T041)", () => {
   });
 });
 
-test.describe("发帖回帖(#34 2026-11-04)", () => {
+test.describe("发帖回帖(#34 2026-11-04;编辑器 vditor IR 升级 2026-11-09)", () => {
   const THREAD_TITLE = `E2E 发帖主题 ${RUN}`;
   const REPLY_BODY = `E2E 回帖内容 ${RUN}`;
   const CLOSED_TITLE = `E2E 关闭主题 ${RUN}`;
@@ -422,6 +436,25 @@ test.describe("发帖回帖(#34 2026-11-04)", () => {
       await page.getByRole("button", { name: "登录" }).click();
       await expect(page).toHaveURL(/\/account\/overview$/);
     })();
+  }
+
+  /**
+   * vditor IR 编辑器填写:水合前是 textarea 兜底,水合后挂 contenteditable(pre.vditor-reset)。
+   * 键入走 keyboard.insertText(fill() 的 execCommand 路径会与 vditor 内部态失同步);
+   * vditor IR 对单次 insertText 的整段不做块内重渲染(上游行为),末尾补一次按键触发
+   * Spin(立即渲染 **加粗** 等),Backspace 撤掉该按键的副作用。
+   */
+  async function fillComposer(page: Page, text: string) {
+    const editor = page.locator('[data-testid="forum-composer"] .vditor-ir pre.vditor-reset');
+    await expect(editor).toBeVisible({ timeout: 10_000 });
+    await editor.click();
+    const lines = text.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i]) await page.keyboard.insertText(lines[i]);
+      if (i < lines.length - 1) await page.keyboard.press("Enter");
+    }
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Backspace");
   }
 
   test.beforeEach(async () => {
@@ -477,14 +510,60 @@ test.describe("发帖回帖(#34 2026-11-04)", () => {
     expect(r.status()).toBe(401);
   });
 
-  test("发帖页实时预览默认关闭,需手动展开(#99)", async ({ page }) => {
+  test("编辑器工具栏:加粗/色板组可见,色板展开受限 6 色(编辑器升级,#99 口径更新)", async ({
+    page,
+  }) => {
     await login(page, "legacyuser", "oldpass123");
     await page.goto(`/forum/${POST_BOARD_SLUG}/new`);
-    await expect(page.getByTestId("forum-composer-preview")).toHaveCount(0);
-    await page.getByRole("button", { name: "实时预览" }).click();
-    await expect(page.getByTestId("forum-composer-preview")).toBeVisible();
-    await page.getByRole("button", { name: "收起预览" }).click();
-    await expect(page.getByTestId("forum-composer-preview")).toHaveCount(0);
+    const composer = page.getByTestId("forum-composer");
+    await expect(composer.locator('.vditor-toolbar button[data-type="bold"]')).toBeVisible();
+    await expect(
+      composer.locator('.vditor-toolbar button[data-type="forum-color"]'),
+    ).toBeVisible();
+    await composer.locator('.vditor-toolbar button[data-type="forum-color"]').click();
+    for (const key of ["red", "orange", "gold", "green", "blue", "purple"]) {
+      await expect(composer.locator(`button[data-type="forum-c-${key}"]`)).toBeVisible();
+    }
+  });
+
+  test("移动端窄屏:工具栏单行横滑,色板弹层完整可见且上色不回归(移动端工具栏优化)", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await login(page, "legacyuser", "oldpass123");
+    await page.goto(`/forum/${POST_BOARD_SLUG}/new`);
+    const composer = page.getByTestId("forum-composer");
+    const toolbar = composer.locator(".vditor-toolbar");
+    await expect(toolbar).toBeVisible();
+    // 单行(≤40px):不再 8 行折行占满编辑区
+    const tbBox = await toolbar.boundingBox();
+    expect(tbBox).not.toBeNull();
+    expect(tbBox!.height).toBeLessThanOrEqual(40);
+    // 横滑:工具栏内容宽超可视宽(17 个按钮收进一行)
+    expect(await toolbar.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+    // 编辑区可见(工具栏只占一行,输入区不被挤没)
+    await expect(composer.locator(".vditor-ir pre.vditor-reset")).toBeVisible();
+
+    // 上色链路在窄屏完整可用:选中 → 滚入色板按钮 → 弹层 → 红
+    await fillComposer(page, "移动端重点内容");
+    await page.keyboard.press("Home");
+    await page.keyboard.press("Shift+End");
+    const colorBtn = composer.locator('.vditor-toolbar button[data-type="forum-color"]');
+    await colorBtn.scrollIntoViewIfNeeded();
+    await colorBtn.click();
+    const red = composer.locator('button[data-type="forum-c-red"]');
+    await expect(red).toBeVisible();
+    // 弹层 fixed 落位在工具栏下方且完整落在视口内(不被横滑容器裁剪)
+    const redBox = await red.boundingBox();
+    expect(redBox).not.toBeNull();
+    expect(redBox!.x).toBeGreaterThanOrEqual(0);
+    expect(redBox!.x + redBox!.width).toBeLessThanOrEqual(375);
+    expect(redBox!.y).toBeGreaterThanOrEqual(tbBox!.y + tbBox!.height - 2);
+    await red.click();
+    await expect(composer.locator('.vditor-ir [data-palette="red"]')).toHaveCSS(
+      "color",
+      "rgb(248, 113, 113)",
+    );
   });
 
   test("legacyuser 发主题全链路:表单→主题页(楼层1 Markdown 渲染)→版块列表可见", async ({
@@ -497,9 +576,7 @@ test.describe("发帖回帖(#34 2026-11-04)", () => {
     await page.getByRole("link", { name: "发帖", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/forum/${POST_BOARD_SLUG}/new$`));
     await page.getByLabel(/标题/).fill(THREAD_TITLE);
-    await page
-      .getByPlaceholder(/支持 Markdown/)
-      .fill(`欢迎来到**发帖测试**主题。\n\n第二段内容。`);
+    await fillComposer(page, "欢迎来到**发帖测试**主题。\n\n第二段内容。");
     await page.getByRole("button", { name: "发布主题" }).click();
 
     await expect(page).toHaveURL(/\/forum\/thread\/\d+$/, { timeout: 15_000 });
@@ -530,7 +607,7 @@ test.describe("发帖回帖(#34 2026-11-04)", () => {
   test("回帖:legacyuser 回复 → 楼层 2 + replyCount=1 + 审计", async ({ page }) => {
     await login(page, "legacyuser", "oldpass123");
     await page.goto(`/forum/thread/${flowThreadId}`);
-    await page.getByPlaceholder(/支持 Markdown/).fill(REPLY_BODY);
+    await fillComposer(page, REPLY_BODY);
     await page.getByRole("button", { name: "回复", exact: true }).click();
     // 先等 UI 反馈(POST 完成),再查 DB
     await expect(page.getByText(`回帖成功,已发布到第 2 楼。`)).toBeVisible();
@@ -558,12 +635,15 @@ test.describe("发帖回帖(#34 2026-11-04)", () => {
     await login(page, "legacyuser", "oldpass123");
     await page.goto(`/forum/${POST_BOARD_SLUG}/new`);
     await page.getByLabel(/标题/).fill(`E2E 上传图片主题 ${RUN}`);
-    await page
-      .getByRole("button", { name: /上传图片/ })
+    const composer = page.getByTestId("forum-composer");
+    // vditor 上传项是 div[data-type=upload] 内嵌 input(非 button),直接对 input 派发
+    await composer
+      .locator('[data-type="upload"] input[type=file]')
       .setInputFiles([
         { name: "e2e-forum-upload.png", mimeType: "image/png", buffer: Buffer.from(PNG_1PX) },
       ]);
-    await expect(page.getByPlaceholder(/支持 Markdown/)).toHaveValue(/!\[\]\(\/uploads\//);
+    // handler 接管上传后 insertValue 插入 markdown,IR 区即时渲染图片
+    await expect(composer.locator('.vditor-ir img[src^="/uploads/"]')).toBeVisible();
     await page.getByRole("button", { name: "发布主题" }).click();
     await expect(page).toHaveURL(/\/forum\/thread\/\d+$/, { timeout: 15_000 });
 
@@ -572,6 +652,32 @@ test.describe("发帖回帖(#34 2026-11-04)", () => {
     const src = await img.getAttribute("src");
     const res = await page.request.get(src!);
     expect(res.status()).toBe(200);
+  });
+
+  test("受限色板:选中文字上色→发布后帖内 span.c-red 着色(编辑器升级)", async ({ page }) => {
+    await login(page, "legacyuser", "oldpass123");
+    await page.goto(`/forum/${POST_BOARD_SLUG}/new`);
+    await page.getByLabel(/标题/).fill(`E2E 色板主题 ${RUN}`);
+    await fillComposer(page, "重点内容");
+    // 选中整行 → 工具栏色板 → 红
+    await page.keyboard.press("Home");
+    await page.keyboard.press("Shift+End");
+    const composer = page.getByTestId("forum-composer");
+    await composer.locator('.vditor-toolbar button[data-type="forum-color"]').click();
+    await composer.locator('button[data-type="forum-c-red"]').click();
+    // 编辑区代码层落入类标记,retag 预览层实时着色(所见即所得;
+    // 包裹层 textContent 含隐藏标记源码,文字断言只看发布后帖内)
+    await expect(composer.locator(".vditor-ir")).toContainText('class="c-red"');
+    await expect(composer.locator('.vditor-ir [data-palette="red"]')).toHaveCSS(
+      "color",
+      "rgb(248, 113, 113)",
+    );
+    await page.getByRole("button", { name: "发布主题" }).click();
+    await expect(page).toHaveURL(/\/forum\/thread\/\d+$/, { timeout: 15_000 });
+
+    const colored = page.locator("main .forum-post-body span.c-red").first();
+    await expect(colored).toHaveText("重点内容");
+    await expect(colored).toHaveCSS("color", "rgb(248, 113, 113)");
   });
 
   test("频控:60s 内第二篇主题 429(beforeAll 已清频控)", async ({ page }) => {

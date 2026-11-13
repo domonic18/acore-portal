@@ -97,6 +97,10 @@ test.describe("商品编辑台(物品选择器 / SKU 派生 / 图片面板)", ()
     await page.goto("/admin/products/new");
 
     await page.getByLabel("搜索游戏物品").fill(String(PICK_ENTRY));
+    // 物品列表显示中文名(issue #151),英文名作副名并列
+    await expect(page.getByTestId(`game-item-option-${PICK_ENTRY}`)).toContainText(
+      `中文坐骑·${PICK_ENTRY}`,
+    );
     await page.getByTestId(`game-item-option-${PICK_ENTRY}`).click();
 
     const sku = page.getByLabel("SKU", { exact: true });
@@ -107,6 +111,19 @@ test.describe("商品编辑台(物品选择器 / SKU 派生 / 图片面板)", ()
     await expect(sku).toHaveValue(`itemsend_${PICK_ENTRY}_stack`);
     await page.getByRole("switch", { name: "一封邮件发多个" }).click();
     await expect(sku).toHaveValue(`itemsend_${PICK_ENTRY}`);
+  });
+
+  test("物品选择器:可按中文名检索(issue #151)", async ({ page }) => {
+    await login(page);
+    await page.goto("/admin/products/new");
+
+    // 用完整中文名检索(种子里的中文名是「中文坐骑·{entry}」,逐条唯一):
+    // 中文名命中的是本地化表,与英文名「测试物品·{entry}」互不包含。
+    await page.getByLabel("搜索游戏物品").fill(`中文坐骑·${PICK_ENTRY}`);
+    await expect(page.getByTestId(`game-item-option-${PICK_ENTRY}`)).toBeVisible();
+    await expect(page.getByTestId(`game-item-option-${PICK_ENTRY}`)).toContainText(
+      `中文坐骑·${PICK_ENTRY}`,
+    );
   });
 
   test("可堆叠物品:自动勾选「一封邮件发多个」并派生 _stack SKU", async ({ page }) => {

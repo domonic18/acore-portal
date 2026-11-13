@@ -205,3 +205,33 @@ WITH RECURSIVE `seq` (`n`) AS (
 )
 SELECT `n`, CONCAT('测试物品·', `n`), 1 + (`n` % 5), IF(`n` % 10 = 9, 20, 1) FROM `seq`
 ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `quality` = VALUES(`quality`), `stackable` = VALUES(`stackable`);
+
+-- ===== acore_world.item_template_locale(物品本地化名,issue #151) =====
+-- 与生产 AC 真表同构:主键 (ID, locale),Name 为 text。
+-- item_template.name 是英文名,后台物品选择器要显示中文名 ⇒ 取 zhCN 行的 Name。
+-- 精简游戏库可能没有这张表 ⇒ 服务层按「无本地化数据」降级(只显示英文名),不阻断检索。
+CREATE TABLE IF NOT EXISTS `item_template_locale` (
+  `ID` INT UNSIGNED NOT NULL DEFAULT 0,
+  `locale` VARCHAR(4) NOT NULL DEFAULT '',
+  `Name` TEXT NULL,
+  `Description` TEXT NULL,
+  `VerifiedBuild` INT NULL DEFAULT NULL,
+  PRIMARY KEY (`ID`, `locale`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '物品本地化名(合成种子子集,无生产数据)';
+
+-- 中文名与英文名刻意不同,便于断言「中文检索只命中本地化表」:
+-- 英文名含「测试物品」,中文名含「中文坐骑」/「限量测试坐骑」,两套关键字互不包含。
+INSERT INTO `item_template_locale` (`ID`, `locale`, `Name`) VALUES
+  (19019, 'zhCN', '限量测试坐骑'),
+  (19020, 'zhCN', '促销测试坐骑'),
+  (19021, 'zhCN', '过期测试坐骑')
+ON DUPLICATE KEY UPDATE `Name` = VALUES(`Name`);
+
+INSERT INTO `item_template_locale` (`ID`, `locale`, `Name`)
+WITH RECURSIVE `seq` (`n`) AS (
+  SELECT 19500
+  UNION ALL
+  SELECT `n` + 1 FROM `seq` WHERE `n` < 19699
+)
+SELECT `n`, 'zhCN', CONCAT('中文坐骑·', `n`) FROM `seq`
+ON DUPLICATE KEY UPDATE `Name` = VALUES(`Name`);

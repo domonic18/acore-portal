@@ -26,12 +26,12 @@ export function StorefrontPreview({
             src={image}
             alt={values.name || "商品主图"}
             draggable={false}
-            className="flex h-32 w-full items-center justify-center rounded bg-gradient-to-br from-indigo-950 to-gray-900 object-contain p-1"
+            className="aspect-square w-full rounded bg-panel-inset object-contain"
           />
         ) : (
           <div
             aria-hidden
-            className="flex h-32 items-center justify-center rounded bg-gradient-to-br from-indigo-950 to-gray-900 text-4xl"
+            className="flex aspect-square w-full items-center justify-center rounded bg-panel-inset text-4xl"
           >
             {values.type === "game_item" ? "⚔" : "🛠"}
           </div>

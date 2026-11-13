@@ -26,6 +26,7 @@ export class ProductAdminError extends Error {
       | "PRODUCT_HAS_ORDERS"
       | "DUPLICATE_UNSUPPORTED"
       | "STOCK_NOT_APPLICABLE"
+      | "VALIDATION_FAILED"
       | "NOT_FOUND",
     message?: string,
     public field?: "sku" | "gameItemId",

@@ -7,7 +7,8 @@ import { useEffect, useState } from "react";
  * 左下角标题叠层(深色块)+ 圆形箭头 + 右下长条圆点;物料由 /admin/home 配置。
  * 自动轮播间隔由后台配置(carouselIntervalSec→intervalMs);不做悬停暂停
  * (悬停即静默停转,前台无从得知曾被误读为"不轮播"),手动切换走箭头/圆点。
- * 单张静态展示,空物料整块隐藏(父级短路);初始固定第 0 张,水合后才开定时器。
+ * 单张静态展示,空物料回落默认 hero 图(区域不留白,2026-11-11 用户反馈;
+ * 外层首行等高容器恒在,空轮播曾是 486px 空白);初始固定第 0 张,水合后才开定时器。
  * imageUrl 留空=纯文字形态(WP 原站资讯轮播复刻:深底居中标题,整卡可点)。
  *
  * 视频物料(2026-11-06):配了 videoUrl 即静音自动播放+循环,imageUrl 作封面;
@@ -31,7 +32,23 @@ export function HomeCarousel({
     return () => clearInterval(timer);
   }, [count, intervalMs]);
 
-  if (count === 0) return null;
+  if (count === 0) {
+    return (
+      <section
+        aria-label="首页轮播"
+        className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-line-strong bg-panel lg:aspect-auto lg:h-full"
+      >
+        {/* 空物料兜底:不可点、不轮播、无文字叠层,仅保区域不空白 */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/home-hero.jpg"
+          alt="老克塔"
+          className="absolute inset-0 h-full w-full object-cover"
+          draggable={false}
+        />
+      </section>
+    );
+  }
   const current = banners[Math.min(index, count - 1)]!;
   const hasVideo = Boolean(current.videoUrl) && !videoFailed.has(current.id);
 

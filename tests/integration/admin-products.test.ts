@@ -691,10 +691,17 @@ describe("商品列表快速编辑 updateProductQuickEdit(2026-11-03)", () => {
 
     const row = await prisma.product.findUniqueOrThrow({
       where: { id: saved.id },
-      select: { price: true, featured: true, sku: true, slug: true, name: true },
+      select: { price: true, featured: true, featuredSort: true, sku: true, slug: true, name: true },
     });
     expect(row.price).toBe(66);
     expect(row.featured).toBe(true);
+    // 新晋精选:展示序追加当前精选末位(max+1),不打乱既有首页顺序;
+    // 写入后该行即为全表 max
+    const maxSort = await prisma.product.aggregate({
+      where: { featured: true },
+      _max: { featuredSort: true },
+    });
+    expect(row.featuredSort).toBe(maxSort._max.featuredSort);
     expect(row.sku).toBe(`itemsend_${entry}`);
     expect(row.slug).toBe(`${SLUG_PREFIX}qe`);
 
@@ -704,6 +711,7 @@ describe("商品列表快速编辑 updateProductQuickEdit(2026-11-03)", () => {
     });
     expect((audit.payloadJson as { fields: string[] }).fields.sort()).toEqual([
       "featured",
+      "featuredSort",
       "price",
     ]);
   });

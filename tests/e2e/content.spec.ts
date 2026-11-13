@@ -23,6 +23,8 @@ test.describe("归档(T023 FR-209)", () => {
     await expect(page.getByText("共 13 篇").first()).toBeVisible();
     const list = page.locator("main ul >> nth=0");
     await expect(list.locator("li")).toHaveCount(10);
+    // 列表为单一 bg-panel 容器(条目间不露站点背景图,2026-11-09 用户反馈)
+    await expect(list).toHaveClass(/bg-panel/);
     // 种子按日期倒序:最新种子公告在页 1 顶部
     await expect(list.locator("li").first()).toContainText("欢迎来到老克塔");
     await expect(page.getByText("草稿:未发布公告")).toHaveCount(0);
@@ -47,6 +49,27 @@ test.describe("归档(T023 FR-209)", () => {
     await expect(page).toHaveURL(/\/announcements$/);
     // 「共 N 篇」在标题副行与分页汇总各出现一次(设计稿双处),取标题副行
     await expect(page.getByText("共 13 篇").first()).toBeVisible();
+  });
+
+  test("资讯卡片:正文首图作封面,条目并入单一背景容器(2026-11-09 用户反馈)", async ({
+    page,
+  }) => {
+    await page.goto("/news");
+    await expect(page.getByText("共 1 篇").first()).toBeVisible();
+    // 限定列表区(右栏热门资讯也链接到同一文章,避免 strict mode 撞车)
+    const card = page
+      .locator("main ul >> nth=0")
+      .locator("a[href='/post/seed-news-cover']");
+    await expect(card).toBeVisible();
+    await expect(card.locator("img")).toHaveAttribute(
+      "src",
+      "/images/banner-wotlk.svg",
+    );
+    // 条目自身无边框(0px):边框与背景统一由外层 bg-panel 容器承载,
+    // 条目之间不再露出站点背景图
+    expect(await card.evaluate((el) => getComputedStyle(el).borderTopWidth)).toBe(
+      "0px",
+    );
   });
 });
 
@@ -437,8 +460,29 @@ test.describe("首页四区块(T027)", () => {
     await prisma.$disconnect();
   });
 
-  test("公告/服务器状态(含当前阶段)/精选商品齐备", async ({ page }) => {
+  // 精选商品区仅登录可见(口径同顶部菜单 authOnly,2026-11-10 用户反馈)
+  async function loginAsUser(page: Page) {
+    await page.goto("/login");
+    await page.getByLabel("用户名").fill("legacyuser");
+    await page.getByLabel("密码", { exact: true }).fill("oldpass123");
+    await page.getByRole("button", { name: "登录" }).click();
+    await expect(page).toHaveURL(/\/account\/overview$/);
     await page.goto("/");
+  }
+
+  test("游客:精选商品区与快捷入口「积分商店」隐藏(口径同顶部菜单)", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "最新公告" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "精选商品", exact: true })).toHaveCount(0);
+    const quick = page.locator("main section").filter({ hasText: "补丁生效方法" }).first();
+    await expect(quick.getByRole("link", { name: "积分商店", exact: true })).toHaveCount(0);
+    // 同组其余入口不受影响
+    await expect(quick.getByRole("link", { name: "英雄榜" })).toBeVisible();
+    await expect(quick.getByRole("link", { name: "开发日志" })).toBeVisible();
+  });
+
+  test("公告/服务器状态(含当前阶段)/精选商品齐备", async ({ page }) => {
+    await loginAsUser(page);
     await expect(page.getByRole("heading", { name: "最新公告" })).toBeVisible();
     await expect(
       page.getByTestId("home-server-status").getByRole("heading", { name: "服务器状态" }),
@@ -449,10 +493,13 @@ test.describe("首页四区块(T027)", () => {
     const featured = page.getByRole("heading", { name: "精选商品" });
     await expect(featured).toBeVisible();
     await expect(page.locator("main").getByRole("link", { name: /积分/ }).first()).toBeVisible();
+    // 登录态:快捷入口「积分商店」可见(与游客隐藏用例互为对照)
+    const quick = page.locator("main section").filter({ hasText: "补丁生效方法" }).first();
+    await expect(quick.getByRole("link", { name: "积分商店", exact: true })).toBeVisible();
   });
 
   test("精选商品轮播:主图/名称/积分,箭头可切换", async ({ page }) => {
-    await page.goto("/");
+    await loginAsUser(page);
     const card = page
       .getByRole("heading", { name: "精选商品" })
       .locator("xpath=ancestor::section[1]");

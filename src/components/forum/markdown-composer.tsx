@@ -1,17 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Eye, EyeOff, ImagePlus } from "lucide-react";
-import { errorMessage, requestJson } from "@/lib/api-client";
-import { FORUM_POST_BODY_CLS } from "@/constants/content";
-import { FOCUS_RING } from "@/components/ui/admin-tokens";
+import dynamic from "next/dynamic";
+import { useHydrated } from "@/lib/use-hydrated";
 
 const MAX_CONTENT = 20_000;
 
+const VditorEditor = dynamic(() => import("./vditor-editor").then((m) => m.VditorEditor), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-48 items-center justify-center rounded-lg border border-line bg-panel-inset text-xs text-muted">
+      编辑器加载中…
+    </div>
+  ),
+});
+
 /**
- * 论坛发帖/回帖共用正文编辑器(#34):textarea + 图片上传(上传成功在光标处
- * 插站内 Markdown 图片)+ 编写/预览切换(预览走 /api/forum/preview,
- * 与前台同管线白名单,所见即所得——上传的图片直接渲染为图片)。
+ * 论坛发帖/回帖共用正文编辑器(#34):Vditor IR 即时渲染(Typora 式编辑即所见)
+ * + 工具栏(加粗/列表/表格/受限色板/图片上传)。props 契约与旧 textarea 版一致,
+ * 消费方(thread-composer-form / reply-form)零改动。
+ * 水合前/JS 失败时回落受控 textarea;编辑器 chunk 仅发帖/回帖页加载。
  */
 export function MarkdownComposer({
   value,
@@ -24,152 +31,26 @@ export function MarkdownComposer({
   placeholder?: string;
   rows?: number;
 }) {
-  const taRef = useRef<HTMLTextAreaElement>(null);
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewHtml, setPreviewHtml] = useState("");
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState("");
-  const seqRef = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // 预览:输入停顿 400ms 后请求;seq 丢弃过期响应
-  useEffect(() => {
-    if (!showPreview) return;
-    seqRef.current += 1;
-    const seq = seqRef.current;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(async () => {
-      if (value.trim() === "") {
-        setPreviewHtml("");
-        return;
-      }
-      try {
-        const body = await requestJson<{ html: string }>("/api/forum/preview", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ content: value }),
-        });
-        if (seq === seqRef.current) setPreviewHtml(body.html);
-      } catch {
-        /* 预览失败静默,保留上次内容 */
-      }
-    }, 400);
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [value, showPreview]);
-
-  function insertAtCursor(snip: string) {
-    const ta = taRef.current;
-    if (!ta) {
-      onChange(value + snip);
-      return;
-    }
-    const start = ta.selectionStart ?? value.length;
-    const end = ta.selectionEnd ?? start;
-    onChange(value.slice(0, start) + snip + value.slice(end));
-    requestAnimationFrame(() => {
-      ta.focus();
-      const pos = start + snip.length;
-      ta.setSelectionRange(pos, pos);
-    });
-  }
-
-  async function upload(files: File[]) {
-    if (files.length === 0) return;
-    setUploading(true);
-    setError("");
-    try {
-      const fd = new FormData();
-      for (const f of files) fd.append("files", f);
-      const body = await requestJson<{ items: { url: string }[] }>("/api/forum/upload", {
-        method: "POST",
-        body: fd,
-      });
-      for (const item of body.items) insertAtCursor(`\n![](${item.url})\n`);
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setUploading(false);
-    }
-  }
+  const hydrated = useHydrated();
 
   return (
-    <div className="flex flex-col gap-2" data-testid="forum-composer">
-      <div className="flex flex-wrap items-center gap-2">
-        <label
-          className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-line bg-panel px-3 py-1.5 text-xs text-body transition hover:border-link/50 hover:text-heading ${FOCUS_RING} ${
-            uploading ? "opacity-60" : ""
-          }`}
-        >
-          <ImagePlus aria-hidden="true" className="h-3.5 w-3.5" />
-          {uploading ? "上传中…" : "上传图片"}
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            className="sr-only"
-            disabled={uploading}
-            onChange={(e) => {
-              void upload(Array.from(e.target.files ?? []));
-              e.target.value = "";
-            }}
-          />
-        </label>
-        <button
-          type="button"
-          onClick={() => setShowPreview((v) => !v)}
-          className={`ml-auto inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition ${FOCUS_RING} ${
-            showPreview
-              ? "border-link/50 bg-link/10 font-semibold text-num"
-              : "border-line bg-panel text-body hover:border-link/50 hover:text-heading"
-          }`}
-        >
-          {showPreview ? (
-            <>
-              <EyeOff aria-hidden="true" className="h-3.5 w-3.5" />
-              收起预览
-            </>
-          ) : (
-            <>
-              <Eye aria-hidden="true" className="h-3.5 w-3.5" />
-              实时预览
-            </>
-          )}
-        </button>
-      </div>
-      {error && (
-        <p role="alert" className="text-xs text-danger">
-          {error}
-        </p>
-      )}
-      <div className={`grid items-stretch gap-3 ${showPreview ? "lg:grid-cols-2" : ""}`}>
+    <div data-testid="forum-composer">
+      {hydrated ? (
+        <VditorEditor
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          rows={rows}
+        />
+      ) : (
         <textarea
-          ref={taRef}
           value={value}
           onChange={(e) => onChange(e.target.value.slice(0, MAX_CONTENT))}
           rows={rows}
           placeholder={placeholder}
           className="w-full rounded-lg border border-line bg-panel-inset p-3 font-mono text-sm leading-6 text-heading placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-link/60"
         />
-        {showPreview && (
-          <div
-            className="max-h-[480px] min-h-[10rem] overflow-y-auto rounded-lg border border-line bg-panel-inset p-4"
-            data-testid="forum-composer-preview"
-          >
-            {previewHtml ? (
-              <div
-                className={FORUM_POST_BODY_CLS}
-                dangerouslySetInnerHTML={{ __html: previewHtml }}
-              />
-            ) : (
-              <p className="text-xs text-muted">
-                {value.trim() === "" ? "左侧输入 Markdown 后此处实时预览" : "预览生成中…"}
-              </p>
-            )}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

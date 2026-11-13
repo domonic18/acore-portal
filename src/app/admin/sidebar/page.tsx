@@ -16,9 +16,11 @@ export default async function AdminSidebarPage() {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-bold">侧栏管理</h1>
-      <p className="text-sm text-[#6482a3]">
-        内置组件(在线人数/最新资讯/QQ 群)按页面类型选择展示位置;
-        快捷卡可增删改排序,每卡可配置标题、正文与多个链接。
+      <p className="text-sm leading-6 text-[#6482a3]">
+        侧栏是前台页面右侧的竖栏,由两部分组成(下列顺序即前台展示顺序):
+        <br />
+        ① <span className="text-[#dcebf7]">自定义快捷卡</span>——你自己配置的入口卡(如客户端下载),可增删改排序;
+        ② <span className="text-[#dcebf7]">内置组件</span>——系统功能卡(在线人数/最新资讯/QQ 交流群),内容自动生成,只能选择显示页面。
       </p>
       <SidebarManager cards={cards} components={components} />
     </div>

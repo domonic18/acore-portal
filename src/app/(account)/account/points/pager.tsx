@@ -48,39 +48,53 @@ export function PointsPager({
 
   return (
     <div className="flex flex-col gap-3">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-line text-left text-body">
-            <th className="py-2">类型</th>
-            <th className="py-2">变动</th>
-            <th className="py-2">变动后余额</th>
-            <th className="py-2">时间</th>
-            <th className="py-2">备注</th>
-          </tr>
-        </thead>
-        <tbody>
-          {txs.length === 0 ? (
-            <tr>
-              <td colSpan={5} className="py-4 text-body">
-                暂无积分流水。
-              </td>
+      {/* 窄屏靠横滚不靠折行(AGENTS 规则 20):表头与数值/时间列 nowrap,
+          备注列留可折行空间 */}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] text-sm">
+          <thead>
+            <tr className="border-b border-line text-left text-body">
+              <th className="whitespace-nowrap py-2 pr-3">类型</th>
+              <th className="whitespace-nowrap py-2 pr-3">变动</th>
+              <th className="whitespace-nowrap py-2 pr-3">变动后余额</th>
+              <th className="whitespace-nowrap py-2 pr-3">时间</th>
+              <th className="py-2">备注</th>
             </tr>
-          ) : (
-            txs.map((t) => (
-              <tr key={t.id} className="border-b border-line-row">
-                <td className="py-2">{POINT_TX_TYPE_LABEL[t.type as PointTxTypeValue] ?? t.type}</td>
-                <td className={`py-2 ${t.amount >= 0 ? "text-green-400" : "text-red-400"}`}>
-                  {t.amount >= 0 ? "+" : ""}
-                  {t.amount}
+          </thead>
+          <tbody>
+            {txs.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="py-4 text-body">
+                  暂无积分流水。
                 </td>
-                <td className="py-2 text-foreground">{t.balanceAfter}</td>
-                <td className="py-2 text-body">{formatDateTime(t.createdAt)}</td>
-                <td className="py-2 text-body">{t.remark ?? "—"}</td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ) : (
+              txs.map((t) => (
+                <tr key={t.id} className="border-b border-line-row">
+                  <td className="whitespace-nowrap py-2 pr-3">
+                    {POINT_TX_TYPE_LABEL[t.type as PointTxTypeValue] ?? t.type}
+                  </td>
+                  <td
+                    className={`whitespace-nowrap py-2 pr-3 ${t.amount >= 0 ? "text-green-400" : "text-red-400"}`}
+                  >
+                    {t.amount >= 0 ? "+" : ""}
+                    {t.amount}
+                  </td>
+                  <td className="whitespace-nowrap py-2 pr-3 text-foreground">
+                    {t.balanceAfter}
+                  </td>
+                  <td className="whitespace-nowrap py-2 pr-3 text-body">
+                    {formatDateTime(t.createdAt)}
+                  </td>
+                  <td className="min-w-[140px] py-2 break-words text-body">
+                    {t.remark ?? "—"}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
       {error && (
         <p role="alert" className="text-sm text-red-400">
           {error}
