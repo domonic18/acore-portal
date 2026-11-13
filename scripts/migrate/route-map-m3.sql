@@ -32,7 +32,7 @@ INSERT INTO route_map (old_key, new_path) VALUES
   ('page_id:8',    '/shop'),
   ('page_id:9',    '/cart'),
   ('page_id:10',   '/checkout'),
-  ('page_id:11',   '/account'),
+  ('page_id:11',   '/account/overview'),
   ('page_id:3949', '/'),
   ('page_id:2796', '/progression'),
   ('page_id:378',  '/devlog'),

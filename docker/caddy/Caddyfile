@@ -37,3 +37,20 @@
 	# HSTS 注释说明:全站 HTTPS 稳定后再开 includeSubDomains
 	# (带 includeSubDomains 时子域名未全量 https 会锁死)
 }
+
+# www → 主域 301(2026-11-14 补:老站这跳是 WordPress 的 canonical 提供的,
+# nginx 里没有,新栈是 Next.js 不自带 → 不复刻会让 www 与主域重复内容)
+www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}
+
+# api.lokta.cn → 排行榜 wrapper(wow_web 容器)。
+# 老站由 nginx 的 wow_wrapper_proxy.conf 反代(proxy_pass http://wow_web:80 + Host $host),
+# 老栈下线后这层代理消失 → 在此复刻,口径与老站一致(Host 透传为 api.lokta.cn)。
+# wow_web 与老栈同在 local-shared-net;prod compose 已把 caddy 接入该网(external)。
+api.lokta.cn {
+	reverse_proxy wow_web:80 {
+		header_up Host api.lokta.cn
+	}
+}
+

@@ -124,7 +124,19 @@ services:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ../workspace/caddy-data:/data # 证书与 ACME 账号,必须持久化(否则每次重建重签)
       - ../workspace/caddy-config:/config
+    networks:
+      - default
+      # external:与老栈 wow_web(排行榜 wrapper)同网,api.lokta.cn 反代直连容器名,
+      # 口径与老站 nginx 的 proxy_pass http://wow_web:80 完全一致。
+      # 该网由老栈 compose 创建;若老栈已下线,先 docker network create local-shared-net
+      - shared
     depends_on:
       - web
     restart: unless-stopped
     logging: *logging
+
+networks:
+  # 老栈共享网(承载 wow_web);external 声明避免本 compose 擅自创建同名网导致与老栈割裂
+  shared:
+    name: local-shared-net
+    external: true
