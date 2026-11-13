@@ -15,6 +15,10 @@ pnpm migrate:rehearse --list                          # 看权威顺序
 pnpm migrate:rehearse --target acore_portal_rehearsal --fresh --yes          # 演练(不含媒体组)
 pnpm migrate:rehearse --target acore_portal_rehearsal --fresh --yes \
   --with-media --scan-only --cdn-base https://cdn.example.invalid              # 全链演练
+# 生产(容器内跑;表结构已由 compose 的 migrate 服务建好):
+docker compose --env-file .env.prod -f docker/docker-compose.prod.yml \
+  exec web node scripts/migrate/rehearse.mjs --yes --with-media \
+  --skip-prisma --uploads-dir /wp-uploads
 ```
 
 ### 权威顺序(STEPS,写在 `rehearse.mjs` 里,顺序本身就是文档)
@@ -48,6 +52,10 @@ pnpm migrate:rehearse --target acore_portal_rehearsal --fresh --yes \
   是这条的脚枪守卫(`连 A 库、SQL 写 B 库` 与 `静默打到测试栈 3308` 都由此拦下)。
 - 目标库指定:`--target <schema>`;`--fresh` 会 DROP+CREATE 目标 schema,
   **对正式 schema `acore_portal` 拒绝执行**(要重建须显式 `--allow-drop`)。
+- **建表的两条路**:①本地有 prisma CLI(开发机)→ 编排器自己跑 `prisma migrate deploy`;
+  ②生产容器内**没有 pnpm 也没有 prisma CLI**(都在 devDependencies,被 `--prod` 瘦身裁掉)
+  → 用 `--skip-prisma` 跳过,由 prod compose 的 `migrate` 一次性服务(`npx prisma@6.19.3`)建表,
+  编排器再回落 npx 同版本口径(版本升级须与 pnpm-lock 同步)。
 
 ### 媒体组前置(否则编排器会拦停)
 
