@@ -16,7 +16,7 @@
 //   node scripts/migrate/rehearse.mjs --target acore_portal_rehearsal --fresh --yes
 //   MIGRATE_DATABASE_URL=… node scripts/migrate/rehearse.mjs --yes
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, stat } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import mysql from "mysql2/promise";
@@ -370,7 +370,7 @@ async function main() {
         );
         return 2;
       }
-      const dirStat = await stat(opts.uploadsDir).catch(() => null);
+      const dirStat = statSync(opts.uploadsDir, { throwIfNoEntry: false });
       if (!dirStat?.isDirectory()) {
         console.error(`[rehearse] ✗ uploads 目录不存在: ${opts.uploadsDir}`);
         return 2;
