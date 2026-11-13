@@ -30,6 +30,45 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml up -d --bu
 - `SESSION_SECRET` 用 `openssl rand -hex 32` 生成;`MYSQL_PASSWORD` 与 `.env.prod` 的 `DATABASE_URL` 须一致
 - **数据库密码用 `:?` 强制必填**:漏填时 compose 直接报错退出,不会用弱默认值建库
 
+### 1.1 与旧 WP 栈同机换栈(2026-11-14 实战口径)
+
+生产头一回上线时,旧 WordPress 栈还在同一台机上占着 80/443 与宿主机 3306。两栈同机换栈的做法:
+
+| 步骤 | 命令 | 要点 |
+| --- | --- | --- |
+| ① 取源码 | `curl -sL https://codeload.github.com/<repo>/tar.gz/refs/heads/main \| tar xz` | **不要用 `git clone` 拉大仓**:某些网络下 git 的 smart-HTTP 传 pack 会超时(`Connection timed out`),而 HTTPS 取 tarball 是秒级。增量更新时只覆盖源码,**排除 `workspace/` 与 `.env.prod`**(前者是数据卷) |
+| ② 起库 | `up -d mysql redis` | 先只起 db/redis;**caddy 暂不起**(会抢 80/443) |
+| ③ 建表 | `--profile migrate run --rm migrate` | 业务库 schema 由 Prisma 迁移建,不挂 initdb |
+| ④ 灌源库 | WP dump 导入同实例的 `wp_legacy` schema | 源库与目标库必须**同一 MySQL 实例**(见 §2.1) |
+| ⑤ 灌配置 | `system_config` 灌库 | 凭据脚本放宿主 `/tmp` 且 `chmod 600`,**不入库**(本仓是 public) |
+| ⑥ 起 web | `up -d web` | web 只绑 `127.0.0.1:3000`,不抢公网口 |
+| ⑦ 跑迁移链 | 见 §2.1 | 容器内执行,约 40 分钟(真上传 15,303 件) |
+| ⑧ 冒烟 | 见 §4 | 用 `127.0.0.1:3000` 直连验,**不依赖 DNS** |
+| ⑨ 切流 | 停旧栈 → `up -d caddy` | **先停旧栈再起 caddy**(同抢 80/443);caddy 自动签发 Let's Encrypt 证书(DNS 已指向本机时) |
+| ⑩ 巡检 | 见 §4 | 公网入口全项复验 |
+
+**回滚**:DNS 本就不用改(域名一直指向本机),回滚 = `down` 门户 compose + `up -d` 旧栈 compose,约 1 分钟。
+旧栈的容器/卷/库/uploads 一律**保留不删**,它是回滚的最后保险。
+
+**内存**:生产机只有 3.4G 且无 swap 时,Next 构建峰值可用内存会掉到 100MB 上下 → **先加 swap**
+(`fallocate -l 4G /swapfile` + `swapon` + 写 `/etc/fstab`),否则构建会被 OOM 打断。
+
+### 1.2 账号权限的两处额外授权(业务库账号)
+
+`system_config` 里的连接串用的是**业务库账号**(如 `acore_portal`),它默认只对业务库有权限。换栈时另需两条:
+
+```sql
+-- ① 迁移链要读源库 wp_legacy(链的每一步都在读它,缺这条会在第一步 SELECT 失败)
+GRANT SELECT ON wp_legacy.* TO 'acore_portal'@'%';
+-- ② eluna:AC 侧根本没有 eluna 库(老站的 eluna 配置五项全空),
+--    而门户运行时校验要求四库连接串齐 → 在**门户自己的实例**里建一个空库顶上
+CREATE DATABASE IF NOT EXISTS acore_eluna CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT SELECT ON acore_eluna.* TO 'acore_portal'@'%';
+```
+
+> eluna 这条是**权宜之计**:AC 无 eluna 库,门户不该因它起不来(启动自检会真连四库)。
+> 根因修法是把 `gamedb.eluna` 改成可选、自检跳过缺失的库——待单独修。
+
 ## 2. 建库与迁移
 
 生产不发布 DB 端口(外部流量只走 caddy;切换期旧 WP 栈还占着宿主机 3306),迁移用一次性服务在容器网络内完成:
@@ -110,6 +149,23 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml \
 | 商城/游戏通道 | `soap.url` + SOAP 账号 | 真实 worldserver 的 SOAP 端点 |
 | 对象存储 | COS 桶/CDN | 生产桶(COS 未配时媒体落本地 `workspace/uploads` 兜底) |
 | 主题 | `theme.active` + 两套主题的背景图 | `tbc` / `wlk` |
+
+### 3.1 COS 对象的可读性(2026-11-14 实战踩坑)
+
+COS 对象默认**私有**:匿名 GET 返回 403。门户正文里的图是直接引用对象 URL 的
+(迁移链按 `image_asset_map` 改写、运行时上传按 `cdnBase` 拼接),所以对象不可读 = **前台图片全挂**
+(页面本身 200,图裂,比报错更难发现)。
+
+口径:**逐对象**设 `public-read`,**不把整桶设公有读**——桶内 `backups/db`(数据库备份)与
+`media/` 不走上传路径,桶级公有读会一并把它们暴露。
+
+- 迁移链上传已带 `ACL: "public-read"`(`scripts/migrate/cos-upload.mjs`)
+- 门户运行时上传已带 `ACL: "public-read"`(`src/server/services/media/library.ts`)
+- **存量对象补 ACL**:上传时若未带(历史数据),按 `image_asset_map` 的 `new_url` 逐个
+  `putObjectAcl` 补一遍(15,303 个,约 2 分钟)
+
+**排查提醒**:CAM 子账号常无 `GetBucket` 列举权限 → `getBucket` 会返回**空列表而不是报错**,
+看起来像"对象不存在"。验对象是否真在,用 `headObject` 或直接匿名 GET,别信列举结果。
 
 ## 4. 验证清单
 
