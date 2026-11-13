@@ -13,6 +13,7 @@ import rehypeStringify from "rehype-stringify";
 import { visit, SKIP } from "unist-util-visit";
 import type { Element, Root, Text } from "hast";
 import { toSameSiteHref } from "@/constants/legacy-routes";
+import { FORUM_PALETTE_CLASS_RE } from "@/constants/forum-palette";
 
 /**
  * Markdown 渲染管线收口(M3 research R3):
@@ -45,7 +46,11 @@ const sanitizeSchema = {
     h4: ["id"],
     h5: ["id"],
     h6: ["id"],
-    span: [["className", /^hljs[-\w]*$/]],
+    // span 类名白名单:代码高亮 hljs-* + 论坛受限色板 c-{key}(AGENTS 规则 22,
+    // 色键单源 src/constants/forum-palette.ts;style 属性仍全局剥离)。
+    // 同名属性的多正则必须写在同一条 PropertyDefinition(多条目=分别校验,任一
+    // 失败会把值清成空串)
+    span: [["className", /^hljs[-\w]*$/, FORUM_PALETTE_CLASS_RE]],
     a: [
       ...(defaultSchema.attributes?.a ?? []),
       ["dataWowhead", /^(item|spell|npc|quest)=\d+$/],
@@ -82,6 +87,17 @@ function rehypeLegacyLinks() {
   };
 }
 
+/**
+ * 图片域白名单判定(纯函数):站内相对路径或 cdnHosts 白名单域。
+ * 渲染硬闸(rehypeImageAllowlist)与归档列表封面提取(articles.ts)共用,
+ * 两处口径必须一致——列表封面可见 ⇔ 详情页正文图片可见。
+ */
+export function isAllowedImageSrc(src: string, cdnHosts: readonly string[]): boolean {
+  return (
+    src.startsWith("/") || cdnHosts.some((host) => src.startsWith(`https://${host}/`))
+  );
+}
+
 /** 图片域白名单:非法 src 的 img 整节点移除(渲染期硬闸,迁移期重写为前提) */
 function rehypeImageAllowlist(cdnHosts: readonly string[]) {
   return (tree: Root) => {
@@ -90,10 +106,7 @@ function rehypeImageAllowlist(cdnHosts: readonly string[]) {
         return undefined;
       }
       const src = (node.properties?.src as string | undefined) ?? "";
-      const allowed =
-        src.startsWith("/") ||
-        cdnHosts.some((host) => src.startsWith(`https://${host}/`));
-      if (allowed) return undefined;
+      if (isAllowedImageSrc(src, cdnHosts)) return undefined;
       (parent.children as Element[]).splice(index, 1);
       return [SKIP, index];
     });
@@ -253,10 +266,60 @@ export async function renderMarkdown(
   return { html: String(file), toc };
 }
 
+/** 块级标签集合(wpautop 同源):紧邻这些标签的换行不产生 <br> */
+const WP_BLOCK_TAGS =
+  "table|thead|tfoot|caption|col|colgroup|tbody|tr|td|th|div|dl|dd|dt|ul|ol|li|pre|form|map|area|blockquote|address|math|style|p|h[1-6]|hr|fieldset|legend|section|article|aside|hgroup|header|footer|nav|figure|figcaption|details|menu|summary";
+// <pre> 占位符(私有区字符,正文不可能出现)参与块级邻接清理
+const WP_BLOCK_OR_PRE_PLACEHOLDER = `</?(?:${WP_BLOCK_TAGS})[^>]*>|\\uE000\\d+\\uE001`;
+const WP_BR_AFTER_BLOCK = new RegExp(
+  `(${WP_BLOCK_OR_PRE_PLACEHOLDER})\\s*(?:<br\\s*/?>\\s*)+`,
+  "gi",
+);
+const WP_BR_BEFORE_BLOCK = new RegExp(
+  `(?:<br\\s*/?>\\s*)+(${WP_BLOCK_OR_PRE_PLACEHOLDER})`,
+  "gi",
+);
+// 标签内换行占位符(私有区字符,正文不可能出现):与 <pre> 占位同机制
+const WP_TAG_NEWLINE = "\uE002";
+// 标签起点按 HTML5 规则判定:< 之后须是 ASCII 字母或 ! / ?,否则 < 是正文文本
+// (如 C++ 代码的 `x < 1.0f`)。据此切出「标签内部」区间,区间内的换行不转 <br>
+const WP_HTML_TAG = /<[a-zA-Z!/?][^>]*>?/g;
+
+/**
+ * 存量 WP 正文换行还原(wpautop 的换行子集):wp_posts.post_content 是裸文本,
+ * WP 渲染靠 wpautop() 把 \n 转 <p>/<br>;迁移入库只重写图片 URL,裸 \n 在 HTML
+ * 里折叠成空格 → 帖子正文坨成一段(快照库 334/734 条存量帖受影响)。按「单
+ * 换行 = <br>」还原(与 markdown 管线 remarkBreaks 同口径);<pre> 内容原样
+ * 保护;紧邻块级标签的换行不产生 <br>(块间距由块元素自身承担)。不做 <p>
+ * 包裹——正文已有大量显式 <p>,包裹混排会产生非法嵌套。
+ *
+ * 标签内部换行同样保护(WP wpautop 走 wp_replace_in_html_tags 保护标签内换行):
+ * 盲替换会把 <br /> 注进标签内部,渲染时该标签变成畸形(属性丢失,标签残片
+ * 漏成正文可见文本)。
+ */
+function wpautopLineBreaks(html: string): string {
+  if (!html.includes("\n")) return html;
+  const pres: string[] = [];
+  const marked = html
+    .replace(/\r\n?/g, "\n")
+    .replace(/<pre\b[\s\S]*?<\/pre\s*>/gi, (m) => {
+      pres.push(m);
+      return `${pres.length - 1}`;
+    })
+    .replace(WP_HTML_TAG, (m) => m.replace(/\n/g, WP_TAG_NEWLINE));
+  return marked
+    .replace(/\n/g, "<br />\n")
+    .replace(WP_BR_AFTER_BLOCK, "$1\n")
+    .replace(WP_BR_BEFORE_BLOCK, "\n$1")
+    .replace(/(\d+)/g, (_, i) => pres[Number(i)] ?? "")
+    .replace(/\uE002/g, "\n");
+}
+
 /**
  * 存量论坛 HTML 渲染(research R4):rehype-parse fragment → wowhead 标注 →
  * 图片域白名单 → 同一 sanitize 白名单 → stringify。迁移层只做图片 URL 重写,
  * XSS 白名单收口渲染层单点(R4 二次纵深),正文域白名单同 markdown。
+ * 入口先跑 wpautopLineBreaks 还原裸换行(见其注释)。
  */
 export async function renderLegacyHtml(
   html: string,
@@ -270,6 +333,6 @@ export async function renderLegacyHtml(
     .use(rehypeWpItalic)
     .use(rehypeSanitize, sanitizeSchema as never)
     .use(rehypeStringify)
-    .process(html);
+    .process(wpautopLineBreaks(html));
   return String(file);
 }

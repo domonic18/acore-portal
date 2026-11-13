@@ -15,6 +15,10 @@ pnpm migrate:rehearse --list                          # 看权威顺序
 pnpm migrate:rehearse --target acore_portal_rehearsal --fresh --yes          # 演练(不含媒体组)
 pnpm migrate:rehearse --target acore_portal_rehearsal --fresh --yes \
   --with-media --scan-only --cdn-base https://cdn.example.invalid              # 全链演练
+# 生产(容器内跑;表结构已由 compose 的 migrate 服务建好):
+docker compose --env-file .env.prod -f docker/docker-compose.prod.yml \
+  exec web node scripts/migrate/rehearse.mjs --yes --with-media \
+  --skip-prisma --uploads-dir /wp-uploads
 ```
 
 ### 权威顺序(STEPS,写在 `rehearse.mjs` 里,顺序本身就是文档)
@@ -48,9 +52,19 @@ pnpm migrate:rehearse --target acore_portal_rehearsal --fresh --yes \
   是这条的脚枪守卫(`连 A 库、SQL 写 B 库` 与 `静默打到测试栈 3308` 都由此拦下)。
 - 目标库指定:`--target <schema>`;`--fresh` 会 DROP+CREATE 目标 schema,
   **对正式 schema `acore_portal` 拒绝执行**(要重建须显式 `--allow-drop`)。
+- **建表的两条路**:①本地有 prisma CLI(开发机)→ 编排器自己跑 `prisma migrate deploy`;
+  ②生产容器内**没有 pnpm 也没有 prisma CLI**(都在 devDependencies,被 `--prod` 瘦身裁掉)
+  → 用 `--skip-prisma` 跳过,由 prod compose 的 `migrate` 一次性服务(`npx prisma@6.19.3`)建表,
+  编排器再回落 npx 同版本口径(版本升级须与 pnpm-lock 同步)。
 
 ### 媒体组前置(否则编排器会拦停)
 
+- **uploads 目录必须显式给**:`--uploads-dir <dir>`。`cos-upload.mjs` 的默认值是**开发机路径**
+  (`~/Code/lokta/files/wordpress/wp-content/uploads`),生产环境不存在 → 媒体组第一步直接退出,
+  整条链断在开头(2026-11-14 生产切换前发现)。编排器在媒体组开跑前会先校验该目录存在,
+  缺失即以退出码 2 拦停并提示怎么给。
+  - 生产容器内路径:旧站 uploads 目录以**只读**挂载进 web 容器(prod compose 的 `/wp-uploads`),
+    宿主侧用符号链接指向旧栈的 `wp-content/uploads`,仓库里不写死绝对路径。
 - **目标库须有管理员**:`media_asset.uploaded_by` 是非空外键,而迁移链只导 `role=user` 的存量用户,
   **链本身不建管理员**。用 `MIGRATE_ADMIN_USERNAME` / `MIGRATE_ADMIN_PASSWORD` 让编排器代建
   (口令只从 env 读,建完在后台改密);或提前在目标库注册后提权。

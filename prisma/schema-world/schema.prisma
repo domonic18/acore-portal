@@ -28,3 +28,16 @@ model ItemTemplate {
 
   @@map("item_template")
 }
+
+/// 物品本地化名称(只读;AC 真表主键 (ID, locale))
+/// 后台物品选择器显示中文名用(issue #151):item_template.name 是英文名,
+/// 中文名在 item_template_locale 的 zhCN 行。表可能不存在(精简游戏库),
+/// 服务层据此降级为「只显示英文名」,不阻断检索。
+model ItemTemplateLocale {
+  id     Int    @map("ID")
+  locale String @db.VarChar(4)
+  name   String? @map("Name") @db.Text
+
+  @@id([id, locale])
+  @@map("item_template_locale")
+}

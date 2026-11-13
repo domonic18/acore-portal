@@ -16,7 +16,7 @@
 //   node scripts/migrate/rehearse.mjs --target acore_portal_rehearsal --fresh --yes
 //   MIGRATE_DATABASE_URL=… node scripts/migrate/rehearse.mjs --yes
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, stat } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import mysql from "mysql2/promise";
@@ -32,6 +32,9 @@ import { ensureAdmin } from "./lib/admin.mjs";
 
 const MIGRATE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(MIGRATE_DIR, "..", "..");
+
+/** prisma CLI 版本(与 pnpm-lock 的锁定值一致;与 prod compose 的 migrate 服务同口径,升级须同步) */
+const PRISMA_VERSION = "6.19.3";
 
 /**
  * 权威迁移顺序。每步的 `after` 注明它依赖的前序步骤(写在这里=顺序本身就是文档)。
@@ -157,7 +160,16 @@ export const STEPS = [
 ];
 
 function parseArgs(argv) {
-  const opts = { only: [], skip: [], withMedia: false, fresh: false, yes: false, list: false };
+  const opts = {
+    only: [],
+    skip: [],
+    withMedia: false,
+    fresh: false,
+    yes: false,
+    list: false,
+    uploadsDir: undefined,
+    skipPrisma: false,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--target") opts.target = argv[++i];
@@ -166,6 +178,8 @@ function parseArgs(argv) {
     else if (a === "--with-media") opts.withMedia = true;
     else if (a === "--scan-only") opts.scanOnly = true;
     else if (a === "--cdn-base") opts.cdnBase = argv[++i];
+    else if (a === "--uploads-dir") opts.uploadsDir = argv[++i];
+    else if (a === "--skip-prisma") opts.skipPrisma = true;
     else if (a === "--fresh") opts.fresh = true;
     else if (a === "--yes") opts.yes = true;
     else if (a === "--allow-drop") opts.allowDrop = true;
@@ -224,8 +238,19 @@ async function runSqlStep(step) {
   return 0;
 }
 
+/**
+ * 建表(prisma migrate deploy)。
+ * 不用 pnpm:生产镜像做 --prod 瘦身,既没有 pnpm 也没有 prisma CLI(devDependency)。
+ * 口径:①有仓库内 CLI → 直接跑;②没有 → npx 按版本拉(与 prod compose 的 migrate 服务同版本口径,
+ * 版本升级须同步);③显式 --skip-prisma → 完全跳过(生产由 compose 的 migrate 服务建表)。
+ */
 function runPrismaDeploy(targetUrl) {
-  const res = spawnSync("pnpm", ["db:deploy"], {
+  const localCli = path.join(REPO_ROOT, "node_modules", ".bin", "prisma");
+  const args = ["migrate", "deploy", "--schema", "prisma/schema-business/schema.prisma"];
+  const useLocal = existsSync(localCli);
+  const cmd = useLocal ? localCli : "npx";
+  const argv = useLocal ? args : ["--yes", `prisma@${PRISMA_VERSION}`, ...args];
+  const res = spawnSync(cmd, argv, {
     stdio: "inherit",
     cwd: REPO_ROOT,
     env: { ...process.env, DATABASE_URL: targetUrl },
@@ -321,10 +346,14 @@ async function main() {
   if (!mediaMapped) process.env.MIGRATE_MEDIA_PENDING = "1";
 
   // schema 先到位(目标库须已 Prisma migrate)
-  const prismaStatus = runPrismaDeploy(targetUrl);
-  if (prismaStatus !== 0) {
-    console.error("[rehearse] prisma migrate deploy 失败,迁移中止");
-    return prismaStatus;
+  if (opts.skipPrisma) {
+    console.log("[rehearse] 跳过 prisma migrate deploy(--skip-prisma):表结构由外部负责");
+  } else {
+    const prismaStatus = runPrismaDeploy(targetUrl);
+    if (prismaStatus !== 0) {
+      console.error("[rehearse] prisma migrate deploy 失败,迁移中止");
+      return prismaStatus;
+    }
   }
 
   const done = [];
@@ -332,6 +361,20 @@ async function main() {
   try {
     const mediaSelected = steps.some((s) => s.media);
     if (mediaSelected) {
+      // uploads 目录前置:不显式给就用 cos-upload.mjs 的开发机默认值,生产必然不存在
+      // → 步骤直接退出、链断在第一步。故在开跑前拦停并说清怎么给。
+      if (!opts.uploadsDir) {
+        console.error(
+          "[rehearse] ✗ 媒体组需要 uploads 目录:用 --uploads-dir <dir> 显式指定" +
+            "(cos-upload.mjs 的默认值是开发机路径 ~/Code/lokta/files/wordpress/wp-content/uploads,生产不存在)",
+        );
+        return 2;
+      }
+      const dirStat = await stat(opts.uploadsDir).catch(() => null);
+      if (!dirStat?.isDirectory()) {
+        console.error(`[rehearse] ✗ uploads 目录不存在: ${opts.uploadsDir}`);
+        return 2;
+      }
       // 演练占位 CDN(已有真配置不覆盖)
       if (opts.cdnBase) await seedCdnBase(pool, opts.cdnBase);
       // 管理员:目标库没有就按 env 给的口令代建(媒体库回填的 uploaded_by 外键)
@@ -359,8 +402,14 @@ async function main() {
       console.log(`\n[rehearse] ▶ ${step.id} — ${step.title}`);
       let status = 0;
       try {
-        const extraArgs =
-          step.id === "media-cos" && opts.scanOnly ? ["--scan-only"] : [];
+        const extraArgs = [];
+        if (step.id === "media-cos") {
+          if (opts.scanOnly) extraArgs.push("--scan-only");
+          // uploads 目录必须显式给:cos-upload.mjs 的默认值是开发机路径
+          // (~/Code/lokta/files/wordpress/wp-content/uploads),生产环境不存在 →
+          // 步骤直接退出,链断在这里(2026-11-14 切换前发现)。
+          if (opts.uploadsDir) extraArgs.push("--uploads-dir", opts.uploadsDir);
+        }
         status =
           step.kind === "sql" ? await runSqlStep(step) : runNodeStep(step, targetUrl, extraArgs);
       } catch (err) {

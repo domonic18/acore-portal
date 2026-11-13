@@ -13,19 +13,24 @@ import { HomeProductCarousel } from "@/components/site/home-product-carousel";
 import { SectionHeader } from "@/components/site/section-header";
 import { SiteSidebar } from "@/components/site/sidebar/site-sidebar";
 import { getSidebarView } from "@/server/services/sidebar/view";
+import { getServerSession } from "@/server/session-guard";
 
 /**
  * 首页(2026-10 与 ardot 设计稿 p01 对齐):左栏=轮播+最近成就嵌入;
- * 右栏=快捷入口/服务器状态(含当前阶段)/最新公告 5/精选商品(featured 优先回退最新上架),
+ * 右栏=快捷入口/服务器状态(含当前阶段)/最新公告 5/精选商品(登录可见,口径同顶部菜单),
  * 尾部接侧栏(home 类型仅 QQ 群卡;积分显示在页头头像下拉,2026-11-05 收敛)。
- * 轮播空物料整块隐藏,成就 iframe url 空=隐藏;/admin 改动即时生效。
+ * 轮播空物料回落默认 hero 图(区域不留白),成就 iframe url 空=隐藏;/admin 改动即时生效。
  */
 
 /**
  * 快捷入口(设计稿 qlinks 六行,对齐生产原站链接):下载项走教程页锚点,
  * 高清端/解压/登录问题/补丁生效已升格为静态页(硬核模式同),插件教程仍落文章详情页。
+ * authOnly=登录可见(与顶部菜单 SITE_NAV 同口径:积分商店对游客隐藏)。
  */
-const QUICK_LINKS: { title: string; links: { label: string; href: string }[] }[] = [
+const QUICK_LINKS: {
+  title: string;
+  links: { label: string; href: string; authOnly?: boolean }[];
+}[] = [
   {
     title: "项目简介",
     links: [
@@ -68,7 +73,7 @@ const QUICK_LINKS: { title: string; links: { label: string; href: string }[] }[]
     title: "其他",
     links: [
       { label: "英雄榜", href: "/hardcore" },
-      { label: "积分商店", href: "/shop" },
+      { label: "积分商店", href: "/shop", authOnly: true },
       { label: "开发日志", href: "/devlog" },
       { label: "Bug反馈", href: "/forum" },
     ],
@@ -76,8 +81,9 @@ const QUICK_LINKS: { title: string; links: { label: string; href: string }[] }[]
 ];
 
 export default async function HomePage() {
-  const [{ announcements, featuredProducts }, activeBanners, config, serverStatus, forumHighlights, sidebar] =
+  const [session, { announcements, featuredProducts }, activeBanners, config, serverStatus, forumHighlights, sidebar] =
     await Promise.all([
+    getServerSession(),
     getHomeBlocks(),
     listActiveBanners(),
     getConfig(),
@@ -111,7 +117,9 @@ export default async function HomePage() {
                 <div key={row.title}>
                   <p className="text-[15px] font-semibold leading-6 text-highlight">{row.title}</p>
                   <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1 text-[13px] leading-6">
-                    {row.links.map((l, i) => (
+                    {row.links
+                      .filter((l) => session || !l.authOnly)
+                      .map((l, i) => (
                       <span key={l.label} className="whitespace-nowrap">
                         {i > 0 && <span className="mx-1 text-separator">|</span>}
                         <Link href={l.href} className="text-highlight-soft hover:text-highlight-strong hover:underline">
@@ -181,17 +189,20 @@ export default async function HomePage() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-line bg-panel p-5">
-            <SectionHeader title="精选商品" moreHref="/shop" moreLabel="积分商店 →" />
-            {featuredProducts.length === 0 ? (
-              <p className="text-sm text-muted">商品即将上架。</p>
-            ) : (
-              <HomeProductCarousel
-                products={featuredProducts}
-                intervalMs={config.home.carouselIntervalSec * 1000}
-              />
-            )}
-          </section>
+          {/* 精选商品:登录可见(口径同顶部菜单,游客不显示;2026-11-10 用户反馈) */}
+          {session && (
+            <section className="rounded-2xl border border-line bg-panel p-5">
+              <SectionHeader title="精选商品" moreHref="/shop" moreLabel="积分商店 →" />
+              {featuredProducts.length === 0 ? (
+                <p className="text-sm text-muted">商品即将上架。</p>
+              ) : (
+                <HomeProductCarousel
+                  products={featuredProducts}
+                  intervalMs={config.home.carouselIntervalSec * 1000}
+                />
+              )}
+            </section>
+          )}
 
           {/* 当前阶段独立区块已下线(#64):服务器状态卡内含当前阶段 chip 且可点直达渐进锚点,双份冗余 */}
 

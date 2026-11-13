@@ -106,11 +106,26 @@ test("admin 编辑卡片+新增卡片 → 前台侧栏即时生效", async ({ pa
   await page.goto("/admin/sidebar");
   await expect(page.getByTestId("admin-sidebar-manager")).toBeVisible();
 
-  // 改「补丁下载」卡的链接与备注
+  // 折叠行列表:改「补丁下载」卡需先展开编辑器(2026-11-10 UX 重构)
+  await page.getByTestId("sidebar-card-patch-toggle").click();
+  await expect(page.getByTestId("sidebar-card-patch-link-0-href")).toBeVisible();
+  // 展开态右侧有前台效果预览(标题跟随卡片标题)
+  await expect(page.getByTestId("sidebar-card-patch-preview")).toContainText("补丁下载");
   await page.getByTestId("sidebar-card-patch-link-0-href").fill("/tutorial#e2e-patch");
   await page.getByTestId("sidebar-card-patch-link-0-note").fill("E2E 补丁文案");
+  // 收起后编辑器隐藏(折叠交互)
+  await page.getByTestId("sidebar-card-patch-toggle").click();
+  await expect(page.getByTestId("sidebar-card-patch-link-0-href")).toHaveCount(0);
 
-  // 新增一张卡(默认页面范围=静态页),填写标题与唯一链接
+  // 行操作为图标按钮(可访问名走 aria-label):客户端下载下移一位 → 行序即时对调
+  await page.getByRole("button", { name: "下移「客户端下载」" }).click();
+  const [clientTop, patchTop] = await Promise.all([
+    page.getByTestId("sidebar-card-client").boundingBox(),
+    page.getByTestId("sidebar-card-patch").boundingBox(),
+  ]).then((boxes) => [boxes[0]?.y, boxes[1]?.y]);
+  expect(clientTop!).toBeGreaterThan(patchTop!);
+
+  // 新增一张卡(默认页面范围=静态页,新卡自动展开直接可填)
   await page.getByTestId("sidebar-add-card").click();
   // 卡容器与内部输入同前缀(data-testid=sidebar-card-<key>[-字段]),限定 div 取容器
   const newCard = page.locator('div[data-testid^="sidebar-card-custom-"]').last();

@@ -205,6 +205,63 @@ test.describe("US4 用户中心(quickstart S4)", () => {
     await expect(input).toHaveAttribute("placeholder", "未设置");
   });
 
+  test("页头头像与账号总览一致(名字缩略图非随机角色图);375px 信息区与积分表不折行", async ({
+    page,
+  }) => {
+    await login(page);
+    await page.goto("/account/overview");
+
+    // 页头头像 = 名字首字符缩略图(不再是随机角色图 ⇒ 无 <img>)
+    const headerAvatar = page
+      .getByTestId("user-menu-button")
+      .getByTestId("user-avatar");
+    await expect(page.getByTestId("user-menu-button").locator("img")).toHaveCount(0);
+    const initial = (await headerAvatar.innerText()).trim();
+    expect(initial.length).toBeGreaterThan(0);
+
+    // 与账号总览头像同一口径(首字符与底色一致)
+    const overviewAvatar = page.locator("main").getByTestId("user-avatar");
+    await expect(overviewAvatar).toHaveText(initial);
+    expect(
+      await overviewAvatar.evaluate((el) => getComputedStyle(el).backgroundColor),
+    ).toBe(
+      await headerAvatar.evaluate((el) => getComputedStyle(el).backgroundColor),
+    );
+
+    // 375px:个人信息行标签/值同排单行,页面无横向溢出
+    await page.setViewportSize({ width: 375, height: 812 });
+    for (const row of await page.locator("main dl > div").all()) {
+      expect(
+        await row.evaluate((el) => Math.round(el.getBoundingClientRect().height)),
+      ).toBeLessThanOrEqual(30);
+    }
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+      ),
+    ).toBe(true);
+
+    // 积分页:表头单行不折行,窄屏改横向滚动
+    await page.goto("/account/points");
+    const thHeights = await page
+      .locator("thead th")
+      .evaluateAll((els) =>
+        els.map((e) => Math.round(e.getBoundingClientRect().height)),
+      );
+    expect(thHeights.length).toBe(5);
+    expect(new Set(thHeights).size).toBe(1);
+    expect(Math.max(...thHeights)).toBeLessThanOrEqual(45);
+    expect(
+      await page
+        .locator("table")
+        .first()
+        .evaluate((el) => {
+          const wrap = el.parentElement;
+          return !!wrap && wrap.scrollWidth > wrap.clientWidth;
+        }),
+    ).toBe(true);
+  });
+
   test("导航 tab 条:当前项下划线高亮;375px 单行横滚不折行(#63)", async ({ page }) => {
     await login(page);
     await page.goto("/account/settings");

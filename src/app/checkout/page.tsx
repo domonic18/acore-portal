@@ -5,8 +5,8 @@ import { SESSION } from "@/constants/session";
 import { getPointBalance } from "@/server/services/points/view";
 import { getCartLines } from "@/server/services/shop/cart";
 import { listAccountCharacters } from "@/server/services/account/characters";
-import type { CartLine } from "@/server/services/shop/cart";
 import { ContentPanel } from "@/components/site/content-panel";
+import { LineItemsTable } from "@/components/shop/line-items-table";
 import { CheckoutButton } from "@/components/shop/checkout-button";
 
 /**
@@ -14,20 +14,6 @@ import { CheckoutButton } from "@/components/shop/checkout-button";
  * 支付经 POST /api/checkout(服务端事务复检),页面仅呈现不做权威校验。
  * 内容区套 ContentPanel:页面背景图为全站装饰层,文字不可直接压在背景图上。
  */
-
-const CART_PARAM_LABEL: Record<string, string> = {
-  characterGuid: "角色",
-  restoreItemEntry: "恢复物品",
-  unlockName: "目标名字",
-};
-
-function paramDisplay(key: string, value: unknown, guidNames: Map<number, string>): string {
-  const label = CART_PARAM_LABEL[key] ?? key;
-  if (key === "characterGuid" && typeof value === "number") {
-    return `${label}:${guidNames.get(value) ?? `#${value}`}`;
-  }
-  return `${label}:${String(value)}`;
-}
 
 export default async function CheckoutPage() {
   const token = cookies().get(SESSION.ACCESS_COOKIE)?.value;
@@ -81,11 +67,7 @@ export default async function CheckoutPage() {
           </p>
         ) : (
           <>
-            <ul className="mt-4 flex flex-col gap-3">
-              {lines.map((line) => (
-                <CheckoutRow key={line.id} line={line} guidNames={guidNames} />
-              ))}
-            </ul>
+            <LineItemsTable rows={lines} guidNames={guidNames} />
             <footer className="mt-4 flex flex-col items-end gap-3 border-t border-line pt-4">
               <p className="text-sm text-muted">
                 当前余额:
@@ -116,30 +98,5 @@ export default async function CheckoutPage() {
         )}
       </ContentPanel>
     </main>
-  );
-}
-
-function CheckoutRow({ line, guidNames }: { line: CartLine; guidNames: Map<number, string> }) {
-  const params = Object.entries(line.params)
-    .map(([k, v]) => paramDisplay(k, v, guidNames))
-    .join(" · ");
-  return (
-    <li className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-panel p-4">
-      <div className="flex min-w-48 flex-1 flex-col gap-1">
-        <span className="font-semibold text-heading">{line.name}</span>
-        <span className="text-xs text-muted">{params}</span>
-        <span className="flex gap-2 text-xs">
-          {line.onSale && <span className="text-red-400">促销中</span>}
-          {line.soldOut && <span className="text-red-400">已售罄</span>}
-          {!line.published && <span className="text-highlight">已下架</span>}
-        </span>
-      </div>
-      <div className="flex flex-col items-end text-sm text-body">
-        <span className={line.onSale ? "font-semibold text-highlight" : ""}>
-          {line.unitPrice} × {line.qty}
-        </span>
-        <span className="text-muted">小计 {line.subtotal}</span>
-      </div>
-    </li>
   );
 }

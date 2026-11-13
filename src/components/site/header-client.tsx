@@ -16,14 +16,14 @@ import { HeaderUserMenu } from "@/components/site/header-user-menu";
  */
 export function SiteHeaderClient({
   items,
-  portraitUrl,
+  avatarName,
   authed,
   isAdmin,
   points,
   logoUrl,
 }: {
   items: readonly SiteNavItem[];
-  portraitUrl: string;
+  avatarName: string;
   authed: boolean;
   isAdmin: boolean;
   points: number;
@@ -69,7 +69,7 @@ export function SiteHeaderClient({
               <>
                 <UnreadBadge />
                 <HeaderUserMenu
-                  portraitUrl={portraitUrl}
+                  avatarName={avatarName}
                   points={points}
                   isAdmin={isAdmin}
                 />

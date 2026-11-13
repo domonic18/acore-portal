@@ -16,7 +16,7 @@ import {
   type CartParams,
   type ValidatedCartParams,
 } from "@/server/services/shop/param-schemas";
-import { effectivePrice, isOnSale } from "@/server/services/catalog/products";
+import { effectivePrice, isOnSale, normalizeProductImages } from "@/server/services/catalog/products";
 import { getUserPurchasedQty } from "@/server/services/catalog/purchase-limit";
 
 /**
@@ -200,6 +200,7 @@ export type CartLine = {
   slug: string;
   name: string;
   sku: string;
+  image: string | null;
   unitPrice: number;
   onSale: boolean;
   qty: number;
@@ -221,6 +222,7 @@ export async function getCartLines(userId: bigint): Promise<CartLine[]> {
           slug: true,
           name: true,
           sku: true,
+          images: true,
           status: true,
           price: true,
           salePrice: true,
@@ -242,6 +244,7 @@ export async function getCartLines(userId: bigint): Promise<CartLine[]> {
       slug: p.slug,
       name: p.name,
       sku: p.sku,
+      image: normalizeProductImages(p.images)[0] ?? null,
       unitPrice,
       onSale: isOnSale(p, now),
       qty: r.qty,

@@ -14,6 +14,7 @@ const RUN = Date.now().toString(36);
 const CATEGORY_SLUG = `e2eshop-${RUN}`;
 const ITEM_SLUG = `e2eshop-item-${RUN}`;
 const SOLDOUT_SLUG = `e2eshop-soldout-${RUN}`;
+const RESTORE_SLUG = `e2eshop-restore-${RUN}`;
 const TAMPER_GUID = 20;
 
 async function login(page: Page) {
@@ -69,6 +70,17 @@ test.beforeAll(async () => {
         stockEnabled: true,
         stock: 0,
         gameItemId: 19021,
+        categoryId: category.id,
+      },
+      {
+        sku: `item-restore-${RUN}`,
+        slug: RESTORE_SLUG,
+        name: `E2E 物品恢复 ${RUN}`,
+        description: "恢复列表中文名",
+        type: "service",
+        handlerKey: "item-restoration",
+        status: "published",
+        price: 100,
         categoryId: category.id,
       },
     ],
@@ -136,7 +148,7 @@ test.describe("US2 商城与购物车(T026)", () => {
 
     await page.getByRole("button", { name: "增加数量" }).click();
     await expect(page.getByLabel("数量", { exact: true })).toHaveText("2");
-    await expect(page.getByText("小计 1000")).toBeVisible();
+    await expect(page.getByTestId("line-subtotal").first()).toHaveText("1000");
 
     await page.getByRole("button", { name: "移除" }).click();
     await expect(page.getByText("购物车还是空的")).toBeVisible();
@@ -169,6 +181,18 @@ test.describe("US2 商城与购物车(T026)", () => {
     await expect(page.getByRole("button", { name: "已售罄" })).toBeDisabled();
   });
 
+  test("物品恢复选物列表显示中文名,无模板行回落 #entry(#174)", async ({ page }) => {
+    await login(page);
+    await page.goto(`/shop/${RESTORE_SLUG}`);
+    await page.getByLabel("选择角色").selectOption("10");
+    // seed:guid 10 → 19019(模板+zhCN)/ 17182(无模板行)
+    await expect(page.getByText("限量测试坐骑")).toBeVisible();
+    await expect(page.getByText("物品 #17182")).toBeVisible();
+    await expect(page.getByText("(数据缺失,暂不可恢复)")).toBeVisible();
+    // 有中文名时不再展示英文名
+    await expect(page.getByText("测试坐骑·限量")).toHaveCount(0);
+  });
+
   test("商品图片图库与详情 Markdown(2026-10-26 WP 对齐)", async ({ page }) => {
     // 列表卡:有图商品显示主图(替换 emoji 占位)
     await page.goto("/shop");
@@ -184,6 +208,46 @@ test.describe("US2 商城与购物车(T026)", () => {
     const md = page.getByTestId("product-detail-md");
     await expect(md.getByRole("heading", { name: "E2E 商品详情" })).toBeVisible();
     await expect(md.getByRole("strong")).toContainText("加粗");
+  });
+
+  test("商品图片不再带紫色渐变底(#157)", async ({ page }) => {
+    await page.goto("/shop");
+    const card = page.getByRole("listitem").filter({ hasText: `E2E 测试坐骑 ${RUN}` });
+    const img = card.getByRole("img", { name: `E2E 测试坐骑 ${RUN}` });
+    await expect(img).toBeVisible();
+    // 期望:图片完整显示 + 背景与站点风格一致(中性面板色),不再是紫色渐变
+    await expect(img).not.toHaveClass(/from-indigo-950/);
+    await expect(img).toHaveClass(/bg-panel-inset/);
+    await expect(img).toHaveClass(/aspect-square/);
+
+    await page.goto(`/shop/${ITEM_SLUG}`);
+    const gallery = page.getByTestId("product-gallery");
+    await expect(gallery.getByRole("img", { name: `E2E 测试坐骑 ${RUN}` })).not.toHaveClass(
+      /from-indigo-950/,
+    );
+  });
+
+  test("详情页展示其他商品推荐(#158)", async ({ page }) => {
+    await page.goto(`/shop/${ITEM_SLUG}`);
+    const related = page.getByTestId("product-related");
+    await expect(related).toBeVisible();
+    await expect(related).toContainText("其他商品推荐");
+    // 同分类的另一件商品出现在推荐位
+    await expect(related.getByText(`E2E 售罄商品 ${RUN}`)).toBeVisible();
+    // 推荐位不含当前商品
+    await expect(related.getByText(`E2E 测试坐骑 ${RUN}`)).toHaveCount(0);
+    // 点击推荐商品可跳转
+    await related.getByText(`E2E 售罄商品 ${RUN}`).click();
+    await expect(page).toHaveURL(new RegExp(`/shop/${SOLDOUT_SLUG}$`));
+  });
+
+  test("商店页右上角购物车为图标入口(非纯文字,#160)", async ({ page }) => {
+    await page.goto("/shop");
+    const entry = page.getByTestId("shop-cart-entry");
+    await expect(entry).toBeVisible();
+    await expect(entry).toHaveAttribute("href", "/cart");
+    await expect(entry.locator("svg")).toBeVisible();
+    await expect(entry).toHaveText(/购物车/);
   });
 
   test("商品详情不再外链 Wowhead(大陆不可达,#153)", async ({ page }) => {
@@ -217,5 +281,52 @@ test.describe("US2 商城与购物车(T026)", () => {
     });
     expect(audit).not.toBeNull();
     expect((audit?.payloadJson as { scope?: string }).scope).toBe("cart_add");
+  });
+
+  test("购物车/结算页行项表带产品/价格/数量/小计表头(#154)", async ({ page }) => {
+    await login(page);
+    await page.goto(`/shop/${ITEM_SLUG}`);
+    await page.getByLabel("选择角色").selectOption("10");
+    await page.getByRole("button", { name: "加入购物车" }).click();
+    await expect(page.getByRole("status")).toContainText("已加入购物车");
+
+    const headers = ["产品", "价格", "数量", "小计"];
+    await page.goto("/cart");
+    for (const h of headers) {
+      await expect(page.getByRole("columnheader", { name: h, exact: true })).toBeVisible();
+    }
+    // 行内列含义对得上:小计=单价×数量
+    await expect(page.getByTestId("line-subtotal").first()).toHaveText("500");
+    // 行项显示商品主图,不是占位图标(#172)
+    await expect(page.getByRole("img", { name: `E2E 测试坐骑 ${RUN}` })).toBeVisible();
+
+    await page.goto("/checkout");
+    for (const h of headers) {
+      await expect(page.getByRole("columnheader", { name: h, exact: true })).toBeVisible();
+    }
+    await expect(page.getByTestId("line-subtotal").first()).toHaveText("500");
+    await expect(page.getByRole("img", { name: `E2E 测试坐骑 ${RUN}` })).toBeVisible();
+
+    // 清理:移除该行,避免污染后续用例
+    await page.goto("/cart");
+    await page.getByRole("button", { name: "移除" }).click();
+    await expect(page.getByText("购物车还是空的")).toBeVisible();
+  });
+
+  test("购物车页显示当前积分与本次需花费积分(#155)", async ({ page }) => {
+    await login(page);
+    await page.goto(`/shop/${ITEM_SLUG}`);
+    await page.getByLabel("选择角色").selectOption("10");
+    await page.getByRole("button", { name: "加入购物车" }).click();
+    await expect(page.getByRole("status")).toContainText("已加入购物车");
+
+    await page.goto("/cart");
+    await expect(page.getByText("当前积分:")).toBeVisible();
+    await expect(page.getByText("本次需花费:")).toBeVisible();
+    // 本次需花费 = 行小计合计(单价 500 × 1)
+    await expect(page.getByText(/本次需花费:\s*500\s*积分/)).toBeVisible();
+
+    await page.getByRole("button", { name: "移除" }).click();
+    await expect(page.getByText("购物车还是空的")).toBeVisible();
   });
 });

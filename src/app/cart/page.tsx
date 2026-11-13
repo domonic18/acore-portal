@@ -2,36 +2,19 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { getSessionFromToken } from "@/lib/auth/session";
 import { SESSION } from "@/constants/session";
-import { ITEMSEND_SKU_PREFIX } from "@/constants/shop";
+import { getPointBalance } from "@/server/services/points/view";
 import { getCartLines } from "@/server/services/shop/cart";
 import { listAccountCharacters } from "@/server/services/account/characters";
-import type { CartLine } from "@/server/services/shop/cart";
 import { ContentPanel } from "@/components/site/content-panel";
-import { CartLineControls } from "@/components/shop/cart-line-controls";
+import { LineItemsTable } from "@/components/shop/line-items-table";
 
 /**
  * T024 购物车页(/cart 旧路径不变 FR-109):游客引导登录(FR-111/112);
  * 登录态行参数逐行可见复核(characterGuid 映射角色名,游戏库不可达降级 #guid);
- * 售罄/下架行可见但标记,结算拦截在 US3 结账层。
+ * 售罄/下架行可见但标记,结算拦截在 US3 结账层;
+ * 结算前展示玩家当前积分与本次需花费积分(#155)。
  * 内容区套 ContentPanel:页面背景图为全站装饰层,文字不可直接压在背景图上。
  */
-
-const CART_PARAM_LABEL: Record<string, string> = {
-  characterGuid: "角色",
-  restoreItemEntry: "恢复物品",
-  unlockName: "目标名字",
-};
-
-function paramDisplay(key: string, value: unknown, guidNames: Map<number, string>): string {
-  const label = CART_PARAM_LABEL[key] ?? key;
-  if (key === "characterGuid" && typeof value === "number") {
-    return `${label}:${guidNames.get(value) ?? `#${value}`}`;
-  }
-  if (key === "restoreItemEntry" && typeof value === "number") {
-    return `${label}:#${value}`;
-  }
-  return `${label}:${String(value)}`;
-}
 
 export default async function CartPage() {
   const token = cookies().get(SESSION.ACCESS_COOKIE)?.value;
@@ -54,9 +37,11 @@ export default async function CartPage() {
     );
   }
 
-  const [lines, characters] = await Promise.all([
-    getCartLines(BigInt(session.userId)),
-    listAccountCharacters(BigInt(session.userId)).catch(() => null),
+  const userId = BigInt(session.userId);
+  const [lines, characters, balance] = await Promise.all([
+    getCartLines(userId),
+    listAccountCharacters(userId).catch(() => null),
+    getPointBalance(userId),
   ]);
   const guidNames = new Map((characters ?? []).map((c) => [c.guid, c.name]));
   const total = lines.reduce((sum, l) => sum + l.subtotal, 0);
@@ -82,14 +67,23 @@ export default async function CartPage() {
           </p>
         ) : (
           <>
-            <ul className="mt-4 flex flex-col gap-3">
-              {lines.map((line) => (
-                <CartRow key={line.id} line={line} guidNames={guidNames} />
-              ))}
-            </ul>
+            <LineItemsTable rows={lines} guidNames={guidNames} editable />
             <footer className="mt-4 flex flex-col items-end gap-3 border-t border-line pt-4">
+              <p className="text-sm text-muted">
+                当前积分:
+                <span
+                  className={
+                    balance !== null && balance < total
+                      ? "font-semibold text-red-400"
+                      : "font-semibold text-heading"
+                  }
+                >
+                  {balance ?? "不可用"}
+                </span>
+              </p>
               <p className="text-lg text-body">
-                合计:<span className="font-bold text-highlight">{total}</span>
+                本次需花费:
+                <span className="font-bold text-highlight">{total}</span> 积分
               </p>
               {blocked && (
                 <p className="text-sm text-highlight">
@@ -107,42 +101,5 @@ export default async function CartPage() {
         )}
       </ContentPanel>
     </main>
-  );
-}
-
-function CartRow({ line, guidNames }: { line: CartLine; guidNames: Map<number, string> }) {
-  const params = Object.entries(line.params)
-    .map(([k, v]) => paramDisplay(k, v, guidNames))
-    .join(" · ");
-  return (
-    <li className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-panel p-4">
-      <div
-        aria-hidden
-        className="flex h-16 w-16 items-center justify-center rounded bg-gradient-to-br from-panel-inset to-panel text-2xl"
-      >
-        {line.sku.startsWith(ITEMSEND_SKU_PREFIX) ? "⚔" : "🛠"}
-      </div>
-      <div className="flex min-w-48 flex-1 flex-col gap-1">
-        <Link
-          href={`/shop/${line.slug}`}
-          className="font-semibold text-heading hover:text-link"
-        >
-          {line.name}
-        </Link>
-        <span className="text-xs text-muted">{params}</span>
-        <span className="flex gap-2 text-xs">
-          {line.onSale && <span className="text-red-400">促销中</span>}
-          {line.soldOut && <span className="text-red-400">已售罄</span>}
-          {!line.published && <span className="text-highlight">已下架</span>}
-        </span>
-      </div>
-      <div className="flex flex-col items-end text-sm text-body">
-        <span className={line.onSale ? "font-semibold text-highlight" : ""}>
-          {line.unitPrice} × {line.qty}
-        </span>
-        <span className="text-muted">小计 {line.subtotal}</span>
-      </div>
-      <CartLineControls itemId={line.id} qty={line.qty} soldOut={line.soldOut} />
-    </li>
   );
 }

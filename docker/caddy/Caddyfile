@@ -37,3 +37,16 @@
 	# HSTS 注释说明:全站 HTTPS 稳定后再开 includeSubDomains
 	# (带 includeSubDomains 时子域名未全量 https 会锁死)
 }
+
+# www → 主域 301(2026-11-14 补:老站这跳是 WordPress 的 canonical 提供的,
+# nginx 里没有,新栈是 Next.js 不自带 → 不复刻会让 www 与主域重复内容)
+www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}
+
+# api.lokta.cn:老站的排行榜 wrapper 栈(wow_web)已停用(2026-11-14 决定),
+# 明确回 410 Gone —— 不定义该站点的话,请求会落到默认站点被当门户首页处理。
+api.lokta.cn {
+	respond "该子站已停用" 410
+}
+

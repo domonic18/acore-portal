@@ -142,6 +142,9 @@ async function seedContent() {
   const announcements = await prisma.articleCategory.findUniqueOrThrow({
     where: { slug: "announcements" },
   });
+  const news = await prisma.articleCategory.findUniqueOrThrow({
+    where: { slug: "news" },
+  });
   const now = new Date();
   const articleSeed = [
     {
@@ -259,6 +262,20 @@ async function seedContent() {
       },
     });
   }
+  // 资讯卡片封面 fixture:正文首图(站内相对路径,免 COS 配置即过图片域白名单)
+  await prisma.article.upsert({
+    where: { slug: "seed-news-cover" },
+    update: {},
+    create: {
+      slug: "seed-news-cover",
+      title: "种子资讯:带封面图",
+      bodyMd: "![封面](/images/banner-wotlk.svg)\n\n这是一篇带封面的种子资讯。",
+      excerpt: "资讯列表卡片展示正文首图作为封面。",
+      categoryId: news.id,
+      status: "published",
+      publishedAt: new Date(now.getTime() - 2 * 86_400_000),
+    },
+  });
   const progressionSeed = [
     { title: "第一阶段·开放测试", days: -30, status: "open" as const },
     { title: "第二阶段·熔火之心", days: 7, status: "open" as const },
