@@ -110,6 +110,10 @@ export async function uploadAndMap(pool, uploadsDir, { scanOnly = false } = {}) 
         Region: cos.region,
         Key: f.relPath,
         Body: await readFile(f.absPath),
+        // 迁移的媒体是前台直接引用的公开内容,对象默认私有 → 匿名 GET 403,正文图全挂。
+        // 逐对象设公有读而非把整桶设公有读:桶内 backups/db(数据库备份)与 media/ 不在这条路径上,
+        // 必须保持私有(2026-11-14 生产切换实测)。
+        ACL: "public-read",
       });
       uploaded++;
     }
