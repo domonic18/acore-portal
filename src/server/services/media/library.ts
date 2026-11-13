@@ -147,6 +147,10 @@ export async function uploadMediaAssets(
           Key: cosKey,
           Body: Buffer.from(f.bytes),
           ContentType: f.mimeType,
+          // 媒体是要在前台直接展示的公开内容,而对象默认私有 → 匿名 GET 403,
+          // 正文里的图全挂(2026-11-14 生产切换实测)。
+          // 只给**媒体对象**设公有读,桶本身保持私有:桶内 backups/db 等目录不在这条路径上。
+          ACL: "public-read",
         });
       } catch {
         throw new MediaError("COS_UNAVAILABLE", "对象存储暂不可用,请稍后重试。");
