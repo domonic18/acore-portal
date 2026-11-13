@@ -74,6 +74,10 @@ services:
     volumes:
       # 无 COS 时的媒体本地上传回退(COS 已配则此目录只兜底)
       - ../workspace/uploads:/app/workspace/uploads
+      # 旧站 uploads 目录(只读):迁移链的 media-cos 步骤要读它并把文件真传 COS。
+      # 该目录在宿主机上是符号链接(指向旧栈的 wp-content/uploads),实际指向由部署方决定,
+      # 仓库里不写死任何绝对路径。缺这个挂载时链的第一步会因找不到目录而失败。
+      - ../workspace/wp-uploads:/wp-uploads:ro
     depends_on:
       mysql:
         condition: service_healthy
