@@ -59,10 +59,23 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml --profile 
 
 **② 生产迁移链需要一个有仓库与依赖的运行环境。**
 
-宿主机跑 `pnpm migrate:rehearse` 要求宿主机有 node 22 + pnpm + 依赖已装;
-生产镜像做的是 `--prod` 瘦身,迁移链要用到的 `mysql2`/`bcrypt`/`dotenv` 虽在生产依赖内,
-但仓库代码与 `scripts/` 不在镜像里。切换前二选一:宿主机装好依赖跑,或给 compose 加一个
-带完整镜像的迁移服务(勿改 §2 的 prisma 迁移服务,两者职责不同)。
+生产镜像做的是 `--prod` 瘦身,但**仓库代码与 `scripts/` 是在镜像里的**(`Dockerfile` 的 `COPY . .`;
+`.dockerignore` 只排 `docs/`、`specs/`)。真正缺的是**依赖归属**:迁移链要用到的 `dotenv`/`mysql2`/`tsx`
+原在 devDependencies,被 `pnpm install --prod` 裁掉(2026-11-14 修正:此前本文档写「mysql2/bcrypt/dotenv
+虽在生产依赖内」是错的——`bcrypt`/`turndown`/`cos-nodejs-sdk-v5` 确实在,`dotenv`/`mysql2` 不在)。
+
+**现行做法(2026-11-14 起)**:已把 `dotenv`/`mysql2`/`tsx` 移进 production 依赖,故迁移链**直接在 web
+容器内跑**,宿主机无需 node/pnpm:
+
+```bash
+docker compose --env-file .env.prod -f docker/docker-compose.prod.yml \
+  exec web node scripts/migrate/rehearse.mjs --yes --with-media
+```
+
+前置:`MIGRATE_DATABASE_URL` 指向**目标库**(同实例的正式库),`MIGRATE_SOURCE_SCHEMA=wp_legacy`(源 schema),
+`MIGRATE_ADMIN_USERNAME`/`MIGRATE_ADMIN_PASSWORD` 显式给(编排器默认用户名 `cutover-admin`,口令无默认值)。
+`tsx` 一并移入是因为生产 crontab 的 `scripts/cron/*.ts` 也需要它(运行时镜像无 pnpm,调用
+`./node_modules/.bin/tsx`)。**勿改 §2 的 prisma 迁移服务**,两者职责不同。
 
 **③ 迁移链自己要建管理员(媒体组回填的硬前提)。**
 
@@ -76,6 +89,14 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml --profile 
 `wp_statistics_visitor` / `wp_baiduseo_zhizhu`。旧站下线后这些表消失,站点访问统计区块会空/报错。
 切换前须确认:要么把 `wp_legacy` 作为长期只读库保留(不进生产 compose 也得有可达的实例),
 要么改 `traffic.ts` 改读自建的 `page_view_event` 表(自建采集已上线,数据源本就在新库)。
+
+**现行做法(2026-11-14 拍板)**:选前者——`wp_legacy` **作为生产 MySQL 实例内的长期只读 schema 保留**
+(迁移链的源库与目标库同实例,天然满足)。因此:
+
+- 该 schema **不得被迁移链的 `--fresh` 删除**(`--fresh` 只作用目标 schema,但操作前仍须确认目标库名);
+- `wp_statistics_*` / `wp_baiduseo_*` 这些「二期后置池」数据**在门户运行时仍被读**,不是死数据——
+  切换后不可从生产实例里删;
+- 迁移链的源/目标连接口径:`MIGRATE_DATABASE_URL`=目标库,`MIGRATE_SOURCE_SCHEMA=wp_legacy`。
 
 ## 3. 业务通道配置(部署后进后台配)
 
