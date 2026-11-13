@@ -44,13 +44,9 @@ www.{$SITE_DOMAIN} {
 	redir https://{$SITE_DOMAIN}{uri} permanent
 }
 
-# api.lokta.cn → 排行榜 wrapper(wow_web 容器)。
-# 老站由 nginx 的 wow_wrapper_proxy.conf 反代(proxy_pass http://wow_web:80 + Host $host),
-# 老栈下线后这层代理消失 → 在此复刻,口径与老站一致(Host 透传为 api.lokta.cn)。
-# wow_web 与老栈同在 local-shared-net;prod compose 已把 caddy 接入该网(external)。
+# api.lokta.cn:老站的排行榜 wrapper 栈(wow_web)已停用(2026-11-14 决定),
+# 明确回 410 Gone —— 不定义该站点的话,请求会落到默认站点被当门户首页处理。
 api.lokta.cn {
-	reverse_proxy wow_web:80 {
-		header_up Host api.lokta.cn
-	}
+	respond "该子站已停用" 410
 }
 
