@@ -59,10 +59,9 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml \
 
 ### 媒体组前置(否则编排器会拦停)
 
-- **uploads 目录必须显式给**:`--uploads-dir <dir>`。`cos-upload.mjs` 的默认值是**开发机路径**
-  (`~/Code/lokta/files/wordpress/wp-content/uploads`),生产环境不存在 → 媒体组第一步直接退出,
-  整条链断在开头(2026-11-14 生产切换前发现)。编排器在媒体组开跑前会先校验该目录存在,
-  缺失即以退出码 2 拦停并提示怎么给。
+- **uploads 目录必须显式给**:`--uploads-dir <dir>`。`cos-upload.mjs` 的默认值是**开发机路径**,
+  生产环境不存在 → 媒体组第一步直接退出,整条链断在开头。编排器在媒体组开跑前会先校验该目录
+  存在,缺失即以退出码 2 拦停并提示怎么给。
   - 生产容器内路径:旧站 uploads 目录以**只读**挂载进 web 容器(prod compose 的 `/wp-uploads`),
     宿主侧用符号链接指向旧栈的 `wp-content/uploads`,仓库里不写死绝对路径。
 - **目标库须有管理员**:`media_asset.uploaded_by` 是非空外键,而迁移链只导 `role=user` 的存量用户,
@@ -84,7 +83,15 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml \
    而非"image_asset_map 有 N 行"。行数只是中间指标。
 4. **写入前回答"谁读这张表"**:列出产物的全部消费者;应用读 A 表就写 A 表,
    映射台账 ≠ 应用库。每个消费者要么有写入路径,要么留下"不同步"的决策记录。
-5. **跑完即对账**:`DATABASE_URL=… node scripts/migrate/reconcile.mjs`(全链统一断言器,
+5. **买家/作者的来源字段要逐个核实,不要想当然取 `post_author`**:WooCommerce 经典存储下
+   **订单的 `post_author` 是站点创建者**(不是下单人),**真正的买家在 `wp_postmeta._customer_user`**;
+   拿 `post_author` 映射会把全部订单挂到同一个用户名下(表现为「订单列表的用户全是同一个人」)。
+   论坛主题/回复与文章的 `post_author` 才是真作者——只有商城订单是特例。
+   做法:INSERT 改从 `_customer_user` 取买家(缺失/0 才回落 `post_author`),并加一段幂等纠正
+   UPDATE(已入库订单的 INSERT 是 no-op ODKU、不会改买家,重跑才自愈)。
+   **MySQL 8.4 已移除 `VALUES()`,且 `INSERT…SELECT` 不支持行别名** → 纠正只能写 UPDATE 段,
+   不能写 `ON DUPLICATE KEY UPDATE col = VALUES(col)`。
+6. **跑完即对账**:`DATABASE_URL=… node scripts/migrate/reconcile.mjs`(全链统一断言器,
    有不可解释差额即退出码 1)。媒体三方对账用 `node scripts/migrate/verify.mjs`。
    新迁移涉及新表时,把对账项加进对账器(保持只读、幂等)。
 

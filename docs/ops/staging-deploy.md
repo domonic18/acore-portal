@@ -12,8 +12,8 @@
 
 ## 0. 一句话
 
-`push → develop` 且**质量门禁 + 迁移守卫全绿** → 自托管 runner 在 Mac Mini 上重建测试栈 web 镜像并滚动；
-**失败自动回滚镜像**；MySQL / Redis 数据卷原地复用,不动。
+`push → develop` 且**质量门禁 + 迁移守卫全绿** → CI 构建并推送镜像 → 自托管 runner 从 TCR 拉该镜像
+滚动测试栈；**失败自动回滚镜像**；MySQL / Redis 数据卷原地复用,不动。
 
 ---
 
@@ -29,6 +29,7 @@ check ─┬─ build ─┬─ integration ─┬─ db-migration-guard ─┬�
 
 - **`push` 到 `develop` 且全绿才部署**；PR 与 `main` push 只跑门禁不部署
   (main 的 push 只构建 amd64 镜像,生产发布另需人工确认,见 `production-deploy.md` §7)。
+  另可 `workflow_dispatch` 手动触发(选 `develop` 分支)验证整条链路。
 - `docker-release` 产出镜像并推到 TCR(`ccr.ccs.tencentyun.com/lokta/acore-portal:<tag>`),
   `deploy-staging` 从 TCR 拉取该 tag 部署——**测试环境不再本地 build**
   (与生产同一条镜像通道,避免"测过的镜像≠发布的镜像")。
