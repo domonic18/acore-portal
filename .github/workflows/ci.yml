@@ -445,8 +445,14 @@ jobs:
             "cd '$DEPLOY_PATH' || { echo 'ERROR: 部署目录不存在:$DEPLOY_PATH' >&2; exit 1; }; sudo docker compose version >/dev/null 2>&1 || { echo 'ERROR: 生产机缺少 compose v2 CLI 插件(docker compose 不可用)' >&2; exit 1; }; echo '生产机预检通过'"
       - name: 记录发布前现场
         run: |
+          # 只读记录,不该因某个文件不存在而失败(首次 CI 发布时 .deploy-state 与
+          # .env.prod 的 WEB_IMAGE 都还没有)——所以每段各自兜住,不用 && 串。
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_HOST" \
-            "cd '$DEPLOY_PATH' && echo '--- 当前状态文件 ---' && cat .deploy-state 2>/dev/null; echo '--- 当前镜像钉 ---' && grep -E '^WEB_IMAGE=' .env.prod 2>/dev/null; echo '--- 当前运行镜像 ---' && sudo docker compose --env-file .env.prod -f docker/docker-compose.prod.yml ps --format '{{.Service}} {{.Image}} {{.State}}' 2>/dev/null"
+            "cd '$DEPLOY_PATH' || exit 1; \
+             echo '--- 当前状态文件 ---'; cat .deploy-state 2>/dev/null || echo '(无)'; \
+             echo '--- 当前镜像钉 ---'; grep -E '^WEB_IMAGE=' .env.prod 2>/dev/null || echo '(未钉)'; \
+             echo '--- 当前运行镜像 ---'; sudo docker compose --env-file .env.prod -f docker/docker-compose.prod.yml ps --format '{{.Service}} {{.Image}} {{.State}}' 2>/dev/null || true; \
+             exit 0"
       - name: 同步部署资产到服务器
         run: |
           set -eu
