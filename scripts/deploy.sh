@@ -82,8 +82,17 @@ docker compose version >/dev/null 2>&1 || die "缺 compose v2 CLI 插件(docker 
 # tag 形态校验:短 tag 不可变是回滚能精确到版本的前提
 echo "$IMAGE_TAG" | grep -Eq '^(main|develop)-[0-9a-f]{7,40}$' \
   || die "非法镜像 tag: $IMAGE_TAG(须形如 main-xxxxxxx / develop-xxxxxxx)"
+# tag 前缀与环境强绑定:生产只收 main-*(linux/amd64),测试只收 develop-*(linux/arm64)。
+# 这同时挡住「拿错分支的镜像」与「架构不匹配的镜像」两类事故。
+case "$ENV_NAME" in
+staging) echo "$IMAGE_TAG" | grep -q '^develop-' || die "测试环境只接受 develop-* tag(收到 $IMAGE_TAG)";;
+prod)    echo "$IMAGE_TAG" | grep -q '^main-'    || die "生产环境只接受 main-* tag(收到 $IMAGE_TAG)";;
+esac
 
 IMAGE_REF="$REGISTRY/$DEPLOY_NAMESPACE/$IMAGE_NAME:$IMAGE_TAG"
+
+# 宿主架构:发布前校验镜像架构与之相符(生产是 x86_64 Linux,须 amd64 镜像)
+HOST_ARCH="$(docker info --format '{{.Architecture}}' 2>/dev/null || echo unknown)"
 
 # ---------------------------------------------------------------- 状态与回滚
 
@@ -122,10 +131,18 @@ pull_image() {
   # 短 tag 不可变:拉取失败但本地已有同 tag 镜像时继续走(回滚场景下仓库可能不可达)
   if docker image inspect "$IMAGE_REF" >/dev/null 2>&1; then
     log "本地已有镜像 $IMAGE_REF,跳过拉取"
-    return 0
+  else
+    log "拉取镜像 $IMAGE_REF"
+    docker pull "$IMAGE_REF"
   fi
-  log "拉取镜像 $IMAGE_REF"
-  docker pull "$IMAGE_REF"
+  # 架构闸:镜像架构必须与宿主一致(生产是 x86_64 Linux → 必须是 amd64 镜像)。
+  # 架构不符时容器会以 exec format error 起不来,与其等健康检查失败才发现,不如在此拦停。
+  local img_arch
+  img_arch="$(docker image inspect --format '{{.Architecture}}' "$IMAGE_REF" 2>/dev/null || echo unknown)"
+  if [ "$HOST_ARCH" != "unknown" ] && [ "$img_arch" != "$HOST_ARCH" ]; then
+    die "镜像架构与宿主不符:镜像=$img_arch 宿主=$HOST_ARCH($IMAGE_REF)。生产为 x86_64,须用 amd64 镜像"
+  fi
+  log "镜像架构校验通过:$img_arch(宿主 $HOST_ARCH)"
 }
 
 cleanup_images() { # 当前 tag 回滚目标 tag

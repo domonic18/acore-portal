@@ -17,11 +17,15 @@
 #                  tag = 分支-提交短号(develop-xxxxxxx / main-xxxxxxx),短 tag 不可变
 #                  ⇒ 部署侧可精确回滚到任一历史版本;main 额外打 latest。
 #   deploy-staging —— 测试环境自动部署(push develop 时,自托管 runner 落 Mac Mini 常驻栈)。
-#   deploy-production —— 生产环境发布(push main 时;**Environment 人工审批后方可执行**;
-#                  仓库为 public,主机地址与部署路径一律走仓库变量,SSH 密钥与指纹走仓库 secret)。
+#   deploy-production —— 生产环境发布(**由 workflow_dispatch 人工触发**:main 合并只构建
+#                  镜像、不部署;人须在 Actions 页点 Run workflow 确认)。
+#                  仓库为 public,主机地址与部署路径一律走仓库变量,SSH 密钥与指纹走仓库 secret。
 #
-# 镜像来源与架构:测试栈在 Mac Mini(arm64)原生构建 arm64 镜像、生产栈在 x86_64 机器上拉
-# amd64 镜像——**不做交叉模拟**(Next.js 在 QEMU 下运行极慢,不值得为"同一架构"牺牲可用性)。
+# 镜像来源与架构(**生产是 x86_64 Linux,必须是 amd64 镜像**):
+#   develop → linux/arm64 —— 测试栈跑在 Mac Mini(arm64)上,原生构建原生运行;
+#   main    → linux/amd64 —— 生产栈在 x86_64 Linux 上,原生构建原生运行。
+#   两端**不做交叉模拟**(Next.js 在 QEMU 下运行极慢,不值得为"同一架构"牺牲可用性);
+#   部署脚本另有两道闸:tag 前缀与环境强绑定(prod 只收 main-*)、镜像架构须与宿主一致。
 #
 # E2E 单独成档(.github/workflows/e2e.yml):需浏览器与邮件替身,耗时与 flake 面
 # 都与上面几档不同量级,拆开便于按需停用而不拖累 PR 反馈。
