@@ -223,57 +223,71 @@ docker compose -f docker/docker-compose.prod.yml logs --tail 50 web
 (`workspace/uploads` 兜底、Caddy 证书目录),SCF 的无状态容器模型不契合这套生命周期;
 门户也**不需要**镜像部署那套「只换镜像、不动配置」的收敛——它的运行配置本来就在宿主机与 `system_config` 里。
 
-### 7.1 门户的发布流程(人工)
+### 7.1 门户的发布流程(CI 自动化,生产发布需人工确认)
 
-发布动作由人执行,但步骤已固化成脚本 `scripts/ops/deploy-production.sh`,避免每次发布的手工步骤随人漂移:
+**2026-11-14 起改为流水线发布**(此前是人工登机器执行 `scripts/ops/deploy-production.sh`):
 
-```bash
-cd /home/ubuntu/acore-portal
-TARGET_COMMIT=<发布提交 sha> DEPLOY_ROOT=/home/ubuntu/acore-portal \
-  bash scripts/ops/deploy-production.sh
-```
+| 环节 | 谁来做 |
+| --- | --- |
+| 构建镜像 | CI 的 `docker-release` job(`release-image.yml`):推到 TCR,tag = `main-<提交短号>`(短 tag 不可变 ⇒ 可精确回滚) |
+| **发布到生产** | **人在 GitHub 上确认**:Actions 页 `workflow_dispatch` 手动触发(`deploy-production` job) |
+| 部署动作 | CI 经 SSH 把发布资产同步到生产机,再跑 `scripts/deploy.sh --env prod --tag <tag>` |
 
-脚本按顺序做六件事:
+`main` 合并**只构建镜像、不部署**——生产发布这一步永远需要人点一次 Run workflow。
+作业同时挂 `environment: production`,提供部署记录与日志;该环境若另配了 required reviewer,
+则是双保险(不冲突)。
 
-1. **预检**——`.env.prod` 存在、`workspace/mysql-prod` 非空(防误指空目录起新空库)、compose 可用;
-2. **校验发布提交(只读,不碰 git)**——工作树 HEAD 必须已是 `TARGET_COMMIT` 且无未提交改动,否则拒绝发布。
-   **脚本刻意不执行 fetch / checkout / pull**:发布脚本改动仓库状态会连带破坏「回滚 = 回到上一个提交重新构建」
-   这条人工回滚路径的前提,拉代码由人自己做;
-3. **构建 web 镜像**——构建时间与提交短号以 `--build-arg` 内联进产物(页脚版本行据此核对线上版本);
-4. **迁移**——`--profile migrate run --rm migrate` 一次性服务(schema 先行,与 §2 一致);
-5. **迁移台账断言**——查库内 `_prisma_migrations`:已完成迁移数须**等于仓库里的迁移目录数**,且无未完成(失败残留)行。
-   不符即中止发布:漏跑迁移会让新代码读不到新列,失败残留行会让后续 `migrate deploy` 直接拒绝继续;
-6. **滚动 web + 健康检查**——任一步失败自动把 web 镜像切回上一版(只回代码不回数据库,迁移 forward-only)。
+命名体系与兄弟仓库一致:vars `DEPLOY_HOST` / `DEPLOY_PATH` / `DEPLOY_ROOT`;
+secrets `TCR_NAMESPACE` / `TCR_USERNAME` / `TCR_PASSWORD` / `DEPLOY_SSH_KEY` / `DEPLOY_KNOWN_HOSTS`。
+**仓库为 public,主机地址与凭据一律不入库。**
+
+部署脚本 `scripts/deploy.sh` 与测试栈**同源一份**,按顺序做:
+
+1. **预检**——`.env.prod` 存在、compose 可用、tag 形态合法(`main|develop)-<短号>`);
+2. **钉镜像**——`WEB_IMAGE` 写入 `.env.prod`(回滚目标也落在这里,compose 靠它插值);
+3. **拉镜像**——从 TCR 拉该 tag(本地已有同 tag 则跳过,回滚场景下仓库不可达也能起);
+4. **迁移先行**——`--profile migrate run --rm migrate` 一次性服务(schema 先到位,§2);
+5. **滚动 web**——`up -d --wait --no-deps --no-build web`(只换 web,mysql/redis 数据卷原地复用);
+6. **健康检查**——`http://127.0.0.1:3000/api/status` 须 200;
+7. **落状态**——`.deploy-state`(status / tag / previous_tag / commit);
+8. **镜像清理**——同一仓库**只留最近 3 个镜像**(当前版本与回滚目标永不删)。
+
+第 3/4/5 步任一失败 → 把 `WEB_IMAGE` 退回上一版并重新起容器,旧版本继续服务
+(数据库不回滚,迁移 forward-only)。
 
 要点:
 
-- **迁移在重建之后跑**:新镜像的 schema 变更靠一次性 `migrate` 服务(§2),漏跑会导致新代码读不到新列;
-- `.env.prod` 在宿主机且不入库,重建容器不丢业务通道凭据;
-- 回滚:`git checkout <上一个发布提交>` 再 `up -d --build`,数据库侧的破坏性变更需另备 SQL 回滚脚本
-  (Prisma 迁移 forward-only,不做自动 down);脚本已内置「本次发布失败 → 自动切回上一版镜像」,
-  但**回滚到更早的版本仍需人工**(脚本的镜像 tag 按提交短号打,旧镜像保留在宿主机可直接复用)。
+- **迁移在换容器之前跑**:新镜像引入的 schema 变更靠一次性 `migrate` 服务,漏跑会读不到新列;
+- `.env.prod` 在宿主机且不入库,换容器不丢业务通道凭据;
+- **回滚**:重发上一个 tag 即可(`workflow_dispatch` 的 `deploy_tag` 输入填历史 tag),
+  旧镜像保留在 TCR 与宿主机;数据库侧的破坏性变更需另备 SQL 回滚脚本(Prisma 迁移 forward-only)。
 
-### 7.2 为什么门户的 CI 里没有 deploy job
+**人工兜底脚本 `scripts/ops/deploy-production.sh` 保留**,用于 CI 不可用时的手动发布
+(它走「本地构建 + 台账断言」的老路径,与 CI 路径并存但语义一致)。
 
-门户的 `.github/workflows/ci.yml` 只有 `check` / `build` / `integration` 三个检查作业,**不发布**。这是有意的:
+### 7.2 为什么生产发布仍要人工确认(自动化的是构建,不是上线)
 
-1. **门户尚未上线**,生产域名现在还指向旧 WordPress 栈,门户生产栈没有真实流量;
-   在没有真实流量与已验证回滚路径之前,把「合并即上线」自动化,风险高于收益。
-2. **CI 要发布就得拿到宿主机权限**:要么在 CVM 上装 self-hosted runner,要么把 SSH 私钥塞进 GitHub Secrets。
-   这两条都是新增攻击面(私钥泄露 = 整机沦陷),而门户的发布动作本身只是
-   「拉代码 + 重建容器」——与 CI 相比节省的只有几分钟手工操作,不成比例。
-3. **回滚仍然需要人登机器**:Compose 发布没有版本化的制品仓,回滚 = 回到上一个提交重新构建,
-   这一步无论如何要人工介入,既然如此,发布也一并人工,保持「发布与回滚同一条路径」。
+2026-11-14 起 CI 会**自动构建**镜像并可**自动部署测试栈**,但**生产发布保留人工确认**。
+这是有意的,理由与上版(「不发布」)不同——自动化的是搬运,上线决策仍归人:
 
-上线后若仍想自动化,建议路径(届时再定):CVM 上装 self-hosted runner(不引 SSH 私钥)→
-加 GitHub Environments + `main` 分支保护 + 人工审批 → 流水线内跑 §7.1 的同一组命令,
-让发布与回滚共用一份脚本,避免两套流程漂移。
+1. **上线不是「镜像对了」就等于「可以上线」**:门户是全站流量入口,发布窗口还要看
+   业务节奏(有没有正在进行的活动/批量发货)。把这一步交给人,是让人保留这个决定权。
+2. **生产的爆炸半径不可逆**:测试栈坏了重灌数据即可;生产栈的数据库迁移是 forward-only,
+   代码能回滚、**已签发的发货与已扣的积分不能**。人工确认是最后一道闸。
+3. **CI 要发布就得拿到宿主机权限**:这条没有消失,只是被收窄了——引入的是**专用 CI 部署密钥**
+   (`DEPLOY_SSH_KEY`,只授权到部署目录),不是人的私钥;且它只能执行固化的部署脚本,
+   拿不到生产机的交互 shell。
+4. **回滚仍需人参与**:Compose 发布没有版本化制品仓的历史语义,回滚 = 重发上一个 tag,
+   这个动作本身就要求有人在 GitHub 上点一下,发布与回滚保持同一条路径。
 
-> **2026-11-08 补记**:上面的「门户 CI 没有 deploy job」指的是**生产栈**。
-> **测试栈**已先行自动化(`push develop` → 自托管 runner 重建 web 镜像 + 迁移守卫闸门 + 失败自动回滚镜像),
-> 手册见 [staging-deploy.md](staging-deploy.md)。两者的差别正是 §7.2 第 2、3 条说的那两条:
-> 测试栈跑在自有机器上、无真实流量、数据可重灌,风险与收益都比生产低一个量级;
-> 生产仍按 §7.1 人工发布。
+自动化后的门是:`main` 合并只构建镜像 → 人从 Actions 页 `workflow_dispatch` 触发
+`deploy-production` → 作业跑 §7.1 的同一组命令。
+
+> **2026-11-08 补记**:「门户 CI 没有 deploy job」指的是**生产栈**。
+> **测试栈**已先行自动化,手册见 [staging-deploy.md](staging-deploy.md)。
+>
+> **2026-11-14 补记**:两者现已统一到「CI 构建 + TCR 供镜像」,
+> 测试栈 `push develop` 自动发布,生产栈人工确认后发布。
 >
 > **2026-11-08 再补记**:生产栈的**发布步骤**已固化为 `scripts/ops/deploy-production.sh`(§7.1),
 > 但**触发仍由人在服务器上执行**、不接 CI——脚本化的是步骤(校验/构建/迁移/台账断言/健康检查/失败回滚),
