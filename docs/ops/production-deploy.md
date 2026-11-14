@@ -244,19 +244,25 @@ docker compose -f docker/docker-compose.prod.yml logs --tail 50 web
 (`workspace/uploads` 兜底、Caddy 证书目录),SCF 的无状态容器模型不契合这套生命周期;
 门户也**不需要**镜像部署那套「只换镜像、不动配置」的收敛——它的运行配置本来就在宿主机与 `system_config` 里。
 
-### 7.1 门户的发布流程(CI 自动化,生产发布需人工确认)
+### 7.1 门户的发布流程(CI 自动化,生产发布经审批放行)
 
 **门户的生产发布走流水线**(另留 `scripts/ops/deploy-production.sh` 作 CI 不可用时的人工兜底):
 
 | 环节 | 谁来做 |
 | --- | --- |
 | 构建镜像 | CI 的 `docker-release` job(`release-image.yml`):推到 TCR,tag = `main-<提交短号>`(短 tag 不可变 ⇒ 可精确回滚) |
-| **发布到生产** | **人在 GitHub 上确认**:Actions 页 `workflow_dispatch` 手动触发(`deploy-production` job) |
+| **发布到生产** | **人在 GitHub 上批准**:push main 后 `deploy-production` 作业自动进入待部署队列,人点一次批准即发布 |
 | 部署动作 | CI 经 SSH 把发布资产同步到生产机,再跑 `scripts/deploy.sh --env prod --tag <tag>` |
 
-`main` 合并**只构建镜像、不部署**——生产发布这一步永远需要人点一次 Run workflow。
-作业同时挂 `environment: production`,提供部署记录与日志;该环境若另配了 required reviewer,
-则是双保险(不冲突)。
+`push main` 后流水线自行推进到 `deploy-production`,**不再有 `workflow_dispatch` 手动触发入口**。
+生产发布的这道人工门由 `environment: production` 承担(该环境已配 required reviewer,
+批准即放行),它同时提供部署记录与日志。
+
+> **为什么去掉手动 dispatch**:两道人工确认(手动触发 + 审批)同属一人,第二道没有增量
+> 安全性;更关键的是手动入口会让「main 已合并但生产没跟上」变成**静默漂移**——
+> 2026-11-14 实测生产落后 main 23 个提交而无人察觉。push 触发后,每次合并到 main 都
+> 留下一条待部署记录,漂移是看得见的待办。作业失败、或待部署被取消时,在 Actions 页对
+> 那次 run 选 Re-run all jobs(只重跑失败项可用 Re-run failed jobs),不必另留手动通道。
 
 命名体系与兄弟仓库一致:vars `DEPLOY_HOST` / `DEPLOY_PATH` / `DEPLOY_ROOT`;
 secrets `TCR_NAMESPACE` / `TCR_USERNAME` / `TCR_PASSWORD` / `DEPLOY_SSH_KEY` / `DEPLOY_KNOWN_HOSTS`。
@@ -280,15 +286,18 @@ secrets `TCR_NAMESPACE` / `TCR_USERNAME` / `TCR_PASSWORD` / `DEPLOY_SSH_KEY` / `
 
 - **迁移在换容器之前跑**:新镜像引入的 schema 变更靠一次性 `migrate` 服务,漏跑会读不到新列;
 - `.env.prod` 在宿主机且不入库,换容器不丢业务通道凭据;
-- **回滚**:重发上一个 tag 即可(`workflow_dispatch` 的 `deploy_tag` 输入填历史 tag),
-  旧镜像保留在 TCR 与宿主机;数据库侧的破坏性变更需另备 SQL 回滚脚本(Prisma 迁移 forward-only)。
+- **回滚**:首选在 `main` 上 revert 目标提交(走 develop→main 的发布流程)→ 批准后部署 revert
+  后的镜像;**分钟级应急**走生产机上的部署脚本直接重发历史 tag
+  (`sudo DEPLOY_ROOT=<部署根> DEPLOY_NAMESPACE=<命名空间> bash scripts/deploy.sh --env prod --tag main-<历史短号>`;
+  tag 校验只收 `main-*` 前缀,历史 tag 天然合规,旧镜像保留在 TCR 与宿主机)。
+  数据库侧的破坏性变更需另备 SQL 回滚脚本(Prisma 迁移 forward-only)。
 
 **人工兜底脚本 `scripts/ops/deploy-production.sh` 保留**,用于 CI 不可用时的手动发布
 (它走「本地构建 + 台账断言」的老路径,与 CI 路径并存但语义一致)。
 
-### 7.2 为什么生产发布仍要人工确认(自动化的是构建,不是上线)
+### 7.2 为什么生产发布仍需人工批准(自动化的是构建与搬运,不是上线决策)
 
-CI 会**自动构建**镜像并可**自动部署测试栈**,但**生产发布保留人工确认**。
+CI 会**自动构建**镜像并可**自动部署测试栈**,但**生产发布保留人工批准**。
 这是有意的,理由与上版(「不发布」)不同——自动化的是搬运,上线决策仍归人:
 
 1. **上线不是「镜像对了」就等于「可以上线」**:门户是全站流量入口,发布窗口还要看
@@ -299,10 +308,10 @@ CI 会**自动构建**镜像并可**自动部署测试栈**,但**生产发布保
    (`DEPLOY_SSH_KEY`,只授权到部署目录),不是人的私钥;且它只能执行固化的部署脚本,
    拿不到生产机的交互 shell。
 4. **回滚仍需人参与**:Compose 发布没有版本化制品仓的历史语义,回滚 = 重发上一个 tag,
-   这个动作本身就要求有人在 GitHub 上点一下,发布与回滚保持同一条路径。
+   这个动作本身就要求有人在 GitHub 上点一下(批准),发布与回滚保持同一条路径。
 
-自动化后的门是:`main` 合并只构建镜像 → 人从 Actions 页 `workflow_dispatch` 触发
-`deploy-production` → 作业跑 §7.1 的同一组命令。
+自动化后的门是:`main` 合并 → `docker-release` 构建镜像 + `deploy-production` 进入待部署
+→ 人点一次**批准** → 作业跑 §7.1 的同一组命令。
 
 > **2026-11-08 补记**:「门户 CI 没有 deploy job」指的是**生产栈**。
 > **测试栈**已先行自动化,手册见 [staging-deploy.md](staging-deploy.md)。
@@ -313,4 +322,11 @@ CI 会**自动构建**镜像并可**自动部署测试栈**,但**生产发布保
 > **2026-11-08 再补记**:生产栈的**发布步骤**已固化为 `scripts/ops/deploy-production.sh`(§7.1),
 > 但**触发仍由人在服务器上执行**、不接 CI——脚本化的是步骤(校验/构建/迁移/台账断言/健康检查/失败回滚),
 > 不是发布时机;「发布与回滚同一条路径」这一条仍然成立。
+>
+> **2026-11-14 补记(形态变更)**:生产发布的触发由「`workflow_dispatch` 手动触发」改为
+> **「push main 自动进入待部署队列 + `environment: production` 批准」**——`ci.yml` 已删掉
+> `workflow_dispatch` 触发与 `deploy_tag` 输入,`deploy-production` 的条件改为
+> `push && ref == main`。两道人工确认同属一人、第二道无增量安全性;更重要的是手动入口会让
+> 「main 已合并但生产没跟上」静默漂移(push 触发后每次合并都留下一条待部署记录)。
+> 人工兜底脚本 `scripts/ops/deploy-production.sh` 保留,定位变为「CI 不可用时的手动发布」。
 

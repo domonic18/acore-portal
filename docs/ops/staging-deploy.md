@@ -27,17 +27,20 @@ check ─┬─ build ─┬─ integration ─┬─ db-migration-guard ─┬�
        └─────────┴───────────────┴───────────────────────┴─────────────────┘
 ```
 
-- **`push` 到 `develop` 且全绿才部署**；PR 与 `main` push 只跑门禁不部署
-  (main 的 push 只构建 amd64 镜像,生产发布另需人工确认,见 `production-deploy.md` §7)。
-  另可 `workflow_dispatch` 手动触发(选 `develop` 分支)验证整条链路。
+- **`push` 到 `develop` 且全绿才部署**；PR 只跑门禁不部署。
+  `main` push 会构建 amd64 镜像并进入**生产部署队列**(经 `environment: production` 批准后
+  才真正发布,见 `production-deploy.md` §7),不在本节范围。
+  作业失败时在 Actions 页对那次 run 选 Re-run all jobs 重跑(`ci.yml` 已无 `workflow_dispatch` 入口)。
 - `docker-release` 产出镜像并推到 TCR(`ccr.ccs.tencentyun.com/lokta/acore-portal:<tag>`),
   `deploy-staging` 从 TCR 拉取该 tag 部署——**测试环境不再本地 build**
   (与生产同一条镜像通道,避免"测过的镜像≠发布的镜像")。
 - tag = `develop-<提交短号>`,短 tag 不可变 ⇒ 回滚可精确到任一历史版本。
 - 仓库变量 `DEPLOY_ROOT` 未配置时,整个作业**跳过**
   (不是排队等 runner)——未注册 runner 前流水线不会挂起。
-- `develop` 分支的流水线**不打断**在跑的那次(`cancel-in-progress` 仅在非 develop 生效):
-  中断会连带砍掉进行中的部署,留下半新半旧状态。新 push 排队接续即可。
+- `develop` 与 `main` 分支的流水线**都不打断**在跑的那次(`cancel-in-progress` 仅在 PR 生效):
+  中断会连带砍掉进行中的部署,留下半新半旧状态——`main` 上进行中的作业正是生产发布,
+  砍在换容器与健康检查之间,线上可能留下未验证的新容器。新 push 排队接续即可;
+  前一次若不打算发布,直接在 Actions 页取消那个 run(即取消其待部署),队列即放行。
 - **架构**:测试栈在 Mac Mini(arm64)上原生跑 arm64 镜像——不做交叉模拟
   (Next.js 在 QEMU 下运行极慢,不值得为"同一架构"牺牲可用性)。
 
@@ -219,7 +222,7 @@ $DEPLOY_ROOT/               # 仓库变量 vars.DEPLOY_ROOT,绝对路径
 | --- | --- |
 | `push develop` 首次自动部署 | 迁移步骤失败(`P1001`)→ 失败发生在 `switched=1` 之前,**web 未被触碰**,仍跑旧镜像且健康;数据完好 |
 | 修复后 `push develop` 重跑 | 部署成功(2m42s);web 换成 `acore-portal-test:<sha7>`,`/api/status` 200;mysql 容器**未重建**;数据 5660 用户 / 1911 订单 / 10369 积分流水、账本 26/26 |
-| `workflow_dispatch` 手动重跑 | 成功(1m3s);mysql / redis / soap-mock / mailpit **均未重建**,只有 web 重建 → 幂等 |
+| 手动重跑(当时走 `workflow_dispatch`;2026-11-14 该入口已删,现用 Actions 页 Re-run failed jobs) | 成功(1m3s);mysql / redis / soap-mock / mailpit **均未重建**,只有 web 重建 → 幂等 |
 | 迁移守卫(两个作业) | 全绿,各约 50s |
 
 > 首次部署时 redis / soap-mock 被重建一次:那是「手工起的栈」与「仓库里的 compose 文件」之间的

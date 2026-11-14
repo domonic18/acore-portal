@@ -64,6 +64,13 @@ jobs:
         continue-on-error: true
         uses: docker/build-push-action@v6
         timeout-minutes: 25
+        # buildx 会把 GITHUB_EVENT_PATH 指向的事件载荷原样嵌进 provenance
+        # (invocation.environment.github_event_payload)。自托管 runner 上那份文件
+        # 可能残留着**别的仓**的旧事件(2026-11-14 实测:本仓构建元数据里出现过
+        # 同族仓的 push 事件载荷)——置空即不嵌入。provenance 本就不推送到 TCR
+        # (provenance: false),但这份元数据会打进 CI 日志,留着会误导审计。
+        env:
+          GITHUB_EVENT_PATH: ""
         with:
           context: .
           file: ${{ inputs.dockerfile }}
@@ -81,6 +88,8 @@ jobs:
         id: build-retry
         uses: docker/build-push-action@v6
         timeout-minutes: 30
+        env:
+          GITHUB_EVENT_PATH: ""
         with:
           context: .
           file: ${{ inputs.dockerfile }}

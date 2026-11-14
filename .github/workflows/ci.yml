@@ -17,8 +17,9 @@
 #                  tag = 分支-提交短号(develop-xxxxxxx / main-xxxxxxx),短 tag 不可变
 #                  ⇒ 部署侧可精确回滚到任一历史版本;main 额外打 latest。
 #   deploy-staging —— 测试环境自动部署(push develop 时,自托管 runner 落 Mac Mini 常驻栈)。
-#   deploy-production —— 生产环境发布(**由 workflow_dispatch 人工触发**:main 合并只构建
-#                  镜像、不部署;人须在 Actions 页点 Run workflow 确认)。
+#   deploy-production —— 生产环境发布(push main 时自动进入部署队列;**由
+#                  environment: production 的审批放行**)。main 合并后无需任何
+#                  额外手动动作,人在 GitHub 的待部署列表里点一次批准即可。
 #                  仓库为 public,主机地址与部署路径一律走仓库变量,SSH 密钥与指纹走仓库 secret。
 #
 # 镜像来源与架构(**生产是 x86_64 Linux,必须是 amd64 镜像**):
@@ -35,18 +36,19 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-  workflow_dispatch:
-    inputs:
-      deploy_tag:
-        description: '要发布的镜像 tag(留空 = 当前 main 提交短号;填历史 tag 可重发旧版本)'
-        required: false
-        type: string
+  # 无 workflow_dispatch:生产发布不再有「手动触发」入口,一律 push main 触发 +
+  # environment 审批(与同族仓一致)。作业失败或待部署被取消时,在 Actions 页对那次
+  # run 选 Re-run all jobs 重跑即可,不必另留手动通道。
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  # develop 分支不打断在跑的流水线:中断会连带砍掉进行中的部署(半新半旧状态);
-  # 新 push 排队接续即可。main/PR 仍按最新一次为准。
-  cancel-in-progress: ${{ github.ref != 'refs/heads/develop' }}
+  # 只让 PR 之间互相打断(同一分支推新提交,旧的检查结果没意义)。
+  # main 与 develop 不打断:打断会连带砍掉**进行中的部署**(半新半旧状态),
+  # 且 main 上进行中的作业正是生产发布——砍在换容器与健康检查之间,线上可能留下
+  # 未验证的新容器。代价是连续合并会排队(后一次等前一次跑完),这是刻意取舍:
+  # 宁可排队,也不在发布中途杀部署。前一次的待部署若不打算发布,直接在 Actions 页
+  # 取消那个 run(即取消其待部署),队列即放行。
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
 
 env:
   DATABASE_URL: mysql://acore_portal:acore_portal@127.0.0.1:3306/acore_portal
@@ -331,8 +333,7 @@ jobs:
     name: 构建并推送镜像
     needs: [check, build, integration, db-migration-guard, db-incremental-guard]
     if: >-
-      (github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')) ||
-      github.event_name == 'workflow_dispatch'
+      github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
     uses: ./.github/workflows/release-image.yml
     with:
       image: acore-portal
@@ -389,20 +390,26 @@ jobs:
         run: bash "$DEPLOY_ROOT/scripts/deploy.sh" --env staging --tag "develop-${{ steps.vars.outputs.sha_short }}"
 
   # ============================================================
-  # 生产环境发布(**人工在 GitHub 上确认才部署**)
+  # 生产环境发布(push main 触发;由 environment: production 的审批放行)
   # 仓库为 public,生产机地址与部署路径一律走仓库变量(不入库);SSH 密钥与主机指纹
   # 走仓库 secret。资产由 CI 侧打包直传(服务器侧到 GitHub 的链路可能不通,不能让
   # 服务器侧拉取)——与 git checkout 等价(同一 commit)。
   #
-  # 触发口径:main 合并只**构建镜像**(docker-release),部署不动;发布由
-  # workflow_dispatch 手动触发 —— 人须在 Actions 页点 Run workflow 确认,
-  # 这就是「生产部署须人工确认」的门。挂 environment: production 提供部署记录与
-  # 日志;若该环境另配了 required reviewer,则是双保险(不冲突)。
+  # 触发口径:main 合并后 docker-release 构建镜像,deploy-production 随之进入
+  # **待部署队列**;人在 GitHub 的待部署列表点一次批准,发布才真正执行。
+  # 这就是「生产部署须人工确认」的门——审批权在 environment: production
+  # (已配 required reviewer),而非额外的「手动 dispatch」入口。
+  #
+  # 为什么不再留 workflow_dispatch 入口:① 两道人工确认(手动触发 + 审批)同属一人,
+  #    第二道没有增量安全性;② 手动入口会让「main 已合并但生产没跟上」变成静默漂移
+  #    (2026-11-14 实测生产落后 main 23 个提交而无人察觉),push 触发后每次合并都
+  #    留下一条待部署记录,漂移是看得见的待办。作业失败、或待部署被取消时,在 Actions 页
+  #    对那次 run 选 Re-run all jobs(只重跑失败项可用 Re-run failed jobs),不必另留手动通道。
   # ============================================================
   deploy-production:
     name: deploy(生产环境发布)
     needs: [docker-release]
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment: production
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -485,9 +492,9 @@ jobs:
           set -eu
           # 命名空间与部署根随命令传到服务器侧脚本(ssh 不继承 runner 的 env,须显式带;
           # DEPLOY_ROOT 缺了脚本会在开头直接退出)
-          # tag:workflow_dispatch 输入优先(可重发历史版本),否则用当前 main 提交短号
-          TAG="${{ inputs.deploy_tag }}"
-          [ -n "$TAG" ] || TAG="main-${{ steps.vars.outputs.sha_short }}"
+          # tag 恒为本次 main 提交短号:docker-release 与本作业同属一次 push,
+          # 该 tag 的镜像必已构建推送完成(needs: docker-release 保证顺序)。
+          TAG="main-${{ steps.vars.outputs.sha_short }}"
           echo "发布目标镜像 tag:$TAG"
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_HOST" \
             "cd '$DEPLOY_PATH' && sudo DEPLOY_ROOT='$DEPLOY_PATH' DEPLOY_NAMESPACE='$DEPLOY_NAMESPACE' bash scripts/deploy.sh --env prod --tag '$TAG'"
