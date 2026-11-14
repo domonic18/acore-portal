@@ -483,12 +483,13 @@ jobs:
       - name: 发布(钉镜像 → 迁移 → 换容器 → 健康检查 → 失败回滚 → 镜像清理)
         run: |
           set -eu
-          # 命名空间随命令传到服务器侧脚本(ssh 不继承 runner 的 env,须显式带)
+          # 命名空间与部署根随命令传到服务器侧脚本(ssh 不继承 runner 的 env,须显式带;
+          # DEPLOY_ROOT 缺了脚本会在开头直接退出)
           # tag:workflow_dispatch 输入优先(可重发历史版本),否则用当前 main 提交短号
           TAG="${{ inputs.deploy_tag }}"
           [ -n "$TAG" ] || TAG="main-${{ steps.vars.outputs.sha_short }}"
           echo "发布目标镜像 tag:$TAG"
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_HOST" \
-            "cd '$DEPLOY_PATH' && sudo DEPLOY_NAMESPACE='$DEPLOY_NAMESPACE' bash scripts/deploy.sh --env prod --tag '$TAG'"
+            "cd '$DEPLOY_PATH' && sudo DEPLOY_ROOT='$DEPLOY_PATH' DEPLOY_NAMESPACE='$DEPLOY_NAMESPACE' bash scripts/deploy.sh --env prod --tag '$TAG'"
 
 
