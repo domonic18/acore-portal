@@ -333,9 +333,12 @@ jobs:
     with:
       image: acore-portal
       dockerfile: docker/web/Dockerfile
-      # 测试栈在 arm64(Mac Mini)原生、生产栈在 x86_64 原生:不做交叉模拟
+      # 测试栈在 arm64(Mac Mini)原生、生产栈在 x86_64 Linux 原生:不做交叉模拟
       platform: ${{ github.ref == 'refs/heads/main' && 'linux/amd64' || 'linux/arm64' }}
       build-meta: true
+    # 可复用工作流默认**不继承**仓库 secret:不写这行,被调工作流里的
+    # secrets.TCR_* 全为空 → 推镜像时 "Username and password required"。
+    secrets: inherit
 
   # ============================================================
   # 测试环境自动部署(push develop;自托管 runner 落 Mac Mini 常驻栈)
