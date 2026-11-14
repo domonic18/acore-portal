@@ -5,7 +5,6 @@ import { AdminPager } from "@/components/ui/pagination";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableEmpty, Td, Th, THead, Tr } from "@/components/ui/table";
 import { FOCUS_RING } from "@/components/ui/admin-tokens";
-import { displayUserName } from "@/lib/format";
 import { buildPageHref } from "@/lib/pagination";
 
 /**
@@ -82,7 +81,14 @@ export default async function AdminOrdersPage({
                     {o.orderNo}
                   </Link>
                 </Td>
-                <Td className="text-[#dcebf7]">{displayUserName(o)}</Td>
+                <Td className="text-[#dcebf7]">
+                  {o.username}
+                  {o.characterNames.length > 0 && (
+                    <span className="ml-1 text-xs text-[#6482a3]">
+                      （{o.characterNames.join("、")}）
+                    </span>
+                  )}
+                </Td>
                 <Td>
                   <Badge
                     tone={

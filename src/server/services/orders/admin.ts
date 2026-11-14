@@ -7,6 +7,7 @@ import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { POINT_TX_TYPE } from "@/constants/points";
 import { writeAudit } from "@/server/services/shared/audit";
 import { creditLedger } from "@/server/services/shared/ledger";
+import { listCharacterNamesByUsernames } from "@/server/services/shared/game-identity";
 import { transitionOrder } from "@/server/services/shop/state-machine";
 import { driveOrderDelivery } from "@/server/services/shop/delivery";
 
@@ -34,6 +35,7 @@ export async function listAdminOrders(opts: { status?: string; page?: number }):
     orderNo: string;
     username: string;
     nickname: string | null;
+    characterNames: string[];
     status: OrderStatusValue;
     pointCost: number;
     itemCount: number;
@@ -67,6 +69,8 @@ export async function listAdminOrders(opts: { status?: string; page?: number }):
       },
     }),
   ]);
+  // 用户列展示「账号 + 游戏角色名」:游戏库不可达时降级为只显示账号(不阻断列表)
+  const characterNames = await loadCharacterNames(rows.map((o) => o.user.username));
   return {
     page,
     totalPages: totalPageCount(total, ADMIN_ORDER_PAGE_SIZE),
@@ -76,12 +80,23 @@ export async function listAdminOrders(opts: { status?: string; page?: number }):
       orderNo: o.orderNo,
       username: o.user.username,
       nickname: o.user.nickname,
+      characterNames: characterNames.get(o.user.username.toUpperCase()) ?? [],
       status: o.status as OrderStatusValue,
       pointCost: o.pointCost,
       itemCount: o._count.items,
       createdAt: o.createdAt.toISOString(),
     })),
   };
+}
+
+/** 批量取游戏角色名;游戏库不可达 → 降级为空映射(列表照常展示账号) */
+async function loadCharacterNames(usernames: string[]): Promise<Map<string, string[]>> {
+  try {
+    return await listCharacterNamesByUsernames(usernames);
+  } catch (err) {
+    console.error("[orders/admin] 角色名加载失败,降级为只显示账号", err);
+    return new Map();
+  }
 }
 
 /** 订单详情页 DTO:BigInt/日期在 service 序列化,页面不做 ORM 适配(issue #78) */
