@@ -12,7 +12,10 @@
 --   slug 空或超 128 字符回退 legacy-{postID}(存量 2 个 post_name 为空+5 个中文百分号编码 slug 136-145 字符);
 --   gameItemId 仅 itemsend_ 还原;
 --   订单行引用已删除商品(post 不存在)→落 legacy-deleted 占位商品(draft/hidden),保住行快照
--- 用户映射:user.wp_user_id = post_author;垃圾户(>32 login 未迁)订单跳过
+-- 用户映射:user.wp_user_id = 买家 WP ID;垃圾户(>32 login 未迁)订单跳过
+--   **买家的来源是 postmeta._customer_user,不是 post_author**:WooCommerce 经典存储下
+--   订单的 post_author 是**站点创建者**(不是下单人),拿它映射会把全部订单挂到同一个
+--   用户名下(表现为「订单列表的用户全是同一个人」)。
 -- 幂等:legacy_wp_* 唯一键 INSERT … ON DUPLICATE KEY UPDATE(重复跑零新增,验收红线);
 --   分类无 legacy 键,以 slug 为幂等键
 -- 注意:wp_legacy 库排序规则为 utf8mb4_unicode_520_ci(与目标 utf8mb4_unicode_ci 不同),
@@ -114,7 +117,15 @@ SELECT
   p.post_date,
   NOW()
 FROM wp_legacy.wp_posts p
-JOIN `user` u ON u.wp_user_id = p.post_author
+-- 买家:WooCommerce 经典存储下订单的 post_author 是**站点创建者**,真正的买家在
+-- postmeta._customer_user → 取它;缺失/0 才回落 post_author。
+LEFT JOIN (
+  SELECT post_id, MAX(meta_value + 0) customer_id
+  FROM wp_legacy.wp_postmeta
+  WHERE meta_key = '_customer_user'
+  GROUP BY post_id
+) cust ON cust.post_id = p.ID
+JOIN `user` u ON u.wp_user_id = COALESCE(NULLIF(cust.customer_id, 0), p.post_author)
 JOIN (
   SELECT post_id, MAX(CASE WHEN meta_key = '_order_total' THEN meta_value + 0 END) total
   FROM wp_legacy.wp_postmeta
@@ -129,6 +140,15 @@ LEFT JOIN (
 ) pay ON pay.ref_id = p.ID
 WHERE p.post_type = 'shop_order' AND p.post_status LIKE 'wc-%'
 ON DUPLICATE KEY UPDATE shop_order.id = shop_order.id;
+
+-- ③-b 买家纠正(幂等自愈):上面的 INSERT 对已入库订单是 no-op ODKU,不会改买家 →
+-- 存量订单若曾用 post_author 导入(全挂创建者),这里按源库真值纠正。
+-- 不用 VALUES() 更新:MySQL 8.4 已移除该函数,且 INSERT…SELECT 不支持行别名(见文件头)。
+UPDATE shop_order o
+JOIN wp_legacy.wp_postmeta pm ON pm.post_id = o.legacy_wp_order_id AND pm.meta_key = '_customer_user'
+JOIN `user` u ON u.wp_user_id = pm.meta_value + 0
+SET o.user_id = u.id
+WHERE o.legacy_wp_order_id IS NOT NULL AND pm.meta_value + 0 > 0;
 
 -- D3 金额不符 → 复核清单(独立于订单状态机;resolve 走后台 /admin/review-items)
 INSERT INTO migration_review_item (legacy_wp_order_id, reason, detail)

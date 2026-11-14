@@ -30,7 +30,7 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml up -d --bu
 - `SESSION_SECRET` 用 `openssl rand -hex 32` 生成;`MYSQL_PASSWORD` 与 `.env.prod` 的 `DATABASE_URL` 须一致
 - **数据库密码用 `:?` 强制必填**:漏填时 compose 直接报错退出,不会用弱默认值建库
 
-### 1.1 与旧 WP 栈同机换栈(2026-11-14 实战口径)
+### 1.1 与旧 WP 栈同机换栈
 
 生产头一回上线时,旧 WordPress 栈还在同一台机上占着 80/443 与宿主机 3306。两栈同机换栈的做法:
 
@@ -42,7 +42,7 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml up -d --bu
 | ④ 灌源库 | WP dump 导入同实例的 `wp_legacy` schema | 源库与目标库必须**同一 MySQL 实例**(见 §2.1) |
 | ⑤ 灌配置 | `system_config` 灌库 | 凭据脚本放宿主 `/tmp` 且 `chmod 600`,**不入库**(本仓是 public) |
 | ⑥ 起 web | `up -d web` | web 只绑 `127.0.0.1:3000`,不抢公网口 |
-| ⑦ 跑迁移链 | 见 §2.1 | 容器内执行,约 40 分钟(真上传 15,303 件) |
+| ⑦ 跑迁移链 | 见 §2.1 | 容器内执行;媒体组要真上传,耗时随件数量级 |
 | ⑧ 冒烟 | 见 §4 | 用 `127.0.0.1:3000` 直连验,**不依赖 DNS** |
 | ⑨ 切流 | 停旧栈 → `up -d caddy` | **先停旧栈再起 caddy**(同抢 80/443);caddy 自动签发 Let's Encrypt 证书(DNS 已指向本机时) |
 | ⑩ 巡检 | 见 §4 | 公网入口全项复验 |
@@ -50,7 +50,7 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml up -d --bu
 **回滚**:DNS 本就不用改(域名一直指向本机),回滚 = `down` 门户 compose + `up -d` 旧栈 compose,约 1 分钟。
 旧栈的容器/卷/库/uploads 一律**保留不删**,它是回滚的最后保险。
 
-**内存**:生产机只有 3.4G 且无 swap 时,Next 构建峰值可用内存会掉到 100MB 上下 → **先加 swap**
+**内存**:Next 的**构建峰值内存远高于运行时**,内存偏紧的机器上先加 swap
 (`fallocate -l 4G /swapfile` + `swapon` + 写 `/etc/fstab`),否则构建会被 OOM 打断。
 
 ### 1.2 老站换栈时必须核对的「对外服务清单」
@@ -66,8 +66,8 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml up -d --bu
 | 排行榜子站 | HTTP 80(`api.lokta.cn`) | 已停用,门户栈回 410 Gone |
 
 > **玩家客户端连的是本站域名的 3724/8086**,由老栈 nginx 的 **stream 块**(TCP 层,不是 HTTP)
-> 转发到游戏机。2026-11-14 换栈时这一层随老栈一起下线 → 玩家全部登不上,
-> 是靠游戏机 authserver 日志里的源 IP(代理机 IP)才定位到的。
+> 转发到游戏机。漏掉这一层 = 全体玩家登录不了。定位手段:游戏机 authserver 日志里的
+> 源 IP 是**代理机 IP**(stream 层无 PROXY protocol,游戏服看不到玩家真实 IP)。
 >
 > 换栈前的必查项:**老栈对外监听的所有端口**(`ss -ltnp`),逐条确认新栈的归属。
 
@@ -124,7 +124,7 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml --profile 
 原在 devDependencies,被 `pnpm install --prod` 裁掉(2026-11-14 修正:此前本文档写「mysql2/bcrypt/dotenv
 虽在生产依赖内」是错的——`bcrypt`/`turndown`/`cos-nodejs-sdk-v5` 确实在,`dotenv`/`mysql2` 不在)。
 
-**现行做法(2026-11-14 起)**:已把 `dotenv`/`mysql2`/`tsx` 移进 production 依赖,故迁移链**直接在 web
+**现行做法**:已把 `dotenv`/`mysql2`/`tsx` 移进 production 依赖,故迁移链**直接在 web
 容器内跑**,宿主机无需 node/pnpm:
 
 ```bash
@@ -150,7 +150,7 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml \
 切换前须确认:要么把 `wp_legacy` 作为长期只读库保留(不进生产 compose 也得有可达的实例),
 要么改 `traffic.ts` 改读自建的 `page_view_event` 表(自建采集已上线,数据源本就在新库)。
 
-**现行做法(2026-11-14 拍板)**:选前者——`wp_legacy` **作为生产 MySQL 实例内的长期只读 schema 保留**
+**现行做法**:选前者——`wp_legacy` **作为生产 MySQL 实例内的长期只读 schema 保留**
 (迁移链的源库与目标库同实例,天然满足)。因此:
 
 - 该 schema **不得被迁移链的 `--fresh` 删除**(`--fresh` 只作用目标 schema,但操作前仍须确认目标库名);
@@ -171,7 +171,7 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml \
 | 对象存储 | COS 桶/CDN | 生产桶(COS 未配时媒体落本地 `workspace/uploads` 兜底) |
 | 主题 | `theme.active` + 两套主题的背景图 | `tbc` / `wlk` |
 
-### 3.1 COS 对象的可读性(2026-11-14 实战踩坑)
+### 3.1 COS 对象的可读性
 
 COS 对象默认**私有**:匿名 GET 返回 403。门户正文里的图是直接引用对象 URL 的
 (迁移链按 `image_asset_map` 改写、运行时上传按 `cdnBase` 拼接),所以对象不可读 = **前台图片全挂**
@@ -183,7 +183,7 @@ COS 对象默认**私有**:匿名 GET 返回 403。门户正文里的图是直�
 - 迁移链上传已带 `ACL: "public-read"`(`scripts/migrate/cos-upload.mjs`)
 - 门户运行时上传已带 `ACL: "public-read"`(`src/server/services/media/library.ts`)
 - **存量对象补 ACL**:上传时若未带(历史数据),按 `image_asset_map` 的 `new_url` 逐个
-  `putObjectAcl` 补一遍(15,303 个,约 2 分钟)
+  `putObjectAcl` 补一遍
 
 **排查提醒**:CAM 子账号常无 `GetBucket` 列举权限 → `getBucket` 会返回**空列表而不是报错**,
 看起来像"对象不存在"。验对象是否真在,用 `headObject` 或直接匿名 GET,别信列举结果。
@@ -246,7 +246,7 @@ docker compose -f docker/docker-compose.prod.yml logs --tail 50 web
 
 ### 7.1 门户的发布流程(CI 自动化,生产发布需人工确认)
 
-**2026-11-14 起改为流水线发布**(此前是人工登机器执行 `scripts/ops/deploy-production.sh`):
+**门户的生产发布走流水线**(另留 `scripts/ops/deploy-production.sh` 作 CI 不可用时的人工兜底):
 
 | 环节 | 谁来做 |
 | --- | --- |
@@ -288,7 +288,7 @@ secrets `TCR_NAMESPACE` / `TCR_USERNAME` / `TCR_PASSWORD` / `DEPLOY_SSH_KEY` / `
 
 ### 7.2 为什么生产发布仍要人工确认(自动化的是构建,不是上线)
 
-2026-11-14 起 CI 会**自动构建**镜像并可**自动部署测试栈**,但**生产发布保留人工确认**。
+CI 会**自动构建**镜像并可**自动部署测试栈**,但**生产发布保留人工确认**。
 这是有意的,理由与上版(「不发布」)不同——自动化的是搬运,上线决策仍归人:
 
 1. **上线不是「镜像对了」就等于「可以上线」**:门户是全站流量入口,发布窗口还要看
@@ -307,7 +307,7 @@ secrets `TCR_NAMESPACE` / `TCR_USERNAME` / `TCR_PASSWORD` / `DEPLOY_SSH_KEY` / `
 > **2026-11-08 补记**:「门户 CI 没有 deploy job」指的是**生产栈**。
 > **测试栈**已先行自动化,手册见 [staging-deploy.md](staging-deploy.md)。
 >
-> **2026-11-14 补记**:两者现已统一到「CI 构建 + TCR 供镜像」,
+> 两者的镜像来源已统一到「CI 构建 + TCR 供镜像」:
 > 测试栈 `push develop` 自动发布,生产栈人工确认后发布。
 >
 > **2026-11-08 再补记**:生产栈的**发布步骤**已固化为 `scripts/ops/deploy-production.sh`(§7.1),
