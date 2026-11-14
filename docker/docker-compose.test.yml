@@ -83,12 +83,13 @@ services:
   # 本服务用于「自动部署时容器网络内跑迁移」,不发布任何端口。
   # 用法: docker compose --env-file ../.env.test -f docker/docker-compose.test.yml --profile migrate run --rm migrate
   migrate:
-    image: node:22-slim
+    # **与 web 同一个镜像**:web 镜像已内置 prisma CLI(见 docker/web/Dockerfile 的 /opt/prisma)。
+    # 早前这里是 node:22-slim + `npx --yes prisma@6.19.3` 现下载,发布链路每次都重下、
+    # 慢且全程零输出;改用 web 镜像后迁移步骤是秒级的,且迁移工具与代码同源。
+    image: ${WEB_IMAGE:-acore-portal-test-web}
     profiles: ["migrate"]
     working_dir: /app
-    # prisma CLI 是 devDependency,生产镜像里没有(见 docker/web/Dockerfile 的 --prod 瘦身);
-    # 这里用 npx 按版本拉取,与 package.json 锁定的 6.19.3 保持一致(改版本须同步)
-    command: npx --yes prisma@6.19.3 migrate deploy --schema prisma/schema-business/schema.prisma
+    command: prisma migrate deploy --schema prisma/schema-business/schema.prisma
     volumes:
       - ../prisma/schema-business:/app/prisma/schema-business:ro
     # 与 web 同一个 env_file:迁移必须打 web 实际在用的那个库(容器网络内的 mysql:3306)。

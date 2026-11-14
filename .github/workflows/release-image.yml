@@ -49,7 +49,10 @@ jobs:
           while IFS='=' read -r key value; do
             echo "$key=$value" >> "$GITHUB_OUTPUT"
           done < <(scripts/ci/build-meta.sh --branch "$branch")
-      # 预建持久 builder:不用 setup-buildx-action——它会另建临时 builder 顶掉选择
+      # 预建持久 builder:不用 setup-buildx-action——它会另建临时 builder 顶掉选择。
+      # **这个持久 builder 同时就是本仓的构建缓存**:buildkit 的层 store 在容器里,
+      # 跨构建存活,重复构建只重算变动的层(实测第二次构建整体 2 分 28 秒)。
+      # ⇒ 别对它执行 `docker buildx prune`(会连层缓存一起清掉,下次构建退回全量重建)
       - name: Select builder / 选择构建器
         run: docker buildx use ci-builder
       # id + 重试条件:登录失败属配置错误,不进重试(避免白建镜像且盖住真错)
@@ -61,6 +64,17 @@ jobs:
           password: ${{ secrets.TCR_PASSWORD }}
       # provenance: false——TCR 不认 OCI attestation 附加清单
       # continue-on-error:首推失败不染红 job,成败由结论裁定步骤定
+      #
+      # **构建缓存不配 GitHub Actions Cache 服务**（2026-11-15 实测踩坑后移除):
+      #   层缓存由**持久 builder 的本地层缓存**承担——ci-builder 容器常驻,
+      #   buildkit 自己的 store 跨构建复用各层。实测(同一次提交连续两次构建):
+      #   第二次所有步骤瞬间命中本地缓存,整个「构建+推送」仅 2 分 28 秒。
+      #   早前误加 `cache-to: type=gha,mode=max`:该导出会把**整个构建缓存
+      #   (数 GB)**经本 runner 的上行链路推去 GitHub 缓存服务,实测写层阶段
+      #   20 分钟零进展 ⇒ 步骤 25 分钟超时 ⇒ 作业判红——**而镜像早已推完**
+      #   (构建+推送实测 3 分 41 秒就完成了)。单 runner 场景下这份导出纯属
+      #   纯开销:换机器才需要它,而本仓只有一个自托管 runner。
+      #   ⇒ 缓存的正确承载物是本机的持久 builder,不是 GitHub 的缓存服务。
       - name: Build and Push / 构建并推送(第 1 次尝试)
         id: build1
         continue-on-error: true

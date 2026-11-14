@@ -442,64 +442,18 @@ jobs:
           chmod 600 ~/.ssh/known_hosts
       - id: vars
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-      - name: 预检生产机(部署目录与 compose 插件)
-        run: |
-          set -eu
-          # 生产机必须有 compose v2 CLI 插件:只装了独立二进制 docker-compose 时
-          # `docker compose` 不可用,现场步骤会以 exit 125 崩掉,报错还指向"拉取失败"。
-          # 这里先一步拦下,报错直指缺插件。
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_HOST" \
-            "cd '$DEPLOY_PATH' || { echo 'ERROR: 部署目录不存在:$DEPLOY_PATH' >&2; exit 1; }; sudo docker compose version >/dev/null 2>&1 || { echo 'ERROR: 生产机缺少 compose v2 CLI 插件(docker compose 不可用)' >&2; exit 1; }; echo '生产机预检通过'"
-      - name: 记录发布前现场
-        run: |
-          # 只读记录,不该因某个文件不存在而失败(首次 CI 发布时 .deploy-state 与
-          # .env.prod 的 WEB_IMAGE 都还没有)——所以每段各自兜住,不用 && 串。
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_HOST" \
-            "cd '$DEPLOY_PATH' || exit 1; \
-             echo '--- 当前状态文件 ---'; cat .deploy-state 2>/dev/null || echo '(无)'; \
-             echo '--- 当前镜像钉 ---'; grep -E '^WEB_IMAGE=' .env.prod 2>/dev/null || echo '(未钉)'; \
-             echo '--- 当前运行镜像 ---'; sudo docker compose --env-file .env.prod -f docker/docker-compose.prod.yml ps --format '{{.Service}} {{.Image}} {{.State}}' 2>/dev/null || true; \
-             exit 0"
-      - name: 同步部署资产到服务器
-        run: |
-          set -eu
-          # COPYFILE_DISABLE:macOS 上打包不夹带 AppleDouble(._*)垃圾文件
-          # prisma/schema-business 一并下发:迁移集必须与本次发布的镜像同源,
-          # 否则服务器上的旧迁移集会让新代码读不到新列(台账断言会当场拦下)
-          COPYFILE_DISABLE=1 tar -czf /tmp/deploy-assets.tar.gz \
-            scripts/deploy.sh \
-            prisma/schema-business \
-            docker/docker-compose.prod.yml \
-            docker/caddy/Caddyfile \
-            docker/nginx-stream/nginx.conf.template \
-            docker/web/Dockerfile
-          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
-            /tmp/deploy-assets.tar.gz "$DEPLOY_HOST:/tmp/deploy-assets.tar.gz"
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_HOST" \
-            sudo bash -s -- "$DEPLOY_PATH" "$GITHUB_SHA" <<'REMOTE'
-          set -eu
-          cd "$1"
-          # --no-same-owner:不让归档里的 uid/gid 覆盖服务器属主
-          tar --no-same-owner -xzf /tmp/deploy-assets.tar.gz
-          rm -f /tmp/deploy-assets.tar.gz
-          chmod 755 scripts/deploy.sh
-          printf '%s\n' "$2" > .deploy-commit
-          # 资产落地完整性校验:缺任何一项都中止,不带着半套资产继续发布
-          for f in scripts/deploy.sh prisma/schema-business/schema.prisma docker/docker-compose.prod.yml docker/caddy/Caddyfile docker/nginx-stream/nginx.conf.template docker/web/Dockerfile; do
-              [ -f "$f" ] || { echo "ERROR: 资产缺失:$f" >&2; exit 1; }
-          done
-          echo "--- 已同步:发布资产齐全 ---"
-          REMOTE
+      # 发布(预检 → 同步资产 → 后台发布 → 轮询退出码)
+      # 全部远端交互收敛在 scripts/ci/remote-release.sh 一份实现里:
+      #   ① ssh/scp 一律带 ServerAliveInterval ⇒ 空闲会话不被链路 15 分钟超时掐断;
+      #   ② 远端发布 setsid 后台执行 + 退出码落文件 ⇒ SSH 断连不影响发布继续;
+      #   ③ CI 轮询退出码文件并回显远端日志 ⇒ 成败判定不依赖会话存活。
+      # 2026-11-14 生产发布失败(exit 255)的根因正是「迁移步骤静默 15 分半 + 会话被掐」,
+      # 修法见 scripts/ci/remote-release.sh 头部注释。
       - name: 发布(钉镜像 → 迁移 → 台账断言 → 换容器 → 健康检查 → 失败回滚 → 镜像清理)
-        run: |
-          set -eu
-          # 命名空间与部署根随命令传到服务器侧脚本(ssh 不继承 runner 的 env,须显式带;
-          # DEPLOY_ROOT 缺了脚本会在开头直接退出)
-          # tag 恒为本次 main 提交短号:docker-release 与本作业同属一次 push,
-          # 该 tag 的镜像必已构建推送完成(needs: docker-release 保证顺序)。
-          TAG="main-${{ steps.vars.outputs.sha_short }}"
-          echo "发布目标镜像 tag:$TAG"
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_HOST" \
-            "cd '$DEPLOY_PATH' && sudo DEPLOY_ROOT='$DEPLOY_PATH' DEPLOY_NAMESPACE='$DEPLOY_NAMESPACE' bash scripts/deploy.sh --env prod --tag '$TAG'"
+        env:
+          DEPLOY_TAG: main-${{ steps.vars.outputs.sha_short }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: bash scripts/ci/remote-release.sh
 
 
