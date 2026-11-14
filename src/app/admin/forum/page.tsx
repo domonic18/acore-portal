@@ -21,6 +21,7 @@ import {
   THREAD_LABEL_OPTIONS,
   THREAD_STATUS_TEXT,
 } from "@/constants/forum";
+import { formatDateTime } from "@/lib/format";
 
 type SearchParams = {
   tab?: string;
@@ -223,7 +224,7 @@ async function ThreadsSection({
                   </Td>
                   <Td className="whitespace-nowrap text-[#93b2ce]">{t.replyCount}</Td>
                   <Td className="whitespace-nowrap text-xs text-[#6482a3]">
-                    {new Date(t.lastPostAt).toLocaleString("zh-CN")}
+                    {formatDateTime(t.lastPostAt)}
                   </Td>
                   <Td>
                     <ForumThreadActions

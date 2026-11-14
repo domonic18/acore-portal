@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableEmpty, Td, Th, THead, Tr } from "@/components/ui/table";
+import { formatDateTime } from "@/lib/format";
 
 /** 被锁账号行(本地类型:组件不依赖 server 层的类型) */
 type LockedAccount = {
@@ -41,7 +42,7 @@ export function SecurityLockedAccounts({ accounts }: { accounts: LockedAccount[]
                 {a.locked ? <Badge tone="danger">锁定中</Badge> : <Badge tone="muted">已解锁</Badge>}
               </Td>
               <Td className="text-xs text-[#6482a3]">
-                {new Date(a.lockedAt).toLocaleString("zh-CN")}
+                {formatDateTime(a.lockedAt)}
               </Td>
             </Tr>
           ))

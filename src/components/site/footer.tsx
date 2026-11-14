@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { APP_SHA, BUILD_TIME, formatBuildInfo } from "@/constants/version";
-import { joinSegments } from "@/lib/format";
+import { beijingDateKey, joinSegments } from "@/lib/format";
 
 /**
  * 全站页脚(M3 US1 T018,FR-204;2026-10 设计稿对齐):居中链接 + 版权行;
@@ -25,7 +25,7 @@ export function SiteFooter({
   // 版权行分段:「© 年份 站点名」为一段(沿用 WP 原站口径,年份与站名以空格分隔),
   // 副标题另起一段用 " · " 分隔;留空段不拼,分隔符随之省略
   const copyrightLine = joinSegments([
-    `© ${new Date().getFullYear()}${name ? ` ${name}` : ""}`,
+    `© ${beijingDateKey().slice(0, 4)}${name ? ` ${name}` : ""}`,
     tagline,
   ]);
 

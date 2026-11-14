@@ -4,6 +4,7 @@ import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { PROGRESSION_CURRENT_NODE_KEY } from "@/constants/status";
 import { writeAudit } from "@/server/services/shared/audit";
 import { ContentAdminError } from "@/server/services/content/admin";
+import { formatDate } from "@/lib/format";
 
 /**
  * 渐进计划(M3 US3 T022;R8 人工指针):
@@ -86,7 +87,7 @@ export async function listAdminProgression(): Promise<AdminProgressionNode[]> {
   return nodes.map((n) => ({
     id: n.id.toString(),
     title: n.title,
-    phaseDate: n.phaseDate?.toISOString().slice(0, 10) ?? null,
+    phaseDate: n.phaseDate ? formatDate(n.phaseDate) : null,
     imageUrl: n.imageUrl,
     bodyMd: n.bodyMd,
     status: n.status,
@@ -222,7 +223,7 @@ export async function saveProgressionTimeline(
         const unchanged =
           row &&
           row.title === data.title &&
-          (row.phaseDate ? row.phaseDate.toISOString().slice(0, 10) : null) === item.phaseDate &&
+          (row.phaseDate ? formatDate(row.phaseDate) : null) === item.phaseDate &&
           row.imageUrl === data.imageUrl &&
           row.bodyMd === data.bodyMd &&
           row.status === data.status &&

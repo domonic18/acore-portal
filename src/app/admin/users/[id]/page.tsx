@@ -9,7 +9,7 @@ import { Table, TableEmpty, Td, Th, THead, Tr } from "@/components/ui/table";
 import { UserActions } from "@/components/admin/user-actions";
 import { RoleAssign } from "@/components/admin/role-assign";
 import { RoleBadge } from "@/components/admin/role-badge";
-import { displayUserName } from "@/lib/format";
+import { displayUserName, formatDate, formatDateTime } from "@/lib/format";
 
 /** 用户详情(FR-130):余额/徽章/近 10 条流水+角色分配、手调与授予操作。 */
 export default async function AdminUserDetailPage({
@@ -69,7 +69,7 @@ export default async function AdminUserDetailPage({
         </div>
         <div>
           <dt className="text-[#6482a3]">注册时间</dt>
-          <dd className="text-[#dcebf7]">{new Date(user.createdAt).toLocaleString("zh-CN")}</dd>
+          <dd className="text-[#dcebf7]">{formatDateTime(user.createdAt)}</dd>
         </div>
       </dl>
 
@@ -91,7 +91,7 @@ export default async function AdminUserDetailPage({
               >
                 {g.name}(Lv.{g.level})
                 <span className="ml-2 whitespace-nowrap text-xs text-[#6482a3]">
-                  {new Date(g.grantedAt).toLocaleDateString("zh-CN")}
+                  {formatDate(g.grantedAt)}
                 </span>
               </li>
             ))}
@@ -130,7 +130,7 @@ export default async function AdminUserDetailPage({
                   <Td className="whitespace-nowrap text-[#dcebf7]">{t.balanceAfter}</Td>
                   <Td className="min-w-0 text-[#6482a3]">{t.remark ?? "—"}</Td>
                   <Td className="whitespace-nowrap text-xs text-[#6482a3]">
-                    {new Date(t.createdAt).toLocaleString("zh-CN")}
+                    {formatDateTime(t.createdAt)}
                   </Td>
                 </Tr>
               ))}

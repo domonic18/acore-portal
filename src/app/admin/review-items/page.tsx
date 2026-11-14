@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { PaginationNav } from "@/components/ui/pagination";
 import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
 import { FOCUS_RING } from "@/components/ui/admin-tokens";
-import { displayUserName } from "@/lib/format";
+import { displayUserName, formatDate } from "@/lib/format";
 import { buildPageHref } from "@/lib/pagination";
 
 /**
@@ -99,7 +99,7 @@ export default async function AdminReviewItemsPage({
                     <Td>
                       {r.resolvedAt ? (
                         <span className="text-xs text-[#93b2ce]">
-                          已落定 {new Date(r.resolvedAt).toLocaleDateString("zh-CN")}
+                          已落定 {formatDate(r.resolvedAt)}
                         </span>
                       ) : (
                         <Badge tone="warn">待复核</Badge>

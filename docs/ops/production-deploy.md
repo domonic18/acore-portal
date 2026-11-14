@@ -158,6 +158,27 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml \
   切换后不可从生产实例里删;
 - 迁移链的源/目标连接口径:`MIGRATE_DATABASE_URL`=目标库,`MIGRATE_SOURCE_SCHEMA=wp_legacy`。
 
+### 2.2 存量时间修正（一次性回填，2026-11-14）
+
+迁移链早期把 WP 的**站点本地墙钟**（`wp_posts.post_date`，旧站 Asia/Shanghai）直接写进了业务库的
+UTC 列，文章发布/论坛发帖/订单创建时间整体偏 8 小时。迁移脚本已改取 `post_date_gmt`
+（口径见 `docs/research/01-数据迁移与技术方案.md` §2.1），但**已导入的存量行不会自动更正**——
+导入按 legacy 键幂等跳过，须一次性回填：
+
+```bash
+# ① 改前备份四张表（回滚保险）
+docker compose --env-file .env.prod -f docker/docker-compose.prod.yml \
+  exec -T mysql sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --no-tablespaces --skip-add-drop-table acore_portal article forum_thread forum_post shop_order' > backup-tz.sql
+
+# ② 执行修正（脚本以 wp_legacy 的 GMT 真值回填 ⇒ 幂等，重跑零变更）
+docker compose --env-file .env.prod -f docker/docker-compose.prod.yml \
+  exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" acore_portal' < scripts/ops/fix-legacy-timezone.sql
+```
+
+脚本自带三段输出：改前差量（各列偏置行数）、改后复核（应全为 0）、孤儿行统计
+（legacy 键在 WP dump 里找不到的行——正常应为 0，非 0 说明迁移源与当前 WP dump 不是同一份）。
+`wp_legacy` 须仍在生产 MySQL 实例内（§2.1 ④ 已把它列为长期只读 schema）——它不在，脚本的 JOIN 取不到真值。
+
 ## 3. 业务通道配置(部署后进后台配)
 
 `.env.prod` 只放引导级凭据(宪法 v1.0.2);下列全部存 `system_config`,部署后登录后台 `/admin/settings` 逐组保存,保存即热生效(部分例外见 `backup-restore.md` §6):

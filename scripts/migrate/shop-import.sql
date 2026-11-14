@@ -21,6 +21,9 @@
 -- 注意:wp_legacy 库排序规则为 utf8mb4_unicode_520_ci(与目标 utf8mb4_unicode_ci 不同),
 --   跨库字符串比较一律 COLLATE utf8mb4_unicode_ci;ON DUPLICATE KEY UPDATE 的目标列
 --   一律表名限定(JOIN 了同名 id 列的表,不限定会报 ambiguous)
+-- 时区口径(2026-11-14):wp_posts.post_date 是**站点本地墙钟**(旧站 Asia/Shanghai),
+--   目标库 DateTime 列是 UTC ⇒ 订单时间一律取 post_date_gmt(零值回退 post_date - 8 小时);
+--   FROM_UNIXTIME 按会话时区折算,须 CONVERT_TZ 回 +00:00 才等于 UTC
 
 -- ① 分类(product_cat;slug 幂等)
 INSERT INTO product_category (name, slug, sort)
@@ -110,11 +113,13 @@ SELECT
     ELSE 'pending'
   END,
   COALESCE(pay.paid, m.total),
-  CASE WHEN pay.paid = m.total THEN FROM_UNIXTIME(pay.pay_time) END,
-  CASE WHEN pay.paid = m.total THEN FROM_UNIXTIME(pay.pay_time) END,
-  CASE WHEN pay.paid IS NULL THEN p.post_date END,
+  CASE WHEN pay.paid = m.total THEN CONVERT_TZ(FROM_UNIXTIME(pay.pay_time), @@session.time_zone, '+00:00') END,
+  CASE WHEN pay.paid = m.total THEN CONVERT_TZ(FROM_UNIXTIME(pay.pay_time), @@session.time_zone, '+00:00') END,
+  CASE WHEN pay.paid IS NULL THEN (CASE WHEN p.post_date_gmt > '1980-01-01 00:00:00'
+      THEN p.post_date_gmt ELSE DATE_SUB(p.post_date, INTERVAL 8 HOUR) END) END,
   p.ID,
-  p.post_date,
+  CASE WHEN p.post_date_gmt > '1980-01-01 00:00:00'
+    THEN p.post_date_gmt ELSE DATE_SUB(p.post_date, INTERVAL 8 HOUR) END,
   NOW()
 FROM wp_legacy.wp_posts p
 -- 买家:WooCommerce 经典存储下订单的 post_author 是**站点创建者**,真正的买家在

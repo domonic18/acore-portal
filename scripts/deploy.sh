@@ -198,10 +198,11 @@ pull_image() {
 }
 
 build_image_local() {
-  # 构建信息随镜像产物固化(见 docker/web/Dockerfile):构建时间显式指定上海时区,
-  # 不依赖宿主机时区;提交号与镜像 tag 同源,便于页脚核对版本。
+  # 构建信息随镜像产物固化(见 docker/web/Dockerfile):构建时间取自
+  # scripts/ci/build-meta.sh(与 CI 构建同一口径,显式东八区,不依赖宿主机时区);
+  # 提交号与镜像 tag 同源,便于页脚核对版本。
   local build_time
-  build_time="$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M')"
+  build_time="$("$SCRIPT_DIR/ci/build-meta.sh" --field build_time --sha "$HEAD_SHA")"
   log "构建镜像 $IMAGE_REF(构建信息 $build_time / $SHA_SHORT)"
   WEB_IMAGE="$IMAGE_REF" "${COMPOSE[@]}" build \
     --build-arg BUILD_TIME="$build_time" \
