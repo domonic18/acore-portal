@@ -121,7 +121,7 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml --profile 
 
 生产镜像做的是 `--prod` 瘦身,但**仓库代码与 `scripts/` 是在镜像里的**(`Dockerfile` 的 `COPY . .`;
 `.dockerignore` 只排 `docs/`、`specs/`)。真正缺的是**依赖归属**:迁移链要用到的 `dotenv`/`mysql2`/`tsx`
-原在 devDependencies,被 `pnpm install --prod` 裁掉(2026-11-14 修正:此前本文档写「mysql2/bcrypt/dotenv
+原在 devDependencies,被 `pnpm install --prod` 裁掉(修正:此前本文档写「mysql2/bcrypt/dotenv
 虽在生产依赖内」是错的——`bcrypt`/`turndown`/`cos-nodejs-sdk-v5` 确实在,`dotenv`/`mysql2` 不在)。
 
 **现行做法**:已把 `dotenv`/`mysql2`/`tsx` 移进 production 依赖,故迁移链**直接在 web
@@ -198,11 +198,11 @@ docker compose -f docker/docker-compose.prod.yml logs --tail 50 web
 
 - TLS 证书由 caddy 自动签发并续期;证书与 ACME 账号落在 `workspace/caddy-data`,**容器重建不丢**(丢了会触发 Let's Encrypt 签发频率限制)
 - 首页 `data-theme` 属性应与 `theme.active` 一致
-- `security.trustedProxyHops` = **1**(2026-11-07 拍板:生产域名前**无 CDN/WAF**,腾讯云 CVM 直连 Caddy,应用正前方只有 Caddy 一层可信代理;Caddy 会把观测到的对端地址追加到 XFF 尾部,右起第 1 项即真实客户端 IP)
+- `security.trustedProxyHops` = **1**(生产域名前**无 CDN/WAF**,腾讯云 CVM 直连 Caddy,应用正前方只有 Caddy 一层可信代理;Caddy 会把观测到的对端地址追加到 XFF 尾部,右起第 1 项即真实客户端 IP)
   - 填 0 或大于实际跳数 → 取不到 IP,全站落进 `unknown` 兜底桶(登录 600 次/分钟**全站共享**)→ 撞库防护形同虚设且一个用户失败全站被锁
   - 填小于实际跳数(将来上了 CDN/WAF 则是 2)→ 取到中间代理 IP,同代理用户共用一个桶、攻击者换 IP 即绕过限流
   - 改动入口:后台「安全设置 → 可信代理跳数」;域名链路变更(加 CDN/高防)时必须同步改
-- `home.achievementUrl` = `https://rank.lokta.cn/achievement`、`home.achievementScrolling` = `true`(2026-11-07 拍板:生产首页要带成就嵌入;滚动条默认开是因为嵌入页内容常高于框高,关掉则底部内容既看不见也滚不到。高度固定 68vh,后台不再可配)
+- `home.achievementUrl` = `https://rank.lokta.cn/achievement`、`home.achievementScrolling` = `true`(生产首页要带成就嵌入;滚动条默认开是因为嵌入页内容常高于框高,关掉则底部内容既看不见也滚不到。高度固定 68vh,后台不再可配)
 - 媒体上传:图片/PDF ≤10MB、视频 mp4/webm ≤50MB;**公网入口的体积闸门在网关侧也要放开**(反代若设了 `client_max_body_size 1m` 会先于应用层返回 413)
 
 ## 5. 备份对接
@@ -246,13 +246,13 @@ docker compose -f docker/docker-compose.prod.yml logs --tail 50 web
 
 ### 7.1 门户的发布流程(CI 自动化,生产发布经审批放行)
 
-**门户的生产发布走流水线**(另留 `scripts/ops/deploy-production.sh` 作 CI 不可用时的人工兜底):
+**门户的生产发布走流水线**(CI 不可用时的人工兜底走同一份脚本的 `--build-local` 模式):
 
 | 环节 | 谁来做 |
 | --- | --- |
 | 构建镜像 | CI 的 `docker-release` job(`release-image.yml`):推到 TCR,tag = `main-<提交短号>`(短 tag 不可变 ⇒ 可精确回滚) |
 | **发布到生产** | **人在 GitHub 上批准**:push main 后 `deploy-production` 作业自动进入待部署队列,人点一次批准即发布 |
-| 部署动作 | CI 经 SSH 把发布资产同步到生产机,再跑 `scripts/deploy.sh --env prod --tag <tag>` |
+| 部署动作 | CI 经 SSH 把发布资产同步到生产机(`scripts/deploy.sh` + compose + **`prisma/schema-business` 迁移集**),再跑 `scripts/deploy.sh --env prod --tag <tag>` |
 
 `push main` 后流水线自行推进到 `deploy-production`,**不再有 `workflow_dispatch` 手动触发入口**。
 生产发布的这道人工门由 `environment: production` 承担(该环境已配 required reviewer,
@@ -260,7 +260,7 @@ docker compose -f docker/docker-compose.prod.yml logs --tail 50 web
 
 > **为什么去掉手动 dispatch**:两道人工确认(手动触发 + 审批)同属一人,第二道没有增量
 > 安全性;更关键的是手动入口会让「main 已合并但生产没跟上」变成**静默漂移**——
-> 2026-11-14 实测生产落后 main 23 个提交而无人察觉。push 触发后,每次合并到 main 都
+> 实测生产落后 main 23 个提交而无人察觉。push 触发后,每次合并到 main 都
 > 留下一条待部署记录,漂移是看得见的待办。作业失败、或待部署被取消时,在 Actions 页对
 > 那次 run 选 Re-run all jobs(只重跑失败项可用 Re-run failed jobs),不必另留手动通道。
 
@@ -268,18 +268,21 @@ docker compose -f docker/docker-compose.prod.yml logs --tail 50 web
 secrets `TCR_NAMESPACE` / `TCR_USERNAME` / `TCR_PASSWORD` / `DEPLOY_SSH_KEY` / `DEPLOY_KNOWN_HOSTS`。
 **仓库为 public,主机地址与凭据一律不入库。**
 
-部署脚本 `scripts/deploy.sh` 与测试栈**同源一份**,按顺序做:
+部署脚本 `scripts/deploy.sh` 与测试栈**同源一份**(CI 发布与人工兜底也是同一份,只是取镜像的方式不同),按顺序做:
 
-1. **预检**——`.env.prod` 存在、compose 可用、tag 形态合法(`main|develop)-<短号>`);
+1. **预检**——`.env.prod` 存在、compose 可用、迁移集存在、tag 形态合法(`main|develop)-<短号>`);
 2. **钉镜像**——`WEB_IMAGE` 写入 `.env.prod`(回滚目标也落在这里,compose 靠它插值);
 3. **拉镜像**——从 TCR 拉该 tag(本地已有同 tag 则跳过,回滚场景下仓库不可达也能起);
 4. **迁移先行**——`--profile migrate run --rm migrate` 一次性服务(schema 先到位,§2);
-5. **滚动 web**——`up -d --wait --no-deps --no-build web`(只换 web,mysql/redis 数据卷原地复用);
-6. **健康检查**——`http://127.0.0.1:3000/api/status` 须 200;
-7. **落状态**——`.deploy-state`(status / tag / previous_tag / commit);
-8. **镜像清理**——同一仓库**只留最近 3 个镜像**(当前版本与回滚目标永不删)。
+5. **迁移台账断言**——三集合比对:应用集(迁移服务实际会应用的迁移集)⊆ 库内台账
+   (`_prisma_migrations` 已完成且未回滚)、镜像集(镜像内 `/app/prisma/schema-business/migrations`)
+   ⊆ 应用集、台账无未完成行;任一不满足即**在换容器前**中止;
+6. **滚动 web**——`up -d --wait --no-deps --no-build web`(只换 web,mysql/redis 数据卷原地复用);
+7. **健康检查**——`http://127.0.0.1:3000/api/status` 须 200;
+8. **落状态**——`.deploy-state`(status / tag / previous_tag / commit);
+9. **镜像清理**——同一仓库**只留最近 3 个镜像**(当前版本与回滚目标永不删)。
 
-第 3/4/5 步任一失败 → 把 `WEB_IMAGE` 退回上一版并重新起容器,旧版本继续服务
+第 5/6/7 步任一失败 → 把 `WEB_IMAGE` 退回上一版并重新起容器,旧版本继续服务
 (数据库不回滚,迁移 forward-only)。
 
 要点:
@@ -292,8 +295,17 @@ secrets `TCR_NAMESPACE` / `TCR_USERNAME` / `TCR_PASSWORD` / `DEPLOY_SSH_KEY` / `
   tag 校验只收 `main-*` 前缀,历史 tag 天然合规,旧镜像保留在 TCR 与宿主机)。
   数据库侧的破坏性变更需另备 SQL 回滚脚本(Prisma 迁移 forward-only)。
 
-**人工兜底脚本 `scripts/ops/deploy-production.sh` 保留**,用于 CI 不可用时的手动发布
-(它走「本地构建 + 台账断言」的老路径,与 CI 路径并存但语义一致)。
+**人工兜底 = 同一份脚本的本地构建模式**,用于 CI 不可用时的手动发布:
+
+```bash
+sudo DEPLOY_ROOT=<部署根> TARGET_COMMIT=<发布提交> \
+  bash scripts/deploy.sh --env prod --build-local
+```
+
+它现场构建镜像(镜像名 `acore-portal-prod-web:<短号>`),其余语义与 CI 路径完全一致
+(台账断言 / 只换 web / 健康检查 / 失败回滚 / 镜像清理);
+**不执行任何 git 变更**——只校验发布资产根的 HEAD 已是目标提交且无未提交改动,
+拉代码由人做(发布脚本改仓库状态会破坏「回滚 = 回到上一个提交重新构建」这条人工回滚路径的前提)。
 
 ### 7.2 为什么生产发布仍需人工批准(自动化的是构建与搬运,不是上线决策)
 
@@ -313,20 +325,28 @@ CI 会**自动构建**镜像并可**自动部署测试栈**,但**生产发布保
 自动化后的门是:`main` 合并 → `docker-release` 构建镜像 + `deploy-production` 进入待部署
 → 人点一次**批准** → 作业跑 §7.1 的同一组命令。
 
-> **2026-11-08 补记**:「门户 CI 没有 deploy job」指的是**生产栈**。
+> 「门户 CI 没有 deploy job」指的是**生产栈**。
 > **测试栈**已先行自动化,手册见 [staging-deploy.md](staging-deploy.md)。
 >
 > 两者的镜像来源已统一到「CI 构建 + TCR 供镜像」:
 > 测试栈 `push develop` 自动发布,生产栈人工确认后发布。
 >
-> **2026-11-08 再补记**:生产栈的**发布步骤**已固化为 `scripts/ops/deploy-production.sh`(§7.1),
+> 生产栈的**发布步骤**已固化为部署脚本(§7.1),
 > 但**触发仍由人在服务器上执行**、不接 CI——脚本化的是步骤(校验/构建/迁移/台账断言/健康检查/失败回滚),
 > 不是发布时机;「发布与回滚同一条路径」这一条仍然成立。
 >
-> **2026-11-14 补记(形态变更)**:生产发布的触发由「`workflow_dispatch` 手动触发」改为
+> 生产发布的触发由「`workflow_dispatch` 手动触发」改为
 > **「push main 自动进入待部署队列 + `environment: production` 批准」**——`ci.yml` 已删掉
 > `workflow_dispatch` 触发与 `deploy_tag` 输入,`deploy-production` 的条件改为
 > `push && ref == main`。两道人工确认同属一人、第二道无增量安全性;更重要的是手动入口会让
 > 「main 已合并但生产没跟上」静默漂移(push 触发后每次合并都留下一条待部署记录)。
-> 人工兜底脚本 `scripts/ops/deploy-production.sh` 保留,定位变为「CI 不可用时的手动发布」。
+> 人工兜底保留,定位变为「CI 不可用时的手动发布」。
+>
+> 测试栈 / 生产栈 / CI 发布 / 人工兜底**共用一份
+> `scripts/deploy.sh`**——旧的 `scripts/ops/deploy-production.sh` 与 `scripts/ops/deploy-staging.sh`
+> 已删(两套流程并存必然漂移:CI 路径原本没有台账断言,兜底路径没有架构闸 / `.deploy-state` / 镜像清理)。
+> 取镜像有两种方式:`--tag <tag>` 从 TCR 拉(CI 用),`--build-local` 现场构建(人工兜底用)。
+> 迁移台账断言升级为**三集合比对**(应用集 ⊆ 库内台账、镜像集 ⊆ 应用集、台账无未完成行),
+> 且 CI 下发资产时**一并带上 `prisma/schema-business`**——迁移集必须与发布镜像同源,
+> 否则新镜像要的列没人建(旧资产不同源时会漏跑迁移)。
 
