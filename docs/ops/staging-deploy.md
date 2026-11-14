@@ -135,6 +135,12 @@ $DEPLOY_ROOT/               # 仓库变量 vars.DEPLOY_ROOT,绝对路径
 **顺序不可反**:新镜像引入的 schema 变更靠第 3 步补上;漏跑则新代码读不到新列。
 第 4 步的断言正是为「漏跑」兜底——它在换容器**之前**把问题拦下来。
 
+> 第 3 步的 `migrate` 服务**复用 web 镜像**(`image: ${WEB_IMAGE}`):prisma CLI 已内置在
+> 镜像的 `/opt/prisma`(见 `docker/web/Dockerfile`)。早前它用裸 `node:22-slim` +
+> `npx --yes prisma@6.19.3` 现下载,实测耗 15 分半且全程零输出,`run --rm` 又不留 npm 缓存
+> ⇒ 每次发布重下一次;内置后这一步是秒级的。迁移工具的版本与 `pnpm-lock.yaml` 锁定值一致,
+> 升级须同步改 `docker/web/Dockerfile`。
+
 **两条根目录(别混)**:
 
 | 根 | 内容 | 来源 |
