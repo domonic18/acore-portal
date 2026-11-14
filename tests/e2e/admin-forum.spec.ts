@@ -97,16 +97,25 @@ test("管理闭环:置顶/关闭/标签/删除/回收站恢复 全落库+审计"
   await expect(pinBtn).toBeEnabled(); // hydration 同步点
   await pinBtn.click();
   await expect(row.getByRole("button", { name: "取消置顶" })).toBeEnabled(); // refresh 后态翻转
-  await row.getByRole("button", { name: "关闭", exact: true }).click();
-  await expect(row.getByRole("button", { name: "开放" })).toBeEnabled();
+  // 状态标签与关闭态同源:下拉选「已关闭」即关帖,切「已解决」即重开(closed_at 同写)
   const labelSelect = row.getByLabel("状态标签");
   await expect(labelSelect).toBeEnabled();
   await labelSelect.selectOption("resolved");
   await expect(labelSelect).toHaveValue("resolved");
+  await row.getByRole("button", { name: "关闭", exact: true }).click();
+  await expect(row.getByRole("button", { name: "开放" })).toBeEnabled();
+  await expect(labelSelect).toHaveValue("closed");
 
   let db = await prisma.forumThread.findUniqueOrThrow({ where: { id: BigInt(threadId) } });
   expect(db.pinned).toBe(true);
   expect(db.closedAt).not.toBeNull();
+  expect(db.statusLabel).toBe("closed");
+
+  // 切回「已解决」即重开(closed_at 同清)
+  await labelSelect.selectOption("resolved");
+  await expect(labelSelect).toHaveValue("resolved");
+  db = await prisma.forumThread.findUniqueOrThrow({ where: { id: BigInt(threadId) } });
+  expect(db.closedAt).toBeNull();
   expect(db.statusLabel).toBe("resolved");
 
   await row.getByRole("button", { name: "删除", exact: true }).click();

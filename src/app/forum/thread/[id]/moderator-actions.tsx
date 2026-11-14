@@ -2,24 +2,34 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { THREAD_LABEL_OPTIONS, THREAD_STATUS_LABEL } from "@/constants/forum";
+import {
+  THREAD_LABEL_OPTIONS,
+  THREAD_STATUS_TEXT,
+  type ThreadStatusLabelValue,
+} from "@/constants/forum";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
  * 版主操作条(T040,FR-220):仅 moderator/admin 服务端渲染可见;
  * 全部走 /api/forum/moderate/thread/[id]/*,成功后 refresh(审计在服务端落)。
+ *
+ * 状态下拉 = 帖子的完整状态(无标签/已解决/请补充/已关闭);
+ * 下拉是状态的唯一出口:选「已关闭」即关帖(关帖后禁回帖),切到其他标签即重开;
+ * 旁边的「关闭主题/重开主题」按钮只是同一动作的一键快捷方式。
  */
 export function ModeratorActions({
   threadId,
   pinned,
+  featured,
   closed,
   statusLabel,
   boardSlug,
 }: {
   threadId: string;
   pinned: boolean;
+  featured: boolean;
   closed: boolean;
-  statusLabel: "none" | "standard" | "resolved" | "closed";
+  statusLabel: ThreadStatusLabelValue;
   boardSlug: string;
 }) {
   const router = useRouter();
@@ -70,6 +80,14 @@ export function ModeratorActions({
       <button
         type="button"
         disabled={busy}
+        onClick={() => act("/featured", "POST", { featured: !featured })}
+        className={`${btn} border-warn-bg text-highlight-soft hover:bg-warn-bg/30`}
+      >
+        {featured ? "取消加精" : "加精"}
+      </button>
+      <button
+        type="button"
+        disabled={busy}
         onClick={() => act("/close", "POST", { closed: !closed })}
         className={`${btn} border-warn-line text-highlight-soft hover:bg-warn-line/30`}
       >
@@ -78,20 +96,16 @@ export function ModeratorActions({
       <label className="flex items-center gap-1 text-muted">
         状态标签
         <select
-          disabled={busy || closed}
-          value={closed ? "closed" : statusLabel}
+          disabled={busy}
+          value={statusLabel}
           onChange={(e) => act("/label", "POST", { label: e.target.value })}
           className="rounded border border-line-strong bg-panel-inset px-1 py-1 text-foreground"
         >
-          {closed ? (
-            <option value="closed">{THREAD_STATUS_LABEL.closed}</option>
-          ) : (
-            THREAD_LABEL_OPTIONS.map((v) => (
-              <option key={v} value={v}>
-                {THREAD_STATUS_LABEL[v] || "无"}
-              </option>
-            ))
-          )}
+          {THREAD_LABEL_OPTIONS.map((v) => (
+            <option key={v} value={v}>
+              {THREAD_STATUS_TEXT[v]}
+            </option>
+          ))}
         </select>
       </label>
       <button

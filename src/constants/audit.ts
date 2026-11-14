@@ -55,6 +55,7 @@ export const AUDIT_ACTION = {
   FORUM_THREAD_PIN: "forum_thread_pin",
   FORUM_THREAD_CLOSE: "forum_thread_close",
   FORUM_THREAD_LABEL: "forum_thread_label",
+  FORUM_THREAD_FEATURED: "forum_thread_featured",
   FORUM_THREAD_DELETE: "forum_thread_delete",
   FORUM_THREAD_UNDELETE: "forum_thread_undelete",
   /** M4 后台版块管理(category=forum;payload 含 id/slug,改名记 old/new) */

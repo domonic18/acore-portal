@@ -7,7 +7,7 @@ import { ForumModerateError, labelThread } from "@/server/services/forum/moderat
 // label 收 string:closed 等非法值须命中服务层契约 422 LABEL_INVALID,而非 zod 泛化校验错误
 const schema = z.object({ label: z.string() });
 
-/** 状态标签流转(契约:仅 none/standard/resolved;closed 仅经 close 接口设置) */
+/** 状态标签流转(契约:none/resolved/needs_info/closed 均可选;closed 即关帖,关帖后禁回帖) */
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } },

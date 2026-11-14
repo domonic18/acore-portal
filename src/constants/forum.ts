@@ -1,13 +1,32 @@
-/** 论坛域常量(M3):状态标签中文映射(Q3 字段化);2026-11-04 开放登录用户发帖回帖(#34),本文件保留论坛域共用常量 */
+/**
+ * 论坛域常量(M3):状态标签中文映射(Q3 字段化)
+ *
+ * 状态取值与 forum_thread.status_label 枚举一一对应(单一真相源):
+ *   none       —— 无标签
+ *   resolved   —— 已解决
+ *   needs_info —— 请补充(版主提示发帖人补充更多信息,站内信通知作者)
+ *   closed     —— 已关闭(不可回帖;closed_at 同步落关闭时间)
+ */
 export const THREAD_STATUS_LABEL = {
   none: "",
-  standard: "规范",
   resolved: "已解决",
+  needs_info: "请补充",
   closed: "已关闭",
 } as const;
 
-export type ThreadStatusLabelValue =
-  (typeof THREAD_STATUS_LABEL)[keyof typeof THREAD_STATUS_LABEL];
+/** 状态取值(键)联合类型 */
+export type ThreadStatusLabelValue = keyof typeof THREAD_STATUS_LABEL;
 
-/** 可经 label 接口流转的标签(closed 仅经 close 操作产生,见 contracts/api-forum.md) */
-export const THREAD_LABEL_OPTIONS = ["none", "standard", "resolved"] as const;
+/** 可经 label 接口流转的标签(含 closed:状态下拉即可关闭主题,关闭后禁回帖) */
+export const THREAD_LABEL_OPTIONS = [
+  "none",
+  "resolved",
+  "needs_info",
+  "closed",
+] as const;
+
+/** 状态标签中文名(下拉展示;none 在下拉显示「无标签」,徽标侧空串即不显示) */
+export const THREAD_STATUS_TEXT: Record<ThreadStatusLabelValue, string> = {
+  ...THREAD_STATUS_LABEL,
+  none: "无标签",
+};

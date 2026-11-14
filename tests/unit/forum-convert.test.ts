@@ -10,13 +10,13 @@ import {
 
 /**
  * T035 US5 论坛转换器单测(Q3/R4/R5):
- * 状态前缀剥离(【规范】【已解决】【已关闭】→statusLabel+净标题,剥离失败保留原文)、
- * 楼层分配(早序 floor 连续、1=主贴)、存量状态可见性、版块 slug 映射。
+ * 状态前缀剥离(【已解决】【已关闭】→statusLabel+净标题;【规范】已下线只剥前缀不落标签,
+ * 剥离失败保留原文)、楼层分配(早序 floor 连续、1=主贴)、存量状态可见性、版块 slug 映射。
  */
 describe("stripStatusPrefix(T035 Q3)", () => {
-  it("三种已知前缀剥离为 statusLabel+净标题", () => {
+  it("已知前缀剥离为 statusLabel+净标题", () => {
     expect(stripStatusPrefix("【规范】置顶规范帖")).toEqual({
-      label: "standard",
+      label: "none",
       title: "置顶规范帖",
     });
     expect(stripStatusPrefix("【已解决】 幻化问题")).toEqual({

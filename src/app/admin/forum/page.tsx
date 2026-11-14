@@ -4,20 +4,24 @@ import { adminListThreads, listAdminBoards } from "@/server/services/forum/admin
 import { ForumThreadActions } from "@/components/admin/forum-thread-actions";
 import { ForumBoardManager } from "@/components/admin/forum-board-manager";
 import { ForumFilterChips } from "@/components/admin/forum-filter-chips";
-import { PinnedBadge, ThreadStatusBadge } from "@/components/forum/thread-badge";
+import { PinnedBadge, FeaturedBadge, ThreadStatusBadge } from "@/components/forum/thread-badge";
 import { AdminPager } from "@/components/ui/pagination";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
 import { FOCUS_RING } from "@/components/ui/admin-tokens";
 import { buildPageHref } from "@/lib/pagination";
+import {
+  THREAD_LABEL_OPTIONS,
+  THREAD_STATUS_TEXT,
+} from "@/constants/forum";
 
 type SearchParams = {
   tab?: string;
   board?: string;
   q?: string;
   pinned?: string;
-  closed?: string;
+  featured?: string;
   label?: string;
   deleted?: string;
   page?: string;
@@ -86,7 +90,7 @@ async function ThreadsSection({
   const q = searchParams.q?.trim() ?? "";
   const deleted = searchParams.deleted === "1";
   const pinned = searchParams.pinned === "1" ? true : undefined;
-  const closed = searchParams.closed === "1" ? true : undefined;
+  const featured = searchParams.featured === "1" ? true : undefined;
   const label = searchParams.label ?? "";
   const boardSlug = searchParams.board ?? "";
   const page = Math.max(1, Number.parseInt(searchParams.page ?? "1", 10) || 1);
@@ -98,7 +102,7 @@ async function ThreadsSection({
     boardId,
     q,
     pinned,
-    closed,
+    featured,
     label: label || undefined,
     deleted,
     page,
@@ -112,7 +116,7 @@ async function ThreadsSection({
         board: boardSlug || undefined,
         q: q || undefined,
         pinned: pinned ? "1" : undefined,
-        closed: closed ? "1" : undefined,
+        featured: featured ? "1" : undefined,
         label: label || undefined,
         deleted: deleted ? "1" : undefined,
       },
@@ -142,13 +146,18 @@ async function ThreadsSection({
           <span className="text-[#93b2ce]">状态标签</span>
           <Select name="label" defaultValue={label} className="w-auto">
             <option value="">全部</option>
-            <option value="none">无标签</option>
-            <option value="standard">规范</option>
-            <option value="resolved">已解决</option>
-            <option value="closed">已关闭</option>
+            {THREAD_LABEL_OPTIONS.map((v) => (
+              <option key={v} value={v}>
+                {THREAD_STATUS_TEXT[v]}
+              </option>
+            ))}
           </Select>
         </label>
-        <ForumFilterChips pinned={pinned === true} closed={closed === true} deleted={deleted} />
+        <ForumFilterChips
+          pinned={pinned === true}
+          featured={featured === true}
+          deleted={deleted}
+        />
         <Button type="submit" variant="primary">
           筛选
         </Button>
@@ -187,14 +196,14 @@ async function ThreadsSection({
                     className={`rounded text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline ${FOCUS_RING}`}
                     target="_blank"
                   >
-                    {t.pinned && <PinnedBadge />} {t.title}
+                    {t.pinned && <PinnedBadge />} {t.featured && <FeaturedBadge />} {t.title}
                   </Link>
                 </Td>
                 <Td className="whitespace-nowrap text-[#93b2ce]">{t.boardName}</Td>
                 <Td className="whitespace-nowrap text-[#93b2ce]">{t.authorName}</Td>
                 <Td>
                   <ThreadStatusBadge
-                    statusLabel={t.statusLabel as "none" | "standard" | "resolved" | "closed"}
+                    statusLabel={t.statusLabel}
                     closedAt={t.closedAt ? new Date(t.closedAt) : null}
                   />
                 </Td>
@@ -206,8 +215,9 @@ async function ThreadsSection({
                   <ForumThreadActions
                     threadId={t.id}
                     pinned={t.pinned}
+                    featured={t.featured}
                     closed={t.closedAt !== null}
-                    label={t.statusLabel === "closed" ? "none" : t.statusLabel}
+                    label={t.statusLabel}
                     deleted={deleted}
                   />
                 </Td>

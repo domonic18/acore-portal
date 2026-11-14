@@ -333,7 +333,7 @@ async function seedForum() {
       netTitle: null as string | null,
       authorUserId: moderator.id as bigint | null,
       authorName: "m3moderator",
-      statusLabel: "standard" as const,
+      statusLabel: "needs_info" as const, // 「请补充」状态样例(版主标记后提示发帖人补充)
       pinned: true,
     },
     {
