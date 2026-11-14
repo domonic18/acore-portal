@@ -199,6 +199,12 @@ docs/            # 文档中心
 ## Git & workflow
 
 - 未经用户批准不 commit、不 push；多功能迭代按逻辑单元分批 commit，不打包巨型 commit；重推用 `--force-with-lease`
+- **发布形态：特性分支 → develop → main**（`develop` 集成分支、`main` 生产分支）：
+  - 任何新改动一律从特性分支 **PR 进 `develop`**，禁止直接 PR 进 `main`（`main` 的 PR 只能以 `develop` 为 head）
+  - 发布到生产走两步：① **`main` 反向同步进 `develop`**（PR，base=`develop`，head=`sync/main-into-develop*`），使 develop ⊇ main、两边不漂移；② 开 **head 直接是 `develop`** 的 PR 合进 `main`
+  - **head 形态要对**：特性分支是特性分支、同步分支是同步分支；发布 PR 的 head 必须是 `develop` 本身（用 `sync/develop-into-main*` 之类的中间分支当 head 即为不合口径）
+  - **热修复例外**：线上紧急修复可直提 `main`，但**必须回灌 `develop`**（走上面的反向同步）；否则漂移会在下一次发布时被 develop 侧覆盖掉
+  - 合并用 **merge commit**（不 squash、不 rebase 合并），保持双分支合并记录可追溯
 - **分支「已合并」判定以代码事实为准**：`git branch --merged` 只看提交拓扑、`git cherry` 看 patch-id——**两者对 squash 合并的 PR 都会误判**（squash 后 hash 与 patch-id 都变了，而内容其实已在目标分支）。清理分支前须双向核对：① 目标分支的合并记录（`git log <target> --grep="功能关键字"`）② 代码事实（功能是否真在目标分支里：`git show <target>:<file>` / `git grep`）
 - 状态只更新 docs/plan/development-plan.md（里程碑粒度）+ 飞书需求池（条目粒度），不回填过程
 - 每轮迭代完成后执行 CodeReview 四维度：① 规范性（命名/硬编码/常量分层）② 封装性（职责单一/边界/收敛重复）③ 架构合理性（依赖方向/无越层/无循环）④ 根因性（修复先定位根因所在层级——机制/惯例/架构，方案向行业规范与最佳实践看齐，选根因层级的**最小充分**解；禁止只消除当前症状的局部补丁——症状消失但病因留存 = 下次同因复发。多个候选方案时须对照评估取舍，不为回避改动而降级到贴片方案）；问题清零方可收尾；Review 发现的规范缺口回写本文件（事故驱动沉淀）
