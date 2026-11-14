@@ -18,9 +18,12 @@
 #   由 pre-seed 在启动前落库 —— 集成档不共用这套放宽(它要断言生产档阈值)。
 name: E2E
 
+# 触发口径:只做「PR 门禁 + 人工触发」,**不在 push 上跑**
+# - push 一律不触发(含 main):推 main 的那次与「develop→main 的 PR 已跑过同一 commit」重复,
+#   且 deploy-production 不以 E2E 为前置,留着只是白烧 CI;
+# - PR 触发(每次推送新提交自动重跑,concurrency 取消上一轮)承担合并前的回归门禁;
+# - 另有 workflow_dispatch 供发版前人工复跑。
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
