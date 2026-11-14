@@ -319,6 +319,10 @@ CI 侧与生产机的全部远端交互收敛在 **`scripts/ci/remote-release.sh
 2. **所有 ssh/scp 一律带 `ServerAliveInterval=30` / `ServerAliveCountMax=6`**。
    产线 sshd 是 `clientaliveinterval 0`(不杀空闲会话),而链路上有 15 分钟空闲 TCP 超时
    ⇒ 不带保活时,连接空闲过久会被 RST 掐断。
+3. **密钥传「路径」不传 secret 正文**——`remote-release.sh` 的 `DEPLOY_SSH_KEY` /
+   `DEPLOY_KNOWN_HOSTS` 是**文件路径**(默认 `~/.ssh/deploy_key`、`~/.ssh/known_hosts`),
+   脚本自己预检 `[ -f ... ]`。CI 先把 secret 落盘到那两个默认路径,再调脚本时**不重复注入**。
+   传正文的直接死于预检:`✗ 私钥不存在:<密钥正文>`(2026-11-14 生产发布即栽在这)。
 
 > **2026-11-14 生产发布失败(exit 255)的根因**:当时是一条前台 ssh 直跑远端 `deploy.sh`,
 > 而迁移步骤在生产机上现下载 prisma CLI(见 §2)——**静默 15 分 34 秒**,
