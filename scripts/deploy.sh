@@ -42,11 +42,14 @@ EOF
 }
 
 # ---- 环境差异表:两环境只在路径/端口/项目名上不同,其余语义共用 ----
-case "${1:-}" in
---env)   ENV_NAME="${2:-}"; shift 2 ;;
---tag)   IMAGE_TAG="${2:-}"; shift 2 ;;
-*)       usage ;;
-esac
+# 参数逐个解析(不能用一次性 case:case 只判断一次,--env 后 shift 掉就不再认 --tag)
+while [ $# -gt 0 ]; do
+  case "$1" in
+  --env) ENV_NAME="${2:-}"; shift 2 ;;
+  --tag) IMAGE_TAG="${2:-}"; shift 2 ;;
+  *)     usage ;;
+  esac
+done
 [ -n "$ENV_NAME" ] && [ -n "$IMAGE_TAG" ] || usage
 
 case "$ENV_NAME" in
@@ -91,8 +94,18 @@ esac
 
 IMAGE_REF="$REGISTRY/$DEPLOY_NAMESPACE/$IMAGE_NAME:$IMAGE_TAG"
 
+# 架构归一:docker image inspect 报 arm64/amd64,docker info 报 aarch64/x86_64,
+# 同一架构两种叫法,直接比会误判成"架构不符"
+normalize_arch() {
+  case "$1" in
+    aarch64|arm64) echo "arm64" ;;
+    x86_64|amd64)  echo "amd64" ;;
+    *)             echo "$1" ;;
+  esac
+}
+
 # 宿主架构:发布前校验镜像架构与之相符(生产是 x86_64 Linux,须 amd64 镜像)
-HOST_ARCH="$(docker info --format '{{.Architecture}}' 2>/dev/null || echo unknown)"
+HOST_ARCH="$(normalize_arch "$(docker info --format '{{.Architecture}}' 2>/dev/null || echo unknown)")"
 
 # ---------------------------------------------------------------- 状态与回滚
 
@@ -103,9 +116,9 @@ read_state_field() { # 字段名
   sed -n "s/^$1=//p" "$STATE_FILE" | tail -n 1
 }
 
-write_state() { # 状态 tag previous commit
-  printf 'status=%s\ntag=%s\nprevious_tag=%s\ncommit=%s\nupdated_at=%s\n' \
-    "$1" "$2" "${3:-}" "${4:-}" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$STATE_FILE"
+write_state() { # 状态 tag previous_tag commit previous_ref
+  printf 'status=%s\ntag=%s\nprevious_tag=%s\ncommit=%s\nprevious_ref=%s\nupdated_at=%s\n' \
+    "$1" "$2" "${3:-}" "${4:-}" "${5:-}" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$STATE_FILE"
 }
 
 env_get() { # 键
@@ -133,12 +146,12 @@ pull_image() {
     log "本地已有镜像 $IMAGE_REF,跳过拉取"
   else
     log "拉取镜像 $IMAGE_REF"
-    docker pull "$IMAGE_REF"
+    docker pull "$IMAGE_REF" || return 1
   fi
-  # 架构闸:镜像架构必须与宿主一致(生产是 x86_64 Linux → 必须是 amd64 镜像)。
+  # 架构闸(拉取成功后才判):镜像架构必须与宿主一致(生产是 x86_64 Linux → 必须是 amd64 镜像)。
   # 架构不符时容器会以 exec format error 起不来,与其等健康检查失败才发现,不如在此拦停。
   local img_arch
-  img_arch="$(docker image inspect --format '{{.Architecture}}' "$IMAGE_REF" 2>/dev/null || echo unknown)"
+  img_arch="$(normalize_arch "$(docker image inspect --format '{{.Architecture}}' "$IMAGE_REF" 2>/dev/null || echo unknown)")"
   if [ "$HOST_ARCH" != "unknown" ] && [ "$img_arch" != "$HOST_ARCH" ]; then
     die "镜像架构与宿主不符:镜像=$img_arch 宿主=$HOST_ARCH($IMAGE_REF)。生产为 x86_64,须用 amd64 镜像"
   fi
@@ -146,25 +159,31 @@ pull_image() {
 }
 
 cleanup_images() { # 当前 tag 回滚目标 tag
-  local current_tag="$1" protect_tag="$2" tags i t
-  # 过滤参数必须是 registry/namespace/repo 全路径:只给命名空间匹配不到
-  # (docker images 按完整仓库名匹配),过滤落空会让清理静默空转
-  tags="$(docker images --format '{{.Tag}}\t{{.CreatedAt}}' "$REGISTRY/$DEPLOY_NAMESPACE/$IMAGE_NAME" 2>/dev/null \
-    | awk -F'\t' '$1 ~ /^(main|develop)-[0-9a-f]{7,40}$/' \
-    | sort -k2 -r | cut -f1)"
-  [ -n "$tags" ] || { warn "镜像清理过滤未命中(仓库路径不对,旧镜像不会被清理)"; return 0; }
-  i=0
-  for t in $tags; do
-    i=$((i + 1))
-    # 当前版本与上一个版本(回滚目标)永不删除
-    if [ "$i" -gt "$KEEP_IMAGES" ] && [ "$t" != "$current_tag" ] && [ "$t" != "$protect_tag" ]; then
-      docker image rm "$REGISTRY/$DEPLOY_NAMESPACE/$IMAGE_NAME:$t" >/dev/null 2>&1 \
-        || warn "镜像删除失败(可能被容器引用):$t"
-    fi
+  local current_tag="$1" protect_tag="$2" repo tags i t
+  # 覆盖两类镜像来源:
+  #   ① TCR 镜像(registry/namespace/acore-portal)——CI 推的正式来源;
+  #   ② 历史本地构建遗留(acore-portal-test / acore-portal-prod-web)——改造前的部署方式,
+  #      每个提交留一个近 1GB 的镜像,不清就把磁盘吃满(2026-11-14 实测本地积压 8 个)。
+  # 过滤参数必须是完整仓库名:只给命名空间匹配不到(docker images 按完整名匹配),
+  # 过滤落空会让清理静默空转。
+  for repo in "$REGISTRY/$DEPLOY_NAMESPACE/$IMAGE_NAME" acore-portal-test acore-portal-prod-web; do
+    tags="$(docker images --format '{{.Tag}}\t{{.CreatedAt}}' "$repo" 2>/dev/null \
+      | awk -F'\t' '$1 ~ /^(main|develop)-[0-9a-f]{7,40}$/ || $1 ~ /^[0-9a-f]{7,40}$/' \
+      | sort -k2 -r | cut -f1)"
+    [ -n "$tags" ] || continue
+    i=0
+    for t in $tags; do
+      i=$((i + 1))
+      # 当前版本与上一个版本(回滚目标)永不删除
+      if [ "$i" -gt "$KEEP_IMAGES" ] && [ "$t" != "$current_tag" ] && [ "$t" != "$protect_tag" ]; then
+        docker image rm "$repo:$t" >/dev/null 2>&1 \
+          || warn "镜像删除失败(可能被容器引用):$repo:$t"
+      fi
+    done
   done
   # 只清悬空层:docker image prune -a 会连回滚目标一起删掉
   docker image prune -f >/dev/null 2>&1 || true
-  log "镜像清理完成(保留最新 $KEEP_IMAGES 个)"
+  log "镜像清理完成(每仓库保留最新 $KEEP_IMAGES 个,当前与回滚目标不删)"
 }
 
 # ---------------------------------------------------------------- 部署动作
@@ -181,18 +200,17 @@ wait_healthy() { # 超时秒
   return 1
 }
 
-rollback_to() { # 上一版 tag
-  local prev="$1"
-  [ -n "$prev" ] || { warn "无可回滚版本,保持现场等待人工处理"; return 1; }
-  warn "回滚到 $prev"
-  local prev_ref="$REGISTRY/$DEPLOY_NAMESPACE/$IMAGE_NAME:$prev"
+rollback_to() { # 上一版完整镜像引用
+  local prev_ref="$1" prev_tag="$2"
+  [ -n "$prev_ref" ] || { warn "无可回滚版本,保持现场等待人工处理"; return 1; }
+  warn "回滚到 $prev_ref"
   if ! docker image inspect "$prev_ref" >/dev/null 2>&1; then
     docker pull "$prev_ref" || { warn "回滚镜像拉取失败"; return 1; }
   fi
   WEB_IMAGE="$prev_ref" "${COMPOSE[@]}" up -d --wait --no-deps --no-build web \
     || { warn "回滚失败,需人工介入"; return 1; }
   wait_healthy 120 || { warn "回滚后健康检查未通过,需人工介入"; return 1; }
-  warn "回滚成功:当前运行 $prev"
+  warn "回滚成功:当前运行 $prev_ref"
   return 0
 }
 
@@ -201,23 +219,25 @@ rollback_to() { # 上一版 tag
 log "部署 $ENV_NAME,目标镜像 $IMAGE_TAG"
 cd "$DEPLOY_ROOT"
 
-# 上一个版本 = 当前 env 里的 WEB_IMAGE(改之前);空则退到状态文件
-previous="$(env_get WEB_IMAGE '')"
-previous="${previous##*:}"
-[ -n "$previous" ] || previous="$(read_state_field previous_tag)"
-[ -n "$previous" ] || previous="$(read_state_field tag)"
+# 上一个版本 = **当前运行容器的镜像**(权威,保留完整引用);env 文件与状态文件只作次选。
+# 取 env 不可靠:上一次失败的运行可能已把新 tag 写进 env,而容器还跑着旧镜像。
+# 完整引用要留着:当前运行的镜像未必来自 TCR(如历史本地构建的镜像名),
+# 回滚时得能直接引用它,不能一律按 TCR 路径拼。
+previous_ref="$(docker inspect "${PROJECT_NAME}-web-1" --format '{{.Config.Image}}' 2>/dev/null || true)"
+[ -n "$previous_ref" ] || previous_ref="$(env_get WEB_IMAGE '')"
+[ -n "$previous_ref" ] || previous_ref="$(read_state_field previous_ref '')"
+previous_tag="${previous_ref##*:}"
+previous="$previous_tag"
 commit="$IMAGE_TAG"
+
+# 先拉镜像,**拉成功后才钉 env**:拉失败时 env 保持原样,不会指向一个从未跑起来的 tag
+if ! pull_image; then
+  die "镜像拉取失败:$IMAGE_TAG(env 未改动,当前版本继续服务)"
+fi
 
 # 钉镜像(写 env 文件,compose 靠它插值;回滚目标也落在这里)
 set_env_var WEB_IMAGE "$IMAGE_REF"
 log "镜像钉为 $IMAGE_TAG(上一个版本: ${previous:-无})"
-
-# 拉镜像失败时还没换容器,必须把 env 退回上一个版本——
-# 否则 env 会指向一个从未跑起来的 tag,下一次部署的回滚目标就错了
-if ! pull_image; then
-  if [ -n "$previous" ]; then set_env_var WEB_IMAGE "$REGISTRY/$DEPLOY_NAMESPACE/$IMAGE_NAME:$previous"; fi
-  die "镜像拉取失败:$IMAGE_TAG"
-fi
 
 # 迁移先行:schema 没到位就换容器,新代码读不到新列
 log "迁移先行"
@@ -229,19 +249,19 @@ fi
 # 只换 web:mysql/redis 的数据卷原地复用,绝不 down -v
 if ! WEB_IMAGE="$IMAGE_REF" "${COMPOSE[@]}" up -d --wait --no-deps --no-build web; then
   warn "容器更新失败"
-  write_state FAILED "$IMAGE_TAG" "$previous" "$commit"
-  rollback_to "$previous" || true
+  write_state FAILED "$IMAGE_TAG" "$previous" "$commit" "$previous_ref"
+  rollback_to "$previous_ref" "$previous" || true
   die "部署失败,已尝试回滚"
 fi
 
 if ! wait_healthy 180; then
   warn "健康检查未通过"
-  write_state FAILED "$IMAGE_TAG" "$previous" "$commit"
-  rollback_to "$previous" || true
+  write_state FAILED "$IMAGE_TAG" "$previous" "$commit" "$previous_ref"
+  rollback_to "$previous_ref" "$previous" || true
   die "部署失败(健康检查未通过),已尝试回滚"
 fi
 
-write_state OK "$IMAGE_TAG" "$previous" "$commit"
+write_state OK "$IMAGE_TAG" "$previous" "$commit" "$previous_ref"
 log "部署成功:$IMAGE_TAG"
 
 cleanup_images "$IMAGE_TAG" "$previous"
