@@ -6,11 +6,13 @@ import { verifyWpBcrypt } from "@/lib/auth/wp-bcrypt";
 import { srp6Verifier } from "@/lib/auth/game-hash";
 import { PASSWORD_ALGO, PENDING_HASH_PREFIX } from "@/constants/password";
 import { AUDIT_ACTION } from "@/constants/audit";
+import { POINT_RULE_EVENT, POINT_TX_TYPE } from "@/constants/points";
 import { redis } from "@/lib/redis";
 import { getSessionFromToken } from "@/lib/auth/session";
 import { registerAccount, activateAccount, resendActivation } from "@/server/services/auth/register";
 import * as passwordShared from "@/server/services/auth/password/shared";
 import { recalculateLedger } from "@/server/services/shared/ledger";
+import { getEarnAmount } from "@/server/services/points/rules";
 import { loginWithPassword } from "@/server/services/auth/login";
 
 /**
@@ -64,7 +66,7 @@ afterAll(async () => {
 });
 
 describe("US2 注册受理(T026/T027/T028)", () => {
-  it("受理:占位 user+奖励+2+token+邮件+游戏端建号;占位不可登录", async () => {
+  it("受理:占位 user+token+邮件+游戏端建号;未认证通过不发分", async () => {
     const input = await makeRegisterInput(0);
     createdUsers.push(input.username);
     const outcome = await registerAccount(input);
@@ -76,19 +78,9 @@ describe("US2 注册受理(T026/T027/T028)", () => {
     expect(user.passwordHash.startsWith(PENDING_HASH_PREFIX)).toBe(true);
     expect(user.passwordAlgo).toBe(PASSWORD_ALGO.BCRYPT_WP);
 
-    // 账本:规则表 seed register=2 → 流水 +2、balance_after 快照、SUM=balance(宪法 III)
-    const txs = await prisma.pointTransaction.findMany({ where: { userId: user.id } });
-    expect(txs).toHaveLength(1);
-    const tx = txs[0]!;
-    expect(tx.amount).toBe(2);
-    expect(tx.balanceAfter).toBe(2);
-    expect(tx.remark).toBe("注册奖励");
-    const account = await prisma.pointAccount.findUniqueOrThrow({
-      where: { userId: user.id },
-    });
-    expect(account.balance).toBe(2);
-    const recalc = await recalculateLedger(user.id);
-    expect(recalc.sum).toBe(recalc.balance);
+    // 未认证通过(未激活)不发分:占位账号登录不了,注册即发分等于发一份用不了的分
+    expect(await prisma.pointTransaction.count({ where: { userId: user.id } })).toBe(0);
+    expect(await prisma.pointAccount.count({ where: { userId: user.id } })).toBe(0);
 
     // 激活邮件入 outbox(pending)
     const mail = await prisma.mailOutbox.findFirstOrThrow({
@@ -192,8 +184,8 @@ describe("US2 注册受理(T026/T027/T028)", () => {
     await prisma.$executeRaw`DELETE FROM acore_auth.account WHERE username = ${input.username.toUpperCase()}`;
     const again = await registerAccount(input);
     expect(again).toEqual({ ok: true });
-    // 回收后积分重新入账,旧流水已删
-    expect(await prisma.pointTransaction.count({ where: { user: { username: input.username } } })).toBe(1);
+    // 回收重注册仍不发分(未认证通过)
+    expect(await prisma.pointTransaction.count({ where: { user: { username: input.username } } })).toBe(0);
 
     // live token 占位 → 占用(还能激活)
     const input2 = await makeRegisterInput(5);
@@ -227,6 +219,25 @@ describe("US2 激活设密(T029)", () => {
       game && srp6Verifier(input.username, "Actpass123", game.salt).equals(game.verifier),
     ).toBe(true);
     expect((await loginWithPassword(input.username, "Actpass123")).ok).toBe(true);
+
+    // 注册奖励在认证通过时入账:流水 +N、balance_after 快照、SUM=balance(宪法 III)
+    const ruleAmount = await getEarnAmount(POINT_RULE_EVENT.REGISTER);
+    const txs = await prisma.pointTransaction.findMany({ where: { userId: user.id } });
+    if (ruleAmount > 0) {
+      expect(txs).toHaveLength(1);
+      expect(txs[0]!.amount).toBe(ruleAmount);
+      expect(txs[0]!.balanceAfter).toBe(ruleAmount);
+      expect(txs[0]!.type).toBe(POINT_TX_TYPE.REGISTER_REWARD);
+      expect(txs[0]!.remark).toBe(`新注册并认证通过的账户赠送 ${ruleAmount} 积分`);
+      const account = await prisma.pointAccount.findUniqueOrThrow({
+        where: { userId: user.id },
+      });
+      expect(account.balance).toBe(ruleAmount);
+      const recalc = await recalculateLedger(user.id);
+      expect(recalc.sum).toBe(recalc.balance);
+    } else {
+      expect(txs).toHaveLength(0);
+    }
 
     const audit = await prisma.auditLog.findFirst({
       where: { actorUserId: user.id, action: AUDIT_ACTION.ACCOUNT_ACTIVATED },

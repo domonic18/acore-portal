@@ -30,6 +30,7 @@ const ACTOR = { id: ACTOR_UID };
 let boardAId = 0n;
 let boardBId = 0n;
 let tPinned = 0n;
+let tFeatured = 0n;
 let tClosed = 0n;
 let tLabeled = 0n;
 let tDeleted = 0n;
@@ -61,8 +62,9 @@ beforeAll(async () => {
     title: string,
     extra: {
       pinned?: boolean;
+      featured?: boolean;
       closed?: boolean;
-      label?: "standard" | "resolved" | "closed";
+      label?: "none" | "resolved" | "needs_info" | "closed";
       daysAgo: number;
     },
   ) =>
@@ -73,6 +75,7 @@ beforeAll(async () => {
         authorUserId: null,
         authorName: `作者-${RUN}`,
         pinned: extra.pinned ?? false,
+        featured: extra.featured ?? false,
         closedAt: extra.closed ? new Date() : null,
         statusLabel: extra.label ?? "none",
         lastPostAt: new Date(Date.now() - extra.daysAgo * 86_400_000),
@@ -82,6 +85,7 @@ beforeAll(async () => {
   tPinned = (await mk(boardAId, `后台置顶 ${RUN}`, { pinned: true, daysAgo: 1 })).id;
   tClosed = (await mk(boardAId, `后台关闭 ${RUN}`, { closed: true, label: "closed", daysAgo: 2 })).id;
   tLabeled = (await mk(boardAId, `后台已解决 ${RUN}`, { label: "resolved", daysAgo: 3 })).id;
+  tFeatured = (await mk(boardBId, `后台加精 ${RUN}`, { featured: true, daysAgo: 6 })).id;
   tPlain = (await mk(boardBId, `后台普通 ${RUN}`, { daysAgo: 4 })).id;
   const del = await mk(boardBId, `后台待恢复 ${RUN}`, { daysAgo: 5 });
   tDeleted = del.id;
@@ -117,7 +121,7 @@ describe("adminListThreads(跨版块筛选)", () => {
   it("默认排除软删;deleted=1 专看回收站", async () => {
     const normal = await adminListThreads({ page: 1 });
     const mine = normal.items.filter((t) => t.title.includes(RUN));
-    expect(mine).toHaveLength(4);
+    expect(mine).toHaveLength(5);
     expect(mine.some((t) => t.id === tDeleted.toString())).toBe(false);
 
     const trash = await adminListThreads({ deleted: true, page: 1 });
@@ -125,15 +129,16 @@ describe("adminListThreads(跨版块筛选)", () => {
     expect(trash.items[0]!.id).toBe(tDeleted.toString());
   });
 
-  it("版块/关键词/置顶/关闭/标签 单项筛选各命中", async () => {
+  it("版块/关键词/置顶/加精/状态标签 单项筛选各命中", async () => {
     const byBoard = await adminListThreads({ boardId: boardAId });
     expect(byBoard.items.every((t) => t.title.includes(RUN))).toBe(true);
     expect(byBoard.items).toHaveLength(3);
 
     expect((await adminListThreads({ q: `后台置顶 ${RUN}` })).items).toHaveLength(1);
     expect((await adminListThreads({ pinned: true })).items.some((t) => t.id === tPinned.toString())).toBe(true);
-    expect((await adminListThreads({ closed: true })).items.some((t) => t.id === tClosed.toString())).toBe(true);
+    expect((await adminListThreads({ label: "closed" })).items.some((t) => t.id === tClosed.toString())).toBe(true);
     expect((await adminListThreads({ label: "resolved" })).items.some((t) => t.id === tLabeled.toString())).toBe(true);
+    expect((await adminListThreads({ featured: true })).items.some((t) => t.id === tFeatured.toString())).toBe(true);
   });
 
   it("行数据带版块冗余与状态字段", async () => {

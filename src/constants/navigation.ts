@@ -91,6 +91,7 @@ export const ADMIN_NAV_GROUPS = [
       { href: "/admin/products", label: "商品", icon: "package" },
       { href: "/admin/categories", label: "分类", icon: "folder" },
       { href: "/admin/orders", label: "订单", icon: "receipt" },
+      { href: "/admin/point-rules", label: "积分规则", icon: "coins" },
       { href: "/admin/invitation-codes", label: "邀请码", icon: "ticket" },
     ],
   },

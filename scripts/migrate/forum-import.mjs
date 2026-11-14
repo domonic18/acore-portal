@@ -7,6 +7,7 @@
 // 对账:reconcile() 尾部报告(行数对列+作者映射率),CLI 与集成测试共用
 // 附注:contentHtml 落库前仅做图片 URL 重写,XSS 白名单收口在渲染层 renderLegacyHtml 单点
 import { pathToFileURL } from "node:url";
+import { wpUtcExpr } from "./lib/time.mjs";
 import {
   BOARD_SLUGS,
   byEarlyOrder,
@@ -141,15 +142,16 @@ export async function importThreads(pool, { topicIds } = {}) {
     ? `AND t.ID IN (${topicIds.map(() => "?").join(",")})`
     : "";
   const [topics] = await pool.query(
-    `SELECT t.ID, t.post_parent, t.post_title, t.post_author, t.post_status, t.post_date,
+    `SELECT t.ID, t.post_parent, t.post_title, t.post_author, t.post_status,
+            ${wpUtcExpr("t.post_date")} AS post_date_utc,
             COALESCE(NULLIF(u.display_name, ''), u.user_login, '') AS author,
             (SELECT COUNT(*) FROM wp_legacy.wp_posts r
               WHERE r.post_parent = t.ID AND r.post_type = 'reply'
                 AND r.post_status = 'publish') AS reply_count,
-            GREATEST(t.post_date, COALESCE(
-              (SELECT MAX(r.post_date) FROM wp_legacy.wp_posts r
+            GREATEST(${wpUtcExpr("t.post_date")}, COALESCE(
+              (SELECT MAX(${wpUtcExpr("r.post_date")}) FROM wp_legacy.wp_posts r
                 WHERE r.post_parent = t.ID AND r.post_type = 'reply'
-                  AND r.post_status = 'publish'), t.post_date)) AS last_post_at
+                  AND r.post_status = 'publish'), ${wpUtcExpr("t.post_date")})) AS last_post_at
        FROM wp_legacy.wp_posts t
        LEFT JOIN wp_legacy.wp_users u ON u.ID = t.post_author
       WHERE t.post_type = 'topic' ${scope}
@@ -202,13 +204,13 @@ export async function importThreads(pool, { topicIds } = {}) {
         title,
         authorUserId,
         t.author || "匿名",
-        wpClosed ? t.post_date : null,
+        wpClosed ? t.post_date_utc : null,
         statusLabel,
         Number(t.reply_count),
         t.last_post_at,
         t.ID,
         visible ? null : new Date(),
-        t.post_date,
+        t.post_date_utc,
       ],
     );
     threadIdByTopic.set(Number(t.ID), Number(res.insertId));
@@ -229,7 +231,7 @@ export async function importPosts(pool, { topicIds } = {}) {
     ? `AND t.ID IN (${topicIds.map(() => "?").join(",")})`
     : "";
   const [topics] = await pool.query(
-    `SELECT t.ID, t.post_author, t.post_date, f.id AS thread_id,
+    `SELECT t.ID, t.post_author, ${wpUtcExpr("t.post_date")} AS post_date_utc, f.id AS thread_id,
             COALESCE(NULLIF(u.display_name, ''), u.user_login, '') AS author
        FROM wp_legacy.wp_posts t
        JOIN forum_thread f ON f.legacy_wp_topic_id = t.ID
@@ -243,7 +245,7 @@ export async function importPosts(pool, { topicIds } = {}) {
   const ids = topics.map((t) => t.ID);
   const [replies] = ids.length
     ? await pool.query(
-        `SELECT r.ID AS id, r.post_date AS created_at, r.post_parent, r.post_author, r.post_status, r.post_content,
+        `SELECT r.ID AS id, ${wpUtcExpr("r.post_date")} AS created_at, r.post_parent, r.post_author, r.post_status, r.post_content,
                 COALESCE(NULLIF(u.display_name, ''), u.user_login, '') AS author
            FROM wp_legacy.wp_posts r
            LEFT JOIN wp_legacy.wp_users u ON u.ID = r.post_author
@@ -289,7 +291,7 @@ export async function importPosts(pool, { topicIds } = {}) {
         t.author || "匿名",
         rewriteForumImages(content[0]?.post_content ?? "", imageMap),
         t.ID,
-        t.post_date,
+        t.post_date_utc,
       ],
     );
     mainImported += 1;

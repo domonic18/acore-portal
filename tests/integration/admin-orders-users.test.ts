@@ -14,9 +14,11 @@ import { driveOrderDelivery } from "@/server/services/shop/delivery";
 import {
   OrderAdminError,
   getAdminOrderDetail,
+  listAdminOrders,
   redeliverOrder,
   refundOrder,
 } from "@/server/services/orders/admin";
+import { listCharacterNamesByUsernames } from "@/server/services/shared/game-identity";
 import { adjustPoints } from "@/server/services/points/adjust";
 import { getAdminUserDetail, grantBadge } from "@/server/services/users-admin/admin";
 
@@ -298,6 +300,52 @@ describe("US5 订单/用户后台服务(T046)", () => {
     await expect(refundOrder(order.id, operatorId)).rejects.toMatchObject({
       code: "INVALID_STATUS",
     });
+  });
+
+  it("订单列表:用户列带游戏角色名(批量取;无角色的账号只显示账号名)", async () => {
+    const { user, charName } = await makeGameUser("charname");
+    usernames.push(user.username);
+    const product = await makeServiceProduct("char-change-gender");
+    const orderNo = `M2T${RUN.toUpperCase()}C1`;
+    await prisma.order.create({
+      data: {
+        orderNo,
+        userId: user.id,
+        status: "pending",
+        pointCost: 100,
+        items: {
+          create: [
+            {
+              productId: product.id,
+              sku: "char-change-gender",
+              name: "性别转换",
+              unitPrice: 100,
+              qty: 1,
+              params: {},
+            },
+          ],
+        },
+      },
+      select: { id: true },
+    });
+
+    // 共享层:站点用户名 → 游戏角色名(键为大写)
+    const names = await listCharacterNamesByUsernames([user.username]);
+    expect(names.get(user.username.toUpperCase())).toEqual([charName]);
+
+    // 列表页 DTO:该单带角色名
+    const { orders } = await listAdminOrders({ page: 1 });
+    const row = orders.find((o) => o.username === user.username);
+    expect(row).toBeDefined();
+    expect(row!.characterNames).toEqual([charName]);
+    // 用户名不重复展示(昵称与用户名相同的历史数据)
+    expect(row!.username).toBe(user.username);
+
+    // 无游戏账号的站点用户:降级为角色名空数组(只显示账号)
+    const siteOnly = await makePointsUser("rich", "nochar");
+    usernames.push(siteOnly.username);
+    const empty = await listCharacterNamesByUsernames([siteOnly.username]);
+    expect(empty.get(siteOnly.username.toUpperCase())).toBeUndefined();
   });
 
   it("积分手调:扣至负余额拦截(402 语义 insufficient_balance),零写入", async () => {

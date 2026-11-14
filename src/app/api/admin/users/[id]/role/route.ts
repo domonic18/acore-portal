@@ -4,9 +4,10 @@ import { apiError, apiOk, parseBody } from "@/server/http";
 import { requireApiAdmin } from "@/server/session-guard";
 import { setUserRole } from "@/server/services/users-admin/set-role";
 import { getClientIp } from "@/server/services/shared/client-ip";
+import { USER_ROLES } from "@/constants/roles";
 
 const schema = z.object({
-  role: z.enum(["user", "moderator", "admin"]),
+  role: z.enum(USER_ROLES),
 });
 
 /** 角色分配:成功即吊销目标全部会话(降权即时生效) */

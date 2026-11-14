@@ -16,6 +16,7 @@ import { rawExecuteCommand } from "@/server/soap/client";
 import { parseServerInfo } from "@/server/services/status/parse";
 import { resolveProgressionPosition } from "@/server/services/progression/progression";
 import { ALLIANCE_RACES, HORDE_RACES } from "@/constants/characters";
+import { beijingDateKey, beijingDayStart } from "@/lib/format";
 
 /**
  * 服务器状态探针(T043,FR-221;Q6 字段二分/p15 定案):
@@ -42,11 +43,10 @@ const PROBE_LOCK_TTL_SECONDS = STATUS_REDIS_KEYS.probeLockTtlSeconds;
 export type { ServerStatusPayload, ServerStatusResult };
 
 export function todayPeakKey(): string {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${STATUS_REDIS_KEYS.peakPrefix}${yyyy}${mm}${dd}`;
+  // 日键按北京自然日(与「今日新增」同一口径):原实现取进程本地日期,
+  // 换个没配 TZ 的环境就与展示口径错开 8 小时
+  const yyyymmdd = beijingDateKey().replace(/-/g, "");
+  return `${STATUS_REDIS_KEYS.peakPrefix}${yyyymmdd}`;
 }
 
 type ProbeSnapshot = {
@@ -68,8 +68,9 @@ type ProbeSnapshot = {
 };
 
 async function charactersStats(db: Awaited<ReturnType<typeof getCharactersDb>>) {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  // 「今日新增」按北京自然日切:显式按东八区求日界,不依赖进程本地时区
+  // (setHours(0,0,0,0) 取的是容器时区,换个没配 TZ 的环境就偏 8 小时)。
+  const startOfDay = beijingDayStart();
   const [onlineCount, charTotal, byRace, todayNewChars] = await Promise.all([
     db.characters.count({ where: { online: 1 } }),
     db.characters.count(),

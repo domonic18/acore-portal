@@ -29,11 +29,14 @@ import { isUniqueViolation } from "@/server/http";
 
 /**
  * US2 注册→激活链路:
- * 注册受理=站点事务(占位 user+规则表奖励+activate token+outbox)→游戏端建号;
+ * 注册受理=站点事务(占位 user+activate token+outbox)→游戏端建号;
  * 游戏端失败→站点侧整体补偿删除,0 半成品(SC-004,跨库无原子性,补偿方向
  * 选站点因 writer 无 DELETE 无法回滚游戏端,而站点可完全回收)。
- * 激活(设密)=游戏端先写真哈希→站点落 $wp$ bcrypt+审计,失败则 token 释放可重试
+ * 激活(设密)=游戏端先写真哈希→站点落 $wp$ bcrypt+注册奖励入账+审计,失败则 token 释放可重试
  * (与 US3 密码双写同一顺序契约)。占位哈希前缀双不命中分派→激活前不可登录。
+ *
+ * 注册奖励在**认证通过(激活设密)**时才入账:占位账号登录不了,注册即发分等于发一份用不了的分,
+ * 且与流水描述「新注册并认证通过的账户赠送 N 积分」不符。
  */
 
 export function isValidUsername(username: string): boolean {
@@ -124,9 +127,7 @@ export async function registerAccount(
   let userId: bigint;
   try {
     const { app } = await getConfig();
-    // 注册奖励走规则表(FR-104):amount=0 或规则停用则不入账(不发分)
-    const reward = await getEarnAmount(POINT_RULE_EVENT.REGISTER);
-    // 站点事务:占位 user + 奖励 + activate token + outbox 同事务原子
+    // 站点事务:占位 user + activate token + outbox 同事务原子(注册奖励在激活时才入账)
     const created = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
@@ -137,14 +138,6 @@ export async function registerAccount(
         },
         select: { id: true },
       });
-      if (reward > 0) {
-        await creditLedger(tx, {
-          userId: user.id,
-          amount: reward,
-          type: POINT_TX_TYPE.REGISTER_REWARD,
-          remark: "注册奖励",
-        });
-      }
       const token = await issueUserToken(tx, {
         userId: user.id,
         type: TOKEN_TYPE.ACTIVATE,
@@ -257,7 +250,19 @@ export async function activateAccount(input: {
       }
 
       try {
-        await writeSitePassword(user.id, input.password);
+        // 站点事务:设密 + 注册奖励入账(认证通过才发分,同事务任一失败整体回滚)
+        const reward = await getEarnAmount(POINT_RULE_EVENT.REGISTER);
+        await prisma.$transaction(async (tx) => {
+          await writeSitePassword(user.id, input.password, tx);
+          if (reward > 0) {
+            await creditLedger(tx, {
+              userId: user.id,
+              amount: reward,
+              type: POINT_TX_TYPE.REGISTER_REWARD,
+              remark: `新注册并认证通过的账户赠送 ${reward} 积分`,
+            });
+          }
+        });
       } catch (err) {
         const reason = err instanceof Error ? err.message : "site_write_failed";
         try {

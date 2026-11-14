@@ -1,5 +1,5 @@
 // 论坛转换器类型声明(scripts/migrate/lib/forum-convert.mjs)
-export type ThreadStatusLabel = "none" | "standard" | "resolved" | "closed";
+export type ThreadStatusLabel = "none" | "resolved" | "needs_info" | "closed";
 
 export function stripStatusPrefix(title: string | null | undefined): {
   label: ThreadStatusLabel;

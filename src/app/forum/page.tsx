@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ContentPanel } from "@/components/site/content-panel";
 import { NavIcon } from "@/components/admin/nav-icons";
-import { PinnedBadge, ThreadStatusBadge } from "@/components/forum/thread-badge";
+import { FeaturedBadge, PinnedBadge, ThreadStatusBadge } from "@/components/forum/thread-badge";
 import { MARKDOWN_BODY_CLS } from "@/constants/content";
 import { getCdnHosts } from "@/lib/config";
 import { renderMarkdown } from "@/lib/markdown";
@@ -151,6 +151,7 @@ export default async function ForumPage() {
                           ) : (
                             <ThreadStatusBadge statusLabel={t.statusLabel} closedAt={t.closedAt} />
                           )}
+                          {t.featured && <FeaturedBadge />}
                           <span className="min-w-0 flex-1 line-clamp-2">{t.title}</span>
                         </p>
                         <p className="mt-1 flex items-center gap-1.5 text-[12px] text-muted">

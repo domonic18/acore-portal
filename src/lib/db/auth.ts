@@ -61,6 +61,19 @@ export const authDb = {
       select: { id: true, username: true, salt: true, verifier: true, email: true },
     });
   },
+
+  /**
+   * 批量按用户名取游戏账号 id(后台列表页批量展示角色名,避免 N+1);
+   * 用户名统一大写(AC 侧存储约定)。
+   */
+  async findIdsByUsernames(usernames: string[]) {
+    if (usernames.length === 0) return [];
+    const client = await getClient();
+    return client.account.findMany({
+      where: { username: { in: usernames.map((u) => u.toUpperCase()) } },
+      select: { id: true, username: true },
+    });
+  },
 };
 
 export type AuthDb = typeof authDb;

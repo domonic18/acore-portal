@@ -5,15 +5,15 @@ import { Button } from "@/components/ui/button";
 import { FormField, FormRow } from "./field";
 import type { ProductFieldErrors } from "./validation";
 import type { ProductFormValues } from "./use-product-form";
+import { beijingDateTimeInput } from "@/lib/format";
 
-/** 本地时区的 datetime-local 值格式(不带时区后缀) */
-function toLocalInput(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+const DAY_MS = 24 * 3600 * 1000;
 
 /**
  * 售卖窗口区:促销开始 / 结束 + 快捷预设(省去手算时间的负担)。
+ *
+ * 时间口径:输入框是北京墙钟(与站内展示一致),提交时带 +08:00 偏移回传,
+ * 服务端不依赖自身所在时区解析(见 lib/format 的 beijingDateTimeInput)。
  */
 export function ScheduleSection({
   values,
@@ -29,11 +29,12 @@ export function ScheduleSection({
       update({ saleStart: null, saleEnd: null });
       return;
     }
-    const start = new Date();
-    const end = new Date(start);
-    if (kind === "day") end.setDate(end.getDate() + 1);
-    if (kind === "week") end.setDate(end.getDate() + 7);
-    update({ saleStart: toLocalInput(start), saleEnd: toLocalInput(end) });
+    const start = Date.now();
+    const end = kind === "day" ? start + DAY_MS : kind === "week" ? start + 7 * DAY_MS : start;
+    update({
+      saleStart: beijingDateTimeInput(new Date(start)),
+      saleEnd: beijingDateTimeInput(new Date(end)),
+    });
   }
 
   return (

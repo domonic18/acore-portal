@@ -71,7 +71,9 @@ test("改角色落库+审计+会话重置提示;列表只读徽章;角色 tab �
   await row.getByRole("link", { name: new RegExp(USERNAME) }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/users/${userId}$`));
 
-  await page.getByLabel("角色").selectOption("moderator");
+  const roleSelect = page.getByLabel("角色");
+  await expect(roleSelect).toBeEnabled(); // 水合同步点:水合前改动会丢 onChange
+  await roleSelect.selectOption("moderator");
   await page.getByRole("button", { name: "分配角色" }).click();
   await expect(page.getByText("已保存,该用户会话已重置")).toBeVisible();
 
@@ -99,7 +101,9 @@ test("改角色落库+审计+会话重置提示;列表只读徽章;角色 tab �
 test("自改拒绝:m1admin 改自己角色 → 422 提示且角色不变", async ({ page }) => {
   await login(page, "m1admin", "adminpass123");
   await page.goto(`/admin/users/${adminId}`);
-  await page.getByLabel("角色").selectOption("user");
+  const selfSelect = page.getByLabel("角色");
+  await expect(selfSelect).toBeEnabled(); // 水合同步点
+  await selfSelect.selectOption("user");
   await page.getByRole("button", { name: "分配角色" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "不能修改自己的角色" })).toBeVisible();
 

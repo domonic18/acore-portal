@@ -1,6 +1,7 @@
 import "server-only";
 import { getConfig } from "@/lib/config";
 import { sendFeishuCard, type FeishuCard } from "@/server/services/shared/feishu-card";
+import { formatDateTime } from "@/lib/format";
 
 /**
  * 发货失败告警(飞书自定义机器人):
@@ -30,7 +31,7 @@ export function buildDeliveryFailureCard(input: DeliveryFailureAlert): FeishuCar
       { label: "订单号", value: input.orderId },
       { label: "用户", value: input.username },
       { label: "商品", value: itemText },
-      { label: "时间", value: new Date().toLocaleString("zh-CN", { hour12: false }) },
+      { label: "时间", value: formatDateTime(new Date()) },
     ],
     body: `**失败原因**\n${input.error || "(未记录)"}`,
     note: "老克塔运营告警 · 请到后台订单页人工补发",

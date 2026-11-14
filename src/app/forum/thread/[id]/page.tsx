@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ContentPanel } from "@/components/site/content-panel";
 import { ForumPagination } from "@/components/forum/forum-pagination";
-import { PinnedBadge, ThreadStatusBadge } from "@/components/forum/thread-badge";
+import { FeaturedBadge, PinnedBadge, ThreadStatusBadge } from "@/components/forum/thread-badge";
 import { ModeratorActions } from "./moderator-actions";
 import { renderLegacyHtml, renderMarkdown } from "@/lib/markdown";
 import { formatDateTimeShort } from "@/lib/format";
@@ -60,6 +60,12 @@ export default async function ForumThreadPage({
   );
   const session = await getServerSession();
   const canModerate = session?.role === "moderator" || session?.role === "admin";
+  // 「请补充」:只有发帖人自己看得到提示(版主标记后站内信也会提醒)
+  const needsInfoHint =
+    thread.statusLabel === "needs_info" &&
+    session !== null &&
+    thread.authorUserId !== null &&
+    session.userId === thread.authorUserId.toString();
 
   return (
     <main className="container-site flex-1 py-5 lg:py-6">
@@ -89,6 +95,7 @@ export default async function ForumThreadPage({
         <header className="mb-4 border-b border-line pb-4">
           <div className="flex flex-wrap items-center gap-2.5">
             {thread.pinned && <PinnedBadge />}
+            {thread.featured && <FeaturedBadge />}
             <ThreadStatusBadge statusLabel={thread.statusLabel} closedAt={thread.closedAt} />
             <h1 className="text-xl font-bold leading-8 text-heading lg:text-[24px]">
               {thread.title}
@@ -106,11 +113,18 @@ export default async function ForumThreadPage({
             <ModeratorActions
               threadId={thread.id.toString()}
               pinned={thread.pinned}
+              featured={thread.featured}
               closed={thread.closedAt != null}
               statusLabel={thread.statusLabel}
               boardSlug={thread.board.slug}
             />
           </div>
+        )}
+
+        {needsInfoHint && (
+          <p className="mb-4 rounded-xl border border-warn/40 bg-warn/10 px-4 py-3 text-[13px] leading-6 text-warn">
+            版主请你补充本帖的更多信息(问题描述、截图或相关条件),补充后可继续讨论。
+          </p>
         )}
 
         <section className="flex flex-col gap-3">

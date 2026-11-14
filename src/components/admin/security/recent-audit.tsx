@@ -1,5 +1,6 @@
 import { AUDIT_ACTION_LABEL } from "@/constants/audit";
 import { Table, TableEmpty, Td, Th, THead, Tr } from "@/components/ui/table";
+import { formatDateTime } from "@/lib/format";
 
 /** 审计行(本地类型:组件不依赖 server 层的类型) */
 type AuditRow = {
@@ -58,7 +59,7 @@ export function SecurityRecentAudit({ rows }: { rows: AuditRow[] }) {
           rows.map((r) => (
             <Tr key={r.id}>
               <Td className="text-xs text-[#6482a3]">
-                {new Date(r.createdAt).toLocaleString("zh-CN")}
+                {formatDateTime(r.createdAt)}
               </Td>
               <Td className="text-[#dcebf7]">{AUDIT_ACTION_LABEL[r.action] ?? r.action}</Td>
               <Td className="font-mono text-xs text-[#93b2ce]">{r.ip ?? "—"}</Td>

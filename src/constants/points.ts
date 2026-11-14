@@ -38,6 +38,24 @@ export const POINT_RULE_EVENT = {
 
 export type PointRuleEventValue = (typeof POINT_RULE_EVENT)[keyof typeof POINT_RULE_EVENT];
 
+/**
+ * 规则事件取值元组(zod.enum 需字面量元组;新增事件须同步此处与 POINT_RULE_EVENT)。
+ * 后台积分规则页只管这组事件——固定账务路径(shop_payment/manual_adjust)不在规则表内。
+ */
+export const POINT_RULE_EVENTS = [
+  POINT_RULE_EVENT.REGISTER,
+  POINT_RULE_EVENT.BADGE_GRANT,
+] as const;
+
+/** 规则事件中文标签(后台积分规则页展示) */
+export const POINT_RULE_EVENT_LABEL: Record<PointRuleEventValue, string> = {
+  register: "注册送分",
+  badge_grant: "徽章授予送分",
+};
+
+/** 规则分值上限(后台可改,防手滑填成天文数字) */
+export const POINT_RULE_AMOUNT_MAX = 100_000;
+
 /** 手动调整原因长度约束(FR-105;contracts/api-admin) */
 export const ADJUST_REASON_MIN = 2;
 export const ADJUST_REASON_MAX = 255;

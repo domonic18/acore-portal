@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ServerStatusResult } from "@/lib/status-types";
 import { useStatusPoll } from "@/lib/use-status-poll";
 import { SectionHeader } from "@/components/site/section-header";
+import { formatTime } from "@/lib/format";
 
 /**
  * 首页服务器状态卡(US6/S6;2026-10 ardot 设计稿 p01-s1 对齐):
@@ -130,8 +131,8 @@ export function StatusCard({ initial }: { initial: ServerStatusResult }) {
         )}
       </div>
 
-      <p className="mt-3 text-right text-xs text-muted" suppressHydrationWarning>
-        更新于 {new Date(status.updatedAt).toLocaleTimeString("zh-CN", { hour12: false })}
+      <p className="mt-3 text-right text-xs text-muted">
+        更新于 {formatTime(status.updatedAt)}
       </p>
     </section>
   );

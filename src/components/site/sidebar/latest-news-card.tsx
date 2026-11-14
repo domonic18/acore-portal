@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { SidebarNewsItem } from "@/constants/sidebar";
 import { ContentAsideCard } from "@/components/content/aside-card";
+import { formatDate } from "@/lib/format";
 
 /** 最新资讯卡(自文章页右栏 ArticleAside 移植,2026-11-05 并入侧栏内置组件):
  *  数据由 getSidebarView 在 latest-news 组件本页启用时取好下发 */
@@ -19,7 +20,7 @@ export function LatestNewsCard({ latestNews }: { latestNews: SidebarNewsItem[] }
               >
                 <span className="line-clamp-1">{a.title}</span>
                 <span className="shrink-0 text-[12px] text-muted">
-                  {a.publishedAt?.toISOString().slice(0, 10)}
+                  {a.publishedAt ? formatDate(a.publishedAt) : ""}
                 </span>
               </Link>
             </li>

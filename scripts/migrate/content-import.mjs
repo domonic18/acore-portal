@@ -8,6 +8,7 @@
 // 对账:reconcile() 尾部断言(行数对列/views 对列),CLI 与 T015 演练共用
 // 死链:scanContentDeadlinks() 扫三落地表 /wp-content/uploads/ 残留(映射未覆盖即源文件缺失)
 import { pathToFileURL } from "node:url";
+import { wpUtcExpr } from "./lib/time.mjs";
 import {
   createConverter,
   decodeSlug,
@@ -99,7 +100,8 @@ export async function importArticles(pool, { postIds } = {}) {
     ? `AND p.ID IN (${postIds.map(() => "?").join(",")})`
     : "";
   const [posts] = await pool.query(
-    `SELECT p.ID, p.post_name, p.post_title, p.post_content, p.post_status, p.post_date,
+    `SELECT p.ID, p.post_name, p.post_title, p.post_content, p.post_status,
+            ${wpUtcExpr("p.post_date")} AS post_date_utc,
             COALESCE(v.cnt, 0) AS views
        FROM wp_legacy.wp_posts p
        LEFT JOIN (
@@ -158,7 +160,7 @@ export async function importArticles(pool, { postIds } = {}) {
             bodyMd,
             catSlug ? cats[catSlug] : fallbackCatId,
             status,
-            status === "published" ? p.post_date : null,
+            status === "published" ? p.post_date_utc : null,
             Number(p.views),
             p.ID,
           ],

@@ -22,9 +22,15 @@ export type AuditEntry = {
 /**
  * 审计写入(宪法 VI):调用方保证 payload 脱敏——
  * 禁止携带密码/令牌/明文敏感值,只记事件与必要标识
+ *
+ * tx 可传入业务事务客户端,使「改数据 + 留痕」同事务原子
+ * (缺省走 prisma 独立写入,失败不影响业务结果)。
  */
-export async function writeAudit(entry: AuditEntry): Promise<void> {
-  await prisma.auditLog.create({
+export async function writeAudit(
+  entry: AuditEntry,
+  tx: Prisma.TransactionClient = prisma,
+): Promise<void> {
+  await tx.auditLog.create({
     data: {
       category: entry.category,
       action: entry.action,

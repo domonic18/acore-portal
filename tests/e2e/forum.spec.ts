@@ -127,6 +127,7 @@ test.afterAll(async () => {
           action: {
             in: [
               AUDIT_ACTION.FORUM_THREAD_PIN,
+              AUDIT_ACTION.FORUM_THREAD_FEATURED,
               AUDIT_ACTION.FORUM_THREAD_CLOSE,
               AUDIT_ACTION.FORUM_THREAD_LABEL,
               AUDIT_ACTION.FORUM_THREAD_DELETE,
@@ -261,18 +262,29 @@ test.describe("US5 论坛(T041)", () => {
     await expect(page.getByRole("button", { name: "取消置顶" })).toBeVisible();
     await expect(page.getByText("置顶", { exact: true }).first()).toBeVisible();
 
+    // 加精 → 标题前「精」标识
+    await page.getByRole("button", { name: "加精", exact: true }).click();
+    await expect(page.getByRole("button", { name: "取消加精" })).toBeVisible();
+    await expect(page.getByText("精", { exact: true }).first()).toBeVisible();
+
     // 标签流转 → 【已解决】徽标
     await page.getByLabel("状态标签").selectOption("resolved");
     await expect(page.getByText("【已解决】")).toBeVisible();
 
-    // 关闭 → 已关闭徽标 + 标签选择禁用(双表达以 closedAt 为准)
-    await page.getByRole("button", { name: "关闭主题" }).click();
-    await expect(page.getByText("【已关闭】")).toBeVisible();
-    await expect(page.getByLabel("状态标签")).toBeDisabled();
+    // 「请补充」标签 → 【请补充】徽标(「规范」已下线,不再有该选项)
+    await page.getByLabel("状态标签").selectOption("needs_info");
+    await expect(page.getByText("【请补充】")).toBeVisible();
 
-    // 重开 → 双清(标签回 none)
+    // 「已关闭」可直接在下拉选定(不再只经「关闭主题」按钮)
+    await page.getByLabel("状态标签").selectOption("closed");
+    await expect(page.getByText("【已关闭】")).toBeVisible();
+
+    // 关闭 → 已关闭徽标 + 状态唯一出口(下拉随时可切回其他标签即重开)
     await page.getByRole("button", { name: "重开主题" }).click();
     await expect(page.getByText("【已关闭】")).toBeHidden();
+    await page.getByRole("button", { name: "关闭主题" }).click();
+    await expect(page.getByText("【已关闭】")).toBeVisible();
+    await expect(page.getByLabel("状态标签")).toHaveValue("closed");
 
     // 软删 → 回版块列表且主题不再可见;库内数据保留
     // exact:新版编辑器工具栏「删除线」按钮与「删除」子串冲突(strict mode)
@@ -298,20 +310,28 @@ test.describe("US5 论坛(T041)", () => {
         action: {
           in: [
             "forum_thread_pin",
+            "forum_thread_featured",
             "forum_thread_close",
             "forum_thread_label",
             "forum_thread_delete",
           ],
         },
       },
-      select: { action: true },
+      select: { action: true, payloadJson: true },
     });
-    const actions = audits.map((a) => a.action).sort();
-    // 关闭+重开各记一条 close 审计
+    // 只取本 run 主题的审计(MySQL 无 Json path 过滤 ⇒ JS 侧筛;否则同 actor 上一轮 run 的审计会串进来)
+    const actions = audits
+      .filter((a) => (a.payloadJson as { threadId?: string }).threadId === threadId.toString())
+      .map((a) => a.action)
+      .sort();
+    // 关闭+重开各记一条 close 审计;标签流转(resolved/needs_info/closed)各记一条 label 审计
     expect(actions).toEqual([
       "forum_thread_close",
       "forum_thread_close",
       "forum_thread_delete",
+      "forum_thread_featured",
+      "forum_thread_label",
+      "forum_thread_label",
       "forum_thread_label",
       "forum_thread_pin",
     ]);

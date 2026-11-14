@@ -9,6 +9,7 @@ import {
   ProgressionTimeline,
 } from "@/components/site/progression-timeline";
 import { ProgressionCountdown } from "./countdown";
+import { formatDate } from "@/lib/format";
 
 /**
  * 渐进计划(T026,FR-211/SC-204):对齐源站 lokta.cn/?page_id=2796 的
@@ -20,7 +21,7 @@ export const metadata = { title: "渐进计划 · 老克塔" };
 
 /** 阶段日期(存 UTC 零点)按东八区当日零点为开放时刻(倒计时口径) */
 function phaseStartIso(phaseDate: Date): string {
-  return `${phaseDate.toISOString().slice(0, 10)}T00:00:00+08:00`;
+  return `${formatDate(phaseDate)}T00:00:00+08:00`;
 }
 
 export default async function ProgressionPage() {

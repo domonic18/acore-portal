@@ -6,22 +6,33 @@ import { useHydrated } from "@/lib/use-hydrated";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
 import { errorMessage, requestJson } from "@/lib/api-client";
+import {
+  THREAD_LABEL_OPTIONS,
+  THREAD_STATUS_TEXT,
+  type ThreadStatusLabelValue,
+} from "@/constants/forum";
 
 /**
- * 后台主题行内操作(置顶/关闭/标签/删除/恢复):POST /api/admin/forum/threads/{id}
+ * 后台主题行内操作(置顶/加精/关闭/状态/删除/恢复):POST /api/admin/forum/threads/{id}
  * action 分发;删除需确认;成功 router.refresh。
+ *
+ * 状态下拉 = 完整状态(含「已关闭」:选中即关闭主题,关闭后禁回帖);
+ * 下拉是状态的唯一出口:切到「已关闭」即关帖,切到其他标签即重开(closed_at 同写),
+ * 旁边的「关闭/开放」按钮只是同一动作的一键快捷方式。
  */
 export function ForumThreadActions({
   threadId,
   pinned,
+  featured,
   closed,
   label,
   deleted,
 }: {
   threadId: string;
   pinned: boolean;
+  featured: boolean;
   closed: boolean;
-  label: string;
+  label: ThreadStatusLabelValue;
   deleted: boolean;
 }) {
   const router = useRouter();
@@ -85,6 +96,15 @@ export function ForumThreadActions({
         variant="secondary"
         size="sm"
         disabled={busy || !hydrated}
+        onClick={() => act({ action: "featured", featured: !featured })}
+      >
+        {featured ? "取消加精" : "加精"}
+      </Button>
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        disabled={busy || !hydrated}
         onClick={() => act({ action: "close", closed: !closed })}
       >
         {closed ? "开放" : "关闭"}
@@ -96,9 +116,11 @@ export function ForumThreadActions({
         onChange={(e) => act({ action: "label", label: e.target.value })}
         className="w-auto py-0.5 pr-7 text-xs"
       >
-        <option value="none">无标签</option>
-        <option value="standard">规范</option>
-        <option value="resolved">已解决</option>
+        {THREAD_LABEL_OPTIONS.map((v) => (
+          <option key={v} value={v}>
+            {THREAD_STATUS_TEXT[v]}
+          </option>
+        ))}
       </Select>
       <Button
         type="button"

@@ -7,6 +7,7 @@ import {
   ORDER_STATUS_LABEL,
 } from "@/constants/shop";
 import { OrderStatusPoll } from "@/components/shop/order-status-poll";
+import { formatDateTime } from "@/lib/format";
 
 /**
  * T035 订单详情(FR-117):条目快照/金额/状态/发货结果/下单参数;
@@ -53,10 +54,10 @@ export default async function OrderDetailPage({
         <span>
           支付:<span className="font-semibold text-amber-400">{order.pointCost} 积分</span>
         </span>
-        <span className="text-muted">下单:{new Date(order.createdAt).toLocaleString("zh-CN")}</span>
+        <span className="text-muted">下单:{formatDateTime(order.createdAt)}</span>
         {order.completedAt && (
           <span className="text-muted">
-            完成:{new Date(order.completedAt).toLocaleString("zh-CN")}
+            完成:{formatDateTime(order.completedAt)}
           </span>
         )}
         {order.deliveryError && (
@@ -85,7 +86,7 @@ export default async function OrderDetailPage({
               </span>
               {item.deliveredAt && (
                 <span className="text-xs text-muted">
-                  {new Date(item.deliveredAt).toLocaleString("zh-CN")}
+                  {formatDateTime(item.deliveredAt)}
                 </span>
               )}
             </div>

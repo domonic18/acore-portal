@@ -11,6 +11,7 @@ import {
   validateSkuBinding,
 } from "@/constants/shop-sku";
 import { slugify, validateProductForm, type ProductFieldErrors } from "./validation";
+import { BEIJING_ISO_OFFSET } from "@/lib/format";
 
 /**
  * 商品表单状态机(两栏编辑台的数据侧):
@@ -229,11 +230,12 @@ export function useProductForm({
       const res = await fetch("/api/admin/products", {
         method: initial?.id ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
-        // datetime-local 空串统一转 null(z.coerce.date 不接受空串)
+        // datetime-local 空串统一转 null(z.coerce.date 不接受空串);
+        // 墙钟值带 +08:00 回传,服务端不靠自身时区解析(值是北京墙钟)
         body: JSON.stringify({
           ...values,
-          saleStart: values.saleStart || null,
-          saleEnd: values.saleEnd || null,
+          saleStart: values.saleStart ? `${values.saleStart}${BEIJING_ISO_OFFSET}` : null,
+          saleEnd: values.saleEnd ? `${values.saleEnd}${BEIJING_ISO_OFFSET}` : null,
         }),
       });
       const body = (await res.json().catch(() => null)) as

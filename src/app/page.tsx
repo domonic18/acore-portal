@@ -11,6 +11,7 @@ import { AchievementEmbed } from "@/components/site/achievement-embed";
 import { HomeCarousel } from "@/components/site/home-carousel";
 import { HomeProductCarousel } from "@/components/site/home-product-carousel";
 import { SectionHeader } from "@/components/site/section-header";
+import { FeaturedBadge } from "@/components/forum/thread-badge";
 import { SiteSidebar } from "@/components/site/sidebar/site-sidebar";
 import { getSidebarView } from "@/server/services/sidebar/view";
 import { getServerSession } from "@/server/session-guard";
@@ -206,7 +207,7 @@ export default async function HomePage() {
 
           {/* 当前阶段独立区块已下线(#64):服务器状态卡内含当前阶段 chip 且可点直达渐进锚点,双份冗余 */}
 
-          {/* 论坛精华:填右侧留白(置顶优先,其次回复/浏览热度) */}
+          {/* 论坛精华:填右侧留白(加精优先,其次置顶,再按回复/浏览热度) */}
           <section className="rounded-2xl border border-line bg-panel p-5">
             <SectionHeader title="论坛精华" moreHref="/forum" moreLabel="玩家论坛 →" />
             {forumHighlights.length === 0 ? (
@@ -217,9 +218,10 @@ export default async function HomePage() {
                   <li key={t.id.toString()} className="flex items-baseline justify-between gap-3">
                     <Link
                       href={`/forum/thread/${t.id}`}
-                      className="line-clamp-1 text-foreground hover:text-link"
+                      className="flex min-w-0 items-baseline gap-1.5 hover:text-link"
                     >
-                      {t.title}
+                      {t.featured && <FeaturedBadge />}
+                      <span className="line-clamp-1">{t.title}</span>
                     </Link>
                     <span className="shrink-0 text-xs text-muted">
                       {t.board.name} · 回复 {t.replyCount}

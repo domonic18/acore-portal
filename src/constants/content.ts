@@ -62,6 +62,12 @@ export const CORE_PAGE_SLUGS: readonly string[] = [
 ];
 
 /**
+ * 首页轮播空物料时的兜底链接(默认 hero 图可点,落项目简介页)。
+ * 目标须是已发布的核心页,否则兜底图点了会 404。
+ */
+export const HOME_CAROUSEL_FALLBACK_HREF = "/about";
+
+/**
  * 正文由代码生成的静态页(issue #94):/sitemap 的链接分组按栏目/论坛版块/商城
  * 分类实时生成(content_page.body_md 只是可选导语),后台编辑器若只暴露
  * body_md 会出现「编辑器空、前台有」的割裂,故这类页在后台展示生成结果预览。

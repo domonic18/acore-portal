@@ -1,5 +1,6 @@
 import "server-only";
 import { redis } from "@/lib/redis";
+import { beijingDayKeyCompact } from "@/lib/format";
 
 /**
  * 404 采集统计(FR-312/research R8):匿名上报按日 hash 累计 path→次数,
@@ -13,12 +14,9 @@ export const NOT_FOUND_TTL_SECONDS = 8 * 24 * 3600;
 /** 看板合并窗口(近 N 日) */
 export const NOT_FOUND_DASHBOARD_DAYS = 7;
 
-/** 日键:stats:404:{yyyyMMdd} */
+/** 日键:stats:404:{yyyyMMdd}(北京自然日) */
 export function notFoundDayKey(d: Date = new Date()): string {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${NOT_FOUND_KEY_PREFIX}${yyyy}${mm}${dd}`;
+  return `${NOT_FOUND_KEY_PREFIX}${beijingDayKeyCompact(d)}`;
 }
 
 /** 记录一次 404 命中(hash 字段 +1,TTL 低于看板窗口时补齐) */

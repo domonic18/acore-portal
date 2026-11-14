@@ -19,6 +19,7 @@ import {
 } from "./archive";
 import { getPageViewDaily, type PageViewDailyPoint } from "./page-view";
 import { getTrafficTrend } from "./traffic";
+import { beijingDateKey } from "@/lib/format";
 
 /**
  * 统计看板总览聚合(2026-11-07 数据看板重构):
@@ -214,14 +215,15 @@ export async function getStatsOverview(range: StatsRangeKey): Promise<StatsOverv
   ]);
 
   const daily = mergeDaily(archiveDaily, ownDaily);
-  const curPoints = days
-    ? daily.filter((p) => p.date >= curStart.toISOString().slice(0, 10))
-    : daily;
+  // 日序列的日期键按北京自然日(与页面上显示的日期一致),区间比较用同一口径
+  const curKey = beijingDateKey(curStart);
+  const prevKey = prevStart ? beijingDateKey(prevStart) : null;
+  const curPoints = days ? daily.filter((p) => p.date >= curKey) : daily;
   const prevPoints =
-    prevStart && days
+    prevStart && days && prevKey
       ? daily.filter((p) => {
           const d = p.date;
-          return d >= prevStart.toISOString().slice(0, 10) && d < curStart.toISOString().slice(0, 10);
+          return d >= prevKey && d < curKey;
         })
       : [];
 

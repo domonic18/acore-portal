@@ -109,11 +109,11 @@ enum ProgressionStatus {
   @@map("progression_status")
 }
 
-/// 论坛状态标签(Q3 字段化:【规范】【已解决】【已关闭】;closed 仅经版主关闭操作产生)
+/// 论坛状态标签(Q3 字段化:【已解决】【请补充】【已关闭】;closed 同步落 closed_at,关闭后禁回帖)
 enum ThreadStatusLabel {
   none
-  standard
   resolved
+  needs_info
   closed
 
   @@map("thread_status_label")
@@ -717,7 +717,8 @@ model ForumThread {
   authorUserId     BigInt?           @map("author_user_id") // Set null:用户删除不丢主题
   authorName       String            @map("author_name") @db.VarChar(64)
   pinned           Boolean           @default(false) // 版主置顶
-  closedAt         DateTime?         @map("closed_at") // 版主关闭时间
+  featured         Boolean           @default(false) // 版主加精(标题前显示「精」标识)
+  closedAt         DateTime?         @map("closed_at") // 版主关闭时间(与 status_label=closed 同写)
   statusLabel      ThreadStatusLabel @default(none) @map("status_label") // Q3 状态标签
   viewCount        Int               @default(0) @map("view_count") // 存量迁移+详情访问原子自增(R2 口径)
   replyCount       Int               @default(0) @map("reply_count") // 缓存列(迁移期写入;只读无增量写)

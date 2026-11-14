@@ -9,6 +9,7 @@
 //   * D7:balance 取存量 wp_usermeta.mycred_default,差额户补 manual_adjust
 //     (remark=「迁移对账调整(D7)」),使 SUM(flows)=balance;补录幂等
 import { pathToFileURL } from "node:url";
+import { unixToUtcExpr } from "./lib/time.mjs";
 
 const TYPE_MAP = {
   registration: "register_reward",
@@ -48,7 +49,7 @@ export async function importPoints(pool) {
             LEFT(l.entry, 255),
             'legacy_wp_mycred',
             l.id,
-            FROM_UNIXTIME(l.time)
+            ${unixToUtcExpr("l.time")}
      FROM wp_legacy.wp_myCRED_log l
      JOIN \`user\` u ON u.wp_user_id = l.user_id
      WHERE NOT EXISTS (
@@ -138,7 +139,7 @@ export async function ensurePointAccounts(pool) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const { loadEnv, createPool } = await import("./lib/db.mjs");
   loadEnv();
-  // 与服务器 UTC 字面量对齐:FROM_UNIXTIME(服务器时区)↔ JS 解析一致,unix 语义还原
+  // Unix 秒 → UTC 字面量:CONVERT_TZ 显式折回 +00:00,不随连接会话时区漂移
   const pool = createPool({ timezone: "+00:00" });
   const imported = await importPoints(pool);
   const reconciled = await reconcileD7(pool);

@@ -2,6 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { redis } from "@/lib/redis";
+import { beijingDayKeyCompact } from "@/lib/format";
 import {
   PAGE_VIEW_PATH_MAX,
   PAGE_VIEW_RETENTION_DAYS,
@@ -30,12 +31,11 @@ export const EMPTY_PAGE_VIEW_SUMMARY: PageViewSummary = {
   topPages: [],
 };
 
-/** 当日盐(yyyyMMdd):跨日盐变 → 同一访客每日重新计数 */
+/** 当日盐(yyyyMMdd):跨日盐变 → 同一访客每日重新计数
+ *  日界取北京自然日——与日桶(CONVERT_TZ +08:00)同一口径,
+ *  否则访客标识会在北京 08:00 换盐、与日桶错开,同一北京日里算出两个 UV */
 function daySalt(d: Date): string {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}${mm}${dd}`;
+  return beijingDayKeyCompact(d);
 }
 
 /** 访客标识:IP + 当日盐的 sha256(64 hex);无 IP 时退化为固定匿名标识 */
@@ -144,6 +144,10 @@ export type PageViewDailyPoint = { date: string; pv: number; uv: number };
 /**
  * 自建埋点日序列(看板趋势与存档日汇总合并成一条连续时间线):
  * PV=当日上报次数;UV=当日去重访客数(访客标识按日加盐,跨日重新计数)。
+ *
+ * 日桶按**北京自然日**切(created_at 存 UTC,直接 DATE_FORMAT 会按 UTC 日切,
+ * 与存档侧(WP Statistics 的北京日)和页面显示的日期对不上——"今天"要等北京
+ * 08:00 才翻页)。CONVERT_TZ 用固定偏移,不依赖 MySQL 时区表是否载入。
  */
 export async function getPageViewDaily(opts: {
   since: Date;
@@ -151,7 +155,7 @@ export async function getPageViewDaily(opts: {
 }): Promise<PageViewDailyPoint[]> {
   const until = opts.until ?? new Date();
   const rows = await prisma.$queryRaw<{ d: string; pv: bigint; uv: bigint }[]>`
-    SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS d,
+    SELECT DATE_FORMAT(CONVERT_TZ(created_at, '+00:00', '+08:00'), '%Y-%m-%d') AS d,
            COUNT(*) AS pv,
            COUNT(DISTINCT visitor_id) AS uv
     FROM page_view_event
