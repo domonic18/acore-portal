@@ -19,6 +19,12 @@ import {
 } from "@/constants/invitation";
 import { RESERVED_SLUGS } from "@/constants/content";
 import { ADMIN_ROLE, USER_ROLES } from "@/constants/roles";
+import {
+  POINT_RULE_AMOUNT_MAX,
+  POINT_RULE_EVENT,
+  POINT_RULE_EVENT_LABEL,
+  POINT_RULE_EVENTS,
+} from "@/constants/points";
 import { UserRole } from "@/generated/business";
 
 /**
@@ -107,5 +113,18 @@ describe("站点角色取值域", () => {
   it("与业务库枚举 user_role 对齐(常量层与 Prisma 枚举不漂移)", () => {
     expect([...USER_ROLES].sort()).toEqual(Object.values(UserRole).sort());
     expect(ADMIN_ROLE).toBe(UserRole.admin);
+  });
+});
+
+describe("积分规则事件", () => {
+  it("元组与 POINT_RULE_EVENT 一致(zod.enum 与后台管控面同一取值域)", () => {
+    expect([...POINT_RULE_EVENTS].sort()).toEqual(Object.values(POINT_RULE_EVENT).sort());
+  });
+
+  it("每个事件都有中文标签与正整数分值上限", () => {
+    for (const event of POINT_RULE_EVENTS) {
+      expect(POINT_RULE_EVENT_LABEL[event].length).toBeGreaterThan(0);
+    }
+    expect(POINT_RULE_AMOUNT_MAX).toBeGreaterThan(0);
   });
 });

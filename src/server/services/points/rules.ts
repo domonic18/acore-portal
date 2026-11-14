@@ -6,8 +6,8 @@ import { POINT_RULE_EVENT, type PointRuleEventValue } from "@/constants/points";
  * 积分规则引擎(FR-104/research R10):仅获取类事件经 point_rule 表驱动;
  * 消费(shop_payment)与手调(manual_adjust)为固定账务路径不经此表(assertEarnEvent 守门)。
  *
- * 规则行由迁移补种基线(register=2 / badge_grant=0),当前**没有管理端界面**——
- * 改分值需改库或补迁移。此前该表只由 dev seed 灌,生产库为空 ⇒ 新注册不发分(线上已复现)。
+ * 规则行由迁移补种基线(register=2 / badge_grant=0),后台可在「积分规则」页改分值与启停
+ * (services/points/admin.ts)。此前该表只由 dev seed 灌,生产库为空 ⇒ 新注册不发分(线上已复现)。
  */
 
 export async function getPointRule(event: PointRuleEventValue) {

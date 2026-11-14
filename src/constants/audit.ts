@@ -85,6 +85,8 @@ export const AUDIT_ACTION = {
   SETTINGS_TEST_CONNECTION: "settings_test_connection",
   /** M4 后台角色变更(category=admin;payload 含前后角色;成功即吊销目标全部会话) */
   USER_ROLE_CHANGE: "user_role_change",
+  /** 后台积分规则变更(category=points;payload 含 event 与前后分值/开关) */
+  POINT_RULE_SAVED: "point_rule_saved",
   /** 商品删除(category=shop;仅限零订单商品,payload 含 sku/name;有订单走下架) */
   PRODUCT_DELETED: "product_deleted",
   /** 商品批量上下架/目录显隐(category=shop;payload 含 action/count/ids) */
