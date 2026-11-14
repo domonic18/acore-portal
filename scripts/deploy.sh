@@ -168,7 +168,7 @@ cleanup_images() { # 当前 tag 回滚目标 tag
   # 过滤落空会让清理静默空转。
   for repo in "$REGISTRY/$DEPLOY_NAMESPACE/$IMAGE_NAME" acore-portal-test acore-portal-prod-web; do
     tags="$(docker images --format '{{.Tag}}\t{{.CreatedAt}}' "$repo" 2>/dev/null \
-      | awk -F'\t' '$1 ~ /^(main|develop)-[0-9a-f]{7,40}$/ || $1 ~ /^[0-9a-f]{7,40}$/' \
+      | awk -F'\t' '$1 ~ /^(main|develop)-[0-9a-f]{7,40}$/ || $1 == "latest"' \
       | sort -k2 -r | cut -f1)"
     [ -n "$tags" ] || continue
     i=0
