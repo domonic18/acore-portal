@@ -103,6 +103,27 @@ describe("发布链路守卫 · 远端发布不依附 SSH 会话", () => {
     // 旧的前台 ssh 直跑 deploy.sh 写法不得复活
     expect(ci).not.toMatch(/ssh [^|]*deploy\.sh --env prod/);
   });
+
+  it("脚本的密钥契约是「路径」,不是 secret 正文", () => {
+    // 契约错位会直接死于预检:`[ -f "$DEPLOY_SSH_KEY" ]` 拿到密钥正文 ⇒
+    // 「私钥不存在:<正文>」(2026-11-14 生产发布失败的实际原因)
+    expect(script).toMatch(/DEPLOY_SSH_KEY="\$\{DEPLOY_SSH_KEY:-\$HOME\/\.ssh\/deploy_key\}"/);
+    expect(script).toMatch(/\[ -f "\$DEPLOY_SSH_KEY" \]/);
+  });
+
+  it("CI 的发布步骤传路径不传 secret 正文(密钥落盘在默认路径)", () => {
+    const lines = read(".github/workflows/ci.yml").split("\n");
+    const idx = lines.findIndex((l) => l.includes("bash scripts/ci/remote-release.sh"));
+    expect(idx).toBeGreaterThan(-1);
+    // 发布步骤的 env 块(向上回溯到 `env:` 或 `- name:` 为止)
+    const envLines: string[] = [];
+    for (let i = idx - 1; i >= 0; i--) {
+      const l = lines[i] ?? "";
+      if (/^\s*-\s+name:/i.test(l) || /^\s*run:/i.test(l)) break;
+      if (/^\s*(env:|DEPLOY_\w+:)/.test(l)) envLines.push(l);
+    }
+    expect(envLines.join("\n")).not.toMatch(/secrets\./);
+  });
 });
 
 describe("发布链路守卫 · 镜像构建有层缓存且不走 GHA 缓存服务", () => {
