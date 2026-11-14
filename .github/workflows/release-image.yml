@@ -41,12 +41,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - id: vars
+        shell: bash
         run: |
-          {
-            echo "sha_short=$(git rev-parse --short HEAD)"
-            echo "branch=$(echo "${GITHUB_REF#refs/heads/}" | tr '/' '-')"
-            echo "build_time=$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-          } >> "$GITHUB_OUTPUT"
+          # 构建元信息取自 scripts/ci/build-meta.sh(与本地兜底构建同一口径):
+          # build_time 固定东八区,不随 runner 时区漂移(CI runner 为 UTC)。
+          branch="${GITHUB_REF#refs/heads/}"
+          while IFS='=' read -r key value; do
+            echo "$key=$value" >> "$GITHUB_OUTPUT"
+          done < <(scripts/ci/build-meta.sh --branch "$branch")
       # 预建持久 builder:不用 setup-buildx-action——它会另建临时 builder 顶掉选择
       - name: Select builder / 选择构建器
         run: docker buildx use ci-builder

@@ -157,11 +157,16 @@ $DEPLOY_ROOT/               # 仓库变量 vars.DEPLOY_ROOT,绝对路径
 
 | 构建参数 | 取值 | 页面呈现 |
 | --- | --- | --- |
-| `BUILD_TIME` | `TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M'`(显式上海时区,不依赖 runner 本机时区) | `构建于 2026-11-08 10:52` |
+| `BUILD_TIME` | `scripts/ci/build-meta.sh` 的 `build_time`(`TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M'`,显式上海时区,不依赖 runner 本机时区) | `构建于 2026-11-08 10:52` |
 | `APP_SHA` | `GITHUB_SHA` 前 7 位(与镜像 tag 同源) | `· e04370b` |
 
 页脚最终呈现为单独一行:`构建于 2026-11-08 10:52 · e04370b`。
 
+- **取值只有一处**:`scripts/ci/build-meta.sh` 产出 `sha_short`/`branch`/`build_time`,
+  CI(`.github/workflows/release-image.yml`)与本地兜底(`scripts/deploy.sh --build-local`)
+  都调它。曾经两边各写一份 `date` 取值:CI 侧写成了 `date -u`(UTC)⇒ **2026-11-14 实测页脚
+  显示的构建时间比北京时间差 8 小时**,同一字段两套时区两套格式,人工核对版本失效。
+  守卫:`tests/unit/build-meta.test.ts` 断言两边都走该脚本、且不再自行 `date` 取值。
 - 走 `NEXT_PUBLIC_*` **构建期内联**(`docker/web/Dockerfile` 里 `ARG` → `ENV` → `next build`):
   值与镜像绑定,不会出现「容器 env 与镜像产物说法不一致」。
 - 缺省 `unknown` → 归一为空串 → **整行不渲染**(本地手工构建的情形)。

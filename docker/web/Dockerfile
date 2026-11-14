@@ -31,7 +31,8 @@ ENV NODE_ENV=production \
   DATABASE_URL="mysql://build:build@localhost:3306/build" \
   REDIS_URL="redis://localhost:6379/0"
 
-# 构建信息:自动部署由 deploy-staging.sh 以 --build-arg 传入
+# 构建信息:自动部署由 CI(.github/workflows/release-image.yml)或本地兜底
+# (scripts/deploy.sh --build-local)以 --build-arg 传入,取值同源于 scripts/ci/build-meta.sh
 ARG BUILD_TIME=unknown
 ARG APP_SHA=unknown
 ENV NEXT_PUBLIC_BUILD_TIME=$BUILD_TIME \
