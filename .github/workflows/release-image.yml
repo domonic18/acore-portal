@@ -79,6 +79,11 @@ jobs:
           push: true
           provenance: false
           platforms: ${{ inputs.platform }}
+          # buildx 层缓存:早前没配,每次发布都从零 apt-get + pnpm install + next build,
+          # 实测 12 分 42 秒(发布耗时的另一半)。按平台分 scope——arm64 与 amd64 的
+          # 依赖层二进制不同,混用会互相污染。
+          cache-from: type=gha,scope=${{ inputs.platform }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.platform }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.TCR_NAMESPACE }}/${{ inputs.image }}:${{ steps.vars.outputs.branch }}-${{ steps.vars.outputs.sha_short }}
             ${{ github.ref == 'refs/heads/main' && format('{0}/{1}/{2}:latest', env.REGISTRY, env.TCR_NAMESPACE, inputs.image) || '' }}
@@ -98,6 +103,8 @@ jobs:
           push: true
           provenance: false
           platforms: ${{ inputs.platform }}
+          cache-from: type=gha,scope=${{ inputs.platform }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.platform }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.TCR_NAMESPACE }}/${{ inputs.image }}:${{ steps.vars.outputs.branch }}-${{ steps.vars.outputs.sha_short }}
             ${{ github.ref == 'refs/heads/main' && format('{0}/{1}/{2}:latest', env.REGISTRY, env.TCR_NAMESPACE, inputs.image) || '' }}
