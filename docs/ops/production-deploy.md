@@ -330,7 +330,7 @@ CI 侧与生产机的全部远端交互收敛在 **`scripts/ci/remote-release.sh
 
 | 环节 | 当时耗时 | 现在 |
 | --- | --- | --- |
-| 镜像构建(`docker-release`) | 12 分 42 秒 | 有 buildx 层缓存后大幅缩短(依赖层可复用) |
+| 镜像构建(`docker-release`) | 12 分 42 秒(全量重建) | 依赖层命中本地缓存后 **3~4 分钟**(见 §7.1.2) |
 | 迁移步骤(`migrate`) | 15 分 34 秒 | 秒级(工具镜像内置,无外网下载) |
 | 换容器 + 健康检查 | ~1 分钟 | 不变 |
 
@@ -343,6 +343,26 @@ CI 侧与生产机的全部远端交互收敛在 **`scripts/ci/remote-release.sh
 - **`.env.prod` 的 `WEB_IMAGE` 与运行容器不一致**是发布中断后的正常残留
   (镜像已钉、容器未换),下次发布会自然对齐;中途别手工 `compose up -d web`——
   那是绕过迁移台账断言的裸换容器。
+
+#### 7.1.2 构建缓存:落在常驻 builder,不落在 GitHub 缓存服务
+
+镜像构建的层缓存由**常驻 builder(`ci-builder`容器)的本地层缓存**承担,
+`release-image.yml` **不配 `cache-from/cache-to: type=gha`**。
+
+- **为什么不用 GitHub 缓存服务**:该导出要把**整个构建缓存(数 GB)**经本 runner 的
+  上行链路推去 GitHub。2026-11-15 实测:写层阶段 **20 分钟零进展** ⇒ 步骤 25 分钟超时
+  ⇒ 作业判红——**而镜像早在 3 分 41 秒就推完了**(日志里 `#19 pushing layers 21.3s done`
+  之后卡在 `#20 exporting to GitHub Actions Cache`)。单 runner 场景下这份导出纯开销:
+  只有换机器才需要它,而本仓只有一个自托管 runner。
+- **本地缓存够用**:同一提交的第二次构建**所有步骤瞬间命中**,整体 **2 分 28 秒**
+  (日志实证)。缓存跨构建存活的前提是 builder 常驻且**不被 prune**——
+  **别对 `ci-builder` 执行 `docker buildx prune`**,会把层缓存一并清掉,下次退回全量重建。
+- **不用 `setup-buildx-action`**:它每次另建临时 builder,临时 builder 不保留层 store,
+  等于每次从零构建。
+- 换架构(arm64 ↔ amd64)时依赖层二进制不同,须各自重建一次,属预期代价。
+
+守卫:`tests/unit/release-pipeline-guard.test.ts`(断言走常驻 builder、且不出现
+`type=gha` 缓存读写)。
 
 要点:
 
