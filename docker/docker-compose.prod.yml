@@ -97,12 +97,15 @@ services:
   # 生产不发布 DB 端口,迁移靠它在容器网络内完成——宿主机无需装 node/pnpm,也无需暴露数据库。
   # 用法: docker compose --env-file .env.prod -f docker/docker-compose.prod.yml --profile migrate run --rm migrate
   migrate:
-    image: node:22-slim
+    # **与 web 同一个镜像**:web 镜像已内置 prisma CLI(见 docker/web/Dockerfile 的 /opt/prisma)。
+    # 早前这里是 node:22-slim + `npx --yes prisma@6.19.3`,在生产机上现下载 CLI 与引擎——
+    # 实测耗 15 分半且全程零输出(npm registry 国内链路 ~170KB/s),`run --rm` 又不留 npm 缓存,
+    # 于是每次发布都重下一次:迁移步骤成了发布耗时的头号大头。改用 web 镜像后这一步是秒级的。
+    # WEB_IMAGE 由发布脚本在钉镜像时写入 env 文件(与 web 服务同一个变量 ⇒ 迁移工具与代码同源)。
+    image: ${WEB_IMAGE:-acore-portal-prod-web}
     profiles: ["migrate"]
     working_dir: /app
-    # prisma CLI 是 devDependency,生产镜像里没有(见 docker/web/Dockerfile 的 --prod 瘦身);
-    # 这里用 npx 按版本拉取,与 package.json 锁定的 6.19.3 保持一致(改版本须同步)
-    command: npx --yes prisma@6.19.3 migrate deploy --schema prisma/schema-business/schema.prisma
+    command: prisma migrate deploy --schema prisma/schema-business/schema.prisma
     volumes:
       - ../prisma/schema-business:/app/prisma/schema-business:ro
     # 与 web 同一个 env_file:迁移必须打 web 实际在用的那个库(容器网络内的 mysql:3306)。
