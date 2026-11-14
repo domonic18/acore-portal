@@ -53,7 +53,28 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml up -d --bu
 **内存**:生产机只有 3.4G 且无 swap 时,Next 构建峰值可用内存会掉到 100MB 上下 → **先加 swap**
 (`fallocate -l 4G /swapfile` + `swapon` + 写 `/etc/fstab`),否则构建会被 OOM 打断。
 
-### 1.2 账号权限的两处额外授权(业务库账号)
+### 1.2 老站换栈时必须核对的「对外服务清单」
+
+老 WordPress 栈不只提供网站,还提供**游戏通道的 TCP 代理**。换栈时只盯着 80/443(网站)会漏掉这一层
+——漏了就是**全体玩家登录不了**。
+
+| 老栈提供的 | 协议/端口 | 换栈后的归属 |
+| --- | --- | --- |
+| 网站(HTTP/HTTPS) | 80 / 443 | 门户栈的 **Caddy** |
+| **游戏登录通道** | **TCP 3724** | 门户栈的 **game-stream**(nginx stream) |
+| **游戏角色数据通道** | **TCP 8086** | 门户栈的 **game-stream**(nginx stream) |
+| 排行榜子站 | HTTP 80(`api.lokta.cn`) | 已停用,门户栈回 410 Gone |
+
+> **玩家客户端连的是本站域名的 3724/8086**,由老栈 nginx 的 **stream 块**(TCP 层,不是 HTTP)
+> 转发到游戏机。2026-11-14 换栈时这一层随老栈一起下线 → 玩家全部登不上,
+> 是靠游戏机 authserver 日志里的源 IP(代理机 IP)才定位到的。
+>
+> 换栈前的必查项:**老栈对外监听的所有端口**(`ss -ltnp`),逐条确认新栈的归属。
+
+**game-stream 的上游地址不入库**:走 `GAME_AUTH_UPSTREAM` / `GAME_WORLD_UPSTREAM` 两个环境变量,
+值只落在宿主机的 `.env.prod`(600),仓库里只有模板与占位(本仓是 public)。
+
+### 1.3 账号权限的两处额外授权(业务库账号)
 
 `system_config` 里的连接串用的是**业务库账号**(如 `acore_portal`),它默认只对业务库有权限。换栈时另需两条:
 
