@@ -382,12 +382,12 @@ jobs:
           set -eu
           [ -n "$DEPLOY_ROOT" ] || { echo "ERROR: 未配置仓库变量 DEPLOY_ROOT" >&2; exit 1; }
           [ -d "$DEPLOY_ROOT" ] || { echo "ERROR: 部署根不存在:$DEPLOY_ROOT" >&2; exit 1; }
-          [ -f "$DEPLOY_ROOT/scripts/deploy.sh" ] || { echo "ERROR: $DEPLOY_ROOT/scripts/deploy.sh 不存在" >&2; exit 1; }
           [ -f "$DEPLOY_ROOT/.env.test" ] || { echo "ERROR: $DEPLOY_ROOT/.env.test 不存在,先准备测试环境配置" >&2; exit 1; }
-      - name: 发布(钉镜像 → 迁移 → 换容器 → 健康检查 → 失败回滚 → 镜像清理)
-        # 部署脚本取工作副本里的版本(与 aitech-hub 同款口径);应用代码取 CI 镜像。
+      - name: 发布(钉镜像 → 迁移 → 台账断言 → 换容器 → 健康检查 → 失败回滚 → 镜像清理)
+        # 部署脚本与 compose / 迁移集都取自**本次流水线检出**(同一 commit),
+        # 数据与 env 取自常驻部署根 DEPLOY_ROOT:资产与代码同源,迁移集才与镜像对得上。
         # CI 不往工作副本写源码文件,免得覆盖本地未提交改动——只写 .deploy-state 与 env 的镜像钉。
-        run: bash "$DEPLOY_ROOT/scripts/deploy.sh" --env staging --tag "develop-${{ steps.vars.outputs.sha_short }}"
+        run: bash scripts/deploy.sh --env staging --tag "develop-${{ steps.vars.outputs.sha_short }}"
 
   # ============================================================
   # 生产环境发布(push main 触发;由 environment: production 的审批放行)
@@ -464,8 +464,11 @@ jobs:
         run: |
           set -eu
           # COPYFILE_DISABLE:macOS 上打包不夹带 AppleDouble(._*)垃圾文件
+          # prisma/schema-business 一并下发:迁移集必须与本次发布的镜像同源,
+          # 否则服务器上的旧迁移集会让新代码读不到新列(台账断言会当场拦下)
           COPYFILE_DISABLE=1 tar -czf /tmp/deploy-assets.tar.gz \
             scripts/deploy.sh \
+            prisma/schema-business \
             docker/docker-compose.prod.yml \
             docker/caddy/Caddyfile \
             docker/nginx-stream/nginx.conf.template \
@@ -482,12 +485,12 @@ jobs:
           chmod 755 scripts/deploy.sh
           printf '%s\n' "$2" > .deploy-commit
           # 资产落地完整性校验:缺任何一项都中止,不带着半套资产继续发布
-          for f in scripts/deploy.sh docker/docker-compose.prod.yml docker/caddy/Caddyfile docker/nginx-stream/nginx.conf.template docker/web/Dockerfile; do
+          for f in scripts/deploy.sh prisma/schema-business/schema.prisma docker/docker-compose.prod.yml docker/caddy/Caddyfile docker/nginx-stream/nginx.conf.template docker/web/Dockerfile; do
               [ -f "$f" ] || { echo "ERROR: 资产缺失:$f" >&2; exit 1; }
           done
           echo "--- 已同步:发布资产齐全 ---"
           REMOTE
-      - name: 发布(钉镜像 → 迁移 → 换容器 → 健康检查 → 失败回滚 → 镜像清理)
+      - name: 发布(钉镜像 → 迁移 → 台账断言 → 换容器 → 健康检查 → 失败回滚 → 镜像清理)
         run: |
           set -eu
           # 命名空间与部署根随命令传到服务器侧脚本(ssh 不继承 runner 的 env,须显式带;

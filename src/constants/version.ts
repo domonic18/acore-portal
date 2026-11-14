@@ -7,8 +7,8 @@
  *
  * 取值来源:
  *   BUILD_TIME —— docker/web/Dockerfile 的 ARG BUILD_TIME,自动部署时
- *                 由 deploy-staging.sh 以 --build-arg 传入(上海时区,精确到分)
- *   APP_SHA    —— 同上,提交短号,与镜像 tag / current-sha 同源
+ *                 由 scripts/deploy.sh 以 --build-arg 传入(上海时区,精确到分)
+ *   APP_SHA    —— 同上,提交短号,与镜像 tag / .deploy-state 同源
  *
  * 本地手工构建不传 --build-arg 时为 "unknown",页面据此不渲染构建信息行。
  */
