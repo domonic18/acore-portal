@@ -13,8 +13,19 @@
 #   db-migration-guard / db-incremental-guard —— 迁移守卫(业务库唯一 schema 真相源):
 #                  从零重放 / 幂等重放 / 无漂移 / 增量与从零一致 / 新迁移 SQL 可手工重放。
 #                  守卫不过 → 绝不部署(详见 docs/ops/staging-deploy.md)。
-#   deploy-staging —— 预发布环境自动部署(push develop 时,自托管 runner 落 Mac Mini 常驻栈)。
-#                  生产栈仍人工发布,理由见 docs/ops/production-deploy.md §7.2。
+#   docker-release —— 构建并推送 web 镜像到 TCR(可复用工作流 release-image.yml)。
+#                  tag = 分支-提交短号(develop-xxxxxxx / main-xxxxxxx),短 tag 不可变
+#                  ⇒ 部署侧可精确回滚到任一历史版本;main 额外打 latest。
+#   deploy-staging —— 测试环境自动部署(push develop 时,自托管 runner 落 Mac Mini 常驻栈)。
+#   deploy-production —— 生产环境发布(**由 workflow_dispatch 人工触发**:main 合并只构建
+#                  镜像、不部署;人须在 Actions 页点 Run workflow 确认)。
+#                  仓库为 public,主机地址与部署路径一律走仓库变量,SSH 密钥与指纹走仓库 secret。
+#
+# 镜像来源与架构(**生产是 x86_64 Linux,必须是 amd64 镜像**):
+#   develop → linux/arm64 —— 测试栈跑在 Mac Mini(arm64)上,原生构建原生运行;
+#   main    → linux/amd64 —— 生产栈在 x86_64 Linux 上,原生构建原生运行。
+#   两端**不做交叉模拟**(Next.js 在 QEMU 下运行极慢,不值得为"同一架构"牺牲可用性);
+#   部署脚本另有两道闸:tag 前缀与环境强绑定(prod 只收 main-*)、镜像架构须与宿主一致。
 #
 # E2E 单独成档(.github/workflows/e2e.yml):需浏览器与邮件替身,耗时与 flake 面
 # 都与上面几档不同量级,拆开便于按需停用而不拖累 PR 反馈。
@@ -25,6 +36,11 @@ on:
     branches: [main, develop]
   pull_request:
   workflow_dispatch:
+    inputs:
+      deploy_tag:
+        description: '要发布的镜像 tag(留空 = 当前 main 提交短号;填历史 tag 可重发旧版本)'
+        required: false
+        type: string
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -309,19 +325,32 @@ jobs:
           MYSQL_CID: ${{ job.services.mysql.id }}
 
   # ============================================================
-  # 预发布环境自动部署(push develop;自托管 runner 落 Mac Mini 常驻栈)
-  # 生产栈仍人工发布,理由见 docs/ops/production-deploy.md §7.2
+  # 镜像构建推送(可复用工作流;构建语义只有一份)
   # ============================================================
-
-  deploy-staging:
-    name: 部署预发布环境 / Mac Mini 常驻栈
+  docker-release:
+    name: 构建并推送镜像
     needs: [check, build, integration, db-migration-guard, db-incremental-guard]
-    # 仓库变量未配置时整体跳过(未注册 runner 前不让流水线排队等 runner)
-    # 允许 workflow_dispatch 在 develop 上手动触发:首次上线前可先手动验证整条链路
     if: >-
-      github.ref == 'refs/heads/develop' &&
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-      vars.DEPLOY_ROOT != ''
+      (github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')) ||
+      github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/release-image.yml
+    with:
+      image: acore-portal
+      dockerfile: docker/web/Dockerfile
+      # 测试栈在 arm64(Mac Mini)原生、生产栈在 x86_64 Linux 原生:不做交叉模拟
+      platform: ${{ github.ref == 'refs/heads/main' && 'linux/amd64' || 'linux/arm64' }}
+      build-meta: true
+    # 可复用工作流默认**不继承**仓库 secret:不写这行,被调工作流里的
+    # secrets.TCR_* 全为空 → 推镜像时 "Username and password required"。
+    secrets: inherit
+
+  # ============================================================
+  # 测试环境自动部署(push develop;自托管 runner 落 Mac Mini 常驻栈)
+  # ============================================================
+  deploy-staging:
+    name: deploy(测试环境发布)
+    needs: [docker-release]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     runs-on: [self-hosted]
     timeout-minutes: 60
     # 部署串行:两次部署撞车会留下半新半旧的栈
@@ -333,12 +362,126 @@ jobs:
         working-directory: portal
     env:
       DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT }}
+      DEPLOY_NAMESPACE: ${{ secrets.TCR_NAMESPACE }}
     steps:
       - uses: actions/checkout@v4
         with:
           path: portal
-      - name: 解析镜像 tag
-        run: echo "WEB_IMAGE=acore-portal-test:${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
-      - name: 部署(构建→迁移→滚动→健康检查,失败自动回滚镜像)
-        run: bash scripts/ops/deploy-staging.sh
+      - id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      # 测试环境拉镜像走 TCR,登录凭证与发布线同一套(repo secrets)
+      - name: 登录 TCR
+        uses: docker/login-action@v4
+        with:
+          registry: ccr.ccs.tencentyun.com
+          username: ${{ secrets.TCR_USERNAME }}
+          password: ${{ secrets.TCR_PASSWORD }}
+      - name: 前置校验
+        run: |
+          set -eu
+          [ -n "$DEPLOY_ROOT" ] || { echo "ERROR: 未配置仓库变量 DEPLOY_ROOT" >&2; exit 1; }
+          [ -d "$DEPLOY_ROOT" ] || { echo "ERROR: 部署根不存在:$DEPLOY_ROOT" >&2; exit 1; }
+          [ -f "$DEPLOY_ROOT/scripts/deploy.sh" ] || { echo "ERROR: $DEPLOY_ROOT/scripts/deploy.sh 不存在" >&2; exit 1; }
+          [ -f "$DEPLOY_ROOT/.env.test" ] || { echo "ERROR: $DEPLOY_ROOT/.env.test 不存在,先准备测试环境配置" >&2; exit 1; }
+      - name: 发布(钉镜像 → 迁移 → 换容器 → 健康检查 → 失败回滚 → 镜像清理)
+        # 部署脚本取工作副本里的版本(与 aitech-hub 同款口径);应用代码取 CI 镜像。
+        # CI 不往工作副本写源码文件,免得覆盖本地未提交改动——只写 .deploy-state 与 env 的镜像钉。
+        run: bash "$DEPLOY_ROOT/scripts/deploy.sh" --env staging --tag "develop-${{ steps.vars.outputs.sha_short }}"
+
+  # ============================================================
+  # 生产环境发布(**人工在 GitHub 上确认才部署**)
+  # 仓库为 public,生产机地址与部署路径一律走仓库变量(不入库);SSH 密钥与主机指纹
+  # 走仓库 secret。资产由 CI 侧打包直传(生产机到 GitHub 的链路实测超时,不能让
+  # 服务器侧拉取)——与 git checkout 等价(同一 commit)。
+  #
+  # 触发口径:main 合并只**构建镜像**(docker-release),部署不动;发布由
+  # workflow_dispatch 手动触发 —— 人须在 Actions 页点 Run workflow 确认,
+  # 这就是「生产部署须人工确认」的门。挂 environment: production 提供部署记录与
+  # 日志;若该环境另配了 required reviewer,则是双保险(不冲突)。
+  # ============================================================
+  deploy-production:
+    name: deploy(生产环境发布)
+    needs: [docker-release]
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+      DEPLOY_NAMESPACE: ${{ secrets.TCR_NAMESPACE }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 前置校验(未配密钥/主机则明确失败,不半途发布)
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -eu
+          [ -n "$DEPLOY_SSH_KEY" ] || { echo "ERROR: 未配置仓库 secret DEPLOY_SSH_KEY" >&2; exit 1; }
+          [ -n "$DEPLOY_KNOWN_HOSTS" ] || { echo "ERROR: 未配置仓库 secret DEPLOY_KNOWN_HOSTS" >&2; exit 1; }
+          [ -n "$DEPLOY_HOST" ] || { echo "ERROR: 未配置仓库变量 DEPLOY_HOST" >&2; exit 1; }
+          [ -n "$DEPLOY_PATH" ] || { echo "ERROR: 未配置仓库变量 DEPLOY_PATH" >&2; exit 1; }
+      - name: 配置免密密钥与主机指纹
+        run: |
+          set -eu
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+      - id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      - name: 预检生产机(部署目录与 compose 插件)
+        run: |
+          set -eu
+          # 生产机必须有 compose v2 CLI 插件:只装了独立二进制 docker-compose 时
+          # `docker compose` 不可用,现场步骤会以 exit 125 崩掉,报错还指向"拉取失败"。
+          # 这里先一步拦下,报错直指缺插件。
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_HOST" \
+            "cd '$DEPLOY_PATH' || { echo 'ERROR: 部署目录不存在:$DEPLOY_PATH' >&2; exit 1; }; sudo docker compose version >/dev/null 2>&1 || { echo 'ERROR: 生产机缺少 compose v2 CLI 插件(docker compose 不可用)' >&2; exit 1; }; echo '生产机预检通过'"
+      - name: 记录发布前现场
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_HOST" \
+            "cd '$DEPLOY_PATH' && echo '--- 当前状态文件 ---' && cat .deploy-state 2>/dev/null; echo '--- 当前镜像钉 ---' && grep -E '^WEB_IMAGE=' .env.prod 2>/dev/null; echo '--- 当前运行镜像 ---' && sudo docker compose --env-file .env.prod -f docker/docker-compose.prod.yml ps --format '{{.Service}} {{.Image}} {{.State}}' 2>/dev/null"
+      - name: 同步部署资产到服务器
+        run: |
+          set -eu
+          # COPYFILE_DISABLE:macOS 上打包不夹带 AppleDouble(._*)垃圾文件
+          COPYFILE_DISABLE=1 tar -czf /tmp/deploy-assets.tar.gz \
+            scripts/deploy.sh \
+            docker/docker-compose.prod.yml \
+            docker/caddy/Caddyfile \
+            docker/web/Dockerfile
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            /tmp/deploy-assets.tar.gz "$DEPLOY_HOST:/tmp/deploy-assets.tar.gz"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_HOST" \
+            sudo bash -s -- "$DEPLOY_PATH" "$GITHUB_SHA" <<'REMOTE'
+          set -eu
+          cd "$1"
+          # --no-same-owner:不让归档里的 uid/gid 覆盖服务器属主
+          tar --no-same-owner -xzf /tmp/deploy-assets.tar.gz
+          rm -f /tmp/deploy-assets.tar.gz
+          chmod 755 scripts/deploy.sh
+          printf '%s\n' "$2" > .deploy-commit
+          # 资产落地完整性校验:缺任何一项都中止,不带着半套资产继续发布
+          for f in scripts/deploy.sh docker/docker-compose.prod.yml docker/caddy/Caddyfile docker/web/Dockerfile; do
+              [ -f "$f" ] || { echo "ERROR: 资产缺失:$f" >&2; exit 1; }
+          done
+          echo "--- 已同步:发布资产齐全 ---"
+          REMOTE
+      - name: 发布(钉镜像 → 迁移 → 换容器 → 健康检查 → 失败回滚 → 镜像清理)
+        run: |
+          set -eu
+          # 命名空间随命令传到服务器侧脚本(ssh 不继承 runner 的 env,须显式带)
+          # tag:workflow_dispatch 输入优先(可重发历史版本),否则用当前 main 提交短号
+          TAG="${{ inputs.deploy_tag }}"
+          [ -n "$TAG" ] || TAG="main-${{ steps.vars.outputs.sha_short }}"
+          echo "发布目标镜像 tag:$TAG"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_HOST" \
+            "cd '$DEPLOY_PATH' && sudo DEPLOY_NAMESPACE='$DEPLOY_NAMESPACE' bash scripts/deploy.sh --env prod --tag '$TAG'"
+
 
