@@ -7,14 +7,19 @@ import { Select } from "@/components/ui/input";
 import { USER_ROLES } from "@/constants/roles";
 import { errorMessage, requestJson } from "@/lib/api-client";
 import { needsElevationConfirm } from "@/lib/role-elevation";
+import { useHydrated } from "@/lib/use-hydrated";
 
 /**
  * 用户详情页的角色分配(FR-105/FR-130):独立控件放在页头右侧,
  * 与「积分手调 / 徽章授予」这类日常操作分离(低频且不可逆,不该占据页面首要位置)。
  * 提升为 admin 前必须二次确认(admin 可管理全站数据);成功后吊销目标全部会话并刷新。
+ *
+ * 水合前禁用:下拉是受控组件,水合前改动只会改 DOM 值而丢 onChange(状态停在原值,
+ * 提交按钮恒禁用)。禁用到 hydration 完成,让「可选中」本身成为水合完成的信号。
  */
 export function RoleAssign({ userId, role }: { userId: string; role: string }) {
   const router = useRouter();
+  const hydrated = useHydrated();
   const [roleValue, setRoleValue] = useState(role);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +57,7 @@ export function RoleAssign({ userId, role }: { userId: string; role: string }) {
           <span className="text-[#93b2ce]">角色(分配后立即吊销该用户全部会话)</span>
           <Select
             value={roleValue}
+            disabled={!hydrated}
             onChange={(e) => setRoleValue(e.target.value)}
             className="w-auto min-w-32"
           >
@@ -65,7 +71,7 @@ export function RoleAssign({ userId, role }: { userId: string; role: string }) {
         <Button
           type="button"
           variant="primary"
-          disabled={busy || roleValue === role}
+          disabled={busy || !hydrated || roleValue === role}
           onClick={() => void assignRole()}
         >
           {busy ? "分配中…" : "分配角色"}

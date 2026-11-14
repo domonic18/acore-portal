@@ -154,6 +154,8 @@ docs/            # 文档中心
 
 29. **论坛版主能力与状态口径**（沉淀，加精/已关闭/请补充用户反馈）：① **状态单一出口**——`forum_thread.status_label` 与 `closed_at` 必须同写同清（`services/forum/moderate.ts` 的 `writeThreadStatus` 是唯一写入口），徽标、回帖闸（`forum/write.ts` 读 `closed_at`）、筛选三处都读这一对，**禁再开第二条状态写路径**（两处表达一个状态必漂移）；② **状态下拉是唯一出口**——四态（无标签/已解决/请补充/已关闭）都在下拉里，选「已关闭」即关帖、切回其他标签即重开；「关闭主题/开放」按钮只是同一动作的一键快捷方式，**禁把下拉在关闭态锁死**（能进不能出=非对称）；后台筛选同理——状态只有「状态标签」下拉一个入口，**禁再挂「仅已关闭」chip**（同一集合两个入口必漂移）；③ **徽标唯一出口**——状态徽标走 `components/forum/thread-badge.tsx` 的 `ThreadStatusBadge`（`closed_at` 非空时优先显示「已关闭」），加精徽标走 `FeaturedBadge`（「精」），置顶走 `PinnedBadge`；前台首页/论坛/版块/主题详情/后台列表的徽标渲染统一复用，**禁各处另写内联标记**；④ **加精与置顶互不干扰**——`featured` 独立列独立审计（`FORUM_THREAD_FEATURED`），首页「论坛精华」排序按加精优先→置顶→热度；⑤ **「请补充」必须能触达发帖人**——标记时同事务落站内信（`notification.type=forum`，带主题详情页链接），作者未映射（存量帖 `author_user_id=null`）无从寻址、版主标记自己的帖不通知自己；**状态已改但提示没发**属事故，同事务才能杜绝；⑥ **枚举变更走迁移**——`status_label` 是 MySQL ENUM，增删取值必须 `MODIFY COLUMN`（先 `UPDATE` 收敛旧值再改列，否则旧值不在新枚举域内会失败），迁移须满足重放幂等（`pnpm lint:migrations`）；旧值语义不明（如原「规范」）时**照旧剥离标题前缀但不落标签**，不新造语义
 
+30. **纯 JS 交互控件的水合门控**（沉淀，E2E 偶发「按钮永远 disabled」事故）：① **受控 `<select>` 在水合前会丢变更**——水合前用户/自动化改动只落到 DOM 值，React 的 `onChange` 未挂载 ⇒ 组件状态不变 ⇒ 由状态派生的按钮（如「角色分配」）恒 disabled，**页面看不出任何异常**；② **门控用 `lib/use-hydrated.ts` 的 `useHydrated()`**——水合完成前 `disabled` 该控件（`disabled={busy || !hydrated}`），既杜绝丢事件，也让「可选中/可点击」本身成为水合完成的信号；③ **E2E 同步点写「等 enabled」而非固定 sleep**——`await expect(locator).toBeEnabled()` 即水合完成的断言（dev 模式路由冷编译时水合可慢到数秒，固定 sleep 不可靠）；④ **排查此类症状先看 trace 的 frame-snapshot**——DOM 里 `<option selected>` 已变而 React 状态未变，就是水合丢事件，不是业务 bug
+
 ## Code style
 
 - **通用**: KISS / YAGNI / DRY；SOLID 相关时应用；优先行业标准库而非自定义实现；现代框架特性优先
