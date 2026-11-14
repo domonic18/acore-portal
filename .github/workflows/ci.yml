@@ -330,6 +330,10 @@ jobs:
       (github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')) ||
       github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/release-image.yml
+    # 被调用的可复用工作流默认**不继承**仓库 secrets,必须显式 inherit,
+    # 否则 release-image.yml 里的 TCR_USERNAME/TCR_PASSWORD 为空,
+    # docker/login-action 报 "Username and password required"(2026-11-14 首次跑实测)。
+    secrets: inherit
     with:
       image: acore-portal
       dockerfile: docker/web/Dockerfile
