@@ -115,6 +115,34 @@ services:
         condition: service_healthy
     restart: "no"
 
+  # 游戏通道 TCP 代理(stream 层)。玩家客户端直连 lokta.cn:3724(登录认证)与
+  # :8086(角色数据),由这里转发到游戏机——这段能力原在老 WordPress 栈的 nginx 里,
+  # 2026-11-14 换栈时随老栈下线,导致玩家登录全部失败。
+  # Caddy 只管 HTTP(S)(80/443),TCP 通道需要独立的 nginx stream 容器。
+  game-stream:
+    image: nginx:1.28-alpine
+    restart: unless-stopped
+    ports:
+      - "3724:3724" # 游戏登录通道(TCP)
+      - "8086:8086" # 游戏角色数据通道(TCP)
+    environment:
+      # 上游地址只从宿主 .env.prod 注入(本仓是 public,真实地址不入库/不入文档)
+      GAME_AUTH_UPSTREAM: ${GAME_AUTH_UPSTREAM:?生产必填,游戏登录上游 host:port}
+      GAME_WORLD_UPSTREAM: ${GAME_WORLD_UPSTREAM:?生产必填,游戏角色数据上游 host:port}
+    volumes:
+      # 模板不放在官方镜像的 templates 目录:那份机制会把 nginx.conf.template 渲染成
+      # conf.d/nginx.conf(变成 http 块的 include,而 stream 块只能是顶层)→ 改为启动时
+      # 显式 envsubst 生成主配置,只替换那两个上游变量($remote_addr 等 nginx 变量不受影响)
+      - ./nginx-stream/nginx.conf.template:/etc/nginx/stream.conf.template:ro
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        envsubst '$$GAME_AUTH_UPSTREAM $$GAME_WORLD_UPSTREAM'
+        < /etc/nginx/stream.conf.template > /etc/nginx/nginx.conf &&
+        exec nginx -g 'daemon off;'
+    logging: *logging
+
   caddy:
     image: caddy:2-alpine
     ports:

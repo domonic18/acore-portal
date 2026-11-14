@@ -1,0 +1,47 @@
+worker_processes auto;
+error_log /var/log/nginx/error.log notice;
+pid /var/run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+# 游戏通道 TCP 代理(stream 层,不是 HTTP)。
+#
+# 玩家客户端直连本机 3724(登录认证)与 8086(角色数据),由这里转发到游戏机。
+# 这段能力原在老 WordPress 栈的 nginx 里(其 conf/dist/nginx-conf/nginx.conf 的
+# stream 块),2026-11-14 切换到门户栈时随老栈一起下线 → 玩家登录全部失败。
+# 门户栈的 Caddy 只管 HTTP(S)(80/443),TCP 通道需要独立的 nginx stream 容器。
+#
+# 上游地址走环境变量注入(官方 nginx 镜像的 envsubst 模板机制,只替换真实存在的
+# 环境变量;$remote_addr 这类 nginx 变量不在环境里 → 原样保留):
+#   GAME_AUTH_UPSTREAM  —— 登录认证上游,形如 host:port
+#   GAME_WORLD_UPSTREAM —— 角色数据上游,形如 host:port
+# **真实地址不入库**(本仓是 public):值只落在宿主机的 .env.prod,不入仓库、不入文档。
+#
+# upstream 用与老站同款的公网地址语义:游戏服看到的源 IP 仍是这台代理机
+# (stream 层无 PROXY protocol,游戏服看不到玩家真实 IP,与老站行为一致)。
+# hash $remote_addr consistent:同一客户端始终命中同一上游,与老站同款。
+stream {
+    upstream auth {
+        hash $remote_addr consistent;
+        server ${GAME_AUTH_UPSTREAM};
+    }
+    server {
+        listen 3724;
+        proxy_connect_timeout 5s;
+        proxy_timeout 5s;
+        proxy_pass auth;
+    }
+
+    upstream world {
+        hash $remote_addr consistent;
+        server ${GAME_WORLD_UPSTREAM};
+    }
+    server {
+        listen 8086;
+        proxy_connect_timeout 5s;
+        proxy_timeout 5s;
+        proxy_pass world;
+    }
+}
