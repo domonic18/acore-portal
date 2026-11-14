@@ -15,6 +15,9 @@ import path from "node:path";
  *     随 SIGHUP 中断。修法是远端 setsid 后台执行 + 退出码落文件 + CI 轮询,
  *     且所有 ssh 必须带保活。
  *  ③ **镜像构建必须有层缓存**——无缓存时每次发布都从零构建(实测 12 分 42 秒)。
+ *     缓存的承载物是**常驻 builder 的本地层缓存**,不是 GitHub 缓存服务:
+ *     `cache-to: type=gha` 会把数 GB 构建缓存推去 GitHub,写层阶段实测卡死
+ *     20 分钟 ⇒ 步骤超时、作业判红,而镜像早已推完(2026-11-15 实测)。
  */
 
 const ROOT = process.cwd();
@@ -102,10 +105,24 @@ describe("发布链路守卫 · 远端发布不依附 SSH 会话", () => {
   });
 });
 
-describe("发布链路守卫 · 镜像构建有层缓存", () => {
-  it("release-image.yml 配了 buildx 缓存读写", () => {
-    const workflow = read(".github/workflows/release-image.yml");
-    expect(workflow).toMatch(/cache-from:\s*type=gha/);
-    expect(workflow).toMatch(/cache-to:\s*type=gha/);
+describe("发布链路守卫 · 镜像构建有层缓存且不走 GHA 缓存服务", () => {
+  const workflow = stripComments(read(".github/workflows/release-image.yml"));
+
+  it("构建走持久 builder(层缓存由本机 buildkit store 承担)", () => {
+    expect(workflow).toMatch(/docker buildx use ci-builder/);
+  });
+
+  it("不使用 GitHub Actions 缓存服务(导出数 GB 会卡死步骤)", () => {
+    // 2026-11-15 实测:`cache-to: type=gha,mode=max` 把整个构建缓存(数 GB)推去
+    // GitHub 缓存服务,写层阶段 20 分钟零进展 ⇒ 步骤 25 分钟超时 ⇒ 作业判红,
+    // 而镜像早在 3 分 41 秒就推完了。单 runner 场景下这份导出纯开销。
+    expect(workflow).not.toMatch(/cache-to:\s*type=gha/);
+    expect(workflow).not.toMatch(/cache-from:\s*type=gha/);
+  });
+
+  it("不用临时 builder(临时 builder 不保留层缓存)", () => {
+    // setup-buildx-action 每次另建临时 builder,buildkit 的层 store 一并丢弃 ⇒
+    // 等于每次从零构建(实测 12 分 42 秒)。缓存要落在常驻的 ci-builder 上。
+    expect(workflow).not.toMatch(/setup-buildx-action/);
   });
 });
