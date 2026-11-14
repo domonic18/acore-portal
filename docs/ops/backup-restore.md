@@ -101,7 +101,7 @@ SELECT (SELECT COUNT(*) FROM acore_portal.user),
 
 ## 7. 演练记录(SC-308)
 
-- **2026-10-25 恢复演练(测试栈,通过)**:
+- **恢复演练(测试栈,通过)**:
   `node scripts/cron/backup.mjs`(周日,自动含游戏四库)→ COS 出现 5 个当日对象
   (business 8.6MB raw / 1.99MB gz;auth/characters/world/eluna 各 1 份)→
   下载 `lokta-business-20261025.sql.gz` → 解压导入临时 schema

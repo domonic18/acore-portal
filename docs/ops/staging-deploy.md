@@ -117,23 +117,38 @@ $DEPLOY_ROOT/               # 仓库变量 vars.DEPLOY_ROOT,绝对路径
 ## 5. 部署流程
 
 由 `scripts/deploy.sh --env staging --tag develop-<sha7>` 执行
-(测试栈与生产栈**同源一份脚本**,避免两套流程漂移;旧的 `scripts/ops/deploy-staging.sh`
-保留作手动兜底,CI 不再调用):
+(测试栈 / 生产栈 / CI 发布 / 人工兜底**同源一份脚本**,避免多套流程漂移;
+旧的 `scripts/ops/deploy-staging.sh` 与 `scripts/ops/deploy-production.sh` 已删):
 
 ```
-0) 预检:env 文件存在 / compose 可用 / tag 形态合法(main|develop)-<短号>
+0) 预检:env 文件存在 / compose 可用 / 迁移集存在 / tag 形态合法(main|develop)-<短号>
 1) 钉镜像:WEB_IMAGE 写入 .env.test(回滚目标也落在这里,compose 靠它插值)
 2) 拉镜像:docker pull ccr.ccs.tencentyun.com/lokta/acore-portal:<tag>(本地已有则跳过)
 3) 迁移:docker compose --profile migrate run --rm migrate   (schema 先行)
-4) 滚动:docker compose up -d --wait --no-deps --no-build web(只换 web,数据卷原地复用)
-5) 健康检查:http://127.0.0.1:9000/api/status 须 200
-6) 落状态:.deploy-state(status/tag/previous_tag/commit)
-7) 镜像清理:同一仓库只留最近 3 个镜像(当前版本与回滚目标永不删)
+4) 台账断言:应用集 ⊆ 库内台账、镜像集 ⊆ 应用集、台账无未完成行(见下)
+5) 滚动:docker compose up -d --wait --no-deps --no-build web(只换 web,数据卷原地复用)
+6) 健康检查:http://127.0.0.1:9000/api/status 须 200
+7) 落状态:.deploy-state(status/tag/previous_tag/commit)
+8) 镜像清理:同一仓库只留最近 3 个镜像(当前版本与回滚目标永不删)
 ```
 
 **顺序不可反**:新镜像引入的 schema 变更靠第 3 步补上;漏跑则新代码读不到新列。
+第 4 步的断言正是为「漏跑」兜底——它在换容器**之前**把问题拦下来。
 
-**失败即回滚**:第 3/4/5 步任一失败 → 把 `WEB_IMAGE` 退回上一版并重新起容器,
+**两条根目录(别混)**:
+
+| 根 | 内容 | 来源 |
+| --- | --- | --- |
+| 发布资产根 | compose 文件、`prisma/schema-business` 迁移集、构建上下文 | **本次流水线检出**(与镜像同一 commit) |
+| `DEPLOY_ROOT` | `.env.test`、`workspace/` 持久卷根 | 常驻部署根(数据与凭据在 git 检出之外) |
+
+迁移集必须与镜像**同源**:镜像里带着 `/app/prisma/schema-business/migrations`
+(见 `docker/web/Dockerfile` 的 `COPY --from=builder /app ./`),
+若服务器上的迁移集比镜像旧,新代码要的列就没人建——台账断言第 4 步会把这种
+「发布资产与镜像不同源」当场拦下。CI 侧因此把 `prisma/schema-business` 一并
+下发到生产机(staging 侧则直接用流水线检出里的那份)。
+
+**失败即回滚**:第 5/6 步任一失败 → 把 `WEB_IMAGE` 退回上一版并重新起容器,
 旧版本继续服务(数据库不回滚,迁移只向前)。
 
 ### 5.1 构建信息(页脚版本标识)
@@ -216,13 +231,13 @@ $DEPLOY_ROOT/               # 仓库变量 vars.DEPLOY_ROOT,绝对路径
 
 ---
 
-## 10. 实跑验证(2026-11-08)
+## 10. 实跑验证
 
 | 场景 | 结果 |
 | --- | --- |
 | `push develop` 首次自动部署 | 迁移步骤失败(`P1001`)→ 失败发生在 `switched=1` 之前,**web 未被触碰**,仍跑旧镜像且健康;数据完好 |
 | 修复后 `push develop` 重跑 | 部署成功(2m42s);web 换成 `acore-portal-test:<sha7>`,`/api/status` 200;mysql 容器**未重建**;数据 5660 用户 / 1911 订单 / 10369 积分流水、账本 26/26 |
-| 手动重跑(当时走 `workflow_dispatch`;2026-11-14 该入口已删,现用 Actions 页 Re-run failed jobs) | 成功(1m3s);mysql / redis / soap-mock / mailpit **均未重建**,只有 web 重建 → 幂等 |
+| 手动重跑(当时走 `workflow_dispatch`;该入口已删,现用 Actions 页 Re-run failed jobs) | 成功(1m3s);mysql / redis / soap-mock / mailpit **均未重建**,只有 web 重建 → 幂等 |
 | 迁移守卫(两个作业) | 全绿,各约 50s |
 
 > 首次部署时 redis / soap-mock 被重建一次:那是「手工起的栈」与「仓库里的 compose 文件」之间的
