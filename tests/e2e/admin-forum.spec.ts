@@ -11,7 +11,8 @@ const prisma = new PrismaClient();
 const RUN = Date.now().toString(36);
 const RUN_NUM = Number.parseInt(RUN, 36);
 const BOARD_SLUG = `e2eadmforum-${RUN}`;
-const THREAD_TITLE = `E2E后台论坛主题 ${RUN}`;
+const THREAD_TITLE = `E2E后台论坛甲主题 ${RUN}`;
+const THREAD_TITLE_B = `E2E后台论坛乙主题 ${RUN}`;
 const WP_TOPIC_ID = 9_970_000 + (RUN_NUM % 20_000);
 const WP_POST_ID = 9_971_000 + (RUN_NUM % 20_000);
 const ACTOR_NAME = "m1admin";
@@ -25,6 +26,7 @@ async function login(page: Page, username: string, password: string) {
 }
 
 let threadId = "";
+let threadIdB = "";
 let boardId = "";
 
 test.beforeAll(async () => {
@@ -43,6 +45,18 @@ test.beforeAll(async () => {
     },
   });
   threadId = thread.id.toString();
+  // 批量设状态用例需要第二个主题(多选)
+  const threadB = await prisma.forumThread.create({
+    data: {
+      boardId: board.id,
+      title: THREAD_TITLE_B,
+      authorUserId: null,
+      authorName: `e2e作者-${RUN}`,
+      lastPostAt: new Date(),
+      legacyWpTopicId: WP_TOPIC_ID + 1,
+    },
+  });
+  threadIdB = threadB.id.toString();
   await prisma.forumPost.create({
     data: {
       threadId: thread.id,
@@ -63,7 +77,11 @@ test.afterAll(async () => {
   const ids = audits
     .filter((a) => {
       const p = a.payloadJson as { threadId?: string; boardId?: string };
-      return p.threadId === threadId || p.boardId === boardId;
+      return (
+        p.threadId === threadId ||
+        p.threadId === threadIdB ||
+        p.boardId === boardId
+      );
     })
     .map((a) => a.id);
   if (ids.length) await prisma.auditLog.deleteMany({ where: { id: { in: ids } } });
@@ -144,4 +162,61 @@ test("管理闭环:置顶/关闭/标签/删除/回收站恢复 全落库+审计"
   // 前台可达(恢复后浏览层可见);面包屑也含标题,限定 h1 避免 strict 冲突
   await page.goto(`/forum/thread/${threadId}`);
   await expect(page.getByRole("heading", { level: 1, name: THREAD_TITLE })).toBeVisible();
+});
+
+test("批量设状态:多选两个主题一次设为已关闭/已解决(落库+审计)", async ({ page }) => {
+  await login(page, "m1admin", "adminpass123");
+  await page.goto(`/admin/forum?tab=threads&board=${BOARD_SLUG}`);
+  const rowA = page.getByRole("row", { name: new RegExp(THREAD_TITLE) });
+  const rowB = page.getByRole("row", { name: new RegExp(THREAD_TITLE_B) });
+  await expect(rowA).toBeVisible();
+  await expect(rowB).toBeVisible();
+
+  const cbA = page.getByLabel(`选择主题 ${threadId}`);
+  const cbB = page.getByLabel(`选择主题 ${threadIdB}`);
+  await expect(cbA).toBeEnabled(); // 水合同步点
+  await cbA.check();
+  await cbB.check();
+
+  const toolbar = page.getByTestId("forum-bulk-toolbar");
+  await expect(toolbar.getByText("已选 2 个主题")).toBeVisible();
+
+  const bulkStatus = page.getByLabel("批量状态");
+  await expect(bulkStatus).toBeEnabled();
+  await bulkStatus.selectOption("closed");
+  await toolbar.getByRole("button", { name: "应用状态" }).click();
+
+  // 已关闭:徽标同写(closed_at 非空时以关闭态为准)
+  await expect(rowA.getByText("【已关闭】")).toBeVisible();
+  await expect(rowB.getByText("【已关闭】")).toBeVisible();
+  let rows = await prisma.forumThread.findMany({
+    where: { id: { in: [BigInt(threadId), BigInt(threadIdB)] } },
+    select: { statusLabel: true, closedAt: true },
+  });
+  expect(rows.every((r) => r.statusLabel === "closed")).toBe(true);
+  expect(rows.every((r) => r.closedAt !== null)).toBe(true);
+
+  // 切「已解决」即重开(closed_at 同清)
+  await cbA.check();
+  await cbB.check();
+  await bulkStatus.selectOption("resolved");
+  await toolbar.getByRole("button", { name: "应用状态" }).click();
+  await expect(rowA.getByText("【已解决】")).toBeVisible();
+  await expect(rowB.getByText("【已解决】")).toBeVisible();
+  rows = await prisma.forumThread.findMany({
+    where: { id: { in: [BigInt(threadId), BigInt(threadIdB)] } },
+    select: { statusLabel: true, closedAt: true },
+  });
+  expect(rows.every((r) => r.statusLabel === "resolved")).toBe(true);
+  expect(rows.every((r) => r.closedAt === null)).toBe(true);
+
+  // 逐条审计(bulk 标记),与单条同一动作
+  const audits = await prisma.auditLog.findMany({
+    where: { action: "forum_thread_label" },
+    select: { payloadJson: true },
+  });
+  const bulkAudits = audits.filter(
+    (a) => (a.payloadJson as { bulk?: boolean }).bulk === true,
+  );
+  expect(bulkAudits.length).toBeGreaterThanOrEqual(4); // 两个主题 × 两次批量
 });

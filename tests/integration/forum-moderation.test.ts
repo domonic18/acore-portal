@@ -9,6 +9,7 @@ import {
   listThreadPosts,
 } from "@/server/services/forum/browse";
 import {
+  bulkSetThreadStatus,
   closeThread,
   deleteThread,
   featureThread,
@@ -298,5 +299,119 @@ describe("版主操作(T036 SC-207)", () => {
       orderBy: { id: "desc" },
     });
     expect((delAudit.payloadJson as { title?: string }).title).toBe(`T36 待软删 ${RUN}`);
+  });
+});
+
+/**
+ * 批量设置状态(后台多选):与单条同一写入路径——
+ * 逐条落状态 + 逐条审计(bulk 标记)、「请补充」逐条提示发帖人、
+ * 已软删主题跳过、非法标签 LABEL_INVALID。
+ */
+describe("批量设置状态(2026-11-14)", () => {
+  let bulkA = 0n;
+  let bulkB = 0n;
+
+  beforeAll(async () => {
+    const board = await prisma.forumBoard.findUniqueOrThrow({
+      where: { slug: BOARD_SLUG },
+    });
+    const mk = async (title: string, author: bigint | null, wpId: number) => {
+      const t = await prisma.forumThread.create({
+        data: {
+          boardId: board.id,
+          title,
+          authorUserId: author,
+          authorName: `批量作者-${RUN}`,
+          lastPostAt: new Date(),
+          legacyWpTopicId: wpId,
+        },
+      });
+      return t.id;
+    };
+    bulkA = await mk(`T36 批量甲 ${RUN}`, null, 9_939_001);
+    bulkB = await mk(`T36 批量乙 ${RUN}`, authorUserId, 9_939_002);
+  });
+
+  it("批量设为已解决:逐条落状态 + 逐条审计(bulk 标记)", async () => {
+    const res = await bulkSetThreadStatus([bulkA, bulkB], "resolved", ACTOR);
+    expect(res.updated).toBe(2);
+
+    const rows = await prisma.forumThread.findMany({
+      where: { id: { in: [bulkA, bulkB] } },
+      select: { statusLabel: true, closedAt: true },
+    });
+    expect(rows.every((r) => r.statusLabel === "resolved")).toBe(true);
+    expect(rows.every((r) => r.closedAt === null)).toBe(true);
+
+    const audits = await prisma.auditLog.findMany({
+      where: { actorUserId: MOD_UID, action: AUDIT_ACTION.FORUM_THREAD_LABEL },
+      select: { payloadJson: true },
+    });
+    const bulkAudits = audits.filter(
+      (a) => (a.payloadJson as { bulk?: boolean }).bulk === true,
+    );
+    expect(bulkAudits).toHaveLength(2);
+    expect(
+      bulkAudits.map((a) => (a.payloadJson as { threadId: string }).threadId).sort(),
+    ).toEqual([bulkA.toString(), bulkB.toString()].sort());
+  });
+
+  it("批量设为已关闭:closed_at 同写(离开关闭态即重开)", async () => {
+    await bulkSetThreadStatus([bulkA, bulkB], "closed", ACTOR);
+    const rows = await prisma.forumThread.findMany({
+      where: { id: { in: [bulkA, bulkB] } },
+      select: { statusLabel: true, closedAt: true },
+    });
+    expect(rows.every((r) => r.statusLabel === "closed")).toBe(true);
+    expect(rows.every((r) => r.closedAt !== null)).toBe(true);
+
+    await bulkSetThreadStatus([bulkA, bulkB], "none", ACTOR);
+    const reopened = await prisma.forumThread.findMany({
+      where: { id: { in: [bulkA, bulkB] } },
+      select: { statusLabel: true, closedAt: true },
+    });
+    expect(reopened.every((r) => r.statusLabel === "none")).toBe(true);
+    expect(reopened.every((r) => r.closedAt === null)).toBe(true);
+  });
+
+  it("批量设为「请补充」:逐条提示发帖人;未映射作者无处寻址不提示", async () => {
+    await bulkSetThreadStatus([bulkA, bulkB], "needs_info", ACTOR);
+    const notes = await prisma.notification.findMany({
+      where: { type: "forum", body: { contains: "T36 批量" } },
+      select: { body: true, linkUrl: true },
+    });
+    // 只有有发帖人的那条落到站内信
+    expect(notes).toHaveLength(1);
+    expect(notes[0]!.body).toContain("T36 批量乙");
+    expect(notes[0]!.linkUrl).toBe(`/forum/thread/${bulkB}`);
+  });
+
+  it("同状态重复批量不刷屏;离开再回到「请补充」重新提示", async () => {
+    await bulkSetThreadStatus([bulkB], "needs_info", ACTOR);
+    const once = await prisma.notification.findMany({
+      where: { type: "forum", body: { contains: "T36 批量乙" } },
+    });
+    expect(once).toHaveLength(1);
+
+    await bulkSetThreadStatus([bulkB], "resolved", ACTOR);
+    await bulkSetThreadStatus([bulkB], "needs_info", ACTOR);
+    const twice = await prisma.notification.findMany({
+      where: { type: "forum", body: { contains: "T36 批量乙" } },
+    });
+    expect(twice).toHaveLength(2);
+  });
+
+  it("非法标签 LABEL_INVALID;已软删主题被跳过", async () => {
+    await expect(errCode(bulkSetThreadStatus([bulkA], "unknown_label", ACTOR))).resolves.toBe(
+      "LABEL_INVALID",
+    );
+    await deleteThread(bulkA, ACTOR);
+    const res = await bulkSetThreadStatus([bulkA, bulkB], "resolved", ACTOR);
+    expect(res.updated).toBe(1); // 已软删主题不在批量范围内
+    const row = await prisma.forumThread.findUniqueOrThrow({
+      where: { id: bulkA },
+      select: { statusLabel: true },
+    });
+    expect(row.statusLabel).toBe("needs_info"); // 批量跳过已软删主题,状态未被改写
   });
 });

@@ -2,6 +2,12 @@ import Link from "next/link";
 import { MessagesSquare, LayoutList } from "lucide-react";
 import { adminListThreads, listAdminBoards } from "@/server/services/forum/admin";
 import { ForumThreadActions } from "@/components/admin/forum-thread-actions";
+import {
+  ForumThreadBulkToolbar,
+  ForumThreadRowCheckbox,
+  ForumThreadSelectAllCheckbox,
+  ForumThreadSelectionProvider,
+} from "@/components/admin/forum-thread-selection";
 import { ForumBoardManager } from "@/components/admin/forum-board-manager";
 import { ForumFilterChips } from "@/components/admin/forum-filter-chips";
 import { PinnedBadge, FeaturedBadge, ThreadStatusBadge } from "@/components/forum/thread-badge";
@@ -170,62 +176,71 @@ async function ThreadsSection({
         </Link>
       </form>
 
-      {items.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-[#22385a] px-6 py-10 text-center text-[#6482a3]">
-          没有匹配的主题。
-        </p>
-      ) : (
-        <Table minWidth="min-w-[860px]">
-          <THead>
-            <tr>
-              <Th>标题</Th>
-              <Th>版块</Th>
-              <Th>作者</Th>
-              <Th>状态</Th>
-              <Th>回复</Th>
-              <Th>最后活动</Th>
-              <Th>操作</Th>
-            </tr>
-          </THead>
-          <tbody>
-            {items.map((t) => (
-              <Tr key={t.id}>
-                <Td className="max-w-md">
-                  <Link
-                    href={`/forum/thread/${t.id}`}
-                    className={`rounded text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline ${FOCUS_RING}`}
-                    target="_blank"
-                  >
-                    {t.pinned && <PinnedBadge />} {t.featured && <FeaturedBadge />} {t.title}
-                  </Link>
-                </Td>
-                <Td className="whitespace-nowrap text-[#93b2ce]">{t.boardName}</Td>
-                <Td className="whitespace-nowrap text-[#93b2ce]">{t.authorName}</Td>
-                <Td>
-                  <ThreadStatusBadge
-                    statusLabel={t.statusLabel}
-                    closedAt={t.closedAt ? new Date(t.closedAt) : null}
-                  />
-                </Td>
-                <Td className="whitespace-nowrap text-[#93b2ce]">{t.replyCount}</Td>
-                <Td className="whitespace-nowrap text-xs text-[#6482a3]">
-                  {new Date(t.lastPostAt).toLocaleString("zh-CN")}
-                </Td>
-                <Td>
-                  <ForumThreadActions
-                    threadId={t.id}
-                    pinned={t.pinned}
-                    featured={t.featured}
-                    closed={t.closedAt !== null}
-                    label={t.statusLabel}
-                    deleted={deleted}
-                  />
-                </Td>
-              </Tr>
-            ))}
-          </tbody>
-        </Table>
-      )}
+      <ForumThreadSelectionProvider ids={items.map((t) => t.id)}>
+        {items.length > 0 && <ForumThreadBulkToolbar />}
+        {items.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-[#22385a] px-6 py-10 text-center text-[#6482a3]">
+            没有匹配的主题。
+          </p>
+        ) : (
+          <Table minWidth="min-w-[900px]">
+            <THead>
+              <tr>
+                <Th>
+                  <ForumThreadSelectAllCheckbox />
+                </Th>
+                <Th>标题</Th>
+                <Th>版块</Th>
+                <Th>作者</Th>
+                <Th>状态</Th>
+                <Th>回复</Th>
+                <Th>最后活动</Th>
+                <Th>操作</Th>
+              </tr>
+            </THead>
+            <tbody>
+              {items.map((t) => (
+                <Tr key={t.id}>
+                  <Td>
+                    <ForumThreadRowCheckbox id={t.id} />
+                  </Td>
+                  <Td className="max-w-md">
+                    <Link
+                      href={`/forum/thread/${t.id}`}
+                      className={`rounded text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline ${FOCUS_RING}`}
+                      target="_blank"
+                    >
+                      {t.pinned && <PinnedBadge />} {t.featured && <FeaturedBadge />} {t.title}
+                    </Link>
+                  </Td>
+                  <Td className="whitespace-nowrap text-[#93b2ce]">{t.boardName}</Td>
+                  <Td className="whitespace-nowrap text-[#93b2ce]">{t.authorName}</Td>
+                  <Td>
+                    <ThreadStatusBadge
+                      statusLabel={t.statusLabel}
+                      closedAt={t.closedAt ? new Date(t.closedAt) : null}
+                    />
+                  </Td>
+                  <Td className="whitespace-nowrap text-[#93b2ce]">{t.replyCount}</Td>
+                  <Td className="whitespace-nowrap text-xs text-[#6482a3]">
+                    {new Date(t.lastPostAt).toLocaleString("zh-CN")}
+                  </Td>
+                  <Td>
+                    <ForumThreadActions
+                      threadId={t.id}
+                      pinned={t.pinned}
+                      featured={t.featured}
+                      closed={t.closedAt !== null}
+                      label={t.statusLabel}
+                      deleted={deleted}
+                    />
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </ForumThreadSelectionProvider>
 
       <AdminPager
         page={page}
