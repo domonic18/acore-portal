@@ -19,20 +19,26 @@
 
 ## 1. 触发与门禁
 
-作业 `deploy-staging` 定义在 `.github/workflows/ci.yml`,依赖链：
+作业 `docker-release` / `deploy-staging` 定义在 `.github/workflows/ci.yml`,依赖链：
 
 ```
-check ─┬─ build ─┬─ integration ─┬─ db-migration-guard ─┬─ deploy-staging
-       │         │               │                       │
-       └─────────┴───────────────┴───────────────────────┘
+check ─┬─ build ─┬─ integration ─┬─ db-migration-guard ─┬─ docker-release ─┬─ deploy-staging
+       │         │               │                       │                 │
+       └─────────┴───────────────┴───────────────────────┴─────────────────┘
 ```
 
-- **`push` 到 `develop` 且全绿才部署**；PR 与 `main` push 只跑门禁不部署。
-  另可 `workflow_dispatch` 手动触发(选 `develop` 分支)——首次上线前用它验证整条链路。
+- **`push` 到 `develop` 且全绿才部署**；PR 与 `main` push 只跑门禁不部署
+  (main 的 push 只构建 amd64 镜像,生产发布另需人工确认,见 `production-deploy.md` §7)。
+- `docker-release` 产出镜像并推到 TCR(`ccr.ccs.tencentyun.com/lokta/acore-portal:<tag>`),
+  `deploy-staging` 从 TCR 拉取该 tag 部署——**测试环境不再本地 build**
+  (与生产同一条镜像通道,避免"测过的镜像≠发布的镜像")。
+- tag = `develop-<提交短号>`,短 tag 不可变 ⇒ 回滚可精确到任一历史版本。
 - 仓库变量 `DEPLOY_ROOT` 未配置时,整个作业**跳过**
   (不是排队等 runner)——未注册 runner 前流水线不会挂起。
 - `develop` 分支的流水线**不打断**在跑的那次(`cancel-in-progress` 仅在非 develop 生效):
   中断会连带砍掉进行中的部署,留下半新半旧状态。新 push 排队接续即可。
+- **架构**:测试栈在 Mac Mini(arm64)上原生跑 arm64 镜像——不做交叉模拟
+  (Next.js 在 QEMU 下运行极慢,不值得为"同一架构"牺牲可用性)。
 
 ---
 
@@ -106,19 +112,25 @@ $DEPLOY_ROOT/               # 仓库变量 vars.DEPLOY_ROOT,绝对路径
 
 ## 5. 部署流程
 
-由 `scripts/ops/deploy-staging.sh` 执行(发布与回滚**同源一份脚本**,避免两套流程漂移):
+由 `scripts/deploy.sh --env staging --tag develop-<sha7>` 执行
+(测试栈与生产栈**同源一份脚本**,避免两套流程漂移;旧的 `scripts/ops/deploy-staging.sh`
+保留作手动兜底,CI 不再调用):
 
 ```
-0) 预检:env 文件存在 / 卷目录存在且非空(空目录=误指,拒绝)/ compose 可用
-1) 记回滚锚点:当前运行容器的镜像 tag(首次部署则无)
-2) 构建:docker compose build web            → 镜像 tag = acore-portal-test:<sha7>
+0) 预检:env 文件存在 / compose 可用 / tag 形态合法(main|develop)-<短号>
+1) 钉镜像:WEB_IMAGE 写入 .env.test(回滚目标也落在这里,compose 靠它插值)
+2) 拉镜像:docker pull ccr.ccs.tencentyun.com/lokta/acore-portal:<tag>(本地已有则跳过)
 3) 迁移:docker compose --profile migrate run --rm migrate   (schema 先行)
-4) 滚动:docker compose up -d --wait         (web 必重建;其他服务仅在声明配置漂移时被 compose 归位)
+4) 滚动:docker compose up -d --wait --no-deps --no-build web(只换 web,数据卷原地复用)
 5) 健康检查:http://127.0.0.1:9000/api/status 须 200
-6) 记录当前部署提交号到 $DEPLOY_ROOT/current-sha
+6) 落状态:.deploy-state(status/tag/previous_tag/commit)
+7) 镜像清理:同一仓库只留最近 3 个镜像(当前版本与回滚目标永不删)
 ```
 
 **顺序不可反**:新镜像引入的 schema 变更靠第 3 步补上;漏跑则新代码读不到新列。
+
+**失败即回滚**:第 3/4/5 步任一失败 → 把 `WEB_IMAGE` 退回上一版并重新起容器,
+旧版本继续服务(数据库不回滚,迁移只向前)。
 
 ### 5.1 构建信息(页脚版本标识)
 
