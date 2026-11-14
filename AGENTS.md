@@ -207,7 +207,8 @@ docs/            # 文档中心
 - 未经用户批准不 commit、不 push；多功能迭代按逻辑单元分批 commit，不打包巨型 commit；重推用 `--force-with-lease`
 - **发布形态：特性分支 → develop → main**（`develop` 集成分支、`main` 生产分支）：
   - 任何新改动一律从特性分支 **PR 进 `develop`**，禁止直接 PR 进 `main`（`main` 的 PR 只能以 `develop` 为 head）
-  - 发布到生产走两步：① **`main` 反向同步进 `develop`**（PR，base=`develop`，head=`sync/main-into-develop*`），使 develop ⊇ main、两边不漂移；② 开 **head 直接是 `develop`** 的 PR 合进 `main`
+  - **发布到生产 = `develop` → `main` 一步**：开 **head 直接是 `develop`** 的 PR 合进 `main`（常态 develop ⊇ main，合并即发布，无内容漂移、无空合并）
+  - **`main` 反向同步进 `develop` 是条件动作，不是发布必经步骤**：仅当 `main` 出现 `develop` 没有的提交（热修复直提 `main`）才需要开同步 PR（base=`develop`，head=`sync/main-into-develop*`）把 `main` 的内容回灌 `develop`，恢复 develop ⊇ main；无漂移时**不开空合并 PR**（判断口径：`git log origin/develop..origin/main` 非空即需回灌）
   - **head 形态要对**：特性分支是特性分支、同步分支是同步分支；发布 PR 的 head 必须是 `develop` 本身（用 `sync/develop-into-main*` 之类的中间分支当 head 即为不合口径）
   - **热修复例外**：线上紧急修复可直提 `main`，但**必须回灌 `develop`**（走上面的反向同步）；否则漂移会在下一次发布时被 develop 侧覆盖掉
   - 合并用 **merge commit**（不 squash、不 rebase 合并），保持双分支合并记录可追溯
