@@ -56,11 +56,24 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
+# 迁移工具烘焙进镜像(与 node_modules 瘦身无关,单独装在 /opt/prisma):
+#   migrate 一次性服务改用本镜像跑 `prisma migrate deploy`。
+#   早前它用 node:22-slim + `npx --yes prisma@6.19.3` **在生产机上现下载**,
+#   实测耗 15 分半且全程零输出(npm registry 国内链路 ~170KB/s)——
+#   迁移步骤成了发布耗时的头号大头,且 `run --rm` 每次新容器不保留 npm 缓存,
+#   每次发布都重下。内置后迁移步骤秒级完成,发布链路不再依赖外网。
+#   版本与 pnpm-lock.yaml 锁定的 6.19.3 一致(升级须同步 docker-compose.*.yml 的 migrate 服务)。
+RUN npm install -g --prefix /opt/prisma prisma@6.19.3 \
+  && npm cache clean --force \
+  && rm -rf /root/.npm
+
 WORKDIR /app
 # pnpm 的 node_modules 为相对 symlink(.pnpm 虚拟 store),整树 COPY 后自洽
 COPY --from=builder /app ./
 
 ENV NODE_ENV=production
+# 迁移工具在 PATH 里(migrate 一次性服务直接 `prisma migrate deploy`,不再 npx 现下载)
+ENV PATH="/opt/prisma/bin:$PATH"
 EXPOSE 3000
 # 直启 next,免全局 pnpm(runtime 阶段无 pnpm)
 CMD ["node", "node_modules/next/dist/bin/next", "start"]

@@ -53,9 +53,10 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml \
 - 目标库指定:`--target <schema>`;`--fresh` 会 DROP+CREATE 目标 schema,
   **对正式 schema `acore_portal` 拒绝执行**(要重建须显式 `--allow-drop`)。
 - **建表的两条路**:①本地有 prisma CLI(开发机)→ 编排器自己跑 `prisma migrate deploy`;
-  ②生产容器内**没有 pnpm 也没有 prisma CLI**(都在 devDependencies,被 `--prod` 瘦身裁掉)
-  → 用 `--skip-prisma` 跳过,由 prod compose 的 `migrate` 一次性服务(`npx prisma@6.19.3`)建表,
-  编排器再回落 npx 同版本口径(版本升级须与 pnpm-lock 同步)。
+  ②生产容器内**没有 pnpm**(pnpm 在 devDependencies,被 `--prod` 瘦身裁掉)
+  → 用 `--skip-prisma` 跳过,由 prod compose 的 `migrate` 一次性服务建表。
+  该服务**复用 web 镜像**,prisma CLI 已内置在镜像的 `/opt/prisma`
+  (见 `docker/web/Dockerfile`;版本与 pnpm-lock 锁定的 6.19.3 一致,升级须同步)。
 
 ### 媒体组前置(否则编排器会拦停)
 

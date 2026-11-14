@@ -98,8 +98,11 @@ GRANT SELECT ON acore_eluna.* TO 'acore_portal'@'%';
 docker compose --env-file .env.prod -f docker/docker-compose.prod.yml --profile migrate run --rm migrate
 ```
 
-- 该服务用 `npx prisma@6.19.3`(版本与 package.json 锁定值一致,升级须同步)
-- 生产镜像里没有 prisma CLI(它是 devDependency,Dockerfile 做了 `--prod` 瘦身),故单独用 node 镜像跑
+- 该服务**复用 web 镜像**(`image: ${WEB_IMAGE}`):web 镜像已内置 prisma CLI
+  (`docker/web/Dockerfile` 的 `/opt/prisma`,版本与 lockfile 锁定的 6.19.3 一致,升级须同步)
+- 早前这里是裸 `node:22-slim` + `npx --yes prisma@6.19.3`,**在生产机上现下载** CLI 与引擎:
+  国内 npm 链路实测 ~170KB/s,整步耗 15 分 34 秒且全程零输出,`run --rm` 又不留 npm 缓存
+  ⇒ 每次发布都重下一次。迁移工具内置后这一步是秒级的,发布链路不再依赖外网
 - 宿主无需装 node/pnpm,也无需开放数据库端口
 
 ## 2.1 迁移链在生产怎么跑(与上条不同的两件事)
@@ -113,9 +116,8 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml --profile 
 `wp_legacy` 若在宿主机或另一台机器上,链根本够不着它。两个可选解法:
 
 - 把 `wp_legacy` 导进生产 MySQL 实例的独立 schema(推荐;链的连接串指向该实例即可);
-- 或在 compose 网络内跑迁移:生产 `migrate` 服务目前是裸 `node:22-slim` 镜像,
-  **不含仓库代码与 node_modules**,装不下迁移链——需给该服务挂仓库卷 + 装依赖,
-  或另起一个带完整镜像的迁移服务。
+- 或在 compose 网络内跑迁移:`migrate` 服务现已**复用 web 镜像**(含仓库代码与生产依赖),
+  可直接在该服务内跑迁移链——链自身额外需要的 `dotenv`/`mysql2`/`tsx` 见 ②。
 
 **② 生产迁移链需要一个有仓库与依赖的运行环境。**
 
@@ -305,6 +307,42 @@ secrets `TCR_NAMESPACE` / `TCR_USERNAME` / `TCR_PASSWORD` / `DEPLOY_SSH_KEY` / `
 
 第 5/6/7 步任一失败 → 把 `WEB_IMAGE` 退回上一版并重新起容器,旧版本继续服务
 (数据库不回滚,迁移 forward-only)。
+
+#### 7.1.1 远端发布:发布动作不依附 SSH 会话
+
+CI 侧与生产机的全部远端交互收敛在 **`scripts/ci/remote-release.sh` 一份实现**里
+(预检 → 同步资产 → 后台发布 → 轮询退出码)。两条硬约束:
+
+1. **远端发布用 `setsid` 后台执行,退出码落独立文件**(`$DEPLOY_PATH/.deploy-exit`),
+   CI 侧轮询该文件判定成败并回显远端日志(`$DEPLOY_PATH/.deploy-log`)。
+   ⇒ **SSH 断连不会中断发布**,CI 崩了远端照样跑完。
+2. **所有 ssh/scp 一律带 `ServerAliveInterval=30` / `ServerAliveCountMax=6`**。
+   产线 sshd 是 `clientaliveinterval 0`(不杀空闲会话),而链路上有 15 分钟空闲 TCP 超时
+   ⇒ 不带保活时,连接空闲过久会被 RST 掐断。
+
+> **2026-11-14 生产发布失败(exit 255)的根因**:当时是一条前台 ssh 直跑远端 `deploy.sh`,
+> 而迁移步骤在生产机上现下载 prisma CLI(见 §2)——**静默 15 分 34 秒**,
+> 期间连接完全空闲 ⇒ 链路 15 分钟超时 RST ⇒ 远端 `deploy.sh` 随 SIGHUP 中断。
+> 即「慢」本身不致命,致命的是「慢 + 会话会被掐」。
+> 两处根因都已修:迁移工具内置进镜像(迁移步骤秒级)、发布与 SSH 会话解耦。
+
+发布耗时的三个来源(2026-11-14 实测基线):
+
+| 环节 | 当时耗时 | 现在 |
+| --- | --- | --- |
+| 镜像构建(`docker-release`) | 12 分 42 秒 | 有 buildx 层缓存后大幅缩短(依赖层可复用) |
+| 迁移步骤(`migrate`) | 15 分 34 秒 | 秒级(工具镜像内置,无外网下载) |
+| 换容器 + 健康检查 | ~1 分钟 | 不变 |
+
+排查要点:
+
+- **发布卡住不动**先看远端 `.deploy-log`(不是 Actions 日志——发布是后台跑的,
+  Actions 侧只有轮询回显);
+- **超时退出码 124** 表示 CI 等满 `MAX_WAIT_SECONDS` 但远端**可能仍在跑**,
+  此时**不要重复触发发布**,先查远端日志与 `.deploy-state`;
+- **`.env.prod` 的 `WEB_IMAGE` 与运行容器不一致**是发布中断后的正常残留
+  (镜像已钉、容器未换),下次发布会自然对齐;中途别手工 `compose up -d web`——
+  那是绕过迁移台账断言的裸换容器。
 
 要点:
 
