@@ -18,6 +18,8 @@ import {
   INVITATION_PREFIX_PATTERN,
 } from "@/constants/invitation";
 import { RESERVED_SLUGS } from "@/constants/content";
+import { ADMIN_ROLE, USER_ROLES } from "@/constants/roles";
+import { UserRole } from "@/generated/business";
 
 /**
  * issue #80/#82/#83/#88:常量单一真相源的表驱动校验。
@@ -98,5 +100,12 @@ describe("邀请码参数边界(#80)", () => {
 describe("保留 slug(#83)", () => {
   it("无重复项", () => {
     expect(new Set(RESERVED_SLUGS).size).toBe(RESERVED_SLUGS.length);
+  });
+});
+
+describe("站点角色取值域", () => {
+  it("与业务库枚举 user_role 对齐(常量层与 Prisma 枚举不漂移)", () => {
+    expect([...USER_ROLES].sort()).toEqual(Object.values(UserRole).sort());
+    expect(ADMIN_ROLE).toBe(UserRole.admin);
   });
 });

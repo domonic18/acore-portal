@@ -7,23 +7,18 @@ import { Input, Select } from "@/components/ui/input";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
- * 用户详情操作(FR-105/FR-104/FR-130):角色分配(自改/末位管理员保护 422,改后吊销目标会话)
- * +积分手调(原因必填 2-255,402=禁止负余额)+徽章授予(重复 409);成功后 router.refresh。
+ * 用户详情的日常操作(FR-105/FR-104):积分手调(原因必填 2-255,402=禁止负余额)
+ * +徽章授予(重复 409);成功后 router.refresh。
+ * 角色分配不在此处——低频且不可逆,拆到页头右侧独立控件(components/admin/role-assign.tsx)。
  */
 export function UserActions({
   userId,
-  role,
   badges,
 }: {
   userId: string;
-  role: string;
   badges: { id: string; name: string }[];
 }) {
   const router = useRouter();
-  const [roleValue, setRoleValue] = useState(role);
-  const [roleError, setRoleError] = useState<string | null>(null);
-  const [roleMsg, setRoleMsg] = useState<string | null>(null);
-  const [roleBusy, setRoleBusy] = useState(false);
 
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
@@ -34,25 +29,6 @@ export function UserActions({
   const [badgeId, setBadgeId] = useState(badges[0]?.id ?? "");
   const [badgeError, setBadgeError] = useState<string | null>(null);
   const [badgeBusy, setBadgeBusy] = useState(false);
-
-  async function assignRole() {
-    setRoleBusy(true);
-    setRoleError(null);
-    setRoleMsg(null);
-    try {
-      await requestJson(`/api/admin/users/${userId}/role`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ role: roleValue }),
-      });
-      setRoleMsg("已保存,该用户会话已重置");
-      router.refresh();
-    } catch (err) {
-      setRoleError(errorMessage(err));
-    } finally {
-      setRoleBusy(false);
-    }
-  }
 
   async function adjust() {
     setAdjustBusy(true);
@@ -100,38 +76,6 @@ export function UserActions({
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="flex flex-col gap-2">
-        <h2 className="text-[14px] font-semibold text-[#dcebf7]">角色分配</h2>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-[#93b2ce]">角色(分配后立即吊销该用户全部会话)</span>
-            <Select
-              value={roleValue}
-              onChange={(e) => setRoleValue(e.target.value)}
-              className="w-auto min-w-36"
-            >
-              <option value="user">user</option>
-              <option value="moderator">moderator</option>
-              <option value="admin">admin</option>
-            </Select>
-          </label>
-          <Button
-            type="button"
-            variant="primary"
-            disabled={roleBusy || roleValue === role}
-            onClick={() => void assignRole()}
-          >
-            {roleBusy ? "分配中…" : "分配角色"}
-          </Button>
-        </div>
-        {roleError && (
-          <p role="alert" className="text-sm text-[#eda9a9]">
-            {roleError}
-          </p>
-        )}
-        {roleMsg && <p className="text-sm text-[#6ee7b7]">{roleMsg}</p>}
-      </section>
-
       <section className="flex flex-col gap-2">
         <h2 className="text-[14px] font-semibold text-[#dcebf7]">积分手调</h2>
         <div className="flex flex-wrap items-end gap-3">
