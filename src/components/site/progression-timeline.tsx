@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { formatDate } from "@/lib/format";
 
 /**
  * 渐进时间轴渲染(前后台共用):轴线 + 左右交替卡片位 + 节点图标/日期。
@@ -10,8 +11,7 @@ export type ProgressionNodeState = "current" | "open" | "locked";
 /** 日期口径:存 UTC 零点的 Date 或 yyyy-MM-dd 字符串 → 源站「2023年1月1日」 */
 export function formatPhaseDate(value: Date | string | null): string {
   if (!value) return "未定档";
-  const iso = value instanceof Date ? value.toISOString().slice(0, 10) : value.slice(0, 10);
-  const [y, m, d] = iso.split("-");
+  const [y, m, d] = formatDate(value).split("-");
   return `${Number(y)}年${Number(m)}月${Number(d)}日`;
 }
 

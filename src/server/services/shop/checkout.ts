@@ -1,6 +1,7 @@
 import "server-only";
 import type { Prisma } from "@/generated/business";
 import { prisma } from "@/lib/db";
+import { beijingDayKeyCompact } from "@/lib/format";
 import { ORDER_NO_PREFIX, ORDER_STATUS, PRODUCT_STATUS } from "@/constants/shop";
 import { POINT_TX_TYPE } from "@/constants/points";
 import { CONVERSION_EVENT } from "@/constants/conversion";
@@ -42,14 +43,10 @@ export type CheckoutResult = { orderId: string; orderNo: string; pointCost: numb
 
 type Tx = Prisma.TransactionClient;
 
-/** orderNo = M2{YYYYMMDD}{6位序列}(data-model §2.4);定宽字典序 MAX 即当日最大序 */
+/** orderNo = M2{YYYYMMDD}{6位序列}(data-model §2.4);定宽字典序 MAX 即当日最大序
+ *  日期段取北京自然日:北京 00:00–08:00 下的单不得挂到前一天 */
 async function nextOrderNo(tx: Tx): Promise<string> {
-  const now = new Date();
-  const ymd =
-    `${now.getFullYear()}` +
-    `${String(now.getMonth() + 1).padStart(2, "0")}` +
-    `${String(now.getDate()).padStart(2, "0")}`;
-  const prefix = `${ORDER_NO_PREFIX}${ymd}`;
+  const prefix = `${ORDER_NO_PREFIX}${beijingDayKeyCompact()}`;
   const last = await tx.order.findFirst({
     where: { orderNo: { startsWith: prefix } },
     orderBy: { orderNo: "desc" },

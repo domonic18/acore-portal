@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableEmpty, Td, Th, THead, Tr } from "@/components/ui/table";
 import { FOCUS_RING } from "@/components/ui/admin-tokens";
 import { buildPageHref } from "@/lib/pagination";
+import { formatDateTime } from "@/lib/format";
 
 /**
  * 订单列表(FR-129):状态筛选+分页;delivery_failed 由布局导航标记(FR-128)。
@@ -101,7 +102,7 @@ export default async function AdminOrdersPage({
                 <Td className="text-[#93b2ce]">{o.itemCount}</Td>
                 <Td className="font-medium text-[#e8c877]">{o.pointCost}</Td>
                 <Td className="whitespace-nowrap text-xs text-[#6482a3]">
-                  {new Date(o.createdAt).toLocaleString("zh-CN")}
+                  {formatDateTime(o.createdAt)}
                 </Td>
               </Tr>
             ))}

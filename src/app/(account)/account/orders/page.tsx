@@ -4,6 +4,7 @@ import { listOrders } from "@/server/services/orders/queries";
 import { ORDER_STATUS_LABEL } from "@/constants/shop";
 import { PaginationNav } from "@/components/ui/pagination";
 import { buildPageHref } from "@/lib/pagination";
+import { formatDateTime } from "@/lib/format";
 
 /**
  * T035 订单列表(FR-117):分页(服务端 RSC 链接翻页)+状态徽标;最新在前。
@@ -54,7 +55,7 @@ export default async function OrdersPage({
                   {ORDER_STATUS_LABEL[o.status] ?? o.status}
                 </span>
                 <span className="text-xs text-muted">
-                  {o.itemCount} 件 · {new Date(o.createdAt).toLocaleString("zh-CN")}
+                  {o.itemCount} 件 · {formatDateTime(o.createdAt)}
                 </span>
                 <span className="ml-auto font-semibold text-amber-400">{o.pointCost} 积分</span>
               </li>

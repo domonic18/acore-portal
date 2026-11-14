@@ -7,6 +7,7 @@ import { AdminPager } from "@/components/ui/pagination";
 import { Badge } from "@/components/ui/badge";
 import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
 import { buildPageHref } from "@/lib/pagination";
+import { formatDate } from "@/lib/format";
 
 /**
  * 邀请码后台(M1 遗留能力落地):批量生成+列表(状态/已用/使用者)+启停;
@@ -66,7 +67,7 @@ export default async function AdminInvitationCodesPage({
                     {c.usedBy.length ? c.usedBy.join(", ") : "—"}
                   </Td>
                   <Td className="whitespace-nowrap text-xs text-[#6482a3]">
-                    {c.expiresAt ? new Date(c.expiresAt).toLocaleDateString("zh-CN") : "永久"}
+                    {c.expiresAt ? formatDate(c.expiresAt) : "永久"}
                   </Td>
                   <Td>
                     <InvitationStatusToggle codeId={c.id} status={c.status} />

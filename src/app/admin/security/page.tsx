@@ -10,6 +10,7 @@ import {
   SecurityRecentAudit,
   SecurityTopOffenders,
 } from "@/components/admin/security";
+import { formatDateTime } from "@/lib/format";
 
 /**
  * 后台安全看板(2026-11-06 撞库加固 PR-J,F11):
@@ -51,7 +52,7 @@ export default async function AdminSecurityPage({
         <h1 className="text-2xl font-bold">安全看板</h1>
         <p className="text-xs text-[#6482a3]">
           统计窗口 {view.windowHours} 小时 · 生成于{" "}
-          {new Date(view.generatedAt).toLocaleString("zh-CN")}
+          {formatDateTime(view.generatedAt)}
         </p>
       </div>
 

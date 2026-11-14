@@ -5,6 +5,7 @@ import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { MEDIA_CATEGORY_VIDEO, MEDIA_DEFAULT_CATEGORY } from "@/constants/media";
 import { MEDIA_PAGE_SIZE } from "@/constants/pagination";
 import { pageSlice, totalPageCount } from "@/lib/pagination";
+import { beijingDayKeyCompact } from "@/lib/format";
 import {
   MIME_BY_EXT,
   deleteLocalMedia,
@@ -107,11 +108,9 @@ function safeExt(name: string, mime: string): string {
   return ".bin";
 }
 
+/** 上传路径日期段(北京自然日):与站内展示同一口径,不依赖进程本地时区 */
 function dateSegment(d = new Date()): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}${m}${day}`;
+  return beijingDayKeyCompact(d);
 }
 
 export async function uploadMediaAssets(

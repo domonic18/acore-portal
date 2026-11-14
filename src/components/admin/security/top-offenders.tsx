@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableEmpty, Td, Th, THead, Tr } from "@/components/ui/table";
+import { formatDateTime } from "@/lib/format";
 
 /** 嫌疑来源 IP 行(本地类型:组件不依赖 server 层的类型) */
 type Offender = {
@@ -41,7 +42,7 @@ export function SecurityTopOffenders({ offenders }: { offenders: Offender[] }) {
                 {o.locked ? <Badge tone="danger">已锁 IP</Badge> : <Badge tone="muted">未锁</Badge>}
               </Td>
               <Td className="text-xs text-[#6482a3]">
-                {new Date(o.lastAt).toLocaleString("zh-CN")}
+                {formatDateTime(o.lastAt)}
               </Td>
             </Tr>
           ))

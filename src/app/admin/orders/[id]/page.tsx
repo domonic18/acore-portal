@@ -9,7 +9,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
 import { OrderActions } from "@/components/admin/order-actions";
-import { displayUserName } from "@/lib/format";
+import { displayUserName, formatDateTime } from "@/lib/format";
 
 /**
  * 订单详情(FR-129):行级发货状态+补发/退款入口;用户名链到用户详情。
@@ -62,7 +62,7 @@ export default async function AdminOrderDetailPage({
         </div>
         <div>
           <dt className="text-[#6482a3]">下单时间</dt>
-          <dd className="text-[#dcebf7]">{new Date(order.createdAt).toLocaleString("zh-CN")}</dd>
+          <dd className="text-[#dcebf7]">{formatDateTime(order.createdAt)}</dd>
         </div>
         {order.legacyWpOrderId != null && (
           <div>

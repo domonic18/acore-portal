@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE } from "@/constants/shop";
-import { displayUserName } from "@/lib/format";
+import { displayUserName, formatDateTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableEmpty, Td, Th, THead, Tr } from "@/components/ui/table";
 
@@ -53,7 +53,7 @@ export function DashboardRecentOrders({ orders }: { orders: RecentOrder[] }) {
                 </Badge>
               </Td>
               <Td className="text-xs text-[#6482a3]">
-                {new Date(o.createdAt).toLocaleString("zh-CN")}
+                {formatDateTime(o.createdAt)}
               </Td>
             </Tr>
           ))
