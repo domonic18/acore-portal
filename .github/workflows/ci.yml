@@ -455,6 +455,7 @@ jobs:
             scripts/deploy.sh \
             docker/docker-compose.prod.yml \
             docker/caddy/Caddyfile \
+            docker/nginx-stream/nginx.conf.template \
             docker/web/Dockerfile
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
             /tmp/deploy-assets.tar.gz "$DEPLOY_HOST:/tmp/deploy-assets.tar.gz"
@@ -468,7 +469,7 @@ jobs:
           chmod 755 scripts/deploy.sh
           printf '%s\n' "$2" > .deploy-commit
           # 资产落地完整性校验:缺任何一项都中止,不带着半套资产继续发布
-          for f in scripts/deploy.sh docker/docker-compose.prod.yml docker/caddy/Caddyfile docker/web/Dockerfile; do
+          for f in scripts/deploy.sh docker/docker-compose.prod.yml docker/caddy/Caddyfile docker/nginx-stream/nginx.conf.template docker/web/Dockerfile; do
               [ -f "$f" ] || { echo "ERROR: 资产缺失:$f" >&2; exit 1; }
           done
           echo "--- 已同步:发布资产齐全 ---"
