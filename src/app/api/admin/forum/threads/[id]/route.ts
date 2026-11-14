@@ -6,15 +6,18 @@ import {
   ForumModerateError,
   closeThread,
   deleteThread,
+  featureThread,
   labelThread,
   pinThread,
   undeleteThread,
 } from "@/server/services/forum/moderate";
+import { THREAD_LABEL_OPTIONS } from "@/constants/forum";
 
 const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("pin"), pinned: z.boolean() }),
+  z.object({ action: z.literal("featured"), featured: z.boolean() }),
   z.object({ action: z.literal("close"), closed: z.boolean() }),
-  z.object({ action: z.literal("label"), label: z.enum(["none", "standard", "resolved"]) }),
+  z.object({ action: z.literal("label"), label: z.enum(THREAD_LABEL_OPTIONS) }),
   z.object({ action: z.literal("delete") }),
   z.object({ action: z.literal("undelete") }),
 ]);
@@ -37,6 +40,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     switch (parsed.data.action) {
       case "pin":
         await pinThread(BigInt(threadId), parsed.data.pinned, actor);
+        break;
+      case "featured":
+        await featureThread(BigInt(threadId), parsed.data.featured, actor);
         break;
       case "close":
         await closeThread(BigInt(threadId), parsed.data.closed, actor);

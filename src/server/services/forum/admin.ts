@@ -2,6 +2,10 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/business";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
+import {
+  THREAD_LABEL_OPTIONS,
+  type ThreadStatusLabelValue,
+} from "@/constants/forum";
 import { ADMIN_FORUM_PAGE_SIZE } from "@/constants/pagination";
 import { paginate } from "@/lib/pagination";
 import { writeAudit } from "@/server/services/shared/audit";
@@ -33,7 +37,7 @@ export async function adminListThreads(opts: {
   boardId?: bigint;
   q?: string;
   pinned?: boolean;
-  closed?: boolean;
+  featured?: boolean;
   label?: string;
   deleted?: boolean;
   page?: number;
@@ -45,8 +49,9 @@ export async function adminListThreads(opts: {
     boardName: string;
     authorName: string;
     pinned: boolean;
+    featured: boolean;
     closedAt: string | null;
-    statusLabel: string;
+    statusLabel: ThreadStatusLabelValue;
     replyCount: number;
     lastPostAt: string;
   }[];
@@ -61,11 +66,12 @@ export async function adminListThreads(opts: {
   if (opts.boardId) where.boardId = opts.boardId;
   if (opts.q?.trim()) where.title = { contains: opts.q.trim() };
   if (opts.pinned !== undefined) where.pinned = opts.pinned;
-  if (opts.closed !== undefined) {
-    where.closedAt = opts.closed ? { not: null } : null;
-  }
-  if (opts.label === "none" || opts.label === "standard" || opts.label === "resolved" || opts.label === "closed") {
-    where.statusLabel = opts.label;
+  if (opts.featured !== undefined) where.featured = opts.featured;
+  if (
+    opts.label &&
+    (THREAD_LABEL_OPTIONS as readonly string[]).includes(opts.label)
+  ) {
+    where.statusLabel = opts.label as ThreadStatusLabelValue;
   }
   const [rows, total] = await Promise.all([
     prisma.forumThread.findMany({
@@ -88,8 +94,9 @@ export async function adminListThreads(opts: {
       boardName: t.board.name,
       authorName: t.authorName,
       pinned: t.pinned,
+      featured: t.featured,
       closedAt: t.closedAt?.toISOString() ?? null,
-      statusLabel: t.statusLabel,
+      statusLabel: t.statusLabel as ThreadStatusLabelValue,
       replyCount: t.replyCount,
       lastPostAt: t.lastPostAt.toISOString(),
     })),

@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { redis } from "@/lib/redis";
+import type { Prisma } from "@/generated/business";
 import { srp6MakeRegistrationData } from "@/lib/auth/game-hash";
 import { hashWpBcrypt } from "@/lib/auth/wp-bcrypt";
 import { PASSWORD_ALGO } from "@/constants/password";
@@ -83,9 +84,17 @@ export async function restoreGameCredential(
   await authDb.updateAccountCredential(accountId, previous);
 }
 
-/** 站点侧写新密码哈希(改密/找回/激活三处统一走此口径) */
-export async function writeSitePassword(userId: bigint, password: string): Promise<void> {
-  await prisma.user.update({
+/**
+ * 站点侧写新密码哈希(改密/找回/激活三处统一走此口径)
+ * tx 可传入业务事务客户端:激活链路的「设密 + 发放注册奖励」须同事务,
+ * 任一失败整体回滚(不能出现「密码已生效但积分没发」)。
+ */
+export async function writeSitePassword(
+  userId: bigint,
+  password: string,
+  tx: Prisma.TransactionClient = prisma,
+): Promise<void> {
+  await tx.user.update({
     where: { id: userId },
     data: { passwordHash: await hashWpBcrypt(password), passwordAlgo: PASSWORD_ALGO.BCRYPT_WP },
   });

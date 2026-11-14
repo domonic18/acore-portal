@@ -50,9 +50,16 @@ export function formatDateTime(iso: string): string {
   }).format(new Date(iso));
 }
 
-/** 后台展示口径:存量 WP 户 login 多为 QQ 号等数字串,昵称才是玩家称呼 */
+/**
+ * 后台展示口径:存量 WP 户 login 多为 QQ 号等数字串,昵称才是玩家称呼。
+ * 昵称与用户名相同(迁移链把 login 原样带成昵称)时不重复展示两遍。
+ */
 export function displayUserName(u: { username: string | null; nickname?: string | null }): string {
-  return u.nickname ? `${u.nickname} (${u.username})` : (u.username ?? "");
+  const username = (u.username ?? "").trim();
+  const nickname = (u.nickname ?? "").trim();
+  if (!username) return nickname;
+  if (!nickname || nickname === username) return username;
+  return `${nickname} (${username})`;
 }
 
 /**

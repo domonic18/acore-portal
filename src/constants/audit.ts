@@ -55,6 +55,7 @@ export const AUDIT_ACTION = {
   FORUM_THREAD_PIN: "forum_thread_pin",
   FORUM_THREAD_CLOSE: "forum_thread_close",
   FORUM_THREAD_LABEL: "forum_thread_label",
+  FORUM_THREAD_FEATURED: "forum_thread_featured",
   FORUM_THREAD_DELETE: "forum_thread_delete",
   FORUM_THREAD_UNDELETE: "forum_thread_undelete",
   /** M4 后台版块管理(category=forum;payload 含 id/slug,改名记 old/new) */
@@ -85,6 +86,8 @@ export const AUDIT_ACTION = {
   SETTINGS_TEST_CONNECTION: "settings_test_connection",
   /** M4 后台角色变更(category=admin;payload 含前后角色;成功即吊销目标全部会话) */
   USER_ROLE_CHANGE: "user_role_change",
+  /** 后台积分规则变更(category=points;payload 含 event 与前后分值/开关) */
+  POINT_RULE_SAVED: "point_rule_saved",
   /** 商品删除(category=shop;仅限零订单商品,payload 含 sku/name;有订单走下架) */
   PRODUCT_DELETED: "product_deleted",
   /** 商品批量上下架/目录显隐(category=shop;payload 含 action/count/ids) */

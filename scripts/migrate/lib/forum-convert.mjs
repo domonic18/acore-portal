@@ -1,14 +1,17 @@
 // 论坛转换器(US5 T035;research R4/R5):wp 帖子 → forum_thread/post 字段
 // 仅迁移期使用(mjs,被 forum-import 与单测共用);类型声明见同目录 forum-convert.d.mts
 
-/** Q3 契约:仅三种已知状态前缀剥离,其余(【已处理】【测试结果】…存量高频)保留原文 */
+/**
+ * Q3 契约:仅已知状态前缀剥离,其余(【已处理】【测试结果】…存量高频)保留原文
+ * 「规范」状态已下线(语义不明):前缀照旧剥离,但不再落标签(记 none)。
+ */
 const STATUS_PREFIXES = [
-  ["规范", "standard"],
+  ["规范", "none"],
   ["已解决", "resolved"],
   ["已关闭", "closed"],
 ];
 
-/** 标题状态前缀剥离:【规范】xxx → standard+净标题;未知前缀/净标题为空 → 保留原文+none */
+/** 标题状态前缀剥离:【规范】xxx → 净标题(不落标签);未知前缀/净标题为空 → 保留原文+none */
 export function stripStatusPrefix(title) {
   const raw = title ?? "";
   for (const [name, label] of STATUS_PREFIXES) {

@@ -3,16 +3,19 @@
 import { FilterChipToggle } from "@/components/ui/filter-chip";
 
 /**
- * 论坛筛选 chip(仅置顶/仅已关闭/回收站):勾选即提交所在 GET 表单;
+ * 论坛筛选 chip(仅置顶/仅加精/回收站):勾选即提交所在 GET 表单;
  * 隐藏 checkbox 带 name/value 参与提交,文案与原 checkbox 一致(E2E getByLabel 依赖)。
+ *
+ * 状态维度不设 chip:「状态标签」下拉已是状态的唯一出口(含「已关闭」),
+ * 再加「仅已关闭」chip 就是同一集合的两个入口,反而让两处口径漂移。
  */
 export function ForumFilterChips({
   pinned,
-  closed,
+  featured,
   deleted,
 }: {
   pinned: boolean;
-  closed: boolean;
+  featured: boolean;
   deleted: boolean;
 }) {
   return (
@@ -26,12 +29,12 @@ export function ForumFilterChips({
         仅置顶
       </FilterChipToggle>
       <FilterChipToggle
-        checked={closed}
-        name="closed"
+        checked={featured}
+        name="featured"
         value="1"
         onChange={(_next, event) => event.currentTarget.closest("form")?.requestSubmit()}
       >
-        仅已关闭
+        仅加精
       </FilterChipToggle>
       <FilterChipToggle
         checked={deleted}

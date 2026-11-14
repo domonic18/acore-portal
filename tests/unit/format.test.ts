@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  displayUserName,
   formatDate,
   formatDateTime,
   formatDateTimeShort,
@@ -52,6 +53,29 @@ describe("lib/format joinSegments", () => {
 
   it("全空 → 空串", () => {
     expect(joinSegments(["", null, undefined])).toBe("");
+  });
+});
+
+/** 后台用户名展示:昵称与用户名相同时不重复展示两遍 */
+describe("lib/format displayUserName", () => {
+  it("昵称=用户名 → 只显示一遍(不出现「x (x)」)", () => {
+    expect(displayUserName({ username: "leonlaiming001", nickname: "leonlaiming001" })).toBe(
+      "leonlaiming001",
+    );
+  });
+
+  it("昵称不同 → 昵称在前,用户名在括号里", () => {
+    expect(displayUserName({ username: "laiming001", nickname: "雷恩" })).toBe("雷恩 (laiming001)");
+  });
+
+  it("无昵称 / 空昵称 → 只显示用户名", () => {
+    expect(displayUserName({ username: "laiming001", nickname: null })).toBe("laiming001");
+    expect(displayUserName({ username: "laiming001", nickname: "  " })).toBe("laiming001");
+  });
+
+  it("无用户名 → 只显示昵称", () => {
+    expect(displayUserName({ username: null, nickname: "雷恩" })).toBe("雷恩");
+    expect(displayUserName({ username: null, nickname: null })).toBe("");
   });
 });
 

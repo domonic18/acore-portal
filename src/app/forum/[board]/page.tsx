@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ContentPanel } from "@/components/site/content-panel";
 import { ForumPagination } from "@/components/forum/forum-pagination";
-import { PinnedBadge, ThreadStatusBadge } from "@/components/forum/thread-badge";
+import { FeaturedBadge, PinnedBadge, ThreadStatusBadge } from "@/components/forum/thread-badge";
 import { FORUM_PAGE_SIZE } from "@/constants/pagination";
 import { formatShortDate } from "@/lib/format";
 import { paginate } from "@/lib/pagination";
@@ -22,6 +22,7 @@ function ThreadRowBody({ thread }: { thread: ThreadRow }) {
     <>
       <span className="flex shrink-0 items-center gap-1.5">
         {thread.pinned && <PinnedBadge />}
+        {thread.featured && <FeaturedBadge />}
         <ThreadStatusBadge statusLabel={thread.statusLabel} closedAt={thread.closedAt} />
       </span>
       <span className="min-w-0 flex-1">

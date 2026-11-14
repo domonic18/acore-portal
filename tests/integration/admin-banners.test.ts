@@ -9,6 +9,7 @@ import {
   updateBanner,
 } from "@/server/services/home/banners";
 import { AUDIT_ACTION } from "@/constants/audit";
+import { CORE_PAGE_SLUGS, HOME_CAROUSEL_FALLBACK_HREF } from "@/constants/content";
 
 /**
  * 首页轮播物料服务集成:CRUD 落库+审计(HOME_BANNER_SAVED/DELETED)、
@@ -130,5 +131,45 @@ describe("首页轮播物料管理", () => {
     // 空串 → 显式清空
     await updateBanner(id, { title: `${TITLE_PREFIX}video`, imageUrl: "/images/v.png", videoUrl: "", linkUrl: "", sort: 8, enabled: true }, ACTOR);
     expect((await listAllBanners()).find((b) => b.id === String(id))?.videoUrl).toBeNull();
+  });
+});
+
+/**
+ * 首页轮播空物料兜底:无启用物料时前台回落默认 hero 图,兜底图可点跳项目简介页。
+ * 组件里的兜底分支不落库,故此处守住兜底契约的两端:
+ * ① 无启用物料 → 前台拿不到物料(兜底分支成立);② 兜底链接目标须是已发布的核心页(点了不 404)。
+ */
+describe("首页轮播空物料兜底", () => {
+  it("无启用物料 + 兜底目标为已发布核心页", async () => {
+    const snapshot = await prisma.homeBanner.findMany();
+    await prisma.homeBanner.deleteMany({});
+    try {
+      expect(await listActiveBanners()).toEqual([]);
+
+      const slug = HOME_CAROUSEL_FALLBACK_HREF.replace(/^\//, "");
+      expect(CORE_PAGE_SLUGS).toContain(slug);
+      const existed = await prisma.contentPage.findUnique({
+        where: { slug },
+        select: { id: true },
+      });
+      if (!existed) {
+        await prisma.contentPage.create({
+          data: { slug, title: "项目简介", bodyMd: "# 项目简介", status: "published" },
+        });
+      }
+      try {
+        const page = await prisma.contentPage.findUniqueOrThrow({
+          where: { slug },
+          select: { status: true },
+        });
+        expect(page.status).toBe("published");
+      } finally {
+        if (!existed) await prisma.contentPage.deleteMany({ where: { slug } });
+      }
+    } finally {
+      await prisma.homeBanner.createMany({
+        data: snapshot.map(({ id: _id, createdAt: _c, updatedAt: _u, ...rest }) => rest),
+      });
+    }
   });
 });

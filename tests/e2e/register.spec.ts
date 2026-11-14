@@ -120,7 +120,7 @@ test.describe("US2 注册(quickstart S1)", () => {
     const reward = await prisma.pointTransaction.findFirstOrThrow({
       where: { userId: user.id, type: "register_reward" },
     });
-    expect(reward.remark).toBe("注册奖励");
+    expect(reward.remark).toBe("新注册并认证通过的账户赠送 2 积分");
     expect(reward.balanceAfter).toBe(2);
 
     // 占位 PENDING 前缀不应再出现

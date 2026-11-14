@@ -7,6 +7,7 @@ import {
 import { POINT_TX_TYPE_LABEL } from "@/constants/points";
 import { Table, TableEmpty, Td, Th, THead, Tr } from "@/components/ui/table";
 import { UserActions } from "@/components/admin/user-actions";
+import { RoleAssign } from "@/components/admin/role-assign";
 import { RoleBadge } from "@/components/admin/role-badge";
 import { displayUserName } from "@/lib/format";
 
@@ -26,19 +27,23 @@ export default async function AdminUserDetailPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold text-[#dcebf7]">{displayUserName(user)}</h1>
-        <RoleBadge role={user.role} className="text-[13px]" />
-        <span className="text-sm font-medium text-[#e8c877]">
-          余额 {user.balance} 积分
-        </span>
-        <Link
-          prefetch={false}
-          href="/admin/users"
-          className="rounded text-sm text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60"
-        >
-          ← 返回列表
-        </Link>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-bold text-[#dcebf7]">{displayUserName(user)}</h1>
+          <RoleBadge role={user.role} className="text-[13px]" />
+          <span className="text-sm font-medium text-[#e8c877]">
+            余额 {user.balance} 积分
+          </span>
+          <Link
+            prefetch={false}
+            href="/admin/users"
+            className="rounded text-sm text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6fb7e0]/60"
+          >
+            ← 返回列表
+          </Link>
+        </div>
+        {/* 角色分配:低频不可逆操作,放页头右侧,提权 admin 前二次确认 */}
+        <RoleAssign userId={user.id.toString()} role={user.role} />
       </div>
 
       <dl className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-xl border border-[#22385a] bg-[#13233a] p-4 text-sm md:grid-cols-4">
@@ -70,7 +75,6 @@ export default async function AdminUserDetailPage({
 
       <UserActions
         userId={user.id.toString()}
-        role={user.role}
         badges={badges.map((b) => ({ id: b.id, name: `${b.name}(Lv.${b.level})` }))}
       />
 

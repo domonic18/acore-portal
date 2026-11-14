@@ -1,12 +1,20 @@
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@/generated/business";
 import { writeAudit } from "@/server/services/shared/audit";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
+import { NOTIFICATION_TYPE } from "@/constants/notification";
+import {
+  THREAD_LABEL_OPTIONS,
+  type ThreadStatusLabelValue,
+} from "@/constants/forum";
 
 /**
  * 论坛版主操作(T038,FR-220;2026-11-04 增删楼层能力):
- * 置顶/关闭/状态标签/软删,全部审计(category=forum,SC-207);
- * closed 仅经 close 接口设置,label 传 closed → LABEL_INVALID(契约 422)。
+ * 置顶/加精/关闭/状态标签/软删,全部审计(category=forum,SC-207);
  * 审计在写库成功后落(与 content/admin.ts 同序);payload 只记 id/布尔/标签,不记正文。
+ *
+ * 状态写入只有一个出口(writeThreadStatus):status_label 与 closed_at 同写,
+ * closed ⇔ closed_at 非空 —— 回帖闸、徽标、筛选都读这一对,杜绝两处状态漂移。
  */
 
 export class ForumModerateError extends Error {
@@ -20,12 +28,6 @@ export class ForumModerateError extends Error {
     super(message ?? code);
   }
 }
-
-export type ThreadStatusLabelValue = "none" | "standard" | "resolved" | "closed";
-
-/** label 接口合法集(closed 仅经 close 接口设置,契约 422) */
-export const LABEL_CHOICES = ["none", "standard", "resolved"] as const;
-export type OpenStatusLabel = (typeof LABEL_CHOICES)[number];
 
 type Actor = { id: bigint };
 
@@ -47,38 +49,151 @@ export async function pinThread(id: bigint, pinned: boolean, actor: Actor) {
   return updated;
 }
 
-export async function closeThread(id: bigint, closed: boolean, actor: Actor) {
+/** 版主加精/取消加精:标题前显示「精」标识(与置顶互不干扰) */
+export async function featureThread(id: bigint, featured: boolean, actor: Actor) {
   const thread = await requireThread(id);
-  const updated = await prisma.forumThread.update({
-    where: { id },
-    data: closed ? { closedAt: new Date(), statusLabel: "closed" } : { closedAt: null, statusLabel: "none" },
-  });
+  const updated = await prisma.forumThread.update({ where: { id }, data: { featured } });
   await writeAudit({
     category: AUDIT_CATEGORY.FORUM,
-    action: AUDIT_ACTION.FORUM_THREAD_CLOSE,
+    action: AUDIT_ACTION.FORUM_THREAD_FEATURED,
     actorUserId: actor.id,
-    payload: { threadId: id.toString(), closed },
+    payload: { threadId: id.toString(), featured },
   });
   return updated;
 }
 
+/**
+ * 状态写入的唯一直写函数(事务内):
+ * - status=closed ⇒ status_label=closed + closed_at=now(关闭后禁回帖);
+ * - 其余状态 ⇒ status_label=status + closed_at=null(离开关闭态即重开)。
+ * 审计与「请补充」通知同事务:通知落库失败则状态回滚,不留「提示已发但状态没改」。
+ */
+async function writeStatusInTx(
+  tx: Prisma.TransactionClient,
+  thread: {
+    id: bigint;
+    title: string;
+    authorUserId: bigint | null;
+    statusLabel: ThreadStatusLabelValue;
+    closedAt: Date | null;
+  },
+  status: ThreadStatusLabelValue,
+  actor: Actor,
+  audit: { action: string; payload: Record<string, unknown> },
+) {
+  const row = await tx.forumThread.update({
+    where: { id: thread.id },
+    data:
+      status === "closed"
+        ? { statusLabel: "closed", closedAt: thread.closedAt ?? new Date() }
+        : { statusLabel: status, closedAt: null },
+  });
+  await writeAudit(
+    {
+      category: AUDIT_CATEGORY.FORUM,
+      action: audit.action,
+      actorUserId: actor.id,
+      payload: { threadId: thread.id.toString(), ...audit.payload },
+    },
+    tx,
+  );
+  // 「请补充」才发一次:重复标记同一状态不重复打扰发帖人
+  if (status === "needs_info" && thread.statusLabel !== "needs_info") {
+    await notifyNeedsInfo(tx, thread, actor);
+  }
+  return row;
+}
+
+/**
+ * 状态写入的唯一出口(单条):审计与「请补充」通知同事务。
+ */
+async function writeThreadStatus(
+  id: bigint,
+  status: ThreadStatusLabelValue,
+  actor: Actor,
+  audit: { action: string; payload: Record<string, unknown> },
+) {
+  const thread = await requireThread(id);
+  return prisma.$transaction((tx) =>
+    writeStatusInTx(tx, thread, status, actor, audit),
+  );
+}
+
+/**
+ * 「请补充」提示发帖人(站内信,type=forum):
+ * 作者未映射(存量帖)无从寻址、版主标记自己的帖不通知自己。
+ */
+async function notifyNeedsInfo(
+  tx: Prisma.TransactionClient,
+  thread: { id: bigint; title: string; authorUserId: bigint | null },
+  actor: Actor,
+): Promise<void> {
+  if (!thread.authorUserId || thread.authorUserId === actor.id) return;
+  const title = thread.title.length > 40 ? `${thread.title.slice(0, 40)}…` : thread.title;
+  await tx.notification.create({
+    data: {
+      userId: thread.authorUserId,
+      type: NOTIFICATION_TYPE.FORUM,
+      title: "帖子需要补充信息",
+      body: `版主将你的帖子《${title}》标记为「请补充」,请补充更多信息后再继续讨论。`,
+      linkUrl: `/forum/thread/${thread.id}`,
+    },
+  });
+}
+
+export async function closeThread(id: bigint, closed: boolean, actor: Actor) {
+  return writeThreadStatus(
+    id,
+    closed ? "closed" : "none",
+    actor,
+    { action: AUDIT_ACTION.FORUM_THREAD_CLOSE, payload: { closed } },
+  );
+}
+
+/**
+ * 状态标签流转(状态下拉):none/resolved/needs_info/closed 均可选
+ * (选 closed 即关闭主题,关闭后不再接受回帖)。
+ */
 export async function labelThread(id: bigint, label: string, actor: Actor) {
-  // closed 仅经 close 接口设置(路由层 zod 已拦一层,服务层契约性拒绝)
-  if (!(LABEL_CHOICES as readonly string[]).includes(label)) {
+  if (!(THREAD_LABEL_OPTIONS as readonly string[]).includes(label)) {
     throw new ForumModerateError("LABEL_INVALID");
   }
-  await requireThread(id);
-  const updated = await prisma.forumThread.update({
-    where: { id },
-    data: { statusLabel: label as OpenStatusLabel },
+  return writeThreadStatus(
+    id,
+    label as ThreadStatusLabelValue,
+    actor,
+    { action: AUDIT_ACTION.FORUM_THREAD_LABEL, payload: { label } },
+  );
+}
+
+/**
+ * 批量设置状态(后台主题列表多选):与单条同一写入路径(writeStatusInTx),
+ * 一个事务内逐条落状态 + 逐条审计(payload 带 bulk 标记),「请补充」同样逐条提示发帖人。
+ * 已软删主题跳过(回收站语义,批量改状态不碰已删主题)。
+ */
+export async function bulkSetThreadStatus(
+  ids: bigint[],
+  status: string,
+  actor: Actor,
+): Promise<{ updated: number }> {
+  if (!(THREAD_LABEL_OPTIONS as readonly string[]).includes(status)) {
+    throw new ForumModerateError("LABEL_INVALID");
+  }
+  if (ids.length === 0) return { updated: 0 };
+  const label = status as ThreadStatusLabelValue;
+  const threads = await prisma.forumThread.findMany({
+    where: { id: { in: ids }, deletedAt: null },
   });
-  await writeAudit({
-    category: AUDIT_CATEGORY.FORUM,
-    action: AUDIT_ACTION.FORUM_THREAD_LABEL,
-    actorUserId: actor.id,
-    payload: { threadId: id.toString(), label },
+  const updated = await prisma.$transaction(async (tx) => {
+    for (const thread of threads) {
+      await writeStatusInTx(tx, thread, label, actor, {
+        action: AUDIT_ACTION.FORUM_THREAD_LABEL,
+        payload: { label, bulk: true },
+      });
+    }
+    return threads.length;
   });
-  return updated;
+  return { updated };
 }
 
 /**
