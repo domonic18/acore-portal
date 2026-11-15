@@ -3,6 +3,12 @@
 -- 默认值为「宿主机跑 pnpm dev」场景(Mailpit/SOAP mock 均映射到 localhost);
 -- 容器内跑 web 的栈(如测试环境)改用 compose 服务名,见下方注释块
 --
+-- ⚠️ 本文件是 **ON DUPLICATE KEY UPDATE**(覆盖写),对**已在运行的容器栈数据库**执行
+-- 会把容器内可达的地址覆盖回宿主机默认值(游戏库 localhost:3307 / SOAP / SMTP),
+-- 后果是 web 容器启动自检失败(unhealthy)⇒ 发布健康检查判失败、连回滚也起不来。
+-- 只在「新建库 / 全新数据卷首启」时执行;已运行的栈要改配置请改**容器取值**,
+-- 或执行 zz-init-system-config-container.sql(容器覆盖),不要执行本文件。
+--
 -- SET NAMES utf8mb4 必留:docker-entrypoint-initdb.d 与裸 mysql 客户端的
 -- character_set_client 默认 latin1,文件里的多字节字面量(© ® 等)会被二次编码
 -- 存成乱码(2026-11-06 CI 演练实测:页脚英文版权声明渲染成 "Â®")。
@@ -66,10 +72,11 @@ INSERT INTO acore_portal.system_config (`key`, `value`, `updated_at`) VALUES
 ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW();
 
 -- 容器内栈(测试环境)参考取值(compose 服务名互访;真实凭据不入库不入 git):
+-- **容器可达性相关的三条已自动化** ⇒ zz-init-system-config-container.sql
+--   (initdb 按文件名序自动执行,游戏库/ SOAP / SMTP 三条地址由它翻译成容器内取值;
+--    已运行的栈手动执行同一个文件即可,不必手工改这几条)
+-- 以下为**按环境人工设定**的取值(与域名/凭据有关,不入自动化):
 -- UPDATE acore_portal.system_config SET `value`='https://dev.17aitech.com'  WHERE `key`='app.url';
--- UPDATE acore_portal.system_config SET `value`='http://soap-mock:7878/'    WHERE `key`='soap.url';
--- UPDATE acore_portal.system_config SET `value`='mailpit'                   WHERE `key`='smtp.host';
 -- UPDATE acore_portal.system_config SET `value`='<真实SMTP账号>'            WHERE `key`='smtp.user';
 -- UPDATE acore_portal.system_config SET `value`='<真实SMTP凭据>'            WHERE `key`='smtp.password';
 -- UPDATE acore_portal.system_config SET `value`='noreply@lokta.cn'          WHERE `key`='smtp.from';
--- UPDATE acore_portal.system_config SET `value`=REPLACE(`value`,'localhost:3307','mysql:3306') WHERE `key` LIKE 'gamedb.%';
