@@ -10,14 +10,24 @@
 | 对象 | 源 schema | 产物(COS `backups/db/`) | 频率 |
 |---|---|---|---|
 | 门户业务库 | `DATABASE_URL` 指向的库(生产 `acore_portal`) | `lokta-business-{yyyyMMdd}.sql.gz` | 每日 03:30 |
-| WP 存量存档库 | `wp_legacy` | `lokta-wp-legacy-{yyyyMMdd}.sql.gz` | 每周日 03:30 |
+| WP 存量存档库 | `wp_legacy` | `lokta-wp-legacy-{yyyyMMdd}.sql.gz` | **一次性**(存量已冻结,不再定期重备) |
 
 - 备份对象默认私有(COS 桶级 ACL 为 private),访问只走 SDK 签名;不与媒体对象混用前缀。
 - dump 参数:`mysqldump --single-transaction --routines --triggers --events --no-tablespaces`
-  (InnoDB 一致性快照、不锁表;`--no-tablespaces` 规避 MySQL 8 非特权账号的 PROCESS 权限报错)。
+  (InnoDB 一致性快照、不锁表;`--no-tablespaces` 规避 MySQL 8 非特权账号的 PROCESS 权限报错),
+  外加目标各自的 `--ignore-table` 排除表(见下)。
+- **排除表**(`BACKUP_EXCLUDE_TABLES`):存量库的 `wp_statistics_pages` /
+  `wp_statistics_visitor` / `wp_statistics_visitor_relationships` 三张统计表不进备份——
+  它们占存量库约 73% 体积(338MB / 464MB)且是访问统计衍生数据,丢了不影响恢复能力;
+  业务库不排除任何表。排除清单是**单一真相源**:dump 的 `--ignore-table` 参数与判据的
+  「源表基线」都取自同一常量(否则被排除的表会被判成「dump 缺表」⇒ 每次必失败)。
 - 保留期:`backup.retentionDays`(默认 30;`0`=只留当日),由脚本每次运行末尾按
   文件名日期清理 `backups/db/` 前缀下的过期对象(只认 `lokta-{target}-{yyyyMMdd}.sql.gz`
-  形态,其余对象不动)。
+  形态,其余对象不动)。**按目标分开**:存量库标记为永久保留(`keepForever`),
+  每日备份的清理线不扫存量库归档——存量只备一次,清掉就再也回不去了。
+- **保留期分层**:脚本保留期是**策略**(后台可配,上限 365 天),COS 桶生命周期是**兜底**
+  (脚本不跑时桶自己删,365 天)。兜底线必须 ≥ 任何可能的策略值,否则后台把保留期调大、
+  桶规则却先把旧备份删了 ⇒ 设置会说谎。
 - 备份清单:`backups/manifest.json`,记录每次成功备份的对象键、压缩/解压字节数、
   sha256、dump 覆盖的表名、**锚点表行数**与完成时刻。
 
@@ -29,11 +39,15 @@
 ```
 宿主 crontab
   └─ scripts/cron/backup-run.sh          编排:容器名/目标解析、dump 落盘、清理
-       ├─ mysql 容器: mysqldump … | gzip -6 > /tmp/backup-<target>-<ts>.sql.gz
+       ├─ web 容器: backup.ts --print-dump-args → 打印该目标的 --ignore-table 排除参数
+       ├─ mysql 容器: mysqldump … <排除参数> <schema> | gzip -6 > /tmp/backup-<target>-<ts>.sql.gz
        ├─ docker cp → web 容器:/tmp/…
        └─ web 容器: tsx --conditions=react-server scripts/cron/backup.ts
                       --target <business|wp-legacy> --file /tmp/…
 ```
+
+排除参数由 web 容器内的备份脚本打印(宿主不另写一份清单,避免两处漂移);
+`mysqldump` 的选项必须排在库名**之前**,否则库名之后的部分会被当成表名。
 
 `backup.ts`(web 容器内)负责:校验 → 上传 → 回读大小核对 → 写清单 → 保留期清理 → 告警。
 凭据只在内存(容器自身环境变量 / system_config),不打印不落日志。
@@ -47,7 +61,7 @@
 1. 压缩包体积达下限(`BACKUP_TARGET_META.minBytes`);
 2. gzip 可完整解开(CRC 校验过、截断即失败);
 3. dump 尾部有 mysqldump 完成标记(`-- Dump completed on`);
-4. dump 覆盖源库**全部基础表**(逐表比对 information_schema);
+4. dump 覆盖源库**全部基础表**(逐表比对 information_schema;比对基线已剔除排除表);
 5. COS 对象大小与本地一致(`headObject` 回读),且清单写入成功。
 
 任一不满足 ⇒ **不写清单**(避免坏备份混进台账)+ 已上传对象删除 + 告警 + 退出码非零。
@@ -57,11 +71,18 @@
 ```cron
 # 每日 03:30 业务库备份
 30 3 * * * /home/ubuntu/acore-portal/scripts/cron/backup-run.sh >> /home/ubuntu/logs/acore-backup/backup.log 2>&1
-# 每周日 03:30 追加 WP 存量存档库
-0 3 * * 0 BACKUP_TARGETS=wp-legacy /home/ubuntu/acore-portal/scripts/cron/backup-run.sh >> /home/ubuntu/logs/acore-backup/backup.log 2>&1
 # 每日 04:30 备份心跳检查(备份没按时跑 → 告警)
 30 4 * * * /home/ubuntu/acore-portal/scripts/cron/backup-heartbeat-run.sh >> /home/ubuntu/logs/acore-backup/heartbeat.log 2>&1
 ```
+
+**存量库不排期**:切换上线后 `wp_legacy` 只读冻结(最后一次写入在切换前一天),
+数据不再变化,每周重备只是重复压同样的字节。改为**上线时一次性手工备**:
+
+```bash
+BACKUP_TARGETS=wp-legacy /home/ubuntu/acore-portal/scripts/cron/backup-run.sh
+```
+
+产物永久保留(`keepForever`),不参与任何保留期清理。
 
 - 心跳检查独立于备份脚本:备份脚本「成功」不等于「按时跑过」——crontab 没挂、容器起不来、
   脚本被改坏,都可能让备份静默不跑;心跳读清单里的最新完成时刻,超 26 小时判缺失。
@@ -82,7 +103,33 @@
 - **降级口径**:通道未启用/未配置/故障时,备份流程照常执行,只记日志——
   告警坏掉绝不能连带备份失败(与商城发货通道同一口径)。
 
-## 5. 恢复演练(非生产机)
+## 5. COS 桶生命周期(兜底清理)
+
+脚本保留期是策略,桶生命周期是兜底:脚本挂了不跑时,桶自己按规则删旧对象。
+兜底线(365 天)必须 ≥ 后台保留期上限(同样 365 天),否则设置会「说谎」。
+
+规则只针对备份前缀,媒体对象一律不动:
+
+| 规则 ID | 前缀 | 行为 |
+|---|---|---|
+| `backup-business-expire` | `backups/db/lokta-business-` | 365 天后删除(兜底) |
+| (不设规则) | `backups/db/lokta-wp-legacy-` | 存量库一次性归档,永久保留 |
+| (不设规则) | `backups/manifest.json` | 台账,长期留证 |
+
+写入(幂等,覆盖式,可在 web 容器内跑):
+
+```bash
+# 预演:只打印将写入的规则
+docker exec <web 容器> node_modules/.bin/tsx --conditions=react-server \
+  scripts/ops/cos-lifecycle.ts --dry-run
+# 写入
+docker exec <web 容器> node_modules/.bin/tsx --conditions=react-server \
+  scripts/ops/cos-lifecycle.ts
+```
+
+凭据取 `system_config` 的 `cos.*`(与备份脚本同源),不入命令行。
+
+## 6. 恢复演练(非生产机)
 
 演练在**非生产机**跑,不碰生产库:下载 COS 上最新备份 → 恢复进一次性 MySQL 容器 →
 逐表核对行数 → 销毁容器。
@@ -128,7 +175,7 @@ SELECT (SELECT COUNT(*) FROM acore_portal.user),
 - 业务库恢复后,Redis 会话/限速/404 计数等键为易失缓存,无需恢复(丢失可重建);
 - `wp_legacy` 是只读留档,恢复只用于取证核对,不接应用连接串。
 
-## 6. 配置变更重启口径
+## 7. 配置变更重启口径
 
 - 后台「设置」页(`/admin/settings`)保存:**即时热生效**——服务层保存后调
   `reloadSystemConfig` 写穿进程内缓存,备份/告警等组均免重启;
@@ -136,7 +183,7 @@ SELECT (SELECT COUNT(*) FROM acore_portal.user),
   的配置是启动时预热+进程内缓存,外部直写对长驻进程不可见,须
   `docker restart {web 容器}`;`gamedb.*` 连接串变更亦需重启(连接池惰性建连)。
 
-## 7. 演练记录
+## 8. 演练记录
 
 | 日期 | 场景 | 结果 |
 |---|---|---|
