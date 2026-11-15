@@ -189,7 +189,9 @@ const configSchema = z.object({
   // 备份(M4 US5):脚本运行参数,不影响 web 启动
   backup: z
     .object({
-      retentionDays: z.coerce.number().int().min(0).default(30),
+      // 上限 365:与 COS 桶生命周期兜底线一致——设置永不超过兜底,
+      // 否则后台改大保留期,桶规则却先把旧备份删了,设置会说谎
+      retentionDays: z.coerce.number().int().min(0).max(365).default(30),
     })
     .optional(),
 });
