@@ -230,10 +230,22 @@ docker compose -f docker/docker-compose.prod.yml logs --tail 50 web
 
 ## 5. 备份对接
 
-沿用 `scripts/cron/backup.mjs`(见 `backup-restore.md`),生产需改两处:
+备份机制本体见 `docs/ops/backup-restore.md`(判据、产物、保留期、生命周期、恢复演练)。
 
-- `BACKUP_MYSQL_CONTAINER` → 生产 MySQL 容器名 `acore-portal-prod-mysql-1`
-- 脚本用 `docker exec {容器} mysqldump`,容器内可直连 `mysql:3306`,**不依赖发布端口**
+生产侧只有两处对接:
+
+- **宿主编排脚本由发布流程同步**——`scripts/cron/backup-run.sh` /
+  `scripts/cron/backup-heartbeat-run.sh` 已列入发布资产(`scripts/ci/remote-release.sh` 的 `ASSETS`),
+  每次发布随 compose 一起下发到部署根 ⇒ **宿主脚本与镜像同 commit**。
+  (早前是首次备份时手工从镜像 `docker cp` 出来的,两份不同源会漂:
+  宿主的排除参数过期 ⇒ dump 与判据口径不符 ⇒ 备份恒判失败。)
+- **crontab 挂在部署根下**(运维账号家目录的 `logs/` 须可写,cron 不在 docker 组,
+  脚本自探 `docker` → `sudo -n docker`):
+
+```cron
+30 3 * * * /home/ubuntu/acore-portal/scripts/cron/backup-run.sh >> /home/ubuntu/logs/acore-backup/backup.log 2>&1
+30 4 * * * /home/ubuntu/acore-portal/scripts/cron/backup-heartbeat-run.sh >> /home/ubuntu/logs/acore-backup/heartbeat.log 2>&1
+```
 
 ## 6. 从旧 WP 栈切换
 
@@ -300,13 +312,22 @@ secrets `TCR_NAMESPACE` / `TCR_USERNAME` / `TCR_PASSWORD` / `DEPLOY_SSH_KEY` / `
 5. **迁移台账断言**——三集合比对:应用集(迁移服务实际会应用的迁移集)⊆ 库内台账
    (`_prisma_migrations` 已完成且未回滚)、镜像集(镜像内 `/app/prisma/schema-business/migrations`)
    ⊆ 应用集、台账无未完成行;任一不满足即**在换容器前**中止;
-6. **滚动 web**——`up -d --wait --no-deps --no-build web`(只换 web,mysql/redis 数据卷原地复用);
-7. **健康检查**——`http://127.0.0.1:3000/api/status` 须 200;
-8. **落状态**——`.deploy-state`(status / tag / previous_tag / commit);
-9. **镜像清理**——同一仓库**只留最近 3 个镜像**(当前版本与回滚目标永不删)。
+6. **挂载源断言**——`docker compose config --format json` 取全部 bind 挂载源,
+   逐个核对:悬空符号链接(目标已删除)或非目录 ⇒ **在换容器前中止**;
+   源路径不存在只提示(compose 会自动创建);
+7. **滚动 web**——`up -d --wait --no-deps --no-build web`(只换 web,mysql/redis 数据卷原地复用);
+8. **健康检查**——`http://127.0.0.1:3000/api/status` 须 200;
+9. **落状态**——`.deploy-state`(status / tag / previous_tag / commit);
+10. **镜像清理**——同一仓库**只留最近 3 个镜像**(当前版本与回滚目标永不删)。
 
-第 5/6/7 步任一失败 → 把 `WEB_IMAGE` 退回上一版并重新起容器,旧版本继续服务
+第 6/7/8 步任一失败 → 把 `WEB_IMAGE` 退回上一版并重新起容器,旧版本继续服务
 (数据库不回滚,迁移 forward-only)。
+
+> **为什么要有挂载源断言(2026-11-15 生产事故)**:`workspace/wp-uploads` 是指向**已下线旧栈**
+> 的符号链接,链接目标被删后成了悬空链接 ⇒ compose 创建容器时
+> `mkdir …: file exists` ⇒ **新容器起不来,回滚也起不来,整站中断**。
+> 根因两层:① prod compose 仍挂载已下线栈的目录(已移除该挂载);
+> ② 发布脚本换容器前不校验挂载源(现由第 6 步拦下)。
 
 #### 7.1.1 远端发布:发布动作不依附 SSH 会话
 
