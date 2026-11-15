@@ -52,7 +52,7 @@ export function ProductGallery({
               aria-label={`查看第 ${i + 1} 张图片`}
               aria-current={i === idx}
               className={`h-14 w-14 overflow-hidden rounded border ${
-                i === idx ? "border-amber-400" : "border-gray-700"
+                i === idx ? "border-highlight" : "border-line"
               }`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}

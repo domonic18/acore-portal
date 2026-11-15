@@ -75,19 +75,19 @@ export default async function ProductDetailPage({
     <main className="container-site flex-1 py-5 lg:py-6">
       <ProductViewBeacon productId={detail.id} />
       <ContentPanel className="mx-auto flex max-w-4xl flex-col gap-6 p-5 lg:p-6">
-        <nav aria-label="面包屑" className="text-sm text-gray-400">
-          <Link href="/shop" className="hover:text-white">
+        <nav aria-label="面包屑" className="text-sm text-muted">
+          <Link href="/shop" className="hover:text-heading">
             商城
           </Link>
           <span className="mx-2">/</span>
           <Link
             href={`/shop?category=${encodeURIComponent(detail.categorySlug)}`}
-            className="hover:text-white"
+            className="hover:text-heading"
           >
             {detail.categoryName}
           </Link>
           <span className="mx-2">/</span>
-          <span className="text-gray-200">{detail.name}</span>
+          <span className="text-heading">{detail.name}</span>
         </nav>
 
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
@@ -100,24 +100,24 @@ export default async function ProductDetailPage({
           <div className="flex flex-col gap-4">
             <h1 className="text-2xl font-bold">{detail.name}</h1>
             {!detail.listed && (
-              <p className="w-fit rounded bg-amber-950/60 px-2 py-1 text-xs text-amber-400">
+              <p className="w-fit rounded bg-chip px-2 py-1 text-xs text-highlight">
                 未在商城列表展示,当前为直链访问
               </p>
             )}
             <p className="flex items-baseline gap-3">
-              <span className="text-3xl font-bold text-amber-400">{detail.effectivePrice}</span>
+              <span className="text-3xl font-bold text-highlight">{detail.effectivePrice}</span>
               {detail.onSale && (
                 <>
-                  <span className="text-lg text-gray-500 line-through">{detail.price}</span>
-                  <span className="rounded bg-red-950 px-2 py-0.5 text-xs text-red-400">促销</span>
+                  <span className="text-lg text-muted line-through">{detail.price}</span>
+                  <span className="rounded bg-chip px-2 py-0.5 text-xs text-danger">促销</span>
                 </>
               )}
             </p>
 
             {detail.stockEnabled && (
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-muted">
                 {(detail.stock ?? 0) <= 0 ? (
-                  <span className="text-red-400">已售罄</span>
+                  <span className="text-danger">已售罄</span>
                 ) : (
                   <>库存 {detail.stock}</>
                 )}
@@ -125,7 +125,7 @@ export default async function ProductDetailPage({
             )}
 
             {gameDbDegraded && (
-              <p role="alert" className="rounded border border-amber-800 bg-amber-950/40 px-3 py-2 text-sm text-amber-400">
+              <p role="alert" className="rounded border border-warn-line bg-warn-bg px-3 py-2 text-sm text-warn">
                 游戏数据暂时不可用,角色列表加载失败,请稍后刷新重试。
               </p>
             )}
@@ -139,7 +139,7 @@ export default async function ProductDetailPage({
                 soldOut={detail.stockEnabled && (detail.stock ?? 0) <= 0}
               />
             ) : (
-              <p className="rounded border border-gray-700 p-4 text-sm text-gray-400">
+              <p className="rounded border border-line bg-panel-inset p-4 text-sm text-muted">
                 该商品暂不支持在线购买。
               </p>
             )}
@@ -150,7 +150,7 @@ export default async function ProductDetailPage({
           <section
             aria-label="其他商品推荐"
             data-testid="product-related"
-            className="flex flex-col gap-3 border-t border-gray-800 pt-4"
+            className="flex flex-col gap-3 border-t border-line pt-4"
           >
             <h2 className="text-lg font-semibold">其他商品推荐</h2>
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -172,7 +172,7 @@ export default async function ProductDetailPage({
           </section>
         )}
 
-        <section className="flex flex-col gap-2 border-t border-gray-800 pt-4">
+        <section className="flex flex-col gap-2 border-t border-line pt-4">
           <h2 className="text-lg font-semibold">商品说明</h2>
           {detailHtml ? (
             <div
@@ -181,7 +181,7 @@ export default async function ProductDetailPage({
               dangerouslySetInnerHTML={{ __html: detailHtml }}
             />
           ) : (
-            <p className="whitespace-pre-wrap text-sm leading-6 text-gray-300">
+            <p className="whitespace-pre-wrap text-sm leading-6 text-body">
               {detail.description}
             </p>
           )}
@@ -191,17 +191,17 @@ export default async function ProductDetailPage({
           <section
             aria-label="商品常见问题"
             data-testid="product-faq"
-            className="flex flex-col gap-3 border-t border-gray-800 pt-4"
+            className="flex flex-col gap-3 border-t border-line pt-4"
           >
             <h2 className="text-lg font-semibold">常见问题</h2>
             <ul className="flex flex-col gap-2">
               {faqs.map((f) => (
                 <li key={f.id}>
-                  <details className="rounded-md border border-gray-800 px-3 py-2">
-                    <summary className="cursor-pointer text-sm font-medium text-gray-100">
+                  <details className="rounded-md border border-line px-3 py-2">
+                    <summary className="cursor-pointer text-sm font-medium text-heading">
                       {f.question}
                     </summary>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-300">
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-body">
                       {f.answer}
                     </p>
                   </details>

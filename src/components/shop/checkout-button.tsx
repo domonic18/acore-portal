@@ -34,7 +34,7 @@ export function CheckoutButton({ total, disabled }: { total: number; disabled: b
   return (
     <div className="flex flex-col items-end gap-2">
       {error && (
-        <p role="alert" className="text-sm text-red-400">
+        <p role="alert" className="text-sm text-danger">
           {error}
         </p>
       )}

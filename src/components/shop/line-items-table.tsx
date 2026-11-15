@@ -103,8 +103,8 @@ export function LineItemsTable({
                       </Link>
                       <span className="text-xs text-muted">{params}</span>
                       <span className="flex gap-2 text-xs">
-                        {row.onSale && <span className="text-red-400">促销中</span>}
-                        {row.soldOut && <span className="text-red-400">已售罄</span>}
+                        {row.onSale && <span className="text-danger">促销中</span>}
+                        {row.soldOut && <span className="text-danger">已售罄</span>}
                         {!row.published && <span className="text-highlight">已下架</span>}
                       </span>
                     </div>

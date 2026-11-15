@@ -1,7 +1,7 @@
 import { AlertTriangle } from "lucide-react";
 import { ADMIN_PRODUCT_PAGE_SIZE } from "@/constants/pagination";
 import { PRODUCT_TYPE } from "@/constants/shop";
-import { listAdminCategories, listAdminProducts } from "@/server/services/catalog/admin";
+import { listAdminCategoryOptions, listAdminProducts } from "@/server/services/catalog/admin";
 import { AdminPager } from "@/components/ui/pagination";
 import { Table, THead, Th } from "@/components/ui/table";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -39,7 +39,7 @@ export default async function AdminProductsPage({
 
   const [{ items, totalPages, total }, categories] = await Promise.all([
     listAdminProducts({ lowStock, page, q, type, categoryId }),
-    listAdminCategories(),
+    listAdminCategoryOptions(),
   ]);
 
   const pageHref = (p: number) =>
@@ -107,6 +107,7 @@ export default async function AdminProductsPage({
           <option value="">全部分类</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
+              {c.depth > 0 ? "　".repeat(c.depth) : ""}
               {c.name}({c.productCount})
             </option>
           ))}

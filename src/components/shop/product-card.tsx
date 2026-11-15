@@ -48,10 +48,10 @@ export function ProductCard({
         </div>
       )}
       <span className="font-semibold">{name}</span>
-      <span className="text-xs text-gray-400">{categoryName}</span>
+      <span className="text-xs text-muted">{categoryName}</span>
       <span className="flex items-baseline gap-2">
-        <span className="text-lg font-bold text-amber-400">{effectivePrice}</span>
-        {onSale && <span className="text-sm text-gray-500 line-through">{price}</span>}
+        <span className="text-lg font-bold text-highlight">{effectivePrice}</span>
+        {onSale && <span className="text-sm text-muted line-through">{price}</span>}
       </span>
     </Link>
   );

@@ -74,7 +74,7 @@ export default async function CheckoutPage() {
                 <span
                   className={
                     insufficient
-                      ? "font-semibold text-red-400"
+                      ? "font-semibold text-danger"
                       : "font-semibold text-heading"
                   }
                 >
@@ -90,7 +90,7 @@ export default async function CheckoutPage() {
                 </p>
               )}
               {!insufficient || blocked ? null : (
-                <p className="text-sm text-red-400">余额不足,请先充值或调整购物车。</p>
+                <p className="text-sm text-danger">余额不足,请先充值或调整购物车。</p>
               )}
               <CheckoutButton total={total} disabled={blocked || insufficient || balance === null} />
             </footer>
