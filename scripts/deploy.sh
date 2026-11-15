@@ -313,7 +313,12 @@ assert_migration_ledger() {
 # 容器创建阶段直接失败(mkdir: file exists)⇒ 换容器失败 = 站点下线。
 # 2026-11-15 生产事故即此:workspace/wp-uploads 是指向已下线旧栈的悬空链接,
 # 新容器起不来、回滚也起不来,整站中断。
-# 故在换容器前逐个核对挂载源:悬空链接 / 非目录 ⇒ 中止发布(旧版本继续服务)。
+# 故在换容器前逐个核对挂载源,判据分三类(别再把「不是目录」一律当致命错——
+# 单文件 bind 挂载(Caddyfile / nginx 模板)是合法用法,2026-11-15 曾因此误判中止发布):
+#   ① 悬空符号链接 ⇒ 中止发布(事故真实成因;容器必起不来)
+#   ② 源不存在     ⇒ 放行并提示(compose 会自动创建;创建成目录而目标要文件同样起不来)
+#   ③ 源存在       ⇒ 与**运行中容器内的目标类型**比对,类型不一致才中止
+#      (源是文件而目标是目录 ⇒ 容器创建阶段失败;类型取不到则跳过比对,不误伤)
 compose_bind_sources() {
   local json
   json="$("${COMPOSE[@]}" config --format json 2>/dev/null || true)"
@@ -344,9 +349,43 @@ process.stdin.on("data", (d) => { s += d; }).on("end", () => {
   fi
 }
 
+# 取运行中容器内某个路径的类型:"dir" / "file";取不到(容器未运行/路径不存在/无 sh)⇒ 空串
+container_target_type() { # <service> <target>
+  local svc="$1" target="$2" cid out
+  [ -n "$target" ] || return 0
+  cid="$("${COMPOSE[@]}" ps -q "$svc" 2>/dev/null | head -n 1)"
+  [ -n "$cid" ] || return 0
+  out="$(docker exec "$cid" sh -c 'if [ -e "$1" ]; then if [ -d "$1" ]; then echo dir; else echo file; fi; fi' -- "$target" 2>/dev/null || true)"
+  printf '%s' "$out"
+}
+
+# @extract mount_source_verdict
+# 挂载源判定(纯判定,无副作用):<源路径> <容器内目标类型(dir/file/空=未知)>
+# → dangling(悬空符号链接,致命) | missing(源不存在,放行并提示)
+#   | mismatch(源与目标类型错配,致命) | ok
+mount_source_verdict() {
+  local src="$1" tgt_type="$2" src_type
+  if [ -L "$src" ] && [ ! -e "$src" ]; then
+    printf 'dangling'
+    return 0
+  fi
+  if [ ! -e "$src" ]; then
+    printf 'missing'
+    return 0
+  fi
+  src_type="dir"
+  [ -d "$src" ] || src_type="file"
+  if [ -n "$tgt_type" ] && [ "$tgt_type" != "$src_type" ]; then
+    printf 'mismatch'
+    return 0
+  fi
+  printf 'ok'
+}
+# @end
+
 assert_bind_mount_sources() {
   log "挂载源预检"
-  local rows svc src target bad=0
+  local rows svc src target bad=0 verdict src_type tgt_type
   rows="$(compose_bind_sources)"
   if [ -z "$rows" ]; then
     warn "未能解析 compose 挂载信息(缺 python3/node?),跳过挂载源预检"
@@ -354,21 +393,25 @@ assert_bind_mount_sources() {
   fi
   while IFS=$'\t' read -r svc src target; do
     [ -n "$src" ] || continue
-    if [ -L "$src" ] && [ ! -e "$src" ]; then
+    tgt_type="$(container_target_type "$svc" "$target")"
+    verdict="$(mount_source_verdict "$src" "$tgt_type")"
+    case "$verdict" in
+    dangling)
       printf '  ✗ %s:挂载源是悬空符号链接(目标已不存在)→ %s\n' "$svc" "$src" >&2
       bad=1
       continue
-    fi
-    if [ -e "$src" ] && [ ! -d "$src" ]; then
-      printf '  ✗ %s:挂载源不是目录 → %s\n' "$svc" "$src" >&2
-      bad=1
-      continue
-    fi
-    if [ ! -e "$src" ]; then
-      # 不存在:compose 会自动创建(不阻断);但若其父目录不存在,创建出来的属主/权限未必可用,故出声提示
+      ;;
+    missing)
       printf '  ! %s:挂载源不存在(compose 将自动创建)→ %s\n' "$svc" "$src" >&2
       continue
-    fi
+      ;;
+    mismatch)
+      src_type="dir"; [ -d "$src" ] || src_type="file"
+      printf '  ✗ %s:挂载源类型(%s)与容器内目标类型(%s)不一致→ %s → %s\n' "$svc" "$src_type" "$tgt_type" "$src" "$target" >&2
+      bad=1
+      continue
+      ;;
+    esac
     printf '  ✓ %s:%s → %s\n' "$svc" "$src" "$target"
   done <<< "$rows"
   [ "$bad" = "0" ] || die "挂载源预检失败(见上):容器将起不来,已中止发布(旧版本继续服务)"
