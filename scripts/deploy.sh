@@ -355,8 +355,14 @@ container_target_type() { # <service> <target>
   [ -n "$target" ] || return 0
   cid="$("${COMPOSE[@]}" ps -q "$svc" 2>/dev/null | head -n 1)"
   [ -n "$cid" ] || return 0
-  out="$(docker exec "$cid" sh -c 'if [ -e "$1" ]; then if [ -d "$1" ]; then echo dir; else echo file; fi; fi' -- "$target" 2>/dev/null || true)"
-  printf '%s' "$out"
+  # -w /:容器自身的 WORKDIR 可能指向已失效或不在挂载命名空间内的路径,
+  # exec 会直接失败(OCI runtime exec failed ... outside of container mount namespace root)
+  out="$(docker exec -w / "$cid" sh -c 'if [ -e "$1" ]; then if [ -d "$1" ]; then echo dir; else echo file; fi; fi' -- "$target" 2>/dev/null || true)"
+  # 只认 dir/file,其余(报错文本、空)一律当「类型未知」⇒ 不比对、不误伤
+  case "$out" in
+    dir | file) printf '%s' "$out" ;;
+    *) printf '' ;;
+  esac
 }
 
 # @extract mount_source_verdict
@@ -375,6 +381,11 @@ mount_source_verdict() {
   fi
   src_type="dir"
   [ -d "$src" ] || src_type="file"
+  # 只认 dir/file:其余(空串、docker exec 的报错文本等)一律当「类型未知」⇒ 不比对、不误伤
+  case "$tgt_type" in
+    dir | file) ;;
+    *) tgt_type="" ;;
+  esac
   if [ -n "$tgt_type" ] && [ "$tgt_type" != "$src_type" ]; then
     printf 'mismatch'
     return 0
