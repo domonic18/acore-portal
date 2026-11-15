@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getAdminProduct, listAdminCategories } from "@/server/services/catalog/admin";
+import { getAdminProduct, listAdminCategoryOptions } from "@/server/services/catalog/admin";
 import { ProductForm, type ProductFormValues } from "@/components/admin/product-form";
 import { ButtonLink } from "@/components/ui/button";
 import { beijingDateTimeInput } from "@/lib/format";
@@ -14,7 +14,7 @@ export default async function EditProductPage({
   if (!Number.isInteger(id) || id <= 0) notFound();
   const [product, categories] = await Promise.all([
     getAdminProduct(BigInt(id)),
-    listAdminCategories(),
+    listAdminCategoryOptions(),
   ]);
   if (!product) notFound();
 
