@@ -17,7 +17,9 @@
 --   订单的 post_author 是**站点创建者**(不是下单人),拿它映射会把全部订单挂到同一个
 --   用户名下(表现为「订单列表的用户全是同一个人」)。
 -- 幂等:legacy_wp_* 唯一键 INSERT … ON DUPLICATE KEY UPDATE(重复跑零新增,验收红线);
---   分类无 legacy 键,以 slug 为幂等键
+--   分类无 legacy 键 ⇒ **以分类名为幂等键**(2026-11-15 改;原以 slug 为键,而
+--   slug-normalize.mjs 会把 WP 的 %xx 编码 slug 解码成中文 ⇒ 归一后重跑会插出
+--   第二行同名分类,生产实测多出 9 行 0 商品重复分类)
 -- 注意:wp_legacy 库排序规则为 utf8mb4_unicode_520_ci(与目标 utf8mb4_unicode_ci 不同),
 --   跨库字符串比较一律 COLLATE utf8mb4_unicode_ci;ON DUPLICATE KEY UPDATE 的目标列
 --   一律表名限定(JOIN 了同名 id 列的表,不限定会报 ambiguous)
@@ -25,25 +27,130 @@
 --   目标库 DateTime 列是 UTC ⇒ 订单时间一律取 post_date_gmt(零值回退 post_date - 8 小时);
 --   FROM_UNIXTIME 按会话时区折算,须 CONVERT_TZ 回 +00:00 才等于 UTC
 
--- ① 分类(product_cat;slug 幂等)
-INSERT INTO product_category (name, slug, sort)
-SELECT t.name, t.slug, 0
-FROM wp_legacy.wp_terms t
-JOIN wp_legacy.wp_term_taxonomy tt ON tt.term_id = t.term_id AND tt.taxonomy = 'product_cat'
-ON DUPLICATE KEY UPDATE product_category.id = product_category.id;
+-- ① 分类(product_cat)
+--   口径(2026-11-15 修;根因与修复见 docs/ops/shop-category-tree-fix.md):
+--   * **幂等键用分类名,不用 slug** —— slug-normalize.mjs 会把 WP 的 %xx 编码 slug
+--     解码成中文,slug 在「导入 → 归一」两步之间会变;以 slug 为键的导入在归一后
+--     重跑会插出第二行同名分类(生产实测多出 9 行 0 商品重复分类,且 sort 全为 0
+--     ⇒ 前台 filesort 顺序随机,用户点到的第一个同名项恰好是空的那行)。
+--   * 同名分类只留一行(取 term_id 最小)⇒ 目标库内分类名唯一。
+--   * 已存在的行**不覆盖 slug** —— slug 归一归 slug-normalize.mjs 管(本脚本不解码)。
+--   * sort 按 WP 层级排「全局前序序」:sort = parent.sort * 100 + 同父序号
+--     (根分类 = 同父序号 * 100),限深 ≤ 4(Int 不溢出)——不再全 0。
+DROP TEMPORARY TABLE IF EXISTS tmp_shop_cat;
+CREATE TEMPORARY TABLE tmp_shop_cat (
+  term_id BIGINT NOT NULL PRIMARY KEY,
+  name VARCHAR(64) NOT NULL,
+  slug VARCHAR(64) NOT NULL,
+  parent_term_id BIGINT NOT NULL
+);
+INSERT INTO tmp_shop_cat (term_id, name, slug, parent_term_id)
+SELECT x.term_id, x.name, x.slug, x.parent_term_id
+  FROM (
+    SELECT tt.term_id AS term_id, t.name AS name, t.slug AS slug,
+           tt.parent AS parent_term_id,
+           ROW_NUMBER() OVER (PARTITION BY t.name ORDER BY tt.term_id) AS rn
+      FROM wp_legacy.wp_terms t
+      JOIN wp_legacy.wp_term_taxonomy tt
+        ON tt.term_id = t.term_id AND tt.taxonomy = 'product_cat'
+  ) x
+ WHERE x.rn = 1;
 
--- 分类层级映射(parent 存在才回填;两步避免 INSERT…SELECT 同表自引用)
+-- 前序序:递归 CTE 单独落表(不与其它临时表 JOIN —— MySQL 对「递归 CTE + 临时表 JOIN」
+--   报 1137 Can't reopen table)
+DROP TEMPORARY TABLE IF EXISTS tmp_shop_cat_sort;
+CREATE TEMPORARY TABLE tmp_shop_cat_sort (
+  term_id BIGINT NOT NULL PRIMARY KEY,
+  sort INT NOT NULL
+);
+INSERT INTO tmp_shop_cat_sort (term_id, sort)
+WITH RECURSIVE
+  r AS (
+    SELECT tt.term_id AS term_id,
+           tt.parent AS parent_term_id,
+           ROW_NUMBER() OVER (PARTITION BY tt.parent ORDER BY tt.term_id) AS sibling_rank
+      FROM wp_legacy.wp_term_taxonomy tt
+     WHERE tt.taxonomy = 'product_cat'
+  ),
+  so AS (
+    SELECT r.term_id AS term_id, r.parent_term_id, r.sibling_rank * 100 AS sort
+      FROM r WHERE r.parent_term_id = 0
+    UNION ALL
+    SELECT c.term_id, c.parent_term_id, p.sort * 100 + c.sibling_rank
+      FROM r c JOIN so p ON c.parent_term_id = p.term_id
+  )
+SELECT term_id, sort FROM so;
+
+-- 插缺失的分类(按**分类名**判存在;已存在的行不覆盖 slug)
+INSERT INTO product_category (name, slug, sort)
+SELECT c.name, c.slug, COALESCE(s.sort, 0)
+  FROM tmp_shop_cat c
+  LEFT JOIN product_category pc ON pc.name = c.name COLLATE utf8mb4_unicode_ci
+  LEFT JOIN tmp_shop_cat_sort s ON s.term_id = c.term_id
+ WHERE pc.id IS NULL;
+
+-- 已存在的分类补 sort(前序序;slug 不动)
 UPDATE product_category pc
-JOIN wp_legacy.wp_term_taxonomy tt ON tt.taxonomy = 'product_cat' AND tt.parent > 0
-JOIN wp_legacy.wp_terms ct ON ct.term_id = tt.term_id AND ct.slug = pc.slug COLLATE utf8mb4_unicode_ci
-JOIN wp_legacy.wp_terms pt ON pt.term_id = tt.parent
-JOIN product_category ppc ON ppc.slug = pt.slug COLLATE utf8mb4_unicode_ci
-SET pc.parent_id = ppc.id;
+  JOIN tmp_shop_cat c ON c.name = pc.name COLLATE utf8mb4_unicode_ci
+  JOIN tmp_shop_cat_sort s ON s.term_id = c.term_id
+   SET pc.sort = s.sort;
+
+-- 分类层级映射(parent 存在才回填;父分类按**分类名**回查,不用 slug —— slug 会被归一改写)
+UPDATE product_category pc
+  JOIN tmp_shop_cat c ON c.name = pc.name COLLATE utf8mb4_unicode_ci
+  JOIN wp_legacy.wp_term_taxonomy pt ON pt.term_id = c.parent_term_id AND pt.taxonomy = 'product_cat'
+  JOIN wp_legacy.wp_terms ptm ON ptm.term_id = pt.term_id
+  JOIN product_category ppc ON ppc.name = ptm.name COLLATE utf8mb4_unicode_ci
+   SET pc.parent_id = ppc.id;
+
+-- term 深度(用于商品归到最深分类;递归 CTE 单独落表)
+DROP TEMPORARY TABLE IF EXISTS tmp_shop_cat_depth;
+CREATE TEMPORARY TABLE tmp_shop_cat_depth (
+  term_id BIGINT NOT NULL PRIMARY KEY,
+  depth INT NOT NULL
+);
+INSERT INTO tmp_shop_cat_depth (term_id, depth)
+WITH RECURSIVE td AS (
+  SELECT tt.term_id AS term_id, 0 AS depth
+    FROM wp_legacy.wp_term_taxonomy tt
+   WHERE tt.taxonomy = 'product_cat' AND tt.parent = 0
+  UNION ALL
+  SELECT c.term_id, p.depth + 1
+    FROM wp_legacy.wp_term_taxonomy c
+    JOIN td p ON c.parent = p.term_id
+   WHERE c.taxonomy = 'product_cat'
+)
+SELECT term_id, depth FROM td;
 
 -- 兜底分类(存量商品无 product_cat 关联时挂靠)
 INSERT INTO product_category (name, slug, sort)
 VALUES ('存量未分类', 'legacy-uncategorized', 999)
 ON DUPLICATE KEY UPDATE product_category.id = product_category.id;
+
+-- 商品 → 最深分类(落临时表,供「导入」与「归位纠正」共用)
+--   商品归到**最深**的 WP product_cat term(同深取 term_id 最小 ⇒ 结果确定);
+--   原口径取 MIN(c.id) 会把多分类商品压到 id 最小的那个 —— 而父分类 id 往往更小
+--   ⇒ 一件挂「传家宝+武器+物理系」的商品落到「武器」,子类「物理系」恒为 0 件。
+--   分类按**分类名**回查(不用 slug —— slug 会被 slug-normalize.mjs 改写)。
+DROP TEMPORARY TABLE IF EXISTS tmp_shop_product_cat;
+CREATE TEMPORARY TABLE tmp_shop_product_cat (
+  legacy_post_id BIGINT NOT NULL PRIMARY KEY,
+  category_id BIGINT NOT NULL
+);
+INSERT INTO tmp_shop_product_cat (legacy_post_id, category_id)
+SELECT x.object_id, x.category_id
+  FROM (
+    SELECT tr.object_id AS object_id,
+           pc.id AS category_id,
+           ROW_NUMBER() OVER (PARTITION BY tr.object_id
+                              ORDER BY d.depth DESC, tt.term_id ASC, pc.id ASC) AS rn
+      FROM wp_legacy.wp_term_relationships tr
+      JOIN wp_legacy.wp_term_taxonomy tt ON tt.term_taxonomy_id = tr.term_taxonomy_id AND tt.taxonomy = 'product_cat'
+      JOIN wp_legacy.wp_terms t ON t.term_id = tt.term_id
+      LEFT JOIN tmp_shop_cat_depth d ON d.term_id = tt.term_id
+      JOIN product_category pc ON pc.name = t.name COLLATE utf8mb4_unicode_ci
+  ) x
+ WHERE x.rn = 1;
 
 -- ② 商品(publish+draft 全量;meta 透视;slug=post_name,空/超长回退 legacy-{ID})
 INSERT INTO product
@@ -53,7 +160,7 @@ INSERT INTO product
 SELECT
   CASE WHEN pm.sku LIKE 'itemsend\\_%' THEN 'game_item'
        WHEN pm.sku IN ('item-restoration','char-change-race','char-change-name',
-                       'char-change-faction','char-change-customize') THEN 'service'
+                       'char-change-faction','char-change-customize','name-unlock') THEN 'service'
        ELSE 'game_item' END,
   pm.sku,
   p.post_title,
@@ -65,7 +172,7 @@ SELECT
   CASE WHEN p.post_status = 'publish'
          AND (pm.sku LIKE 'itemsend\\_%'
            OR pm.sku IN ('item-restoration','char-change-race','char-change-name',
-                         'char-change-faction','char-change-customize'))
+                         'char-change-faction','char-change-customize','name-unlock'))
        THEN 'published' ELSE 'draft' END,
   1,
   COALESCE(pm.regular_price, pm.price, 0),
@@ -90,16 +197,16 @@ JOIN (
   WHERE meta_key IN ('_sku','_regular_price','_price','_sale_price','_manage_stock','_stock')
   GROUP BY post_id
 ) pm ON pm.post_id = p.ID AND pm.sku IS NOT NULL
-LEFT JOIN (
-  SELECT tr.object_id, MIN(c.id) category_id
-  FROM wp_legacy.wp_term_relationships tr
-  JOIN wp_legacy.wp_term_taxonomy tt ON tt.term_taxonomy_id = tr.term_taxonomy_id AND tt.taxonomy = 'product_cat'
-  JOIN wp_legacy.wp_terms t ON t.term_id = tt.term_id
-  JOIN product_category c ON c.slug = t.slug COLLATE utf8mb4_unicode_ci
-  GROUP BY tr.object_id
-) cat ON cat.object_id = p.ID
+LEFT JOIN tmp_shop_product_cat cat ON cat.legacy_post_id = p.ID
 WHERE p.post_type = 'product' AND p.post_status IN ('publish', 'draft')
 ON DUPLICATE KEY UPDATE product.id = product.id;
+
+-- ②-b 商品归位纠正(幂等自愈):上面的 INSERT 对已入库商品是 ODKU no-op,不改归属 →
+-- 存量若按旧口径(MIN(c.id))落库,这里纠正到最深分类。只改归属,不改 status/listed。
+UPDATE product p
+  JOIN tmp_shop_product_cat leaf ON leaf.legacy_post_id = p.legacy_wp_product_id
+   SET p.category_id = leaf.category_id
+ WHERE p.category_id <> leaf.category_id;
 
 -- ③ 订单(D3 清洗;金额取 _order_total,实扣取 mycred 聚合)
 INSERT INTO shop_order
@@ -235,4 +342,8 @@ SELECT
   (SELECT COUNT(*) FROM migration_review_item WHERE resolved_at IS NULL) AS review_open,
   (SELECT COUNT(*) FROM product WHERE legacy_wp_product_id IS NOT NULL AND status = 'published') AS products_published,
   (SELECT COUNT(*) FROM product WHERE legacy_wp_product_id IS NOT NULL AND status = 'draft') AS products_draft,
-  (SELECT COUNT(*) FROM order_item WHERE legacy_wp_order_item_id IS NOT NULL) AS imported_order_items;
+  (SELECT COUNT(*) FROM order_item WHERE legacy_wp_order_item_id IS NOT NULL) AS imported_order_items,
+  (SELECT COUNT(*) FROM product_category) AS categories,
+  (SELECT COUNT(*) FROM (SELECT name FROM product_category GROUP BY name HAVING COUNT(*) > 1) x) AS category_dup_names,
+  (SELECT COUNT(*) FROM product p LEFT JOIN product_category c ON c.id = p.category_id
+    WHERE p.legacy_wp_product_id IS NOT NULL AND c.id IS NULL) AS product_uncategorized;
