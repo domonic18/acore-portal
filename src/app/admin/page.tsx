@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { getAdminDashboardCounts } from "@/server/services/stats/admin";
 import { getDashboard } from "@/server/services/stats/dashboard";
-import { getRecentOrders } from "@/server/services/orders/admin";
+import { getRecentOrders } from "@/server/services/orders/admin-queries";
 import { StatCard } from "@/components/ui/card";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { DashboardSummaryRow } from "@/components/admin/dashboard/summary-row";

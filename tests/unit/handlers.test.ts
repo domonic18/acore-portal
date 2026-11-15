@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   CART_PARAM_SCHEMAS,
   ITEM_SEND_PARAM_SCHEMA,
+  readCharacterGuid,
 } from "@/server/services/shop/param-schemas";
 import { parseItemSendSku, parseTransmogSku } from "@/constants/shop";
 import { itemSendHandler } from "@/server/services/shop/handlers/item-send";
@@ -151,5 +152,25 @@ describe("validateSchema 参数矩阵(T037)", () => {
     expect(itemSendHandler.validateSchema.safeParse({ characterGuid: 5 }).success).toBe(true);
     expect(itemSendHandler.validateSchema.safeParse({}).success).toBe(false);
     expect(itemSendHandler.validateSchema.safeParse({ characterGuid: 5, qty: 1 }).success).toBe(false);
+  });
+});
+
+describe("readCharacterGuid 落库 params 读取(后台订单列表按单展示目标角色)", () => {
+  test("正常形态:读出正整数 guid", () => {
+    expect(readCharacterGuid({ characterGuid: 13364 })).toBe(13364);
+    expect(readCharacterGuid({ characterGuid: 13364, unlockName: "Tom" })).toBe(13364);
+  });
+
+  test("缺字段/结构不符一律 null(不抛,不编造)", () => {
+    expect(readCharacterGuid({})).toBeNull();
+    expect(readCharacterGuid({ characterGuid: null })).toBeNull();
+    expect(readCharacterGuid({ characterGuid: "13364" })).toBeNull();
+    expect(readCharacterGuid({ characterGuid: 0 })).toBeNull();
+    expect(readCharacterGuid({ characterGuid: -1 })).toBeNull();
+    expect(readCharacterGuid({ characterGuid: 1.5 })).toBeNull();
+    expect(readCharacterGuid(null)).toBeNull();
+    expect(readCharacterGuid(undefined)).toBeNull();
+    expect(readCharacterGuid("13364")).toBeNull();
+    expect(readCharacterGuid([{ characterGuid: 1 }])).toBeNull();
   });
 });
