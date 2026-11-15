@@ -77,6 +77,41 @@ export const PRODUCT_SORT = {
 
 export type ProductSortValue = (typeof PRODUCT_SORT)[keyof typeof PRODUCT_SORT];
 
+/** 商城列表排序项(前台排序下拉用) */
+export const SHOP_SORT_OPTIONS = [
+  { value: PRODUCT_SORT.NEWEST, label: "最新上架" },
+  { value: PRODUCT_SORT.PRICE_ASC, label: "价格从低到高" },
+  { value: PRODUCT_SORT.PRICE_DESC, label: "价格从高到低" },
+] as const;
+
+/** 商城列表 URL 参数名(前台分面栏与后台共用一份,禁各写各的) */
+export const SHOP_QUERY_PARAM = {
+  category: "category",
+  keyword: "q",
+  minPrice: "min",
+  maxPrice: "max",
+  sort: "sort",
+  page: "page",
+} as const;
+
+/** 分类圆点配色(顶级分类按序取色,子分类继承父级;新增分类自动落位不需改代码) */
+export const SHOP_CATEGORY_ACCENTS = [
+  "#f2ca72", // 金
+  "#5cb8f0", // 蓝
+  "#4fd1c5", // 青
+  "#a98cf5", // 紫
+  "#5fd08a", // 绿
+  "#f0913f", // 橙
+] as const;
+
+/** 价格分面预设档(积分;最后一档为「以上」) */
+export const SHOP_PRICE_PRESETS = [
+  { label: "0 – 100", min: 0, max: 100 },
+  { label: "100 – 500", min: 100, max: 500 },
+  { label: "500 – 2000", min: 500, max: 2000 },
+  { label: "2000 以上", min: 2000, max: null },
+] as const;
+
 /** 订单号前缀:orderNo = M2{YYYYMMDD}{6位序列}(data-model §2.4) */
 export const ORDER_NO_PREFIX = "M2";
 

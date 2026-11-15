@@ -27,12 +27,12 @@ export function CharacterSelect({
 }) {
   return (
     <label className="flex flex-col gap-1 text-sm">
-      <span className="text-gray-300">选择角色</span>
+      <span className="text-muted">选择角色</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled || characters.length === 0}
-        className="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-white disabled:opacity-50"
+        className="rounded border border-line bg-panel-inset px-3 py-2 text-foreground disabled:opacity-50"
       >
         <option value="">{characters.length === 0 ? "名下暂无角色" : "请选择角色"}</option>
         {characters.map((c) => (

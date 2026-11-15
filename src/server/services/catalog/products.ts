@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { SHOP_PAGE_SIZE } from "@/constants/pagination";
 import { PRODUCT_STATUS, type ProductSortValue } from "@/constants/shop";
 import { paginate } from "@/lib/pagination";
+import { buildProductWhere } from "@/server/services/catalog/product-query";
 
 /**
  * 商品目录读取(前台):published+listed 过滤,一切价格以服务端
@@ -62,24 +63,40 @@ function parseSort(sort?: string): ProductSortValue {
   return sort === "price_asc" || sort === "price_desc" ? sort : "newest";
 }
 
+/** 列表筛选入参:分类走 DB 层,关键词/价格区间走应用层(存量规模小,与既有分页口径一致) */
+export type ProductListOptions = {
+  /** 分类 id 集合(含子孙;由分类树解析而来,优先于 categorySlug) */
+  categoryIds?: string[];
+  /** 分类 slug(精确命中) */
+  categorySlug?: string;
+  /** 关键词:匹配商品名与描述 */
+  q?: string;
+  /** 生效价下限(含) */
+  minPrice?: number;
+  /** 生效价上限(含) */
+  maxPrice?: number;
+  sort?: string;
+  page?: number;
+};
+
 export async function listProducts(
-  opts: { categorySlug?: string; sort?: string; page?: number } = {},
+  opts: ProductListOptions = {},
 ): Promise<ProductListResult> {
   const now = new Date();
   const rows = await prisma.product.findMany({
-    where: {
-      status: PRODUCT_STATUS.PUBLISHED,
-      listed: true,
-      ...(opts.categorySlug ? { category: { is: { slug: opts.categorySlug } } } : {}),
-    },
+    where: buildProductWhere({
+      categoryIds: opts.categoryIds,
+      categorySlug: opts.categorySlug,
+    }),
     include: { category: { select: { name: true, slug: true } } },
   });
 
-  const items: (ProductListItem & { createdAt: Date })[] = rows.map((r) => ({
+  const enriched = rows.map((r) => ({
     id: r.id.toString(),
     slug: r.slug,
     name: r.name,
     type: r.type,
+    description: r.description,
     image: normalizeProductImages(r.images)[0] ?? null,
     price: r.price,
     effectivePrice: effectivePrice(r, now),
@@ -88,6 +105,16 @@ export async function listProducts(
     categorySlug: r.category.slug,
     createdAt: r.createdAt,
   }));
+
+  const keyword = (opts.q ?? "").trim().toLowerCase();
+  const items = enriched.filter((p) => {
+    if (keyword && !p.name.toLowerCase().includes(keyword) && !p.description.toLowerCase().includes(keyword)) {
+      return false;
+    }
+    if (opts.minPrice !== undefined && p.effectivePrice < opts.minPrice) return false;
+    if (opts.maxPrice !== undefined && p.effectivePrice > opts.maxPrice) return false;
+    return true;
+  });
 
   const sort = parseSort(opts.sort);
   if (sort === "price_asc") items.sort((a, b) => a.effectivePrice - b.effectivePrice);
@@ -99,7 +126,9 @@ export async function listProducts(
   const page = Math.min(Math.max(opts.page ?? 1, 1), totalPages);
   const { skip, take } = paginate(total, page, SHOP_PAGE_SIZE);
   return {
-    items: items.slice(skip, skip + take),
+    items: items
+      .slice(skip, skip + take)
+      .map(({ description: _d, createdAt: _c, ...rest }) => rest),
     page,
     totalPages,
     total,
@@ -162,6 +191,21 @@ export async function getProductDetail(slug: string): Promise<ProductDetail | nu
     categorySlug: row.category.slug,
     categoryId: row.categoryId.toString(),
   };
+}
+
+/**
+ * 商城价格区间(前台价格分面的输入框占位提示用):
+ * 取 published + listed 商品的**生效价**极值;无商品时上下限均为 null。
+ */
+export async function getShopPriceBounds(): Promise<{ min: number | null; max: number | null }> {
+  const rows = await prisma.product.findMany({
+    where: { status: PRODUCT_STATUS.PUBLISHED, listed: true },
+    select: { price: true, salePrice: true, saleStart: true, saleEnd: true },
+  });
+  if (rows.length === 0) return { min: null, max: null };
+  const now = new Date();
+  const prices = rows.map((r) => effectivePrice(r, now));
+  return { min: Math.min(...prices), max: Math.max(...prices) };
 }
 
 /** 商品常见问题(FAQ)条目(前台展示) */

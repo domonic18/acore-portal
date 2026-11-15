@@ -16,6 +16,7 @@ const schema = z.object({
     .max(50)
     .regex(/^[a-z0-9-]+$/, "slug 仅限小写字母/数字/连字符"),
   sort: z.coerce.number().int().min(0).default(0),
+  parentId: z.coerce.number().int().positive().nullish(),
 });
 
 /** 分类新建/编辑(平铺排序);slug 唯一冲突 409。 */
@@ -28,6 +29,9 @@ export async function POST(req: NextRequest) {
     const { id } = await saveCategory({
       ...parsed.data,
       id: parsed.data.id === undefined ? undefined : BigInt(parsed.data.id),
+      parentId: parsed.data.parentId === undefined || parsed.data.parentId === null
+        ? null
+        : BigInt(parsed.data.parentId),
     });
     return apiOk({ id: id.toString() }, 201);
   } catch (err) {
@@ -45,6 +49,9 @@ export async function PATCH(req: NextRequest) {
     const { id } = await saveCategory({
       ...parsed.data,
       id: parsed.data.id === undefined ? undefined : BigInt(parsed.data.id),
+      parentId: parsed.data.parentId === undefined || parsed.data.parentId === null
+        ? null
+        : BigInt(parsed.data.parentId),
     });
     return apiOk({ id: id.toString() });
   } catch (err) {
@@ -54,7 +61,9 @@ export async function PATCH(req: NextRequest) {
 
 function mapCategoryError(err: unknown) {
   if (err instanceof CategoryAdminError) {
-    const status = err.code === "DUPLICATE" ? 409 : 404;
+    // slug 冲突 409;分类/上级不存在 404;上级非法(自身/自己的下级)422
+    const status =
+      err.code === "DUPLICATE" ? 409 : err.code === "CYCLE" || err.code === "INVALID_PARENT" ? 422 : 404;
     return apiError(status, err.code, err.message);
   }
   throw err;

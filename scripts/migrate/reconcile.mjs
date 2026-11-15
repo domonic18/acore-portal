@@ -91,6 +91,70 @@ const SQL_CHECKS = [
       ) x`,
   },
   {
+    id: "category-uniq",
+    domain: "分类唯一性",
+    expected: `SELECT 0 n`,
+    actual: `SELECT COUNT(*) n FROM (
+        SELECT name FROM product_category GROUP BY name HAVING COUNT(*) > 1
+      ) x`,
+    explain: "无(同名分类只留一行;多行 ⇒ 前台 filesort 顺序随机,用户点到的第一个同名项可能是空行)",
+  },
+  {
+    id: "category-coverage",
+    domain: "商品分类覆盖",
+    expected: `SELECT 0 n`,
+    actual: `SELECT COUNT(*) n
+        FROM product p
+        LEFT JOIN product_category c ON c.id = p.category_id
+        WHERE p.legacy_wp_product_id IS NOT NULL AND c.id IS NULL`,
+    explain: "无(存量商品的分类引用必须落在 product_category 内)",
+  },
+  {
+    id: "category-parent-integrity",
+    domain: "分类树完整性",
+    expected: `SELECT 0 n`,
+    actual: `SELECT COUNT(*) n
+        FROM product_category c
+        WHERE c.parent_id IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM product_category p WHERE p.id = c.parent_id)`,
+    explain: "无(父分类引用不得悬空)",
+  },
+  {
+    id: "category-assignment",
+    domain: "商品分类归属",
+    // 商品必须落在 WP **最深** product_cat term 对应的分类(旧口径 MIN(c.id) 会把
+    // 多分类商品压到 id 最小的父分类 ⇒ 子类恒为 0 件,前台点了子类显示空)
+    expected: `SELECT 0 n`,
+    actual: `SELECT COUNT(*) n
+        FROM product p
+        JOIN (
+          SELECT tr.object_id AS object_id,
+                 pc.id AS category_id,
+                 ROW_NUMBER() OVER (PARTITION BY tr.object_id
+                                    ORDER BY d.depth DESC, tt.term_id ASC, pc.id ASC) AS rn
+            FROM wp_legacy.wp_term_relationships tr
+            JOIN wp_legacy.wp_term_taxonomy tt
+              ON tt.term_taxonomy_id = tr.term_taxonomy_id AND tt.taxonomy = 'product_cat'
+            JOIN wp_legacy.wp_terms t ON t.term_id = tt.term_id
+            LEFT JOIN (
+              WITH RECURSIVE td AS (
+                SELECT tt2.term_id AS term_id, 0 AS depth
+                  FROM wp_legacy.wp_term_taxonomy tt2
+                 WHERE tt2.taxonomy = 'product_cat' AND tt2.parent = 0
+                UNION ALL
+                SELECT c.term_id, p.depth + 1
+                  FROM wp_legacy.wp_term_taxonomy c
+                  JOIN td p ON c.parent = p.term_id
+                 WHERE c.taxonomy = 'product_cat'
+              )
+              SELECT term_id, depth FROM td
+            ) d ON d.term_id = tt.term_id
+            JOIN product_category pc ON pc.name = t.name COLLATE utf8mb4_unicode_ci
+        ) leaf ON leaf.object_id = p.legacy_wp_product_id AND leaf.rn = 1
+        WHERE p.category_id <> leaf.category_id`,
+    explain: "无(存量商品必须落在 WP 最深 product_cat term 对应的分类)",
+  },
+  {
     id: "orders",
     domain: "订单",
     expected: `SELECT COUNT(*) n FROM wp_legacy.wp_posts p

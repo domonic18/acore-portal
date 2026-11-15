@@ -21,9 +21,9 @@ const TONE_CLASS: Record<
   },
   shop: {
     nav: "flex items-center justify-center gap-4",
-    link: "text-sm text-gray-300 hover:text-white",
-    disabled: "text-sm text-gray-600",
-    current: "text-sm text-gray-400",
+    link: "text-sm text-body transition-colors hover:text-heading",
+    disabled: "text-sm text-muted",
+    current: "text-sm text-num",
   },
   account: {
     nav: "flex items-center justify-between text-sm",

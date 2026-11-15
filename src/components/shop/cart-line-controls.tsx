@@ -65,7 +65,7 @@ export function CartLineControls({
           aria-label="减少数量"
           onClick={() => patchQty(qty - 1)}
           disabled={busy || qty <= 1}
-          className="h-8 w-8 rounded border border-gray-700 text-lg disabled:opacity-40"
+          className="h-8 w-8 rounded border border-line text-lg disabled:opacity-40"
         >
           −
         </button>
@@ -77,7 +77,7 @@ export function CartLineControls({
           aria-label="增加数量"
           onClick={() => patchQty(qty + 1)}
           disabled={busy || soldOut}
-          className="h-8 w-8 rounded border border-gray-700 text-lg disabled:opacity-40"
+          className="h-8 w-8 rounded border border-line text-lg disabled:opacity-40"
         >
           +
         </button>
@@ -85,13 +85,13 @@ export function CartLineControls({
           type="button"
           onClick={remove}
           disabled={busy}
-          className="ml-3 text-sm text-red-400 hover:text-red-300 disabled:opacity-40"
+          className="ml-3 text-sm text-danger hover:text-danger-strong disabled:opacity-40"
         >
           移除
         </button>
       </div>
       {error && (
-        <span role="alert" className="text-xs text-red-400">
+        <span role="alert" className="text-xs text-danger">
           {error}
         </span>
       )}
