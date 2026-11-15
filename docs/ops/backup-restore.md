@@ -52,11 +52,11 @@
 
 ```cron
 # 每日 03:30 业务库备份
-30 3 * * * /home/ubuntu/acore-portal/scripts/cron/backup-run.sh >> /var/log/acore-backup/backup.log 2>&1
+30 3 * * * /home/ubuntu/acore-portal/scripts/cron/backup-run.sh >> /home/ubuntu/logs/acore-backup/backup.log 2>&1
 # 每周日 03:30 追加 WP 存量存档库
-0 3 * * 0 BACKUP_TARGETS=wp-legacy /home/ubuntu/acore-portal/scripts/cron/backup-run.sh >> /var/log/acore-backup/backup.log 2>&1
+0 3 * * 0 BACKUP_TARGETS=wp-legacy /home/ubuntu/acore-portal/scripts/cron/backup-run.sh >> /home/ubuntu/logs/acore-backup/backup.log 2>&1
 # 每日 04:30 备份心跳检查(备份没按时跑 → 告警)
-30 4 * * * docker exec acore-portal-prod-web-1 node_modules/.bin/tsx --conditions=react-server scripts/cron/backup-heartbeat.ts >> /var/log/acore-backup/heartbeat.log 2>&1
+30 4 * * * /home/ubuntu/acore-portal/scripts/cron/backup-heartbeat-run.sh >> /home/ubuntu/logs/acore-backup/heartbeat.log 2>&1
 ```
 
 - 心跳检查独立于备份脚本:备份脚本「成功」不等于「按时跑过」——crontab 没挂、容器起不来、
@@ -64,6 +64,11 @@
 - 退出码:0 成功;1 失败;2 心跳缺失(与对账脚本的「有差异」同义)。
 - 容器名可用环境变量覆盖:`BACKUP_MYSQL_CONTAINER` / `BACKUP_WEB_CONTAINER` /
   `BACKUP_TARGETS` / `BACKUP_WORK_DIR` / `BACKUP_LEGACY_SCHEMA`。
+- **docker 访问方式由脚本自探**:先用 `docker`,不通再试 `sudo -n docker`(免密),
+  两条都不通直接失败——生产机的运维账号不在 docker 组,但发布链路同走 `sudo docker`;
+  cron 环境没有交互式密码输入,不能靠提示。
+- **日志目录须对 cron 账号可写**:cron 以运维账号身份跑,别指向 `/var/log` 下
+  需要 root 才能建的目录(用账号家目录下的 `logs/`)。
 
 ## 4. 告警通道(飞书自定义机器人)
 
