@@ -148,6 +148,19 @@ describe("发布链路守卫 · 换容器前断言挂载源可用", () => {
     expect(block).not.toMatch(/wp-uploads/);
   });
 
+  it("挂载源判定走纯函数(单测覆盖:tests/unit/deploy-mount-check.test.ts)", () => {
+    // 判定逻辑不得散回预检函数体内,否则误判无单测可拦(初版「源不是目录⇒中止」即此)
+    expect(deploy).toContain("mount_source_verdict");
+    const fnStart = deploy.indexOf("mount_source_verdict() {");
+    const assertStart = deploy.indexOf("assert_bind_mount_sources() {");
+    expect(fnStart).toBeGreaterThan(-1);
+    expect(assertStart).toBeGreaterThan(-1);
+    // 预检体内只调函数,不内联判定分支
+    const body = deploy.slice(assertStart, deploy.indexOf("\n}", assertStart));
+    expect(body).toContain("mount_source_verdict");
+    expect(body).not.toMatch(/\[ ! -d "\$src" \]/);
+  });
+
   it("宿主备份脚本随发布资产下发(宿主与镜像同 commit)", () => {
     const release = read("scripts/ci/remote-release.sh");
     expect(release).toContain("scripts/cron/backup-run.sh");
