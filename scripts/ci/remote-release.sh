@@ -86,6 +86,11 @@ ASSETS=(
   docker/caddy/Caddyfile
   docker/nginx-stream/nginx.conf.template
   docker/web/Dockerfile
+  # 宿主侧备份编排脚本:crontab 跑的是**宿主上这份**,而 dump 参数/排除清单由镜像内的
+  # backup.ts 打印 ⇒ 两份不同源就会漂(宿主的排除参数过期 ⇒ dump 与判据口径不符)。
+  # 随发布同步 ⇒ 宿主脚本与镜像同 commit(2026-11-15 首次生产备份时手工拷过一遍,属隐患)。
+  scripts/cron/backup-run.sh
+  scripts/cron/backup-heartbeat-run.sh
 )
 TARBALL_DIR="$(mktemp -d)"
 TARBALL="$TARBALL_DIR/deploy-assets.tar.gz"
@@ -98,10 +103,11 @@ cd "$1"
 # --no-same-owner:不让归档里的 uid/gid 覆盖服务器属主
 tar --no-same-owner -xzf /tmp/deploy-assets.tar.gz
 rm -f /tmp/deploy-assets.tar.gz
-chmod 755 scripts/deploy.sh
+chmod 755 scripts/deploy.sh scripts/cron/backup-run.sh scripts/cron/backup-heartbeat-run.sh
 # 资产落地完整性校验:缺任何一项都中止,不带着半套资产继续发布
 for f in scripts/deploy.sh prisma/schema-business/schema.prisma docker/docker-compose.prod.yml \
-         docker/caddy/Caddyfile docker/nginx-stream/nginx.conf.template docker/web/Dockerfile; do
+         docker/caddy/Caddyfile docker/nginx-stream/nginx.conf.template docker/web/Dockerfile \
+         scripts/cron/backup-run.sh scripts/cron/backup-heartbeat-run.sh; do
     [ -f "$f" ] || { echo "ERROR: 资产缺失:$f" >&2; exit 1; }
 done
 echo "--- 已同步:发布资产齐全 ---"
