@@ -76,16 +76,21 @@ function stampToInstant(stamp: string): number {
 /**
  * 保留期筛选:返回应删除的对象键。
  * cutoff = 北京零点(今天) − retentionDays 天;retentionDays=0 即「只留当日」。
+ *
+ * target 限定只清哪个目标:日备的清理线不该扫掉存量库的归档
+ * (存量库已冻结、永久保留);不传则清所有目标(通用调用)。
  */
 export function expiredBackupKeys(
   keys: string[],
   retentionDays: number,
   now: Date = new Date(),
+  target?: BackupTarget,
 ): string[] {
   const cutoff = stampToInstant(backupStamp(now)) - retentionDays * 86400_000;
   return keys.filter((key) => {
     const parsed = parseBackupObjectKey(key);
     if (!parsed) return false;
+    if (target && parsed.target !== target) return false;
     return stampToInstant(parsed.stamp) < cutoff;
   });
 }

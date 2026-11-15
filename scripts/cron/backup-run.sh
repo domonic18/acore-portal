@@ -41,13 +41,24 @@ else
 fi
 
 # 容器内 mysqldump:凭据只取容器自身环境变量(不落到宿主命令行/日志)
-# $1=schema 名;dump 参数固定为「一致性快照 + 例程/触发器/事件 + 不导表空间」
+# $1=schema 名;$@=额外的 --ignore-table 参数(排除表)
+# dump 参数固定为「一致性快照 + 例程/触发器/事件 + 不导表空间」
 dump_schema() {
   local schema="$1"
+  shift
   "${DOCKER[@]}" exec "$MYSQL_CONTAINER" sh -c '
     MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump -uroot \
-      --single-transaction --routines --triggers --events --no-tablespaces "$1"
-  ' sh "$schema"
+      --single-transaction --routines --triggers --events --no-tablespaces "$@"
+  ' sh "$@" "$schema"
+}
+
+# 排除表参数(排除清单与判据口径同源于 BACKUP_EXCLUDE_TABLES):
+# 由 web 容器内的备份脚本打印,宿主不另写一份清单。
+dump_exclude_args() {
+  local target="$1"
+  "${DOCKER[@]}" exec "$WEB_CONTAINER" \
+    node_modules/.bin/tsx --conditions=react-server scripts/cron/backup.ts \
+    --target "$target" --print-dump-args
 }
 
 # 目标 → 源 schema:业务库取容器自己的 MYSQL_DATABASE(不写死库名)
@@ -83,8 +94,17 @@ run_target() {
   local remote="/tmp/${name}.sql.gz"
 
   log "开始备份 $target(schema=$schema) → $gz"
+  # 排除表参数(存量库的三张 WP 统计表不进备份):清单由 web 容器内的常量给出
+  local -a exclude=()
+  while IFS= read -r line; do
+    [ -n "$line" ] && exclude+=("$line")
+  done < <(dump_exclude_args "$target")
+  if [ "${#exclude[@]}" -gt 0 ]; then
+    log "排除表参数:${exclude[*]}"
+  fi
+
   # pipefail:dump 失败即失败,不留下半截压缩包
-  dump_schema "$schema" | gzip -6 > "$gz"
+  dump_schema "$schema" ${exclude[@]+"${exclude[@]}"} | gzip -6 > "$gz"
   local bytes
   bytes="$(wc -c < "$gz" | tr -d ' ')"
   log "dump 完成:$bytes 字节"

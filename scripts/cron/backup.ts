@@ -21,6 +21,7 @@ import { createPool, type Pool } from "mysql2/promise";
 import {
   BACKUP_ANCHOR_TABLES,
   BACKUP_COS_PREFIX,
+  BACKUP_EXCLUDE_TABLES,
   BACKUP_MANIFEST_KEY,
   BACKUP_TARGET,
   BACKUP_TARGET_META,
@@ -72,17 +73,25 @@ function parseTarget(raw: string | null): BackupTarget {
   throw new Error(`--target 须为 ${Object.values(BACKUP_TARGET).join(" | ")}`);
 }
 
-/** 源库事实:基础表清单(判据④比对用) + 锚点表行数(恢复演练核对用) */
+/**
+ * 源库事实:基础表清单(判据④比对用) + 锚点表行数(恢复演练核对用)。
+ * excludeTables 为该目标的排除表(dump 时跳过)——判据比对的基线必须与
+ * dump 实际内容同口径,否则排除掉的表会被判成「dump 缺表」而永远失败。
+ */
 async function loadSourceFacts(
   pool: Pool,
   schema: string,
   anchorTables: readonly string[],
+  excludeTables: readonly string[],
 ): Promise<{ sourceTables: string[]; anchors: Record<string, number> }> {
   const [tableRows] = await pool.query(
     "SELECT TABLE_NAME AS t FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME",
     [schema],
   );
-  const sourceTables = (tableRows as { t: string }[]).map((r) => r.t);
+  const excluded = new Set(excludeTables);
+  const sourceTables = (tableRows as { t: string }[])
+    .map((r) => r.t)
+    .filter((t) => !excluded.has(t));
   const anchors: Record<string, number> = {};
   for (const table of anchorTables) {
     // 库内缺表则跳过(表名随业务演进而变,锚点只保证核心账面可比)
@@ -157,6 +166,19 @@ async function sha256File(path: string): Promise<string> {
 
 async function main() {
   const target = parseTarget(argValue("--target"));
+
+  if (process.argv.includes("--print-dump-args")) {
+    // 宿主编排脚本据此给 mysqldump 传 --ignore-table:
+    // 排除清单与判据口径同源于 BACKUP_EXCLUDE_TABLES,禁在脚本与常量各写一份
+    const schema = BACKUP_TARGET_META[target].schema;
+    if (schema) {
+      for (const table of BACKUP_EXCLUDE_TABLES[target]) {
+        console.log(`--ignore-table=${schema}.${table}`);
+      }
+    }
+    return;
+  }
+
   const file = argValue("--file");
   if (!file) throw new Error("--file 必填(dump 压缩包的容器内路径)");
 
@@ -184,6 +206,7 @@ async function main() {
       pool,
       schema,
       BACKUP_ANCHOR_TABLES[target],
+      BACKUP_EXCLUDE_TABLES[target],
     );
     const scan = await scanDump(file);
 
@@ -240,8 +263,18 @@ async function main() {
       Buffer.from(JSON.stringify(manifest, null, 2), "utf8"),
     );
 
-    const retentionDays = cfg.backup?.retentionDays ?? 30;
-    const expired = expiredBackupKeys(await listKeys(client, creds, BACKUP_COS_PREFIX), retentionDays);
+    // 保留期清理:只清本目标,别把别的目标扫掉
+    // (存量库冻结后永久保留;日备的清理线不该动它)
+    const retentionDays = meta.keepForever ? null : (cfg.backup?.retentionDays ?? 30);
+    const expired =
+      retentionDays === null
+        ? []
+        : expiredBackupKeys(
+            await listKeys(client, creds, BACKUP_COS_PREFIX),
+            retentionDays,
+            new Date(),
+            target,
+          );
     const removed = await deleteKeys(client, creds, expired);
 
     console.log(
