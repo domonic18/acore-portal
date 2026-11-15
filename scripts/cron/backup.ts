@@ -12,8 +12,8 @@
  *   ① 压缩包体积达下限 ② gzip 可完整解开 ③ COS 对象大小与本地一致
  *   ④ dump 覆盖源库全部基础表 ⑤ 清单写入成功
  */
-import { readFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
 import { createGunzip } from "node:zlib";
 import { createHash } from "node:crypto";
 import { createPool, type Pool } from "mysql2/promise";
@@ -47,6 +47,7 @@ import {
   headSize,
   listKeys,
   putBuffer,
+  putFile,
   type CosCredentials,
 } from "./backup-cos";
 import { describeAlert, sendBackupAlert } from "./backup-alert";
@@ -145,6 +146,15 @@ async function readManifest(
   }
 }
 
+/** 文件 sha256(流式读,不整块进内存) */
+async function sha256File(path: string): Promise<string> {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(path)) {
+    hash.update(chunk as Buffer);
+  }
+  return hash.digest("hex");
+}
+
 async function main() {
   const target = parseTarget(argValue("--target"));
   const file = argValue("--file");
@@ -165,9 +175,9 @@ async function main() {
   let uploadedKey: string | null = null;
 
   try {
-    const body = await readFile(file);
-    const bytes = body.length;
-    const sha256 = createHash("sha256").update(body).digest("hex");
+    const fileStat = await stat(file);
+    const bytes = fileStat.size;
+    const sha256 = await sha256File(file);
 
     const schema = await resolveSchema(pool, target);
     const { sourceTables, anchors } = await loadSourceFacts(
@@ -191,7 +201,7 @@ async function main() {
     }
 
     const key = backupObjectKey(target, backupStamp());
-    await putBuffer(client, creds, key, body);
+    await putFile(client, creds, key, file, bytes);
     uploadedKey = key;
 
     const cosSize = await headSize(client, creds, key);

@@ -1,3 +1,4 @@
+import { createReadStream } from "node:fs";
 import COS from "cos-nodejs-sdk-v5";
 
 /**
@@ -28,6 +29,28 @@ export async function putBuffer(
     Region: creds.region,
     Key: key,
     Body: body,
+  });
+}
+
+/**
+ * 上传本地文件(流式,大包不进内存)。
+ * 生产机只有 3GB 内存,存量库 dump 压缩后仍有百兆级——整块读进 Buffer
+ * 会把 web 容器推到 OOM 边缘(还要和 MySQL 抢同一台机器的内存)。
+ * ContentLength 必须给,否则 SDK 无法定长。
+ */
+export async function putFile(
+  client: COS,
+  creds: CosCredentials,
+  key: string,
+  path: string,
+  contentLength: number,
+): Promise<void> {
+  await client.putObject({
+    Bucket: creds.bucket,
+    Region: creds.region,
+    Key: key,
+    Body: createReadStream(path),
+    ContentLength: contentLength,
   });
 }
 
