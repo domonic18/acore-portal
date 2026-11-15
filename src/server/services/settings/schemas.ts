@@ -160,10 +160,14 @@ export const groupSchemas = {
     secretKey: z.string().optional(),
     cdnBase: z.string().trim().optional(),
   }),
-  // 备份脚本参数(cron 读 system_config):保留天数与游戏库周备份开关
+  // 备份脚本参数(cron 读 system_config):备份保留天数
   backup: z.object({
-    retentionDays: z.coerce.number().int().min(0, "保留天数须为非负整数").optional(),
-    gameWeekly: z.boolean().optional(),
+    retentionDays: z.coerce
+      .number()
+      .int()
+      .min(0, "保留天数须为非负整数")
+      .max(365, "保留天数最多 365 天(与 COS 生命周期兜底线一致)")
+      .optional(),
   }),
 } as const;
 
@@ -272,7 +276,6 @@ export const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>
   },
   backup: {
     retentionDays: "backup.retentionDays",
-    gameWeekly: "backup.gameWeekly",
   },
 };
 /**
