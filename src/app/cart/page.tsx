@@ -74,7 +74,7 @@ export default async function CartPage() {
                 <span
                   className={
                     balance !== null && balance < total
-                      ? "font-semibold text-red-400"
+                      ? "font-semibold text-danger"
                       : "font-semibold text-heading"
                   }
                 >

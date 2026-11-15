@@ -21,7 +21,7 @@ export function OrderStatusPoll({ status }: { status: string }) {
 
   if (!active) return null;
   return (
-    <p className="text-xs text-gray-500" role="status">
+    <p className="text-xs text-muted" role="status">
       发货状态每 30 秒自动刷新…
     </p>
   );

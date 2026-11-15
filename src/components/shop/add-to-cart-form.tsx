@@ -154,7 +154,7 @@ export function AddToCartForm({
         <fieldset className="flex flex-col gap-1 text-sm">
           <legend className="text-foreground">选择恢复物品</legend>
           {restoreDegraded ? (
-            <span className="text-amber-400">恢复物品列表暂不可用,请稍后重试。</span>
+            <span className="text-warn">恢复物品列表暂不可用,请稍后重试。</span>
           ) : restorable === null ? (
             <span className="text-muted">请先选择角色。</span>
           ) : restorable.length === 0 ? (
@@ -226,7 +226,7 @@ export function AddToCartForm({
         </button>
       </div>
       {error && (
-        <p role="alert" className="text-sm text-red-400">
+        <p role="alert" className="text-sm text-danger">
           {error}
         </p>
       )}

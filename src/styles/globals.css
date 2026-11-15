@@ -21,49 +21,49 @@
 /* ---------- 令牌值:TBC(默认,暖色) ---------- */
 :root {
   /* 表面 */
-  --theme-page: #0a1220; /* 页面底 */
-  --theme-deep: #080d16; /* 更深内嵌区 */
+  --theme-page: #080e1a; /* 页面底 */
+  --theme-deep: #060b14; /* 更深内嵌区 */
   --theme-header: #1a1006; /* 页头底(暖棕,配合暖调遮罩) */
-  --theme-footer: #0c1626; /* 页脚底 */
-  --theme-panel: #13233a; /* 卡片底 */
-  --theme-panel-hover: #16283f; /* 卡片悬停 */
-  --theme-panel-strong: #0d1a2e; /* 内容面板底(不透明) */
-  --theme-panel-inset: #0d1828; /* 面板内嵌块 */
-  --theme-surface: #16233a; /* 表格/列表行底 */
-  --theme-surface-hover: #1c2c48; /* 行悬停 */
-  --theme-surface-alt: #1b2f4c; /* 交替行底 */
-  --theme-chip: #16324d; /* 小标签底 */
+  --theme-footer: #0b1422; /* 页脚底 */
+  --theme-panel: #14213a; /* 卡片底 */
+  --theme-panel-hover: #172742; /* 卡片悬停 */
+  --theme-panel-strong: #0e192c; /* 内容面板底(不透明) */
+  --theme-panel-inset: #0a1220; /* 面板内嵌块 */
+  --theme-surface: #14213a; /* 表格/列表行底 */
+  --theme-surface-hover: #1a2942; /* 行悬停 */
+  --theme-surface-alt: #17293f; /* 交替行底 */
+  --theme-chip: #132743; /* 小标签底 */
   --theme-warn-bg: #5d4a1e; /* 警示块底 */
   --theme-warn-line: #5d553a; /* 警示块描边 */
 
   /* 描边 */
-  --theme-line: #22385a; /* 常规描边 */
-  --theme-line-strong: #35577f; /* 强调描边(页头/轮播) */
-  --theme-line-soft: #21385a; /* 弱描边 */
-  --theme-line-muted: #243350; /* 更弱描边 */
-  --theme-line-row: #16304f; /* 表格行分隔 */
-  --theme-line-menu: #1a2c47; /* 菜单描边 */
-  --theme-separator: #3d5a80; /* 分隔线 */
+  --theme-line: #1f3454; /* 常规描边 */
+  --theme-line-strong: #2f5080; /* 强调描边(页头/轮播) */
+  --theme-line-soft: #1e3252; /* 弱描边 */
+  --theme-line-muted: #1c2e4a; /* 更弱描边 */
+  --theme-line-row: #162c47; /* 表格行分隔 */
+  --theme-line-menu: #1a2b45; /* 菜单描边 */
+  --theme-separator: #3c5f8a; /* 分隔线 */
 
   /* 文字 */
-  --theme-foreground: #c7d5e6; /* 基础正文色 */
-  --theme-heading: #dcebf7; /* 区块标题 */
-  --theme-body: #93b2ce; /* 次级正文 */
-  --theme-muted: #6482a3; /* 弱化说明 */
-  --theme-link: #6fb7e0; /* 链接 */
-  --theme-link-hover: #8ccbec; /* 链接悬停 */
-  --theme-accent: #5ea3cc; /* 主题蓝(圆点/进度) */
-  --theme-num: #a8d9f5; /* 大数字 */
-  --theme-highlight: #e8c877; /* 点缀(标题条/价格) */
-  --theme-highlight-soft: #e6d8a8; /* 点缀弱化 */
-  --theme-highlight-strong: #f5dc9a; /* 点缀强调 */
-  --theme-highlight-deep: #c9a227; /* 点缀实底(按钮) */
-  --theme-highlight-deep-hover: #dbb535; /* 点缀实底悬停 */
-  --theme-dot: #6382a3; /* 轮播圆点 */
-  --theme-dot-hover: #8aa7c4; /* 轮播圆点悬停 */
-  --theme-ink: #08131f; /* 深色墨(反白文字底) */
+  --theme-foreground: #d4e3f3; /* 基础正文色 */
+  --theme-heading: #eaf4fc; /* 区块标题 */
+  --theme-body: #a6c4de; /* 次级正文 */
+  --theme-muted: #7c9cbd; /* 弱化说明 */
+  --theme-link: #5cb8f0; /* 链接 */
+  --theme-link-hover: #8ad4ff; /* 链接悬停 */
+  --theme-accent: #63b0dd; /* 主题蓝(圆点/进度) */
+  --theme-num: #b8e3fb; /* 大数字 */
+  --theme-highlight: #f2ca72; /* 点缀(标题条/价格) */
+  --theme-highlight-soft: #f7dfae; /* 点缀弱化 */
+  --theme-highlight-strong: #ffe3a6; /* 点缀强调 */
+  --theme-highlight-deep: #d9a92f; /* 点缀实底(按钮) */
+  --theme-highlight-deep-hover: #e8bb45; /* 点缀实底悬停 */
+  --theme-dot: #7c9cbd; /* 轮播圆点 */
+  --theme-dot-hover: #9db9d4; /* 轮播圆点悬停 */
+  --theme-ink: #06101c; /* 深色墨(反白文字底) */
   --theme-ink-warm: #1a1408; /* 暖墨底 */
-  --theme-scrim: #050a12; /* 不透明遮罩(轮播控件底) */
+  --theme-scrim: #04080f; /* 不透明遮罩(轮播控件底) */
 
   /* 状态 */
   --theme-ok: #57b87d; /* 在线/成功 */
@@ -83,55 +83,55 @@
   --theme-horde-text: #c96f66; /* 部落文字 */
 
   /* 背景遮罩(与背景图叠加,保证文字可读) */
-  --theme-page-overlay: rgba(10, 18, 32, 0.6);
+  --theme-page-overlay: rgba(8, 14, 26, 0.62);
   /* 页头遮罩取暖棕(非冷蓝):背景图是暖色夕阳,冷蓝遮罩会把页头压成灰蓝,违和 */
   --theme-header-overlay: rgba(58, 30, 10, 0.62);
-  --theme-panel-overlay: rgba(13, 26, 46, 0.95);
+  --theme-panel-overlay: rgba(14, 25, 44, 0.95);
 }
 
 /* ---------- 令牌值:WLK(冷色) ---------- */
 :root[data-theme="wlk"] {
-  --theme-page: #081019;
-  --theme-deep: #050a11;
+  --theme-page: #070d18;
+  --theme-deep: #04080f;
   --theme-header: #0c1a2b;
-  --theme-footer: #08111d;
-  --theme-panel: #0e1c2e;
-  --theme-panel-hover: #112439;
-  --theme-panel-strong: #0a1626;
-  --theme-panel-inset: #091424;
+  --theme-footer: #07101b;
+  --theme-panel: #0f1d31;
+  --theme-panel-hover: #132539;
+  --theme-panel-strong: #0b1728;
+  --theme-panel-inset: #08121f;
   --theme-surface: #101f30;
   --theme-surface-hover: #142538;
-  --theme-surface-alt: #13263c;
-  --theme-chip: #122740;
+  --theme-surface-alt: #12263b;
+  --theme-chip: #102540;
   --theme-warn-bg: #4a4526;
   --theme-warn-line: #4a4a3a;
 
-  --theme-line: #1d3348;
-  --theme-line-strong: #2f5675;
-  --theme-line-soft: #1c3049;
-  --theme-line-muted: #1e3049;
-  --theme-line-row: #122640;
-  --theme-line-menu: #16263d;
-  --theme-separator: #35607f;
+  --theme-line: #1b3046;
+  --theme-line-strong: #2c5170;
+  --theme-line-soft: #1a2e45;
+  --theme-line-muted: #192c43;
+  --theme-line-row: #11243b;
+  --theme-line-menu: #14243a;
+  --theme-separator: #33587a;
 
-  --theme-foreground: #bdd0e2;
-  --theme-heading: #d6e9f6;
-  --theme-body: #8fb2cc;
-  --theme-muted: #55758f;
-  --theme-link: #6fc3e8;
-  --theme-link-hover: #8fd4f2;
-  --theme-accent: #58b6e0;
-  --theme-num: #9ed8f7;
-  --theme-highlight: #8fd0f0;
-  --theme-highlight-soft: #bfe6f7;
-  --theme-highlight-strong: #c9ecff;
-  --theme-highlight-deep: #4a9ec4;
-  --theme-highlight-deep-hover: #5cb2d6;
-  --theme-dot: #55758f;
-  --theme-dot-hover: #7fa3c0;
-  --theme-ink: #06121f;
+  --theme-foreground: #caddee;
+  --theme-heading: #e6f3fc;
+  --theme-body: #a2c0da;
+  --theme-muted: #7494b3;
+  --theme-link: #58b6ec;
+  --theme-link-hover: #86d0fb;
+  --theme-accent: #5cb8e6;
+  --theme-num: #b0e0fb;
+  --theme-highlight: #9ad9f6;
+  --theme-highlight-soft: #c4e9fa;
+  --theme-highlight-strong: #d8f2ff;
+  --theme-highlight-deep: #55a9cf;
+  --theme-highlight-deep-hover: #68b8dd;
+  --theme-dot: #7494b3;
+  --theme-dot-hover: #93b0cb;
+  --theme-ink: #04101c;
   --theme-ink-warm: #0b1a24;
-  --theme-scrim: #04080f;
+  --theme-scrim: #03070d;
 
   --theme-ok: #5cc48c;
   --theme-ok-text: #86d3a4;
@@ -148,9 +148,9 @@
   --theme-horde: #8e2f2a;
   --theme-horde-text: #c96f66;
 
-  --theme-page-overlay: rgba(6, 14, 26, 0.62);
+  --theme-page-overlay: rgba(7, 13, 24, 0.62);
   --theme-header-overlay: rgba(10, 26, 44, 0.62);
-  --theme-panel-overlay: rgba(10, 22, 38, 0.95);
+  --theme-panel-overlay: rgba(11, 23, 40, 0.95);
 }
 
 /* ---------- Tailwind 工具类桥接 ---------- */
