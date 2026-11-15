@@ -313,8 +313,10 @@ secrets `TCR_NAMESPACE` / `TCR_USERNAME` / `TCR_PASSWORD` / `DEPLOY_SSH_KEY` / `
    (`_prisma_migrations` 已完成且未回滚)、镜像集(镜像内 `/app/prisma/schema-business/migrations`)
    ⊆ 应用集、台账无未完成行;任一不满足即**在换容器前**中止;
 6. **挂载源断言**——`docker compose config --format json` 取全部 bind 挂载源,
-   逐个核对:悬空符号链接(目标已删除)或非目录 ⇒ **在换容器前中止**;
+   逐个核对:悬空符号链接(目标已删除)⇒ **在换容器前中止**;
    源路径不存在只提示(compose 会自动创建);
+   源存在则与**运行中容器内的目标类型**比对,类型错配(源是文件而目标是目录)才中止;
+   **单文件 bind 挂载(Caddyfile / nginx 模板)是合法用法,不得当错**;
 7. **滚动 web**——`up -d --wait --no-deps --no-build web`(只换 web,mysql/redis 数据卷原地复用);
 8. **健康检查**——`http://127.0.0.1:3000/api/status` 须 200;
 9. **落状态**——`.deploy-state`(status / tag / previous_tag / commit);
@@ -328,6 +330,13 @@ secrets `TCR_NAMESPACE` / `TCR_USERNAME` / `TCR_PASSWORD` / `DEPLOY_SSH_KEY` / `
 > `mkdir …: file exists` ⇒ **新容器起不来,回滚也起不来,整站中断**。
 > 根因两层:① prod compose 仍挂载已下线栈的目录(已移除该挂载);
 > ② 发布脚本换容器前不校验挂载源(现由第 6 步拦下)。
+>
+> **断言自身的误判也踩过一次(同日)**:初版把「源不是目录」当致命错,而 prod compose 里
+> `caddy/Caddyfile`、`nginx-stream/nginx.conf.template` 都是**单文件 bind 挂载** ⇒
+> 发布在换容器前被自己的断言拦下(生产无损失,但发布链断)。故判据收敛为
+> 「悬空链接 / 类型错配」两类致命,单文件挂载放行;类型比对取**运行中容器内的目标类型**,
+> 取不到(容器未运行)就不比对、不误伤。判定逻辑抽成纯函数
+> `mount_source_verdict`(deploy.sh 内 `@extract` 标记段),单测 `tests/unit/deploy-mount-check.test.ts`。
 
 #### 7.1.1 远端发布:发布动作不依附 SSH 会话
 
