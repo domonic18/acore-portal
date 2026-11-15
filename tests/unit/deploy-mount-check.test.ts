@@ -71,6 +71,13 @@ describe("发布挂载源预检的判定(单文件挂载合法,单测守住误�
     expect(verdict(path.join(dir, "a-dir"), "")).toBe("ok");
   });
 
+  it("目标类型是非法取值(如 docker exec 的报错文本)⇒ 当未知处理,不判错配", () => {
+    // 2026-11-15 测试环境发布实测:容器 WORKDIR 失效时 docker exec 报错,
+    // 报错文本被当成「目标类型」⇒ 误判类型错配、把发布拦下
+    expect(verdict(path.join(dir, "a-dir"), "OCI runtime exec failed: exec failed")).toBe("ok");
+    expect(verdict(path.join(dir, "a-file"), "some garbage")).toBe("ok");
+  });
+
   it("悬空符号链接 ⇒ 判致命(2026-11-15 生产事故根因)", () => {
     expect(verdict(path.join(dir, "dangling-link"), "dir")).toBe("dangling");
     expect(verdict(path.join(dir, "dangling-link"), "")).toBe("dangling");
