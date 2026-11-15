@@ -167,12 +167,11 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
     );
   });
 
-  it("backup 可只给 gameWeekly(retentionDays 取默认 30);retentionDays=0 合法", () => {
-    const partial = buildConfigFromRows(rows(["backup.gameWeekly", "false"]));
-    expect(partial.backup).toEqual({ retentionDays: 30, gameWeekly: false });
+  it("backup 键缺省时整组为 undefined;retentionDays=0 合法", () => {
+    expect(buildConfigFromRows(rows()).backup).toBeUndefined();
 
     const zero = buildConfigFromRows(rows(["backup.retentionDays", "0"]));
-    expect(zero.backup).toEqual({ retentionDays: 0, gameWeekly: true });
+    expect(zero.backup).toEqual({ retentionDays: 0 });
   });
 });
 

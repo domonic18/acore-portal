@@ -190,7 +190,6 @@ const configSchema = z.object({
   backup: z
     .object({
       retentionDays: z.coerce.number().int().min(0).default(30),
-      gameWeekly: z.boolean().default(true),
     })
     .optional(),
 });
@@ -323,11 +322,8 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       dkpUrl: flat["tools.dkpUrl"] ?? "https://webdkp.nfuwow.com",
     },
     backup:
-      (flat["backup.retentionDays"] ?? flat["backup.gameWeekly"])
-        ? {
-            retentionDays: flat["backup.retentionDays"] ?? "30",
-            gameWeekly: flat["backup.gameWeekly"] !== "false",
-          }
+      flat["backup.retentionDays"] !== undefined
+        ? { retentionDays: flat["backup.retentionDays"] ?? "30" }
         : undefined,
   };
 }

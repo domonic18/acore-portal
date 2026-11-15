@@ -26,7 +26,7 @@ const SITE_KEYS = [
 const CONTENT_KEYS = ["content.tocEnabled"];
 const TOOLS_KEYS = ["tools.rankBase", "tools.dkpUrl"];
 const COS_KEYS = ["cos.bucket", "cos.region", "cos.secretId", "cos.secretKey", "cos.cdnBase"];
-const BACKUP_KEYS = ["backup.retentionDays", "backup.gameWeekly"];
+const BACKUP_KEYS = ["backup.retentionDays"];
 const APPEARANCE_KEYS = [
   "appearance.logoUrl",
   "appearance.faviconUrl",

@@ -123,7 +123,5 @@ export type SettingsView = {
   backup: {
     /** 备份保留天数(0=只留当日) */
     retentionDays: number;
-    /** 游戏库周备份开关 */
-    gameWeekly: boolean;
   };
 };
