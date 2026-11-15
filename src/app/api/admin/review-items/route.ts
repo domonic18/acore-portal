@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { apiError, apiOk } from "@/server/http";
 import { requireApiAdmin } from "@/server/session-guard";
-import { listMigrationReviews } from "@/server/services/orders/admin";
+import { listMigrationReviews } from "@/server/services/orders/admin-queries";
 
 /** D3 复核清单列表(T062):?resolved=0|1|all(默认待复核)&page= */
 export async function GET(req: NextRequest) {

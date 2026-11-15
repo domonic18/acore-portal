@@ -78,49 +78,32 @@ export async function characterOwnedBy(accountId: number, guid: number): Promise
 }
 
 /**
- * 批量取「站点用户名 → 游戏角色名」映射(后台订单/用户列表展示用):
- * 一次 auth 查账号 + 一次 characters 查角色,避免逐行查库。
- * 键为大写用户名(AC 账号名约定),值按等级降序、同级 guid 升序。
+ * 批量取「角色 guid → 角色名」映射(后台订单列表按单展示目标角色用):
+ * 一次 characters 查表,避免逐行查库。
+ * 键是角色 guid(订单行 params 落定的目标角色),**不是**账号 ⇒
+ * 「本单买给了哪个角色」与「账号名下有哪些角色」是两回事,后者会列出无关角色。
+ * 角色已删除 ⇒ 该 guid 不在结果里,调用方自行降级展示。
  * 游戏库不可达 → GameDbError(调用方决定降级展示)。
  */
-export async function listCharacterNamesByUsernames(
-  usernames: string[],
-): Promise<Map<string, string[]>> {
-  const result = new Map<string, string[]>();
-  const unique = [...new Set(usernames.filter((u) => u.trim() !== ""))];
+export async function listCharacterNamesByGuids(
+  guids: number[],
+): Promise<Map<number, string>> {
+  const result = new Map<number, string>();
+  const unique = [...new Set(guids.filter((g) => Number.isInteger(g) && g > 0))];
   if (unique.length === 0) return result;
 
-  let accounts: { id: number; username: string }[];
-  try {
-    accounts = await authDb.findIdsByUsernames(unique);
-  } catch (err) {
-    console.error("[game-identity] resolve game accounts failed", err);
-    throw new GameDbError("游戏账号库不可用");
-  }
-  if (accounts.length === 0) return result;
-
-  let rows: { account: number; name: string }[];
+  let rows: { guid: number; name: string }[];
   try {
     rows = await (await getCharactersDb()).characters.findMany({
-      where: { account: { in: accounts.map((a) => a.id) } },
-      select: { account: true, name: true, level: true, guid: true },
-      orderBy: [{ level: "desc" }, { guid: "asc" }],
+      where: { guid: { in: unique } },
+      select: { guid: true, name: true },
     });
   } catch (err) {
-    console.error("[game-identity] list character names failed", err);
+    console.error("[game-identity] list character names by guids failed", err);
     throw new GameDbError("角色库不可用");
   }
 
-  const namesByAccount = new Map<number, string[]>();
-  for (const r of rows) {
-    const names = namesByAccount.get(r.account);
-    if (names) names.push(r.name);
-    else namesByAccount.set(r.account, [r.name]);
-  }
-  for (const a of accounts) {
-    const names = namesByAccount.get(a.id);
-    if (names && names.length > 0) result.set(a.username.toUpperCase(), names);
-  }
+  for (const r of rows) result.set(r.guid, r.name);
   return result;
 }
 

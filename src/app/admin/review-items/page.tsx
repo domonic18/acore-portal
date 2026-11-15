@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listMigrationReviews } from "@/server/services/orders/admin";
+import { listMigrationReviews } from "@/server/services/orders/admin-queries";
 import { ORDER_STATUS_LABEL, type OrderStatusValue } from "@/constants/shop";
 import { ReviewActions } from "@/components/admin/review-actions";
 import { Badge } from "@/components/ui/badge";
