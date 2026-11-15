@@ -8,7 +8,7 @@
 #
 # 用法:
 #   scripts/cron/backup-run.sh                              # 业务库(每日)
-#   BACKUP_TARGETS="wp-legacy" scripts/cron/backup-run.sh    # 存量库(每周)
+#   BACKUP_TARGETS="wp-legacy" scripts/cron/backup-run.sh    # 存量库(一次性归档:已冻结,不排期)
 #
 # 环境变量(均有缺省):
 #   BACKUP_MYSQL_CONTAINER  业务 MySQL 容器名
