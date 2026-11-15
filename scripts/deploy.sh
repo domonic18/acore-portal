@@ -9,7 +9,7 @@
 #        bash scripts/deploy.sh --env prod --build-local
 #
 # 语义(两模式完全一致):
-#   预检 → 取镜像 → 钉镜像 → 迁移先行 → 迁移台账断言
+#   预检 → 取镜像 → 钉镜像 → 迁移先行 → 迁移台账断言 → 挂载源断言
 #   → 只换 web → 健康检查 → 落状态 → 镜像清理;换容器后任一步失败自动回滚镜像。
 #
 # 两条根目录(**别混**):
@@ -307,6 +307,74 @@ assert_migration_ledger() {
   log "迁移台账一致"
 }
 
+# ---------------------------------------------------------------- 挂载源预检
+
+# compose 自己不校验 bind 挂载源:源路径若是**悬空符号链接**(指向已删除的目标),
+# 容器创建阶段直接失败(mkdir: file exists)⇒ 换容器失败 = 站点下线。
+# 2026-11-15 生产事故即此:workspace/wp-uploads 是指向已下线旧栈的悬空链接,
+# 新容器起不来、回滚也起不来,整站中断。
+# 故在换容器前逐个核对挂载源:悬空链接 / 非目录 ⇒ 中止发布(旧版本继续服务)。
+compose_bind_sources() {
+  local json
+  json="$("${COMPOSE[@]}" config --format json 2>/dev/null || true)"
+  [ -n "$json" ] || return 0
+  if command -v python3 >/dev/null 2>&1; then
+    printf '%s' "$json" | python3 -c '
+import json, sys
+cfg = json.load(sys.stdin)
+for name, svc in (cfg.get("services") or {}).items():
+    for vol in (svc.get("volumes") or []):
+        if isinstance(vol, dict) and vol.get("type") == "bind" and vol.get("source"):
+            print(name + "\t" + vol["source"] + "\t" + vol.get("target", ""))
+'
+  elif command -v node >/dev/null 2>&1; then
+    printf '%s' "$json" | node -e '
+let s = "";
+process.stdin.on("data", (d) => { s += d; }).on("end", () => {
+  const cfg = JSON.parse(s);
+  for (const [name, svc] of Object.entries(cfg.services || {})) {
+    for (const vol of svc.volumes || []) {
+      if (vol && vol.type === "bind" && vol.source) {
+        console.log([name, vol.source, vol.target || ""].join("\t"));
+      }
+    }
+  }
+});
+'
+  fi
+}
+
+assert_bind_mount_sources() {
+  log "挂载源预检"
+  local rows svc src target bad=0
+  rows="$(compose_bind_sources)"
+  if [ -z "$rows" ]; then
+    warn "未能解析 compose 挂载信息(缺 python3/node?),跳过挂载源预检"
+    return 0
+  fi
+  while IFS=$'\t' read -r svc src target; do
+    [ -n "$src" ] || continue
+    if [ -L "$src" ] && [ ! -e "$src" ]; then
+      printf '  ✗ %s:挂载源是悬空符号链接(目标已不存在)→ %s\n' "$svc" "$src" >&2
+      bad=1
+      continue
+    fi
+    if [ -e "$src" ] && [ ! -d "$src" ]; then
+      printf '  ✗ %s:挂载源不是目录 → %s\n' "$svc" "$src" >&2
+      bad=1
+      continue
+    fi
+    if [ ! -e "$src" ]; then
+      # 不存在:compose 会自动创建(不阻断);但若其父目录不存在,创建出来的属主/权限未必可用,故出声提示
+      printf '  ! %s:挂载源不存在(compose 将自动创建)→ %s\n' "$svc" "$src" >&2
+      continue
+    fi
+    printf '  ✓ %s:%s → %s\n' "$svc" "$src" "$target"
+  done <<< "$rows"
+  [ "$bad" = "0" ] || die "挂载源预检失败(见上):容器将起不来,已中止发布(旧版本继续服务)"
+  log "挂载源预检通过"
+}
+
 # ---------------------------------------------------------------- 部署动作
 
 wait_healthy() { # 超时秒
@@ -378,6 +446,9 @@ fi
 
 # 迁移台账断言:漏跑迁移 / 发布资产与镜像不同源,都在换容器前拦下
 assert_migration_ledger
+
+# 挂载源预检:挂载源不可用会让新容器起不来(等于下线),同样在换容器前拦下
+assert_bind_mount_sources
 
 # 只换 web:mysql/redis 的数据卷原地复用,绝不 down -v
 if ! WEB_IMAGE="$IMAGE_REF" "${COMPOSE[@]}" up -d --wait --no-deps --no-build web; then
