@@ -14,7 +14,7 @@ import {
   parseBackupObjectKey,
   type BackupManifestEntry,
 } from "../../scripts/cron/backup-lib";
-import { BACKUP_COS_PREFIX, BACKUP_TARGET } from "@/constants/backup";
+import { BACKUP_COS_PREFIX, BACKUP_EXCLUDE_TABLES, BACKUP_TARGET, BACKUP_TARGET_META } from "@/constants/backup";
 
 /**
  * 备份机制纯函数单测:对象命名 / 保留期筛选 / 清单合并 / 校验判据 / 告警卡片。
@@ -90,6 +90,48 @@ describe("保留期筛选", () => {
     expect(expiredBackupKeys(keys, 30, now)).toEqual([
       backupObjectKey(BACKUP_TARGET.wpLegacy, "20261001"),
     ]);
+  });
+
+  test("限定目标时只清该目标(日备的清理线不扫存量库归档)", () => {
+    const keys = [
+      backupObjectKey(BACKUP_TARGET.business, "20261001"),
+      backupObjectKey(BACKUP_TARGET.wpLegacy, "20261001"),
+    ];
+    expect(expiredBackupKeys(keys, 30, now, BACKUP_TARGET.business)).toEqual([
+      backupObjectKey(BACKUP_TARGET.business, "20261001"),
+    ]);
+    expect(expiredBackupKeys(keys, 30, now, BACKUP_TARGET.wpLegacy)).toEqual([
+      backupObjectKey(BACKUP_TARGET.wpLegacy, "20261001"),
+    ]);
+  });
+
+  test("存量库冻结归档:标记为永久保留,不参与清理", () => {
+    expect(BACKUP_TARGET_META[BACKUP_TARGET.wpLegacy].keepForever).toBe(true);
+    expect(BACKUP_TARGET_META[BACKUP_TARGET.business].keepForever).toBeUndefined();
+  });
+});
+
+describe("排除表(存量库的 WP 统计表不进备份)", () => {
+  test("排除清单与源库口径同源:排除表不算「dump 缺表」", () => {
+    const excluded = BACKUP_EXCLUDE_TABLES[BACKUP_TARGET.wpLegacy];
+    expect(excluded).toContain("wp_statistics_visitor");
+    expect(excluded).toContain("wp_statistics_visitor_relationships");
+    expect(excluded).toContain("wp_statistics_pages");
+
+    // 判据输入里的源表集合已剔除排除表 ⇒ dump 里没有它们也不算缺表
+    const sourceTables = ["wp_users", "wp_posts", ...excluded].filter(
+      (t) => !excluded.includes(t),
+    );
+    const r = judgeBackup({
+      ...OK_INPUT,
+      dumpTables: sourceTables,
+      sourceTables,
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  test("业务库不排除任何表", () => {
+    expect(BACKUP_EXCLUDE_TABLES[BACKUP_TARGET.business]).toEqual([]);
   });
 });
 
