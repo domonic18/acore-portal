@@ -11,14 +11,13 @@ import { debitLedger } from "@/server/services/shared/ledger";
 import { addToCart } from "@/server/services/shop/cart";
 import { checkoutCart } from "@/server/services/shop/checkout";
 import { driveOrderDelivery } from "@/server/services/shop/delivery";
+import { getAdminOrderDetail, listAdminOrders } from "@/server/services/orders/admin-queries";
 import {
   OrderAdminError,
-  getAdminOrderDetail,
-  listAdminOrders,
   redeliverOrder,
   refundOrder,
 } from "@/server/services/orders/admin";
-import { listCharacterNamesByUsernames } from "@/server/services/shared/game-identity";
+import { listCharacterNamesByGuids } from "@/server/services/shared/game-identity";
 import { adjustPoints } from "@/server/services/points/adjust";
 import { getAdminUserDetail, grantBadge } from "@/server/services/users-admin/admin";
 
@@ -54,7 +53,16 @@ async function makeGameUser(tag: string) {
       (guid, account, name, race, class, gender, level, map, zone, online, health)
     VALUES (${guid}, ${account.id}, ${charName}, 1, 4, 0, 60, 0, 1519, 0, 4200)
   `;
-  return { user, guid, charName };
+  return { user, guid, charName, accountId: account.id };
+}
+
+/** 给账号再挂一个角色(验证列表只显示本单目标角色,不是账号下全部角色) */
+async function addCharacter(accountId: number, guid: number, charName: string) {
+  await prisma.$executeRaw`
+    INSERT INTO acore_characters.characters
+      (guid, account, name, race, class, gender, level, map, zone, online, health)
+    VALUES (${guid}, ${accountId}, ${charName}, 1, 4, 0, 60, 0, 1519, 0, 4200)
+  `;
 }
 
 async function makeServiceProduct(sku: string) {
@@ -161,9 +169,13 @@ afterAll(async () => {
   await prisma.product.deleteMany({ where: { slug: { startsWith: SLUG_PREFIX } } });
   await prisma.productCategory.deleteMany({ where: { slug: CATEGORY_SLUG } });
   if (gameUsernames.length > 0) {
+    // 按账号清角色(同账号可能挂多个角色,不能只按 guid 区间清)
     await prisma.$executeRaw`
       DELETE FROM acore_characters.characters
-      WHERE guid BETWEEN ${GUID_BASE} AND ${GUID_BASE + 9}
+      WHERE account IN (
+        SELECT id FROM acore_auth.account
+        WHERE username IN (${Prisma.join(gameUsernames.map((u) => u.toUpperCase()))})
+      )
     `;
     await prisma.$executeRaw`
       DELETE FROM acore_auth.account
@@ -302,9 +314,13 @@ describe("US5 订单/用户后台服务(T046)", () => {
     });
   });
 
-  it("订单列表:用户列带游戏角色名(批量取;无角色的账号只显示账号名)", async () => {
-    const { user, charName } = await makeGameUser("charname");
+  it("订单列表:用户列只显示本单目标角色(同账号的其他角色不列出)", async () => {
+    const { user, guid, charName, accountId } = await makeGameUser("charname");
     usernames.push(user.username);
+    // 同账号再挂一个角色:实现若按账号取角色,列表会把它也列出来
+    const otherGuid = guid + 500000;
+    await addCharacter(accountId, otherGuid, `${charName}B`);
+
     const product = await makeServiceProduct("char-change-gender");
     const orderNo = `M2T${RUN.toUpperCase()}C1`;
     await prisma.order.create({
@@ -321,6 +337,50 @@ describe("US5 订单/用户后台服务(T046)", () => {
               name: "性别转换",
               unitPrice: 100,
               qty: 1,
+              params: { characterGuid: guid },
+            },
+          ],
+        },
+      },
+      select: { id: true },
+    });
+
+    // 共享层:角色 guid → 角色名
+    const names = await listCharacterNamesByGuids([guid]);
+    expect(names.get(guid)).toBe(charName);
+
+    // 列表页 DTO:只带本单目标角色
+    const { orders } = await listAdminOrders({ page: 1 });
+    const row = orders.find((o) => o.username === user.username);
+    expect(row).toBeDefined();
+    expect(row!.characters).toEqual([{ guid, name: charName }]);
+    // 同账号的另一个角色不在本单目标里 ⇒ 不列出
+    expect(row!.characters.some((c) => c.guid === otherGuid)).toBe(false);
+    // 用户名不重复展示(昵称与用户名相同的历史数据)
+    expect(row!.username).toBe(user.username);
+
+    // 与任何角色无关的 guid 查不到 ⇒ 空映射(不编造名字)
+    expect((await listCharacterNamesByGuids([otherGuid + 1])).size).toBe(0);
+  });
+
+  it("订单列表:订单行没有角色 guid 时不展示角色(降级为空,不回落成账号全部角色)", async () => {
+    const { user } = await makeGameUser("nocharorder");
+    usernames.push(user.username);
+    const product = await makeServiceProduct("char-change-faction");
+    await prisma.order.create({
+      data: {
+        orderNo: `M2T${RUN.toUpperCase()}C2`,
+        userId: user.id,
+        status: "pending",
+        pointCost: 100,
+        items: {
+          create: [
+            {
+              productId: product.id,
+              sku: "char-change-faction",
+              name: "阵营转换",
+              unitPrice: 100,
+              qty: 1,
               params: {},
             },
           ],
@@ -329,23 +389,10 @@ describe("US5 订单/用户后台服务(T046)", () => {
       select: { id: true },
     });
 
-    // 共享层:站点用户名 → 游戏角色名(键为大写)
-    const names = await listCharacterNamesByUsernames([user.username]);
-    expect(names.get(user.username.toUpperCase())).toEqual([charName]);
-
-    // 列表页 DTO:该单带角色名
     const { orders } = await listAdminOrders({ page: 1 });
     const row = orders.find((o) => o.username === user.username);
     expect(row).toBeDefined();
-    expect(row!.characterNames).toEqual([charName]);
-    // 用户名不重复展示(昵称与用户名相同的历史数据)
-    expect(row!.username).toBe(user.username);
-
-    // 无游戏账号的站点用户:降级为角色名空数组(只显示账号)
-    const siteOnly = await makePointsUser("rich", "nochar");
-    usernames.push(siteOnly.username);
-    const empty = await listCharacterNamesByUsernames([siteOnly.username]);
-    expect(empty.get(siteOnly.username.toUpperCase())).toBeUndefined();
+    expect(row!.characters).toEqual([]);
   });
 
   it("积分手调:扣至负余额拦截(402 语义 insufficient_balance),零写入", async () => {

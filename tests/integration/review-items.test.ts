@@ -1,11 +1,8 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import {
-  listMigrationReviews,
-  OrderAdminError,
-  resolveMigrationReview,
-} from "@/server/services/orders/admin";
+import { listMigrationReviews } from "@/server/services/orders/admin-queries";
+import { OrderAdminError, resolveMigrationReview } from "@/server/services/orders/admin";
 
 /**
  * T062 US6 D3 复核清单服务集成(api-admin 契约;data-model §2.9):

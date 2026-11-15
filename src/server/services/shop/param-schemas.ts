@@ -102,3 +102,13 @@ export function normalizeCartParams(params: CartParams): string {
     .sort(([a], [b]) => a.localeCompare(b));
   return JSON.stringify(Object.fromEntries(clean));
 }
+
+/**
+ * 从落库的 order_item.params 读角色 guid(展示侧用):
+ * params 是 Json 列,形状由本文件的参数矩阵定义;结构不符一律 null(不抛)。
+ */
+export function readCharacterGuid(params: unknown): number | null {
+  if (typeof params !== "object" || params === null) return null;
+  const guid = (params as { characterGuid?: unknown }).characterGuid;
+  return typeof guid === "number" && Number.isInteger(guid) && guid > 0 ? guid : null;
+}

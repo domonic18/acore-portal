@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listAdminOrders } from "@/server/services/orders/admin";
+import { listAdminOrders } from "@/server/services/orders/admin-queries";
 import { ORDER_STATUS, ORDER_STATUS_LABEL, ORDER_STATUS_TONE } from "@/constants/shop";
 import { AdminPager } from "@/components/ui/pagination";
 import { Badge } from "@/components/ui/badge";
@@ -84,9 +84,9 @@ export default async function AdminOrdersPage({
                 </Td>
                 <Td className="text-[#dcebf7]">
                   {o.username}
-                  {o.characterNames.length > 0 && (
+                  {o.characters.length > 0 && (
                     <span className="ml-1 text-xs text-[#6482a3]">
-                      （{o.characterNames.join("、")}）
+                      （{o.characters.map((c) => c.name ?? `#${c.guid}`).join("、")}）
                     </span>
                   )}
                 </Td>

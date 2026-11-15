@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getAdminOrderDetail } from "@/server/services/orders/admin";
+import { getAdminOrderDetail } from "@/server/services/orders/admin-queries";
 import {
   DELIVERY_STATUS_LABEL,
   ORDER_STATUS_LABEL,
