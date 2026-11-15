@@ -1,6 +1,8 @@
 import "server-only";
 import { probeCos } from "@/lib/cos/probe";
 import { probeGameDb } from "@/lib/db/connection-probe";
+import { formatDateTime } from "@/lib/format";
+import { sendFeishuCard } from "@/server/services/shared/feishu-card";
 import { rawExecuteCommand } from "@/server/soap/client";
 
 /**
@@ -61,4 +63,44 @@ export async function testCosConnection(params: {
   const startedAt = Date.now();
   const result = await probeCos(params);
   return { ...result, latencyMs: Date.now() - startedAt };
+}
+
+/**
+ * 飞书告警通道探测(候选 Webhook 地址与签名密钥):真发一张测试卡片——
+ * 飞书通道只有「实际收到卡片」才算连通,握手类探测证明不了签名与地址都对。
+ * 通道未启用开关时照样能测(测的是通道本身);开关状态由界面另行提示。
+ */
+export async function testFeishuAlertChannel(params: {
+  webhookUrl: string;
+  webhookSecret: string;
+}): Promise<ConnectionTestResult> {
+  const startedAt = Date.now();
+  if (!params.webhookUrl) {
+    return { ok: false, message: "未配置 Webhook 地址,无法测试", latencyMs: 0 };
+  }
+  const result = await sendFeishuCard(params.webhookUrl, params.webhookSecret || null, {
+    title: "告警通道测试",
+    template: "green",
+    fields: [
+      { label: "来源", value: "门户后台 · 设置 › 通知" },
+      { label: "时间", value: formatDateTime(new Date()) },
+    ],
+    body: "收到本卡片即说明 **Webhook 地址** 与 **签名密钥** 可用。",
+    note: "通道测试 · 老克塔门户",
+  });
+  const latencyMs = Date.now() - startedAt;
+  if (result.ok) {
+    return { ok: true, message: "测试卡片已发送(请到飞书群确认收到)", latencyMs };
+  }
+  const why =
+    result.reason === "not_configured"
+      ? "未配置 Webhook 地址"
+      : result.reason === "rejected"
+        ? "飞书拒绝了请求(Webhook 地址或签名密钥有误)"
+        : "无法连接飞书";
+  return {
+    ok: false,
+    message: result.detail ? `${why}:${result.detail}` : why,
+    latencyMs,
+  };
 }

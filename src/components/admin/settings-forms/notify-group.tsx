@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { errorMessage, requestJson } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
 import type { SettingsView } from "@/lib/settings-types";
 import { CheckRow, GroupSection, SaveBar, SecretInput, TextRow, useGroupSave } from "./common";
 
@@ -10,6 +12,30 @@ export function NotifyGroup({ view }: { view: SettingsView["notify"] }) {
   const [feishuUrl, setFeishuUrl] = useState("");
   const [feishuSecret, setFeishuSecret] = useState("");
   const { busy, saved, error, save } = useGroupSave();
+
+  const [probeBusy, setProbeBusy] = useState(false);
+  const [probe, setProbe] = useState<{ ok: boolean; text: string } | null>(null);
+
+  /** 测试告警通道(用未保存的候选值,不落库):真发一张测试卡片 */
+  async function testChannel() {
+    setProbeBusy(true);
+    setProbe(null);
+    try {
+      const body = await requestJson<{ ok?: boolean; message?: string }>(
+        "/api/admin/settings/test/notify",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ webhookUrl: feishuUrl, webhookSecret: feishuSecret }),
+        },
+      );
+      setProbe({ ok: !!body.ok, text: body.message ?? (body.ok ? "发送成功" : "发送失败") });
+    } catch (err) {
+      setProbe({ ok: false, text: errorMessage(err) });
+    } finally {
+      setProbeBusy(false);
+    }
+  }
 
   return (
     <GroupSection
@@ -24,8 +50,8 @@ export function NotifyGroup({ view }: { view: SettingsView["notify"] }) {
         onChange={setThreshold}
       />
       <CheckRow
-        label="启用飞书发货告警"
-        hint="订单发货失败时推卡片到飞书群"
+        label="启用飞书告警通道"
+        hint="发货失败、备份失败与心跳缺失都走这一个通道"
         testid="settings-field-notify-feishuAlertEnabled"
         checked={feishuEnabled}
         onChange={setFeishuEnabled}
@@ -48,6 +74,30 @@ export function NotifyGroup({ view }: { view: SettingsView["notify"] }) {
           onChange={setFeishuSecret}
         />
       </label>
+      <div className="flex items-center gap-3">
+        <Button
+          data-testid="settings-test-notify-run"
+          type="button"
+          variant="secondary"
+          disabled={probeBusy || (feishuUrl === "" && !view.feishuWebhookConfigured)}
+          onClick={() => {
+            void testChannel();
+          }}
+        >
+          {probeBusy ? "测试中…" : "测试通道"}
+        </Button>
+        {probe ? (
+          <span
+            data-testid="settings-test-notify-result"
+            className={`text-sm ${probe.ok ? "text-[#6ee7b7]" : "text-[#eda9a9]"}`}
+          >
+            {probe.text}
+          </span>
+        ) : null}
+        {!feishuEnabled ? (
+          <span className="text-sm text-[#93b2ce]">告警开关当前关闭,通道仍可测试</span>
+        ) : null}
+      </div>
       <SaveBar
         group="notify"
         busy={busy}
