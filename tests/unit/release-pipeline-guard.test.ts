@@ -18,6 +18,9 @@ import path from "node:path";
  *     缓存的承载物是**常驻 builder 的本地层缓存**,不是 GitHub 缓存服务:
  *     `cache-to: type=gha` 会把数 GB 构建缓存推去 GitHub,写层阶段实测卡死
  *     20 分钟 ⇒ 步骤超时、作业判红,而镜像早已推完(2026-11-15 实测)。
+ *  ④ **换容器前必须断言挂载源可用**——compose 不校验 bind 挂载源:源路径是悬空
+ *     符号链接时,容器创建阶段直接 `mkdir: file exists` ⇒ 新容器起不来、
+ *     回滚也起不来 ⇒ 整站中断(2026-11-15 生产事故)。
  */
 
 const ROOT = process.cwd();
@@ -123,6 +126,32 @@ describe("发布链路守卫 · 远端发布不依附 SSH 会话", () => {
       if (/^\s*(env:|DEPLOY_\w+:)/.test(l)) envLines.push(l);
     }
     expect(envLines.join("\n")).not.toMatch(/secrets\./);
+  });
+});
+
+describe("发布链路守卫 · 换容器前断言挂载源可用", () => {
+  const deploy = read("scripts/deploy.sh");
+
+  it("换容器前调用挂载源断言", () => {
+    expect(deploy).toMatch(/assert_bind_mount_sources/);
+    // 调用点必须在换容器之前(定义在函数体里,故取行首调用)
+    const callIdx = deploy.search(/\nassert_bind_mount_sources\n/);
+    // 换容器命令在回滚函数里也有一处 ⇒ 取最后一次(主流程那次)
+    const swapIdx = deploy.lastIndexOf("up -d --wait --no-deps --no-build web");
+    expect(callIdx).toBeGreaterThan(-1);
+    expect(swapIdx).toBeGreaterThan(-1);
+    expect(callIdx).toBeLessThan(swapIdx);
+  });
+
+  it("prod compose 不挂已下线旧栈的目录(悬空链接会让容器起不来)", () => {
+    const block = stripComments(composeService("docker/docker-compose.prod.yml", "web"));
+    expect(block).not.toMatch(/wp-uploads/);
+  });
+
+  it("宿主备份脚本随发布资产下发(宿主与镜像同 commit)", () => {
+    const release = read("scripts/ci/remote-release.sh");
+    expect(release).toContain("scripts/cron/backup-run.sh");
+    expect(release).toContain("scripts/cron/backup-heartbeat-run.sh");
   });
 });
 

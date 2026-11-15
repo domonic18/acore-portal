@@ -396,6 +396,25 @@ test.describe.serial("admin 设置页", () => {
     expect(backupRow?.value).toBe("9");
   });
 
+  test("飞书告警通道:坏地址回显失败且不落库(候选值只测不存)", async ({ page }) => {
+    await login(page, "m1admin", "adminpass123");
+    await page.goto("/admin/settings");
+
+    // 填一个连不通的地址 → 真发卡片失败 → 失败摘要回显(不 5xx)
+    await page.getByTestId("settings-field-notify-feishuWebhookUrl").fill("http://127.0.0.1:1/hook");
+    const run = page.getByTestId("settings-test-notify-run");
+    await expect(run).toBeEnabled();
+    await run.click();
+    await expect(page.getByTestId("settings-test-notify-result")).toContainText("无法连接飞书");
+
+    // 测试连接用候选值、不落库
+    const row = await prisma.systemConfig.findUnique({
+      where: { key: "notify.feishuWebhookUrl" },
+      select: { value: true },
+    });
+    expect(row?.value ?? "").not.toContain("127.0.0.1:1");
+  });
+
   test("测试发信:Mailpit 收到;坏配置热生效后回显失败摘要", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
     await page.goto("/admin/settings");

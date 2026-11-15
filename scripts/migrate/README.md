@@ -63,8 +63,10 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml \
 - **uploads 目录必须显式给**:`--uploads-dir <dir>`。`cos-upload.mjs` 的默认值是**开发机路径**,
   生产环境不存在 → 媒体组第一步直接退出,整条链断在开头。编排器在媒体组开跑前会先校验该目录
   存在,缺失即以退出码 2 拦停并提示怎么给。
-  - 生产容器内路径:旧站 uploads 目录以**只读**挂载进 web 容器(prod compose 的 `/wp-uploads`),
-    宿主侧用符号链接指向旧栈的 `wp-content/uploads`,仓库里不写死绝对路径。
+  - **生产 compose 不再挂旧站目录**:旧 WP 栈已于 2026-11-14 下线,其 uploads 目录不再存在;
+    保留挂载会让宿主上的符号链接悬空 ⇒ 容器起不来(2026-11-15 生产事故根因之一)。
+    媒体组是一次性动作(切换时已跑完);确需重跑时,用一次性 compose 覆盖文件把旧 uploads
+    目录挂进容器(源路径须真实存在),再给 `--uploads-dir /wp-uploads`。
 - **目标库须有管理员**:`media_asset.uploaded_by` 是非空外键,而迁移链只导 `role=user` 的存量用户,
   **链本身不建管理员**。用 `MIGRATE_ADMIN_USERNAME` / `MIGRATE_ADMIN_PASSWORD` 让编排器代建
   (口令只从 env 读,建完在后台改密);或提前在目标库注册后提权。

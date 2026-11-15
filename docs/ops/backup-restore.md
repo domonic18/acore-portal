@@ -87,6 +87,9 @@ BACKUP_TARGETS=wp-legacy /home/ubuntu/acore-portal/scripts/cron/backup-run.sh
 - 心跳检查独立于备份脚本:备份脚本「成功」不等于「按时跑过」——crontab 没挂、容器起不来、
   脚本被改坏,都可能让备份静默不跑;心跳读清单里的最新完成时刻,超 26 小时判缺失。
 - 退出码:0 成功;1 失败;2 心跳缺失(与对账脚本的「有差异」同义)。
+- **宿主脚本随发布下发**:`scripts/cron/backup-run.sh` / `backup-heartbeat-run.sh` 属发布资产
+  (`scripts/ci/remote-release.sh` 的 `ASSETS`),每次发布同步到部署根 ⇒ 宿主编排脚本与
+  镜像内的 `backup.ts` 同 commit。**禁手工改宿主那份**(改了就与镜像里的排除清单漂移)。
 - 容器名可用环境变量覆盖:`BACKUP_MYSQL_CONTAINER` / `BACKUP_WEB_CONTAINER` /
   `BACKUP_TARGETS` / `BACKUP_WORK_DIR` / `BACKUP_LEGACY_SCHEMA`。
 - **docker 访问方式由脚本自探**:先用 `docker`,不通再试 `sudo -n docker`(免密),
@@ -99,6 +102,10 @@ BACKUP_TARGETS=wp-legacy /home/ubuntu/acore-portal/scripts/cron/backup-run.sh
 
 - 通道配置存 `system_config` 的 `notify.*`(`feishuAlertEnabled` / `feishuWebhookUrl` /
   `feishuWebhookSecret`),后台「设置」页填,保存即热生效;密钥只写不读。
+- **配置完先「测试通道」验一遍**:后台通知组有「测试通道」按钮,真发一张测试卡片
+  (握手类探测证明不了签名与地址都对),成功会提示去飞书群确认收到卡片。
+  测试走**未保存的候选值**,只测不存;失败按业务结果回显摘要(飞书拒绝码会原样带出),
+  审计只记通道名与成败,不记地址与密钥。
 - 三类卡片:备份失败(红)、心跳缺失(橙)、备份完成(绿,兼作每日心跳)。
 - **降级口径**:通道未启用/未配置/故障时,备份流程照常执行,只记日志——
   告警坏掉绝不能连带备份失败(与商城发货通道同一口径)。
@@ -188,7 +195,9 @@ SELECT (SELECT COUNT(*) FROM acore_portal.user),
 | 日期 | 场景 | 结果 |
 |---|---|---|
 | 2026-11-15 | 本机演练(测试库 dump → COS → 一次性容器恢复) | 通过:40 张表、7 个锚点表行数与备份清单逐项一致 |
-| 待填 | 生产首次备份 + 非生产机恢复演练 | — |
+| 2026-11-15 | **对生产桶**做恢复演练(Mac mini + 生产桶凭据,非生产机) | 业务库通过:40 张表 / 7 锚点(user 5715、shop_order 1924、order_item 3087、product 100、article 104、media_asset 15287、point_transaction 10442) |
+| 2026-11-15 | **对生产桶**恢复演练(存量库目标) | 通过:109 张表 / 5 锚点(wp_users 6398、wp_posts 5644、wp_options 1440、wp_postmeta 80135、wp_usermeta 131094) |
+| 待填 | 生产环境上的恢复演练(在生产机或专用恢复机跑) | — |
 
 演练判据(任一不满足即失败,退出码 1):
 恢复后基础表数 = 清单记录的表数,且各锚点表行数与清单逐项一致——
@@ -197,3 +206,16 @@ SELECT (SELECT COUNT(*) FROM acore_portal.user),
 演练前提(**备份制品桶必须是私有读**):备份对象含用户口令散列等敏感数据,
 落在公开读的桶里等于裸奔。落地前确认 `cos.bucket` 指向的桶 ACL 为 private;
 公开读的桶(测试环境用的那种)只可用于流程自检,不得承载正式备份。
+
+### 生产侧落地现状(2026-11-15)
+
+- **产物**:业务库 `backups/db/lokta-business-20261115.sql.gz`(压缩 2,440,581 B /
+  解压 13,038,848 B / 40 表);存量库 `backups/db/lokta-wp-legacy-20261115.sql.gz`
+  (压缩 9,011,636 B / 解压 71,167,947 B / 109 表,已剔除三张统计表);
+  台账 `backups/manifest.json`。
+- **保留期**:后台 `backup.retentionDays` 默认 30(存量库 `keepForever`,不参与清理)。
+- **桶生命周期**:已写入 `backup-business-expire` 规则(前缀 `backups/db/lokta-business-`,
+  365 天后删除);存量库归档与台账不设规则。
+- **crontab**:业务库每日 03:30、心跳每日 04:30(日志在运维账号家目录 `logs/acore-backup/`);
+  存量库一次性手工备已跑过,不排期。
+- **告警通道未配置**——飞书通道未启用,备份流程照常执行(只记日志),符合「告警降级不影响备份」口径。
