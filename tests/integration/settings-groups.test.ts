@@ -16,7 +16,7 @@ const ADMIN_ID = 3n;
 
 const TOOLS_KEYS = ["tools.rankBase", "tools.dkpUrl"];
 const COS_KEYS = ["cos.bucket", "cos.region", "cos.secretId", "cos.secretKey", "cos.cdnBase"];
-const BACKUP_KEYS = ["backup.retentionDays", "backup.gameWeekly"];
+const BACKUP_KEYS = ["backup.retentionDays"];
 const ALL_KEYS = [...TOOLS_KEYS, ...COS_KEYS, ...BACKUP_KEYS];
 
 let backup: { key: string; value: string }[] = [];
@@ -131,13 +131,9 @@ describe("cos 组(对象存储)", () => {
 
 describe("backup 组(备份策略)", () => {
   it("保存 → 落库热生效;负数 422 零写入", async () => {
-    const result = await saveGroup(
-      "backup",
-      { retentionDays: 7, gameWeekly: false },
-      { id: ADMIN_ID },
-    );
+    const result = await saveGroup("backup", { retentionDays: 7 }, { id: ADMIN_ID });
     expect(result).toEqual({ ok: true });
-    expect((await getConfig()).backup).toEqual({ retentionDays: 7, gameWeekly: false });
+    expect((await getConfig()).backup).toEqual({ retentionDays: 7 });
 
     const bad = await saveGroup("backup", { retentionDays: -1 }, { id: ADMIN_ID });
     expect(bad).toMatchObject({ ok: false, code: "VALIDATION_FAILED" });

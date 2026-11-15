@@ -118,7 +118,6 @@ export async function getSettingsView(): Promise<SettingsView> {
     },
     backup: {
       retentionDays: config.backup?.retentionDays ?? 30,
-      gameWeekly: config.backup?.gameWeekly ?? true,
     },
   };
 }
