@@ -174,6 +174,38 @@ test.describe("US2 商城与购物车(T026)", () => {
     await expect(page.getByText("购物车还是空的")).toBeVisible();
   });
 
+  test("记住登录 → access 过期后接口调用自动续期,加购不失败(2026-11-16)", async ({
+    page,
+  }) => {
+    // 勾「记住登录」登录
+    await page.goto("/login");
+    await page.getByLabel("用户名").fill("legacyuser");
+    await page.getByLabel("密码", { exact: true }).fill("oldpass123");
+    await page.getByLabel(/记住登录/).check();
+    await page.getByRole("button", { name: "登录" }).click();
+    await expect(page).toHaveURL(/\/account\/overview$/);
+
+    await page.goto(`/shop/${ITEM_SLUG}`);
+    await page.getByLabel("选择角色").selectOption("10");
+
+    // 模拟 access cookie 过期被浏览器丢弃:只剩 refresh cookie
+    const ctx = page.context();
+    const refresh = (await ctx.cookies()).find((c) => c.name === "ap_refresh");
+    expect(refresh).toBeDefined();
+    await ctx.clearCookies();
+    await ctx.addCookies([refresh!]);
+
+    // 页面停留超 2h 后的接口调用:客户端先续期再重放,不该把用户踢回登录页
+    await page.getByRole("button", { name: "加入购物车" }).click();
+    await expect(page.getByRole("status")).toContainText("已加入购物车");
+    await expect(page).not.toHaveURL(/\/login/);
+
+    // 清理:不留购物车残留(后续用例按 qty=1 断言小计)
+    await page.goto("/cart");
+    await page.getByRole("button", { name: "移除" }).click();
+    await expect(page.getByText("购物车还是空的")).toBeVisible();
+  });
+
   test("售罄商品:详情可见但按钮禁购", async ({ page }) => {
     await login(page);
     await page.goto(`/shop/${SOLDOUT_SLUG}`);
