@@ -846,6 +846,10 @@ model PageViewEvent {
   id        BigInt   @id @default(autoincrement())
   path      String   @db.VarChar(256)
   visitorId String   @map("visitor_id") @db.Char(64)
+  // 看板「网站在线/最近访问」展示口径(2026-11-17):原始 IP 与登录账号;
+  // 仅后台看板可见,仍受 90 天惰性清理约束,无外键(观测数据,账号删除不受牵连)
+  ip        String?  @db.VarChar(45)
+  userId    BigInt?  @map("user_id")
   createdAt DateTime @default(now()) @map("created_at") @db.DateTime(3)
 
   @@index([createdAt])

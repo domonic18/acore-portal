@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { apiError, apiOk, parseBody } from "@/server/http";
 import { normalizePagePath, recordPageView } from "@/server/services/stats/page-view";
+import { getApiSession } from "@/server/session-guard";
 import { getClientIp } from "@/server/services/shared/client-ip";
 import { throttleByClientIp } from "@/server/services/shared/ip-throttle";
 import { getConfig } from "@/lib/config";
@@ -10,7 +11,9 @@ import { pageviewIpKey } from "@/constants/security";
 /**
  * 页面访问上报(自建流量统计,替代 umami):匿名公开路由。
  * path 仅站内相对路径(服务端再校验截断);IP 轻限速 30 次/分;
- * 只落 path 与访客哈希,不留原始 IP/UA/referer。
+ * 记录 path、访客哈希(UV 口径)与原始 IP、登录账号(看板「网站在线/最近访问」
+ * 展示口径,2026-11-17;原始 IP 90 天后随惰性清理删除,仅后台可见)。
+ * 会话解析失败按游客处理,不阻断上报。
  */
 const bodySchema = z.object({ path: z.string() });
 
@@ -46,6 +49,15 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  await recordPageView(path, ip);
+  // 账号识别:会话 JWT + Redis 吊销态校验,失败按游客(观测数据不抛)
+  let userId: bigint | null = null;
+  try {
+    const session = await getApiSession(req);
+    if (session) userId = BigInt(session.userId);
+  } catch {
+    userId = null;
+  }
+
+  await recordPageView(path, ip, userId);
   return apiOk({ ok: true });
 }
