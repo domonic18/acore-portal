@@ -12,8 +12,11 @@ import { resolveE2ERedisUrl } from "./redis-url";
  *    → admin 看板「页面访问」区块可见(自建统计替代 umami);
  * ③ 看板整页(2026-11-07 重构后布局):ADMIN_NAV「看板」入口 + KPI 概览行 +
  *    流量类面板(趋势/来源/画像/热门页面/时段/搜索引擎/搜索词/蜘蛛)+
+ *    实时面板(网站在线/最近访问,2026-11-17)+
  *    业务类面板(漏斗/销量/页面访问/404/文章)+ 区间切换 + 手动刷新。
- * redis 404 键跑前全清、自家键用后 hdel。
+ * ④ 实时面板闭环:游客+登录先后访问前台 → beacon 落 IP/账号 →
+ *    「网站在线」出现该账号(登录按账号去重)、「最近访问」出现账号与路径。
+ * redis 404/在线键族跑前全清、用后清理。
  */
 const prisma = new PrismaClient();
 const RUN = Date.now().toString(36);
@@ -37,19 +40,26 @@ async function login(page: Page, username: string, password: string) {
   await expect(page).toHaveURL(/\/account\/overview$/);
 }
 
-test.beforeAll(async () => {
-  // 404 榜聚合读近 7 日 redis hash(48h EXPIRE),库重置清不掉——
-  // 先清历史键,否则跨 run 残留(draft 404 探访等)挤占 Top 10 致闭环断言翻车
+async function scanDelPattern(pattern: string) {
   let cursor = "0";
   do {
-    const [next, keys] = await redis.scan(cursor, "MATCH", "stats:404:*", "COUNT", 100);
+    const [next, keys] = await redis.scan(cursor, "MATCH", pattern, "COUNT", 100);
     cursor = next;
     if (keys.length > 0) await redis.del(...keys);
   } while (cursor !== "0");
+}
+
+test.beforeAll(async () => {
+  // 404 榜聚合读近 7 日 redis hash(48h EXPIRE),库重置清不掉——
+  // 先清历史键,否则跨 run 残留(draft 404 探访等)挤占 Top 10 致闭环断言翻车
+  await scanDelPattern("stats:404:*");
+  // 在线滑窗键(5 分钟 TTL)同理清场,保证「在线人数」从 0 起算
+  await scanDelPattern("stats:online:*");
 });
 
 test.afterAll(async () => {
   await redis.hdel(todayKey(), MISSING_PATH);
+  await scanDelPattern("stats:online:*");
   await prisma.pageViewEvent.deleteMany({ where: { path: "/forum" } });
   redis.disconnect();
   await prisma.$disconnect();
@@ -130,7 +140,7 @@ test.describe("US4 统计看板(T027)", () => {
       await expect(page.getByTestId(testid)).toBeVisible();
     }
 
-    // 流量类面板 + 业务类面板
+    // 流量类面板 + 实时面板 + 业务类面板
     for (const testid of [
       "stats-article-top",
       "stats-product-sales",
@@ -145,6 +155,8 @@ test.describe("US4 统计看板(T027)", () => {
       "stats-search-engines",
       "stats-search-terms",
       "stats-spider",
+      "stats-online",
+      "stats-recent-visits",
     ]) {
       await expect(page.getByTestId(testid)).toBeVisible();
     }
@@ -175,5 +187,40 @@ test.describe("US4 统计看板(T027)", () => {
       "aria-pressed",
       "true",
     );
+  });
+
+  test("实时面板闭环:游客+登录访问 → 在线人数/账号/IP 与最近访问可见", async ({
+    page,
+  }) => {
+    // 游客访问(未登录)
+    const guestBeacon = page.waitForResponse(
+      (r) => r.url().includes("/api/track/pageview") && r.request().method() === "POST",
+    );
+    await page.goto("/forum");
+    expect((await guestBeacon).status()).toBe(200);
+
+    // 登录后再次访问:beacon 带会话,落 userId + IP
+    await login(page, "m1admin", "adminpass123");
+    const userBeacon = page.waitForResponse(
+      (r) => r.url().includes("/api/track/pageview") && r.request().method() === "POST",
+    );
+    await page.goto("/forum");
+    expect((await userBeacon).status()).toBe(200);
+
+    await page.goto("/admin/stats");
+
+    // 网站在线:登录按账号去重 → 面板出现 m1admin;计数 ≥ 1
+    const online = page.getByTestId("stats-online");
+    await expect(online).toBeVisible();
+    await expect(online).toContainText("m1admin");
+    await expect(online).toContainText("人在线");
+    const count = Number(await page.getByTestId("stats-online-count").innerText());
+    expect(count).toBeGreaterThanOrEqual(1);
+
+    // 最近访问:最新条目含账号与路径
+    const recent = page.getByTestId("stats-recent-visits");
+    await expect(recent).toBeVisible();
+    await expect(recent).toContainText("m1admin");
+    await expect(recent).toContainText("/forum");
   });
 });
