@@ -84,4 +84,45 @@ test.describe("US1 登录 MVP", () => {
     const cookies = await page.context().cookies();
     expect(cookies.find((c) => c.name === "ap_refresh")).toBeDefined();
   });
+
+  test("记住登录 → access 过期后自动续期,不再要求重新登录", async ({
+    page,
+  }) => {
+    await page.goto("/login");
+    await page.getByLabel("用户名").fill("bcryptuser");
+    await page.getByLabel("密码", { exact: true }).fill("oldpass456");
+    await page.getByLabel(/记住登录/).check();
+    await page.getByRole("button", { name: "登录" }).click();
+    await expect(page).toHaveURL(/\/account\/overview$/);
+
+    // 模拟 access cookie 2h 过期被浏览器丢弃:只剩 refresh cookie
+    const ctx = page.context();
+    const refresh = (await ctx.cookies()).find((c) => c.name === "ap_refresh");
+    expect(refresh).toBeDefined();
+    await ctx.clearCookies();
+    await ctx.addCookies([refresh!]);
+
+    await page.goto("/account/overview");
+    await expect(page).toHaveURL(/\/account\/overview$/); // 没被踢回登录页
+    await expect(
+      page.getByRole("heading", { name: "账号总览" }),
+    ).toBeVisible();
+    // 续期成功后重新下发 access cookie
+    const after = await ctx.cookies();
+    expect(after.find((c) => c.name === "ap_access")).toBeDefined();
+  });
+
+  test("未勾记住登录 → access 过期后仍回登录页", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByLabel("用户名").fill("bcryptuser");
+    await page.getByLabel("密码", { exact: true }).fill("oldpass456");
+    await page.getByRole("button", { name: "登录" }).click();
+    await expect(page).toHaveURL(/\/account\/overview$/);
+
+    const ctx = page.context();
+    await ctx.clearCookies(); // access 过期且无 refresh 可续
+
+    await page.goto("/account/overview");
+    await expect(page).toHaveURL(/\/login\?next=/);
+  });
 });
