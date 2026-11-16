@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { STATS_RANGE_KEYS, STATS_RANGE_LABEL, type StatsRangeKey } from "@/constants/stats";
+import { splitSiteUrl, decodeUrlForDisplay } from "@/lib/url-path";
 import { ColumnChart, DonutChart, TrendChart, type TrendPoint } from "./charts";
 import { Panel, ShareList, SubTitle } from "./parts";
 
@@ -142,13 +143,13 @@ export function StatsAudiencePanel({
   );
 }
 
-/** 热门页面 Top(存档浏览量排行) */
+/** 热门页面 Top(存档浏览量排行;标题为主行,小号路径为次行,#用户反馈 2026-11-17) */
 export function StatsTopPagesPanel({
   topPages,
   archiveLastDate,
   className,
 }: {
-  topPages: { uri: string; type: string; hits: number; share: number }[];
+  topPages: { uri: string; title: string | null; type: string; hits: number; share: number }[];
   archiveLastDate: string | null;
   className?: string;
 }) {
@@ -159,25 +160,35 @@ export function StatsTopPagesPanel({
       title="热门页面 Top"
       testid="stats-top-pages"
       actions={<ArchiveBadge lastDate={archiveLastDate} />}
-      hint="按区间内浏览量排序(存档口径,URI 为旧站路径)。"
+      hint="按区间内浏览量排序;标题按旧站文章/页面/分类与新站页面解析,解析不到的显示路径。"
     >
       {topPages.length === 0 ? (
         <p className="text-[13px] text-[#6482a3]">暂无数据。</p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2.5">
           {topPages.map((p, i) => (
-            <li key={`${p.uri}-${p.type}`} className="flex items-center gap-2.5">
-              <span className="w-5 shrink-0 text-right text-[12px] text-[#6482a3]">{i + 1}</span>
-              <code className="min-w-0 flex-1 truncate font-mono text-[12px] text-[#dcebf7]">
-                {p.uri}
-              </code>
+            <li key={`${p.uri}-${p.type}`} className="flex items-start gap-2.5">
+              <span className="w-5 shrink-0 pt-0.5 text-right text-[12px] text-[#6482a3]">
+                {i + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] text-[#dcebf7]" title={p.title ?? p.uri}>
+                  {p.title ?? p.uri}
+                </div>
+                <code
+                  className="block truncate font-mono text-[11px] leading-4 text-[#4f6a8a]"
+                  title={p.uri}
+                >
+                  {p.uri}
+                </code>
+              </div>
               <span className="hidden shrink-0 rounded bg-[#1d3252] px-1.5 py-0.5 text-[10.5px] text-[#93b2ce] sm:inline">
                 {p.type}
               </span>
-              <span className="w-16 shrink-0 text-right font-mono text-[12.5px] text-[#dcebf7]">
+              <span className="w-16 shrink-0 pt-0.5 text-right font-mono text-[12.5px] text-[#dcebf7]">
                 {p.hits.toLocaleString("zh-CN")}
               </span>
-              <span className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-[#1d3252]">
+              <span className="mt-1.5 h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-[#1d3252]">
                 <span
                   className="block h-full rounded-full bg-[#6fb7e0]/70"
                   style={{ width: `${Math.max(3, (p.hits / max) * 100)}%` }}
@@ -315,13 +326,40 @@ function spiderTone(code: string): "ok" | "warn" | "danger" | "muted" {
   return "muted";
 }
 
-/** 百度蜘蛛抓取(状态码分布 + 404 URL) */
+/** 蜘蛛 URL 展示:域名前缀灰显 + 路径主显(完整 URL 截断后可见部分只剩域名,#用户反馈 2026-11-17) */
+function SpiderUrlRow({ url, count, max }: { url: string; count: number; max: number }) {
+  const { origin, path } = splitSiteUrl(url);
+  const display = decodeUrlForDisplay(path);
+  return (
+    <li className="flex items-center gap-2.5">
+      <code
+        className="min-w-0 flex-1 truncate font-mono text-[12px] text-[#dcebf7]"
+        title={url}
+      >
+        {origin && <span className="text-[#4f6a8a]">{origin}</span>}
+        {display || "/"}
+      </code>
+      <span className="w-14 shrink-0 text-right font-mono text-[12.5px] text-[#dcebf7]">
+        {count.toLocaleString("zh-CN")}
+      </span>
+      <span className="h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-[#1d3252]">
+        <span
+          className="block h-full rounded-full bg-[#6fb7e0]/70"
+          style={{ width: `${Math.max(3, (count / max) * 100)}%` }}
+        />
+      </span>
+    </li>
+  );
+}
+
+/** 百度蜘蛛抓取(状态码分布 + 抓取 URL Top + 404 路径) */
 export function StatsSpiderPanel({
   spider,
   className,
 }: {
   spider: {
     statuses: { code: string; count: number }[];
+    topUrls: { url: string; count: number }[];
     top404: { url: string; count: number }[];
     lastCrawl: string | null;
   };
@@ -332,7 +370,7 @@ export function StatsSpiderPanel({
       className={className}
       title="百度蜘蛛抓取"
       testid="stats-spider"
-      hint="来自百度 SEO 插件的蜘蛛日志;抓取量按同 URL/IP 聚合次数计。"
+      hint="来自百度 SEO 插件的蜘蛛日志;URL 只显示路径(域名前缀灰显),抓取量按同 URL/IP 聚合次数计。"
     >
       {spider.statuses.length === 0 ? (
         <p className="text-[13px] text-[#6482a3]">暂无数据。</p>
@@ -348,13 +386,34 @@ export function StatsSpiderPanel({
           {spider.lastCrawl && (
             <p className="text-[11.5px] text-[#6482a3]">最近抓取:{spider.lastCrawl}</p>
           )}
+          {spider.topUrls.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <SubTitle>抓取 URL Top {spider.topUrls.length}</SubTitle>
+              <ul className="flex flex-col gap-2">
+                {spider.topUrls.map((r) => (
+                  <SpiderUrlRow
+                    key={r.url}
+                    url={r.url}
+                    count={r.count}
+                    max={Math.max(1, ...spider.topUrls.map((x) => x.count))}
+                  />
+                ))}
+              </ul>
+            </div>
+          )}
           {spider.top404.length > 0 && (
             <div className="flex flex-col gap-2">
-              <SubTitle>蜘蛛命中的 404 URL</SubTitle>
-              <ShareList
-                items={spider.top404.map((r) => ({ name: r.url, count: r.count }))}
-                mono
-              />
+              <SubTitle>蜘蛛命中的 404 路径</SubTitle>
+              <ul className="flex flex-col gap-2">
+                {spider.top404.map((r) => (
+                  <SpiderUrlRow
+                    key={r.url}
+                    url={r.url}
+                    count={r.count}
+                    max={Math.max(1, ...spider.top404.map((x) => x.count))}
+                  />
+                ))}
+              </ul>
             </div>
           )}
         </>

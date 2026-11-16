@@ -19,6 +19,7 @@ import {
 } from "./archive";
 import { getPageViewDaily, type PageViewDailyPoint } from "./page-view";
 import { getTrafficTrend } from "./traffic";
+import { resolvePageTitles } from "./page-titles";
 import { beijingDateKey } from "@/lib/format";
 
 /**
@@ -62,7 +63,7 @@ export type StatsOverview = {
   audience: ArchiveAudience;
   acquisition: ArchiveAcquisition;
   hourly: ArchiveHourly[];
-  topPages: (ArchiveTopPage & { share: number })[];
+  topPages: (ArchiveTopPage & { share: number; title: string | null })[];
   archive: { available: boolean; lastDate: string | null };
 };
 
@@ -250,11 +251,25 @@ export async function getStatsOverview(range: StatsRangeKey): Promise<StatsOverv
     audience,
     acquisition,
     hourly,
-    topPages: topPages.map((p) => ({
-      ...p,
-      share:
-        totalTopHits > 0 ? Number(((p.hits / totalTopHits) * 100).toFixed(1)) : 0,
-    })),
+    topPages: await attachTopPageTitles(
+      topPages.map((p) => ({
+        ...p,
+        share:
+          totalTopHits > 0 ? Number(((p.hits / totalTopHits) * 100).toFixed(1)) : 0,
+      })),
+    ),
     archive: { available: lastDate !== null, lastDate },
   };
+}
+
+/** 热门页面附标题(解析失败回落 null,面板显示原 URI;解析挂了不拖垮看板) */
+async function attachTopPageTitles<T extends { uri: string }>(
+  pages: T[],
+): Promise<(T & { title: string | null })[]> {
+  try {
+    const titles = await resolvePageTitles(pages.map((p) => p.uri));
+    return pages.map((p) => ({ ...p, title: titles.get(p.uri) ?? null }));
+  } catch {
+    return pages.map((p) => ({ ...p, title: null }));
+  }
 }

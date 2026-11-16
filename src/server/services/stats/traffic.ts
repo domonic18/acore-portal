@@ -62,25 +62,36 @@ export async function getTrafficTrend(opts?: {
 
 export type SpiderSummary = {
   statuses: { code: string; count: number }[];
+  topUrls: { url: string; count: number }[];
   top404: { url: string; count: number }[];
   lastCrawl: string | null;
 };
 
-/** 百度蜘蛛抓取:状态码抓取量 + 404 URL Top N + 最近抓取日(since 可选时间窗) */
+/** 百度蜘蛛抓取:状态码抓取量 + 抓取 URL Top N + 404 URL Top N + 最近抓取日(since 可选时间窗) */
 export async function getSpiderSummary(opts?: {
+  topUrlLimit?: number;
   top404Limit?: number;
   since?: Date;
 }): Promise<SpiderSummary> {
+  const topUrlLimit = Math.max(1, Math.floor(opts?.topUrlLimit ?? DEFAULT_TOP));
   const top404Limit = Math.max(1, Math.floor(opts?.top404Limit ?? DEFAULT_TOP));
   const cutoff = opts?.since ?? START_OF_TIME;
 
-  const [statusRows, top404Rows, lastRows] = await Promise.all([
+  const [statusRows, topUrlRows, top404Rows, lastRows] = await Promise.all([
     prisma.$queryRaw<{ code: Num; c: Num }[]>`
       SELECT type AS code, COALESCE(SUM(num), 0) AS c
       FROM wp_legacy.wp_baiduseo_zhizhu
       WHERE \`time\` >= ${cutoff}
       GROUP BY type
       ORDER BY c DESC
+    `,
+    prisma.$queryRaw<{ url: string; c: Num }[]>`
+      SELECT address AS url, COALESCE(SUM(num), 0) AS c
+      FROM wp_legacy.wp_baiduseo_zhizhu
+      WHERE \`time\` >= ${cutoff}
+      GROUP BY address
+      ORDER BY c DESC
+      LIMIT ${topUrlLimit}
     `,
     prisma.$queryRaw<{ url: string; c: Num }[]>`
       SELECT address AS url, COALESCE(SUM(num), 0) AS c
@@ -102,6 +113,7 @@ export async function getSpiderSummary(opts?: {
       code: String(toNumber(r.code)),
       count: toNumber(r.c),
     })),
+    topUrls: topUrlRows.map((r) => ({ url: r.url, count: toNumber(r.c) })),
     top404: top404Rows.map((r) => ({ url: r.url, count: toNumber(r.c) })),
     lastCrawl: lastRows[0]?.t ?? null,
   };
