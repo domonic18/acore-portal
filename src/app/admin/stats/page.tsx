@@ -4,6 +4,10 @@ import { getDashboard } from "@/server/services/stats/dashboard";
 import { getProductSales } from "@/server/services/stats/sales";
 import { getSpiderSummary } from "@/server/services/stats/traffic";
 import { getStatsOverview } from "@/server/services/stats/overview";
+import {
+  getOnlineVisitors,
+  getRecentPageViews,
+} from "@/server/services/stats/page-view";
 import { parseStatsRange, STATS_RANGE_DAYS } from "@/constants/stats";
 import { StatsRefresh } from "@/components/admin/stats-refresh";
 import { KpiCard } from "@/components/admin/stats/kpi";
@@ -24,6 +28,10 @@ import {
   StatsPageViewPanel,
   StatsSalesPanel,
 } from "@/components/admin/stats/panels-business";
+import {
+  StatsOnlinePanel,
+  StatsRecentVisitsPanel,
+} from "@/components/admin/stats/panels-live";
 
 /**
  * 统计看板(2026-11-07 重构:仿 WP Statistics 后台,按行业看板布局重做):
@@ -51,7 +59,7 @@ export default async function AdminStatsPage({
     ? new Date(Date.now() - rangeDays * DAY_MS)
     : new Date(0);
 
-  const [overview, data, sales, spider] = await Promise.all([
+  const [overview, data, sales, spider, online, recentVisits] = await Promise.all([
     getStatsOverview(range),
     getDashboard(),
     getProductSales({
@@ -61,9 +69,17 @@ export default async function AdminStatsPage({
     }),
     getSpiderSummary({ since: rangeStart }).catch(() => ({
       statuses: [],
+      topUrls: [],
       top404: [],
       lastCrawl: null,
     })),
+    getOnlineVisitors().catch(() => ({
+      total: 0,
+      userCount: 0,
+      guestCount: 0,
+      rows: [],
+    })),
+    getRecentPageViews().catch(() => []),
   ]);
 
   const pvSpark = overview.timeline.map((p) => p.pv);
@@ -142,6 +158,9 @@ export default async function AdminStatsPage({
           range={overview.range}
           archiveLastDate={overview.archive.lastDate}
         />
+
+        <StatsOnlinePanel className="xl:col-span-6" online={online} />
+        <StatsRecentVisitsPanel className="xl:col-span-6" recent={recentVisits} />
 
         <StatsAcquisitionPanel
           className="xl:col-span-5"

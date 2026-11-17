@@ -8,6 +8,9 @@ import {
   PAGE_VIEW_RETENTION_DAYS,
   PAGE_VIEW_DASHBOARD_WINDOW_HOURS,
   PAGE_VIEW_EXCLUDED_PREFIXES,
+  PAGE_VIEW_ONLINE_WINDOW_SECONDS,
+  PAGE_VIEW_ONLINE_REDIS_PREFIX,
+  PAGE_VIEW_RECENT_LIMIT,
 } from "@/constants/page-view";
 
 /**
@@ -15,7 +18,9 @@ import {
  * 前台客户端 beacon 上报 path → 本服务落 page_view_event 表,
  * 看板按时间窗聚合 PV/UV 与页面访问占比。
  *
- * 访客标识:IP + 当日盐哈希(不留原始 IP;同一 IP 当日视为同一访客,跨日重新计数)。
+ * 访客标识:IP + 当日盐哈希(UV 统计口径,同一 IP 当日视为同一访客,跨日重新计数);
+ * 原始 IP 与登录账号另列存储,仅供后台「网站在线/最近访问」面板展示
+ * (2026-11-17 口径变化,经用户确认;仍受 90 天惰性清理约束)。
  * 写入失败静默(观测数据,不得影响前台页面)。
  */
 
@@ -78,16 +83,24 @@ export async function prunePageViews(retentionDays = PAGE_VIEW_RETENTION_DAYS): 
 export async function recordPageView(
   rawPath: string,
   ip: string | null,
+  userId: bigint | null = null,
 ): Promise<boolean> {
   const path = normalizePagePath(rawPath);
   if (!path) return false;
 
   try {
     await prisma.pageViewEvent.create({
-      data: { path, visitorId: visitorIdFromIp(ip) },
+      data: { path, visitorId: visitorIdFromIp(ip), ip, userId },
     });
   } catch {
     return false;
+  }
+
+  // 在线滑窗:逐访客键 5 分钟 TTL 自动过期(失败不影响计数)
+  try {
+    await touchOnlineVisitor({ path, ip, userId });
+  } catch {
+    // 在线标记失败不影响埋点
   }
 
   // 当日首次写入触发一次超期清理(SET NX 保证一天只清一次)
@@ -140,6 +153,170 @@ export async function getPageViewSummary(
 }
 
 export type PageViewDailyPoint = { date: string; pv: number; uv: number };
+
+/**
+ * 「网站在线」:登录访客按账号去重、游客按 IP 去重(无 IP 游客并入共享键)。
+ * 原始 IP 与账号只在看板展示;UV 口径的 visitor_id 哈希保持原样。
+ */
+export type OnlineVisitorInput = {
+  path: string;
+  ip: string | null;
+  userId: bigint | null;
+};
+
+/** 在线访客的 Redis 键尾(账号优先于 IP——同一人登录后不再算两个在线) */
+export function onlineVisitorKeySuffix(v: OnlineVisitorInput): string {
+  if (v.userId != null) return `u:${v.userId}`;
+  return `g:${v.ip ?? "unknown"}`;
+}
+
+type OnlineVisitorPayload = {
+  path: string;
+  ip: string | null;
+  userId: string | null;
+  ts: number;
+};
+
+/** 在线访客 JSON 载荷(编码/解码与看板读取同形,便于单测) */
+export function encodeOnlineVisitor(v: OnlineVisitorInput, now = Date.now()): string {
+  return JSON.stringify({
+    path: v.path,
+    ip: v.ip,
+    userId: v.userId == null ? null : v.userId.toString(),
+    ts: now,
+  });
+}
+
+export function decodeOnlineVisitor(raw: string): OnlineVisitorPayload | null {
+  try {
+    const v = JSON.parse(raw) as Partial<OnlineVisitorPayload>;
+    if (typeof v.path !== "string" || typeof v.ts !== "number") return null;
+    return {
+      path: v.path,
+      ip: typeof v.ip === "string" ? v.ip : null,
+      userId: typeof v.userId === "string" ? v.userId : null,
+      ts: v.ts,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** 写在线滑窗键(5 分钟 TTL 自动过期);失败由调用方静默 */
+async function touchOnlineVisitor(v: OnlineVisitorInput): Promise<void> {
+  const key = `${PAGE_VIEW_ONLINE_REDIS_PREFIX}:${onlineVisitorKeySuffix(v)}`;
+  await redis.set(key, encodeOnlineVisitor(v), "EX", PAGE_VIEW_ONLINE_WINDOW_SECONDS);
+}
+
+export type OnlineVisitorRow = {
+  /** 展示名:登录账号名,游客为 null(面板显示「游客」) */
+  username: string | null;
+  path: string;
+  ip: string | null;
+  isUser: boolean;
+};
+
+export type OnlineSummary = {
+  total: number;
+  userCount: number;
+  guestCount: number;
+  rows: OnlineVisitorRow[];
+};
+
+/** 看板「网站在线」:滑窗内全部访客 + 账号名批量回查(读失败降级空) */
+export async function getOnlineVisitors(): Promise<OnlineSummary> {
+  const empty: OnlineSummary = { total: 0, userCount: 0, guestCount: 0, rows: [] };
+  let cursor = "0";
+  const entries: { suffix: string; payload: OnlineVisitorPayload }[] = [];
+  do {
+    const [next, keys] = await redis.scan(
+      cursor,
+      "MATCH",
+      `${PAGE_VIEW_ONLINE_REDIS_PREFIX}:*`,
+      "COUNT",
+      100,
+    );
+    cursor = next;
+    for (const key of keys) {
+      const raw = await redis.get(key);
+      if (!raw) continue;
+      const payload = decodeOnlineVisitor(raw);
+      if (payload) {
+        entries.push({ suffix: key.slice(PAGE_VIEW_ONLINE_REDIS_PREFIX.length + 1), payload });
+      }
+    }
+  } while (cursor !== "0");
+
+  if (entries.length === 0) return empty;
+
+  const userIds = [
+    ...new Set(
+      entries.flatMap((e) => (e.suffix.startsWith("u:") ? [e.suffix.slice(2)] : [])),
+    ),
+  ];
+  const names = new Map<string, string>();
+  if (userIds.length > 0) {
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds.map((id) => BigInt(id)) } },
+      select: { id: true, username: true },
+    });
+    for (const u of users) names.set(u.id.toString(), u.username);
+  }
+
+  const rows = entries
+    .sort((a, b) => b.payload.ts - a.payload.ts)
+    .map((e) => {
+      const isUser = e.suffix.startsWith("u:");
+      return {
+        username: isUser ? (names.get(e.suffix.slice(2)) ?? null) : null,
+        path: e.payload.path,
+        ip: e.payload.ip,
+        isUser,
+      };
+    });
+  return {
+    total: rows.length,
+    userCount: rows.filter((r) => r.isUser).length,
+    guestCount: rows.filter((r) => !r.isUser).length,
+    rows,
+  };
+}
+
+export type RecentVisitRow = {
+  createdAt: Date;
+  path: string;
+  ip: string | null;
+  username: string | null;
+};
+
+/** 看板「最近访问」:最新 N 条页面访问,账号名批量回查(读失败降级空) */
+export async function getRecentPageViews(
+  limit = PAGE_VIEW_RECENT_LIMIT,
+): Promise<RecentVisitRow[]> {
+  const events = await prisma.pageViewEvent.findMany({
+    orderBy: { id: "desc" },
+    take: Math.max(1, Math.floor(limit)),
+    select: { createdAt: true, path: true, ip: true, userId: true },
+  });
+  if (events.length === 0) return [];
+
+  const userIds = [...new Set(events.flatMap((e) => (e.userId ? [e.userId] : [])))];
+  const names = new Map<string, string>();
+  if (userIds.length > 0) {
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, username: true },
+    });
+    for (const u of users) names.set(u.id.toString(), u.username);
+  }
+
+  return events.map((e) => ({
+    createdAt: e.createdAt,
+    path: e.path,
+    ip: e.ip,
+    username: e.userId ? (names.get(e.userId.toString()) ?? null) : null,
+  }));
+}
 
 /**
  * 自建埋点日序列(看板趋势与存档日汇总合并成一条连续时间线):
