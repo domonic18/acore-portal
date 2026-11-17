@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS `assistant_usage` (
   `failures` INT NOT NULL DEFAULT 0,
   `prompt_tokens` INT NOT NULL DEFAULT 0,
   `completion_tokens` INT NOT NULL DEFAULT 0,
-  `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `assistant_usage_day_key` (`day`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -20,6 +20,6 @@ CREATE TABLE IF NOT EXISTS `assistant_usage_keyword` (
   `keyword` VARCHAR(32) NOT NULL,
   `count` INT NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `assistant_usage_keyword_day_keyword` (`day`, `keyword`),
-  KEY `assistant_usage_keyword_day_count` (`day`, `count`)
+  UNIQUE KEY `assistant_usage_keyword_day_keyword_key` (`day`, `keyword`),
+  KEY `assistant_usage_keyword_day_count_idx` (`day`, `count`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
