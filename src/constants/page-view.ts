@@ -11,3 +11,13 @@ export const PAGE_VIEW_EXCLUDED_PREFIXES = ["/admin", "/wp-admin"] as const;
 
 /** 看板区块统计窗口(小时) */
 export const PAGE_VIEW_DASHBOARD_WINDOW_HOURS = 24;
+
+/**
+ * 「网站在线」口径(2026-11-17 看板改造):近 N 秒内有页面访问即算在线,
+ * Redis 滑窗键逐访客 TTL 自动过期,键值含最后页面/IP/账号供看板展示。
+ */
+export const PAGE_VIEW_ONLINE_WINDOW_SECONDS = 300;
+export const PAGE_VIEW_ONLINE_REDIS_PREFIX = "stats:online";
+
+/** 「最近访问」面板条数 */
+export const PAGE_VIEW_RECENT_LIMIT = 20;

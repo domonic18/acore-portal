@@ -2,13 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   normalizePagePath,
   visitorIdFromIp,
+  onlineVisitorKeySuffix,
+  encodeOnlineVisitor,
+  decodeOnlineVisitor,
 } from "@/server/services/stats/page-view";
 import { PAGE_VIEW_PATH_MAX } from "@/constants/page-view";
 
 /**
  * 页面访问采集纯函数(替代 umami 的自建统计):
  * 访客标识 IP+日盐哈希(同日同 IP 同值/跨日重新计数/不留原始 IP);
- * 路径规范化:站内相对路径、去查询串、截断、排除后台路径。
+ * 路径规范化:站内相对路径、去查询串、截断、排除后台路径;
+ * 在线滑窗键(2026-11-17):登录按账号去重、游客按 IP 去重、JSON 载荷往返无损。
  */
 
 describe("visitorIdFromIp 访客标识", () => {
@@ -64,5 +68,52 @@ describe("normalizePagePath 路径规范化", () => {
     expect(normalizePagePath("/admin/stats")).toBeNull();
     expect(normalizePagePath("/wp-admin")).toBeNull();
     expect(normalizePagePath("/administrator")).toBe("/administrator");
+  });
+});
+
+describe("onlineVisitorKeySuffix 在线键去重口径", () => {
+  it("登录访客按 userId:同一账号换 IP/多端仍是同一个键", () => {
+    const uid = 42n;
+    expect(onlineVisitorKeySuffix({ path: "/forum", ip: "1.1.1.1", userId: uid })).toBe("u:42");
+    expect(onlineVisitorKeySuffix({ path: "/shop", ip: "2.2.2.2", userId: uid })).toBe("u:42");
+  });
+
+  it("游客按 IP 去重;无 IP 并入共享 unknown 键", () => {
+    expect(onlineVisitorKeySuffix({ path: "/news", ip: "3.3.3.3", userId: null })).toBe("g:3.3.3.3");
+    expect(onlineVisitorKeySuffix({ path: "/news", ip: null, userId: null })).toBe("g:unknown");
+  });
+});
+
+describe("在线访客 JSON 载荷编码/解码", () => {
+  it("往返无损:BigInt userId 序列化为字符串", () => {
+    const encoded = encodeOnlineVisitor({ path: "/post/abc", ip: "1.2.3.4", userId: 7n }, 1234);
+    expect(decodeOnlineVisitor(encoded)).toEqual({
+      path: "/post/abc",
+      ip: "1.2.3.4",
+      userId: "7",
+      ts: 1234,
+    });
+  });
+
+  it("游客载荷:ip/userId 均为 null 仍可解码", () => {
+    const encoded = encodeOnlineVisitor({ path: "/", ip: null, userId: null }, 5);
+    expect(decodeOnlineVisitor(encoded)).toEqual({
+      path: "/",
+      ip: null,
+      userId: null,
+      ts: 5,
+    });
+  });
+
+  it("坏载荷回落 null:非 JSON/缺 path/缺 ts/ip 非字符串归 null", () => {
+    expect(decodeOnlineVisitor("not-json")).toBeNull();
+    expect(decodeOnlineVisitor(JSON.stringify({ ts: 1 }))).toBeNull();
+    expect(decodeOnlineVisitor(JSON.stringify({ path: "/a" }))).toBeNull();
+    expect(decodeOnlineVisitor(JSON.stringify({ path: "/a", ts: 1, ip: 9 }))).toEqual({
+      path: "/a",
+      ip: null,
+      userId: null,
+      ts: 1,
+    });
   });
 });

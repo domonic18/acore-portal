@@ -16,10 +16,7 @@ export async function POST(req: NextRequest) {
   const session = await getApiSession(req);
   if (session) {
     await revokeSession(session.userId, session.jti);
-    await revokeRefreshToken(
-      session.userId,
-      req.cookies.get(SESSION.REFRESH_COOKIE)?.value,
-    );
+    await revokeRefreshToken(req.cookies.get(SESSION.REFRESH_COOKIE)?.value);
   }
 
   const res = NextResponse.json({ ok: true });
