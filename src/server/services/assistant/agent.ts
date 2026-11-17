@@ -5,11 +5,11 @@ import { interrupt } from "@langchain/langgraph";
 import { createDeepAgent, type DeepAgent } from "deepagents";
 import { z } from "zod";
 
-import { getConfig } from "@/lib/config";
 import { MysqlCheckpointSaver } from "./checkpointer/mysql-saver";
 import { createChatModel } from "./model-factory";
 import { ASSISTANT_SYSTEM_PROMPT } from "./prompt";
 import { searchSiteTool } from "./search-tool";
+import { resolveAiModel } from "@/server/services/shared/ai-models/resolver";
 
 // checkpointer 无进程态(serde 内建),模块级单例随 agent 复用
 const checkpointer = new MysqlCheckpointSaver();
@@ -27,15 +27,16 @@ const askUserTool = tool(
   },
 );
 
-// agent 组装含模型配置(provider/baseUrl/model),后台改配置后按 key 重建;globalThis 防热重载多实例
+// agent 组装含模型条目状态,后台改绑定/停用后按 key 重建;globalThis 防热重载多实例
 const g = globalThis as typeof globalThis & {
   __assistantAgent?: { key: string; agent: DeepAgent };
 };
 
-/** 组装助手 Agent;llm 通道三件不齐返回 null(调用方降级「助手暂不可用」) */
+/** 组装助手 Agent;chat 绑定解析不出启用条目返回 null(调用方降级「助手暂不可用」) */
 export async function getAssistantAgent(): Promise<DeepAgent | null> {
-  const { llm } = await getConfig();
-  const key = [llm.provider, llm.baseUrl, llm.model].join("|");
+  const resolved = await resolveAiModel("chat");
+  const key = resolved ? `${resolved.id}|${resolved.protocol}|${resolved.baseUrl ?? ""}|${resolved.modelId}` : "";
+  if (!resolved) return null;
   if (g.__assistantAgent?.key === key) return g.__assistantAgent.agent;
   const model = await createChatModel();
   if (!model) return null;

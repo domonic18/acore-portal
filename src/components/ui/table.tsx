@@ -46,12 +46,16 @@ export function Th({
 export function Tr({
   className = "",
   children,
+  ...rest
 }: {
   className?: string;
   children: React.ReactNode;
-}) {
+} & React.HTMLAttributes<HTMLTableRowElement>) {
   return (
-    <tr className={`border-b border-[#22385a]/40 transition last:border-b-0 hover:bg-[#16283f] ${className}`}>
+    <tr
+      {...rest}
+      className={`border-b border-[#22385a]/40 transition last:border-b-0 hover:bg-[#16283f] ${className}`}
+    >
       {children}
     </tr>
   );

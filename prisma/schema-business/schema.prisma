@@ -946,3 +946,47 @@ model AssistantUsageKeyword {
   @@index([day, count])
   @@map("assistant_usage_keyword")
 }
+
+/// AI 模型条目(LLM 通道重构,照 aitech-hub 形态):一行 = 一个可调用模型端点,
+/// openai 兼容 / anthropic 原生双协议;roles 为可服务角色数组(constants/ai-models)。
+/// apiKey 明文落库、API 层只写不读(规则 12 secret 口径);last_test_* 由「测试」动作回写
+model AiModel {
+  id                Int       @id @default(autoincrement())
+  name              String    @db.VarChar(100)
+  provider          String    @db.VarChar(50) // 自由串(预设下拉 + 其他)
+  protocol          String    @db.VarChar(20) // AI_PROTOCOLS: openai | anthropic
+  baseUrl           String?   @map("base_url") @db.VarChar(500) // 空 = SDK 默认端点
+  modelId           String    @map("model_id") @db.VarChar(100)
+  apiKey            String?   @map("api_key") @db.VarChar(500) // 空提交 = 保留现值;视图只回 apiKeyConfigured
+  roles             Json
+  enabled           Boolean   @default(true)
+  timeoutSec        Int       @default(120) @map("timeout_sec")
+  lastTestedAt      DateTime? @map("last_tested_at") @db.DateTime(3)
+  lastTestStatus    String?   @map("last_test_status") @db.VarChar(10) // ok | fail
+  lastTestError     String?   @map("last_test_error") @db.VarChar(500)
+  lastTestLatencyMs Int?      @map("last_test_latency_ms")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+
+  primaryBindings AiRoleBinding[] @relation("AiRoleBindingPrimary")
+  backupBindings  AiRoleBinding[] @relation("AiRoleBindingBackup")
+
+  @@map("ai_model")
+}
+
+/// AI 角色绑定(role 自然主键,一行一角色):primary/backup 按 enabled 静态选边,
+/// 非运行时故障切换;daily_max 仅 chat 绑定消费,0=不限额(沿用 llm.dailyQuota 语义)
+model AiRoleBinding {
+  role      String   @id @db.VarChar(20) // AI_MODEL_ROLES: chat | embedding
+  primaryId Int?     @map("primary_id")
+  backupId  Int?     @map("backup_id")
+  dailyMax  Int      @default(20) @map("daily_max")
+  updatedAt DateTime @updatedAt @map("updated_at") @db.DateTime(3)
+
+  primary AiModel? @relation("AiRoleBindingPrimary", fields: [primaryId], references: [id], onDelete: SetNull)
+  backup  AiModel? @relation("AiRoleBindingBackup", fields: [backupId], references: [id], onDelete: SetNull)
+
+  @@index([primaryId])
+  @@index([backupId])
+  @@map("ai_role_binding")
+}

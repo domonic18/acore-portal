@@ -1,10 +1,11 @@
 import "server-only";
 
-import { getConfig, getEmbeddingConfig } from "@/lib/config";
+import { resolveAiModel } from "@/server/services/shared/ai-models/resolver";
 
 /**
- * embedding 客户端(openai 协议 /embeddings,经 system_config llm.embedding.* 配置)。
- * 通道未配置 = 语义检索关闭(getEmbeddingTexts 返回 null,调用方降级纯关键词,不报错);
+ * embedding 客户端(openai 协议 /embeddings,经 ai_model/ai_role_binding 专表配置,
+ * LLM 通道重构前为 system_config llm.embedding.*)。绑定未配置 = 语义检索关闭
+ * (getEmbeddingTexts 返回 null,调用方降级纯关键词,不报错);
  * 通道故障 = EmbeddingError(调用方 catch 后同口径降级)。
  */
 
@@ -23,9 +24,13 @@ const EMBED_TIMEOUT_MS = 15_000;
 /** 单文本截断(token 上限由模型定,按字符保守截断;索引文本与查询共用) */
 const EMBED_MAX_CHARS = 2000;
 
-/** 语义检索是否可用(配置齐备即视为可用;可用性以实际调用成败兜底) */
+/**
+ * 语义检索是否可用:embedding 绑定解析出启用的 openai 协议条目才算可用
+ * (anthropic 无 embedding 端点;可用性以实际调用成败兜底)。
+ */
 export async function isSemanticSearchEnabled(): Promise<boolean> {
-  return getEmbeddingConfig(await getConfig()) !== null;
+  const resolved = await resolveAiModel("embedding");
+  return resolved !== null && resolved.protocol === "openai" && resolved.apiKey !== null;
 }
 
 /**
@@ -34,9 +39,10 @@ export async function isSemanticSearchEnabled(): Promise<boolean> {
  */
 export async function getEmbeddingTexts(texts: string[]): Promise<number[][] | null> {
   if (texts.length === 0) return [];
-  const config = getEmbeddingConfig(await getConfig());
-  if (!config) return null;
+  const resolved = await resolveAiModel("embedding");
+  if (!resolved || resolved.protocol !== "openai" || !resolved.apiKey) return null;
 
+  const config = { baseUrl: resolved.baseUrl, model: resolved.modelId, apiKey: resolved.apiKey };
   const out: number[][] = [];
   for (let i = 0; i < texts.length; i += EMBED_BATCH_SIZE) {
     const batch = texts.slice(i, i + EMBED_BATCH_SIZE).map((t) => t.slice(0, EMBED_MAX_CHARS));
@@ -46,12 +52,13 @@ export async function getEmbeddingTexts(texts: string[]): Promise<number[][] | n
 }
 
 async function embedBatch(
-  config: { baseUrl: string; model: string; apiKey: string },
+  config: { baseUrl: string | null; model: string; apiKey: string },
   batch: string[],
 ): Promise<number[][]> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), EMBED_TIMEOUT_MS);
   try {
+    if (!config.baseUrl) throw new EmbeddingError("Base URL 未配置");
     const res = await fetch(`${config.baseUrl.replace(/\/$/, "")}/embeddings`, {
       method: "POST",
       headers: {

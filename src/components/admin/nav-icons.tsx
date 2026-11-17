@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   BarChart3,
+  Bot,
   ClipboardCheck,
   Coins,
   FileText,
@@ -34,6 +35,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   receipt: Receipt,
   coins: Coins,
   ticket: Ticket,
+  bot: Bot,
   newspaper: Newspaper,
   "file-text": FileText,
   image: Image,

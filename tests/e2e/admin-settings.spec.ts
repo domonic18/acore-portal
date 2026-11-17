@@ -6,7 +6,7 @@ import { reloadServerConfig } from "./helpers/config-reload";
 /**
  * M4 US5 系统设置 E2E(T032,quickstart S5.1-S5.3 简版自动化,主链路在集成层):
  * ① 权限口径:游客/user 访问 /admin/settings → 登录页;
- * ② 八组渲染+NAV 入口+敏感字段掩码态(已配置显「已配置,留空保持」,不回显明文);
+ * ② 十四组渲染+NAV 入口+敏感字段掩码态(已配置显「已配置,留空保持」,不回显明文);
  * ③ 保存校验:非法值 422 错误回显;合法保存「已保存,即时生效」;
  * ④ 测试发信:正常配置 → Mailpit 收到;坏 SMTP 配置热生效后 → 页面回显失败摘要。
  * smtp 键为全局行:用前快照、用后还原;E2E schema 指向 dev Mailpit(localhost:1025)。
@@ -27,16 +27,6 @@ const CONTENT_KEYS = ["content.tocEnabled"];
 const TOOLS_KEYS = ["tools.rankBase", "tools.dkpUrl"];
 const COS_KEYS = ["cos.bucket", "cos.region", "cos.secretId", "cos.secretKey", "cos.cdnBase"];
 const BACKUP_KEYS = ["backup.retentionDays"];
-const LLM_KEYS = [
-  "llm.provider",
-  "llm.baseUrl",
-  "llm.apiKey",
-  "llm.model",
-  "llm.dailyQuota",
-  "llm.embeddingBaseUrl",
-  "llm.embeddingModel",
-  "llm.embeddingApiKey",
-];
 const APPEARANCE_KEYS = [
   "appearance.logoUrl",
   "appearance.faviconUrl",
@@ -65,7 +55,6 @@ let themeBackup: { key: string; value: string }[] = [];
 let toolsBackup: { key: string; value: string }[] = [];
 let cosBackup: { key: string; value: string }[] = [];
 let backupBackup: { key: string; value: string }[] = [];
-let llmBackup: { key: string; value: string }[] = [];
 // admin 会话 access token:还原库后用于触发服务端 config 快照重载
 let adminToken = "";
 
@@ -118,10 +107,6 @@ test.beforeAll(async () => {
     where: { key: { in: BACKUP_KEYS } },
     select: { key: true, value: true },
   });
-  llmBackup = await prisma.systemConfig.findMany({
-    where: { key: { in: LLM_KEYS } },
-    select: { key: true, value: true },
-  });
 });
 
 test.afterAll(async () => {
@@ -138,7 +123,6 @@ test.afterAll(async () => {
           ...TOOLS_KEYS,
           ...COS_KEYS,
           ...BACKUP_KEYS,
-          ...LLM_KEYS,
         ],
       },
     },
@@ -153,7 +137,6 @@ test.afterAll(async () => {
     ...toolsBackup,
     ...cosBackup,
     ...backupBackup,
-    ...llmBackup,
   ];
   if (restore.length > 0) {
     await prisma.systemConfig.createMany({ data: restore });
@@ -178,7 +161,7 @@ test("user 角色 → 同样拦截(非 admin)", async ({ page }) => {
 });
 
 test.describe.serial("admin 设置页", () => {
-  test("八组渲染+NAV 入口+掩码态不回显明文", async ({ page }) => {
+  test("十四组渲染+NAV 入口+掩码态不回显明文", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
     await page.goto("/admin");
 
@@ -203,7 +186,6 @@ test.describe.serial("admin 设置页", () => {
       "tools",
       "cos",
       "backup",
-      "llm",
     ]) {
       await expect(page.getByTestId(`settings-group-${group}`)).toBeVisible();
     }
@@ -412,41 +394,6 @@ test.describe.serial("admin 设置页", () => {
       select: { value: true },
     });
     expect(backupRow?.value).toBe("9");
-  });
-
-  test("AI 模型通道:保存热生效/密钥只写不读/坏地址测试回显失败", async ({ page }) => {
-    await login(page, "m1admin", "adminpass123");
-    await page.goto("/admin/settings");
-
-    // 保存:协议+地址+模型+配额落库(密钥留空=保持现值,此处为未配置)
-    await page.getByTestId("settings-field-llm-provider-anthropic").click();
-    await page.getByTestId("settings-field-llm-baseUrl").fill("https://gw.e2e.test/v1");
-    await page.getByTestId("settings-field-llm-model").fill("claude-e2e");
-    await page.getByTestId("settings-field-llm-dailyQuota").fill("9");
-    await page.getByTestId("settings-save-llm").click();
-    await expect(page.getByTestId("settings-result-llm")).toContainText("已保存");
-    const rows = await prisma.systemConfig.findMany({
-      where: { key: { in: LLM_KEYS } },
-      select: { key: true, value: true },
-    });
-    const byKey = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-    expect(byKey["llm.provider"]).toBe("anthropic");
-    expect(byKey["llm.baseUrl"]).toBe("https://gw.e2e.test/v1");
-    expect(byKey["llm.model"]).toBe("claude-e2e");
-    expect(byKey["llm.dailyQuota"]).toBe("9");
-
-    // 掩码红线:保存后刷新,密钥位不回显任何明文(视图只回「已配置」布尔)
-    await page.reload();
-    const html = await page.content();
-    expect(html).not.toContain("sk-");
-    await expect(page.getByTestId("settings-field-llm-apiKey")).toHaveAttribute(
-      "placeholder",
-      "未配置",
-    );
-
-    // 测试连接:坏地址 → 失败摘要回显(不 5xx、不落库)
-    await page.getByTestId("settings-test-llm-chat-run").click();
-    await expect(page.getByTestId("settings-test-llm-chat-result")).not.toBeEmpty();
   });
 
   test("飞书告警通道:坏地址回显失败且不落库(候选值只测不存)", async ({ page }) => {

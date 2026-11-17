@@ -124,22 +124,4 @@ export type SettingsView = {
     /** 备份保留天数(0=只留当日) */
     retentionDays: number;
   };
-  llm: {
-    /** 协议:openai(兼容网关) / anthropic(Claude 原生) */
-    provider: "openai" | "anthropic";
-    /** 对话端点地址(含 /v1 前缀,形如 https://gw.example.com/v1) */
-    baseUrl: string;
-    /** 对话模型名 */
-    model: string;
-    /** 每用户每日问答次数上限(0=不限) */
-    dailyQuota: number;
-    /** 向量端点地址(仅 openai 协议) */
-    embeddingBaseUrl: string;
-    /** 向量模型名 */
-    embeddingModel: string;
-    /** 对话密钥只写不读:只回是否已配置 */
-    apiKeyConfigured: boolean;
-    /** 向量密钥只写不读:只回是否已配置 */
-    embeddingApiKeyConfigured: boolean;
-  };
 };

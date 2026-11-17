@@ -194,21 +194,6 @@ const configSchema = z.object({
       retentionDays: z.coerce.number().int().min(0).max(365).default(30),
     })
     .optional(),
-  // LLM 通道(M8 语义检索 + M9 助手):chat 走聚合网关(openai|anthropic 双协议),
-  // embedding 仅 openai 协议(生产境外直连不可达,双通道均经网关)。
-  // chat 三件(baseUrl/apiKey/model)齐备 = 助手启用,未齐 = 前台降级纯搜索不报错;
-  // embedding 三件齐备 = 语义检索启用,未齐 = 混合检索退化为纯关键词。
-  // apiKey 只写不读(后台 secret 模式,空提交=保持现值),值禁止打印/落日志。
-  llm: z.object({
-    provider: z.enum(["openai", "anthropic"]).default("openai"),
-    baseUrl: z.string().default(""),
-    apiKey: z.string().default(""),
-    model: z.string().default(""),
-    dailyQuota: z.coerce.number().int().min(0).default(20),
-    embeddingBaseUrl: z.string().default(""),
-    embeddingModel: z.string().default(""),
-    embeddingApiKey: z.string().default(""),
-  }),
 });
 
 export type SystemConfig = z.infer<typeof configSchema>;
@@ -342,16 +327,6 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       flat["backup.retentionDays"] !== undefined
         ? { retentionDays: flat["backup.retentionDays"] ?? "30" }
         : undefined,
-    llm: {
-      provider: flat["llm.provider"] === "anthropic" ? "anthropic" : "openai",
-      baseUrl: flat["llm.baseUrl"] ?? "",
-      apiKey: flat["llm.apiKey"] ?? "",
-      model: flat["llm.model"] ?? "",
-      dailyQuota: flat["llm.dailyQuota"] ?? "20",
-      embeddingBaseUrl: flat["llm.embeddingBaseUrl"] ?? "",
-      embeddingModel: flat["llm.embeddingModel"] ?? "",
-      embeddingApiKey: flat["llm.embeddingApiKey"] ?? "",
-    },
   };
 }
 
@@ -404,20 +379,4 @@ export async function reloadSystemConfig(): Promise<SystemConfig> {
 export async function getCdnHosts(): Promise<string[]> {
   const cos = (await getConfig()).cos;
   return cos ? [new URL(cos.cdnBase).hostname] : [];
-}
-
-/** embedding 通道三元组(语义检索启用判据:三件齐备);未配置返回 null(纯关键词降级) */
-export function getEmbeddingConfig(config: SystemConfig): {
-  baseUrl: string;
-  model: string;
-  apiKey: string;
-} | null {
-  const llm = config.llm;
-  return llm.embeddingBaseUrl && llm.embeddingModel && llm.embeddingApiKey
-    ? {
-        baseUrl: llm.embeddingBaseUrl,
-        model: llm.embeddingModel,
-        apiKey: llm.embeddingApiKey,
-      }
-    : null;
 }
