@@ -398,3 +398,15 @@ mark {
 .vditor-reset .c-purple {
   color: #c084fc;
 }
+
+/* ---------- AI 助手抽屉滑入(W7) ---------- */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

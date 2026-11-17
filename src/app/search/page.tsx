@@ -1,6 +1,7 @@
 import { Search } from "lucide-react";
 
 import { SEARCH_GROUP_LABELS, SEARCH_GROUPS } from "@/constants/search";
+import { getConfig } from "@/lib/config";
 import {
   extractTerms,
   highlightParts,
@@ -9,17 +10,25 @@ import {
 import { searchSite, type SearchSiteResult } from "@/server/services/search";
 import type { SearchHit } from "@/server/services/search/entities";
 
+import { SearchChat } from "./search-chat";
+
 export const metadata = { title: "站内搜索 · 老克塔" };
 
 /**
- * /search(W1):关键词列表页——混合检索(关键词层 + 语义层),语义通道未配
- * 时降级为纯关键词并显式提示。高亮 <mark> 渲染由 React 转义,无注入面。
+ * /search(W7 接管):llm chat 通道配齐 → Agent 问答页(与右下角抽屉同一
+ * 后端,大版心形态);通道未配 → 降级态,保留 W1 关键词列表(纯 GET form
+ * 无客户端 JS),提示管理员在后台配置 AI 模型通道后开启。高亮 <mark> 渲染
+ * 由 React 转义,无注入面。
  */
 export default async function SearchPage({
   searchParams,
 }: {
   searchParams: { q?: string };
 }) {
+  const { llm } = await getConfig();
+  const aiReady = Boolean(llm.baseUrl && llm.apiKey && llm.model);
+  if (aiReady) return <AgentSearch />;
+
   const q = (searchParams.q ?? "").trim();
   const result = q ? await searchSite({ q }) : null;
   const terms = extractTerms(q);
@@ -30,6 +39,27 @@ export default async function SearchPage({
       ) : (
         <Results result={result} q={q} terms={terms} />
       )}
+    </main>
+  );
+}
+
+function AgentSearch() {
+  return (
+    <main className="container-site flex-1 py-6">
+      <div className="mx-auto max-w-[880px]">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="flex size-11 items-center justify-center rounded-2xl border border-line bg-panel">
+            <Search className="size-5 text-highlight" aria-hidden />
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold text-heading">问问老克塔助手</h1>
+            <p className="mt-0.5 text-sm text-muted">
+              用一句话提问,助手检索站内攻略、说明、商品与帖子后作答
+            </p>
+          </div>
+        </div>
+        <SearchChat />
+      </div>
     </main>
   );
 }
