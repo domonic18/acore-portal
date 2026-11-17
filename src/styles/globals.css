@@ -231,6 +231,14 @@ body {
     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
 }
 
+/* 搜索/问答命中高亮(关键词层与语义层共用;主题切换随 --theme-highlight 联动) */
+mark {
+  background: color-mix(in srgb, var(--theme-highlight) 24%, transparent);
+  border-radius: 2px;
+  padding: 0 0.125em;
+  color: inherit;
+}
+
 /* 页头:背景图由 --theme-header-background 注入(html 内联样式) */
 .site-header {
   background-color: var(--theme-header);

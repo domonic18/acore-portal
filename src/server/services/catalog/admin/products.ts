@@ -5,6 +5,7 @@ import { writeAudit } from "@/server/services/shared/audit";
 import type { ProductStatusValue } from "@/constants/shop";
 import { getGameItem } from "../game-items";
 import { validateSkuBinding } from "@/constants/shop-sku";
+import { scheduleIndex } from "@/server/services/search/indexing";
 import { ProductAdminError } from "./shared";
 
 /** 下一精选展示序:追加到当前精选末位(空集=0);精选开关与管理台共用 */
@@ -138,9 +139,11 @@ export async function saveProduct(input: ProductSaveInput): Promise<{ id: bigint
   if (input.id) {
     const hit = await prisma.product.updateMany({ where: { id: input.id }, data });
     if (hit.count === 0) throw new ProductAdminError("NOT_FOUND", "商品不存在。");
+    scheduleIndex("product", input.id);
     return { id: input.id };
   }
   const created = await prisma.product.create({ data, select: { id: true } });
+  scheduleIndex("product", created.id);
   return { id: created.id };
 }
 
@@ -154,6 +157,8 @@ export async function setProductStatus(
     data: { status, ...(listed === undefined ? {} : { listed }) },
   });
   if (hit.count === 0) throw new ProductAdminError("NOT_FOUND", "商品不存在。");
+  // 上下架/显隐改变可索引性:下架商品清向量,重新上架重建
+  scheduleIndex("product", id);
 }
 
 export type ProductQuickEditInput = {
@@ -226,6 +231,9 @@ export async function updateProductQuickEdit(
     actorUserId: actorId,
     payload: { productId: id.toString(), sku: product.sku, fields: Object.keys(data) },
   });
+  if (input.status !== undefined || input.listed !== undefined) {
+    scheduleIndex("product", id);
+  }
 }
 
 /**
@@ -245,10 +253,17 @@ export async function deleteProduct(id: bigint, actorId: bigint): Promise<void> 
       `该商品已有 ${orderCount} 条订单记录,不可删除;请改用「下架」隐藏。`,
     );
   }
+  // FAQ 随商品级联删除(ON DELETE CASCADE),其向量无钩子可挂,删除前先记 id 清理
+  const faqIds = await prisma.productFaq.findMany({
+    where: { productId: id },
+    select: { id: true },
+  });
   await prisma.$transaction([
     prisma.cartItem.deleteMany({ where: { productId: id } }),
     prisma.product.delete({ where: { id } }),
   ]);
+  scheduleIndex("product", id);
+  for (const faq of faqIds) scheduleIndex("product_faq", faq.id);
   await writeAudit({
     category: AUDIT_CATEGORY.SHOP,
     action: AUDIT_ACTION.PRODUCT_DELETED,

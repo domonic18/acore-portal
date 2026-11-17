@@ -8,6 +8,7 @@ import { CaptchaGroup } from "./captcha-group";
 import { ContentGroup } from "./content-group";
 import { CosGroup } from "./cos-group";
 import { GameDbGroup } from "./gamedb-group";
+import { LlmGroup } from "./llm-group";
 import { NotifyGroup } from "./notify-group";
 import { SecurityGroup } from "./security-group";
 import { SiteGroup } from "./site-group";
@@ -18,8 +19,8 @@ import { ThemeGroup } from "./theme-group";
 import { ToolsGroup } from "./tools-group";
 
 /**
- * 十四组设置表单+测试发信卡片(T032;api-admin-m4 契约)。
- * 敏感字段按组+字段定口径:只写不读者(smtp/captcha/soap/cos 密钥)已配置显
+ * 十五组设置表单+测试发信卡片(T032;api-admin-m4 契约)。
+ * 敏感字段按组+字段定口径:只写不读者(smtp/captcha/soap/cos/llm 密钥)已配置显
  * 「已配置,留空保持」,空提交=保持原值;连接串(game库)回显脱敏串,
  * 提交值等于脱敏形态或口令位仍是 *** 时按未改处理。
  */
@@ -40,6 +41,7 @@ export function SettingsForms({ view }: { view: SettingsView }) {
       <ThemeGroup view={view.theme} />
       <ToolsGroup view={view.tools} />
       <BackupGroup view={view.backup} />
+      <LlmGroup view={view.llm} />
       <TestMailCard />
     </div>
   );

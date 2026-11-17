@@ -169,6 +169,18 @@ export const groupSchemas = {
       .max(365, "保留天数最多 365 天(与 COS 生命周期兜底线一致)")
       .optional(),
   }),
+  // AI 模型通道(M8/M9):对话与向量各一套端点;密钥只写不读。
+  // 字段全 optional=缺省保持现值(组级全量提交口径,同 backup/security 组)。
+  llm: z.object({
+    provider: z.enum(["openai", "anthropic"]).optional(),
+    baseUrl: z.string().trim().optional(),
+    apiKey: z.string().optional(),
+    model: z.string().trim().optional(),
+    dailyQuota: z.coerce.number().int().min(0).optional(),
+    embeddingBaseUrl: z.string().trim().optional(),
+    embeddingModel: z.string().trim().optional(),
+    embeddingApiKey: z.string().optional(),
+  }),
 } as const;
 
 /** 字段 → system_config 键;sensitive 键空输入=保持原值 */
@@ -277,6 +289,16 @@ export const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>
   backup: {
     retentionDays: "backup.retentionDays",
   },
+  llm: {
+    provider: "llm.provider",
+    baseUrl: "llm.baseUrl",
+    apiKey: "llm.apiKey",
+    model: "llm.model",
+    dailyQuota: "llm.dailyQuota",
+    embeddingBaseUrl: "llm.embeddingBaseUrl",
+    embeddingModel: "llm.embeddingModel",
+    embeddingApiKey: "llm.embeddingApiKey",
+  },
 };
 /**
  * 敏感字段处理口径(按「组+字段」登记,不再按字段名全局匹配——
@@ -294,6 +316,8 @@ export const sensitiveFields: Partial<
   captcha: { appSecret: "secret", secretKey: "secret" },
   gamedb: { auth: "masked", characters: "masked", world: "masked", eluna: "masked" },
   cos: { secretKey: "secret" },
+  // AI 通道密钥只写不读(明文永不回显,留空=保持现值)
+  llm: { apiKey: "secret", embeddingApiKey: "secret" },
   // 飞书 webhook 地址本身含 bot key,密钥同理 → 两者都只写不读
   notify: { feishuWebhookUrl: "secret", feishuWebhookSecret: "secret" },
 };

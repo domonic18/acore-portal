@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { CORE_PAGE_SLUGS, RESERVED_SLUGS } from "@/constants/content";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/shared/audit";
+import { scheduleIndex } from "@/server/services/search/indexing";
 import { ContentAdminError, type ContentStatus } from "./shared";
 
 // ===== 静态页 =====
@@ -91,6 +92,7 @@ export async function savePage(input: {
       actorUserId: input.actorUserId,
       payload: { id: input.id.toString(), slug, status: input.status },
     });
+    scheduleIndex("content_page", input.id);
     return { id: input.id };
   }
   const created = await prisma.contentPage.create({ data, select: { id: true } });
@@ -100,6 +102,7 @@ export async function savePage(input: {
     actorUserId: input.actorUserId,
     payload: { id: created.id.toString(), slug, status: input.status },
   });
+  scheduleIndex("content_page", created.id);
   return { id: created.id };
 }
 
@@ -116,4 +119,5 @@ export async function deletePage(id: bigint, actorUserId: bigint): Promise<void>
     actorUserId,
     payload: { id: id.toString(), slug: row.slug },
   });
+  scheduleIndex("content_page", id);
 }

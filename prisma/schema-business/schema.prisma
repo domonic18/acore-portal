@@ -436,6 +436,9 @@ model Product {
 
   @@index([categoryId, status])
   @@index([status, listed])
+  // 站内搜索(M8):标题与正文分立索引,查询层字段加权(标题×3/正文×1)
+  @@fulltext([name])
+  @@fulltext([description, detailMd])
   @@map("product")
 }
 
@@ -452,6 +455,7 @@ model ProductFaq {
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId, sort])
+  @@fulltext([question, answer])
   @@map("product_faq")
 }
 
@@ -636,6 +640,9 @@ model Article {
 
   @@index([categoryId, status, publishedAt])
   @@index([status, publishedAt])
+  // 站内搜索(M8):标题/正文分立 ngram FULLTEXT,查询层加权
+  @@fulltext([title])
+  @@fulltext([bodyMd])
   @@map("article")
 }
 
@@ -652,6 +659,8 @@ model ContentPage {
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
+  @@fulltext([title])
+  @@fulltext([bodyMd])
   @@map("content_page")
 }
 
@@ -733,6 +742,8 @@ model ForumThread {
   posts       ForumPost[]
 
   @@index([boardId, deletedAt, pinned, lastPostAt])
+  // 站内搜索(M8):W1 只搜主题标题(楼层正文新旧混存 HTML,待剥离后另行索引)
+  @@fulltext([title])
   @@map("forum_thread")
 }
 
@@ -774,6 +785,22 @@ model HomeBanner {
 
   @@index([enabled, sort])
   @@map("home_banner")
+}
+
+/// 语义检索向量库(M8 W2):每实体一行归一化 Float32 BLOB(点积=余弦),
+/// 进程内暴力扫(存量 <2 万行毫秒级);content_hash 变更才重算。
+/// 实体删除不级联(无外键):向量残留仅多一次无效候选,回查实体为空即剔除
+model SearchEmbedding {
+  id          BigInt   @id @default(autoincrement())
+  entityType  String   @map("entity_type") @db.VarChar(32) // constants/search SEARCH_ENTITY_TYPES
+  entityId    BigInt   @map("entity_id")
+  dim         Int // 向量维度(embedding 模型定)
+  contentHash String   @map("content_hash") @db.VarChar(64) // 索引文本 sha256
+  vector      Bytes
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([entityType, entityId])
+  @@map("search_embedding")
 }
 
 /// 侧栏快捷卡(通用化:后台 /admin/sidebar CRUD,按 pages 页面类型渲染;
@@ -859,3 +886,4 @@ model PageViewEvent {
   @@index([createdAt, path, visitorId])
   @@map("page_view_event")
 }
+

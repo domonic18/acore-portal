@@ -30,6 +30,9 @@ const ORCHESTRATION_EDGES = {
   home: ["progression", "content", "catalog"],
   // 侧栏聚合在线人数与最新资讯（内置组件按页面范围启用时条件取数）
   sidebar: ["status", "content"],
+  // 后台保存文章/静态页与商品/FAQ 后调度语义检索向量重索引（fire-and-forget）
+  content: ["search"],
+  catalog: ["search"],
 };
 export default [
   {

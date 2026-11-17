@@ -10,7 +10,7 @@ import { expect, test, type Page } from "@playwright/test";
  * 登录态追加 积分商店▾(购物车/结账)+我的账户;项目简介/使用教程走快捷入口与页脚。
  */
 
-const GUEST_TOP = ["首页", "公告", "数据库", "资讯", "论坛"];
+const GUEST_TOP = ["首页", "公告", "数据库", "资讯", "论坛", "搜索"];
 
 async function login(page: Page) {
   await page.goto("/login");
