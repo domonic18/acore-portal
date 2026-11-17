@@ -3,7 +3,7 @@
  *
  * 逐实体「建索引文本 → sha256 → 与 search_embedding.content_hash 比对 →
  * 仅变更者重算 embedding → upsert」;已索引且内容未变的秒过,可安全反复重跑。
- * 通道未配置时打印提示退出(不炸,等后台配好 llm.embedding.* 再跑)。
+ * 通道未配置时打印提示退出(不炸,等后台绑好向量模型再跑)。
  *
  * 用法(宿主机,凭据经 .env 的 DATABASE_URL;网关配置经 system_config):
  *   tsx --conditions=react-server scripts/ops/backfill-embeddings.ts [--force]
@@ -88,7 +88,7 @@ async function main() {
   const force = process.argv.includes("--force");
   const probe = await getEmbeddingTexts(["连通性探针"]);
   if (!probe) {
-    console.error("embedding 通道未配置(system_config 缺 llm.embedding.*),跳过回填;后台配置后重跑。");
+    console.error("embedding 绑定未配置或不可用,跳过回填;后台「AI 模型」绑定向量角色后重跑。");
     process.exit(0);
   }
   const dim = probe[0]?.length ?? 0;

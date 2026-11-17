@@ -119,15 +119,5 @@ export async function getSettingsView(): Promise<SettingsView> {
     backup: {
       retentionDays: config.backup?.retentionDays ?? 30,
     },
-    llm: {
-      provider: config.llm.provider,
-      baseUrl: config.llm.baseUrl,
-      model: config.llm.model,
-      dailyQuota: config.llm.dailyQuota,
-      embeddingBaseUrl: config.llm.embeddingBaseUrl,
-      embeddingModel: config.llm.embeddingModel,
-      apiKeyConfigured: config.llm.apiKey !== "",
-      embeddingApiKeyConfigured: config.llm.embeddingApiKey !== "",
-    },
   };
 }

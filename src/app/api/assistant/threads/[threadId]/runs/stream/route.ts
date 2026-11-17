@@ -2,7 +2,6 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
-import { getConfig } from "@/lib/config";
 import { apiError, parseBody } from "@/server/http";
 import { getApiSession } from "@/server/session-guard";
 import { getAssistantAgent } from "@/server/services/assistant/agent";
@@ -10,6 +9,7 @@ import { consumeAssistantQuota } from "@/server/services/assistant/quota";
 import { createAssistantRunStream } from "@/server/services/assistant/run";
 import { recordAssistantUsage } from "@/server/services/assistant/usage";
 import { writeAudit } from "@/server/services/shared/audit";
+import { getChatDailyMax } from "@/server/services/shared/ai-models/resolver";
 
 const schema = z
   .object({
@@ -49,8 +49,7 @@ export async function POST(
   const parsed = await parseBody(req, schema);
   if (!parsed.ok) return parsed.response;
 
-  const { llm } = await getConfig();
-  const quota = await consumeAssistantQuota(session.userId, llm.dailyQuota);
+  const quota = await consumeAssistantQuota(session.userId, await getChatDailyMax());
   if (!quota.allowed) {
     return apiError(429, "QUOTA_EXCEEDED", "今日问答次数已用完,明天再来吧", {
       retryAfterSec: quota.retryAfterSec,
