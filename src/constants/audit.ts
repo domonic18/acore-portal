@@ -112,6 +112,14 @@ export const AUDIT_ACTION = {
   SIDEBAR_CHANGED: "sidebar_changed",
   /** AI 助手一轮问答结束(category=assistant;只记聚合指标,对话正文不入审计) */
   ASSISTANT_RUN: "assistant_run",
+  /** AI 模型条目管理(category=admin;payload 只记 id/name/provider/protocol,apiKey 永不落) */
+  AI_MODEL_SAVED: "ai_model_saved",
+  AI_MODEL_DELETED: "ai_model_deleted",
+  AI_MODEL_STATUS_CHANGED: "ai_model_status_changed",
+  /** AI 模型测试连接(category=admin;只记 id/name 与成败/延迟) */
+  AI_MODEL_TESTED: "ai_model_tested",
+  /** AI 角色绑定变更(category=admin;payload 记 role/primaryId/backupId/dailyMax) */
+  AI_ROLE_BINDING_CHANGED: "ai_role_binding_changed",
 } as const;
 
 export type AuditActionValue = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];
