@@ -19,9 +19,9 @@ const ORCHESTRATION_EDGES = {
   // 后台改角色/注册奖励读取积分规则（规则常量在 points/rules）
   "users-admin": ["points"],
   auth: ["points"],
-  // 状态页聚合读进度数据；看板聚合状态与商品
+  // 看板聚合状态与商品；AI 区块读助手日聚合用量
   status: ["progression"],
-  stats: ["status", "catalog"],
+  stats: ["status", "catalog", "assistant"],
   // 渐进计划后台挂文章
   progression: ["content"],
   // 订单后台复用交付与状态机
