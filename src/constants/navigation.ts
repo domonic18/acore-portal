@@ -121,6 +121,7 @@ export const ADMIN_NAV_GROUPS = [
       { href: "/admin/security", label: "安全看板", icon: "shield" },
       { href: "/admin/server-status", label: "状态配置", icon: "server" },
       { href: "/admin/sidebar", label: "侧栏入口", icon: "panel-left" },
+      { href: "/admin/ai-models", label: "AI 模型", icon: "bot" },
       { href: "/admin/settings", label: "设置", icon: "settings" },
     ],
   },
