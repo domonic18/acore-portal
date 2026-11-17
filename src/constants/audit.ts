@@ -8,6 +8,7 @@ export const AUDIT_CATEGORY = {
   POINTS: "points",
   CONTENT: "content",
   FORUM: "forum",
+  ASSISTANT: "assistant",
 } as const;
 
 export type AuditCategoryValue = (typeof AUDIT_CATEGORY)[keyof typeof AUDIT_CATEGORY];
@@ -109,6 +110,8 @@ export const AUDIT_ACTION = {
   HOME_BANNER_DELETED: "home_banner_deleted",
   /** 侧栏快捷卡整树保存(category=admin;只记卡片 key,不记标题/链接值) */
   SIDEBAR_CHANGED: "sidebar_changed",
+  /** AI 助手一轮问答结束(category=assistant;只记聚合指标,对话正文不入审计) */
+  ASSISTANT_RUN: "assistant_run",
 } as const;
 
 export type AuditActionValue = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];

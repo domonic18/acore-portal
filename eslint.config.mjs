@@ -33,6 +33,8 @@ const ORCHESTRATION_EDGES = {
   // 后台保存文章/静态页与商品/FAQ 后调度语义检索向量重索引（fire-and-forget）
   content: ["search"],
   catalog: ["search"],
+  // AI 助手的检索工具复用统一搜索服务（spec §19 单一收口）
+  assistant: ["search"],
 };
 export default [
   {
