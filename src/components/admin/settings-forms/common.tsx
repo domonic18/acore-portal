@@ -21,7 +21,8 @@ export type GroupName =
   | "theme"
   | "tools"
   | "cos"
-  | "backup";
+  | "backup"
+  | "llm";
 
 export function SecretInput({
   testid,

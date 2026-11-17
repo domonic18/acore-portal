@@ -11,6 +11,7 @@ import { getRecentOrders } from "@/server/services/orders/admin-queries";
 import { StatCard } from "@/components/ui/card";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { DashboardSummaryRow } from "@/components/admin/dashboard/summary-row";
+import { DashboardAssistantPanel } from "@/components/admin/dashboard/assistant-panel";
 import { DashboardRecentOrders } from "@/components/admin/dashboard/recent-orders";
 import { DashboardQuickLinks } from "@/components/admin/dashboard/quick-links";
 import { ButtonLink } from "@/components/ui/button";
@@ -69,6 +70,8 @@ export default async function AdminHomePage() {
           funnel={dashboard.funnel}
         />
       )}
+
+      {dashboard && <DashboardAssistantPanel usage={dashboard.assistant} />}
 
       {counts.deliveryFailed > 0 && (
         <div

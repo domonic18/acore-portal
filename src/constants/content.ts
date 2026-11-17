@@ -33,6 +33,7 @@ export const RESERVED_SLUGS: readonly string[] = [
   "reset-password",
   "post",
   "news",
+  "search",
   "announcements",
   "guides",
   "progression",

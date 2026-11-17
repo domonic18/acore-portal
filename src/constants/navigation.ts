@@ -60,6 +60,7 @@ export const SITE_NAV: readonly SiteNavItem[] = [
   },
   { label: "资讯", href: "/news" },
   { label: "论坛", href: "/forum" },
+  { label: "搜索", href: "/search" },
   {
     label: "积分商店",
     href: "/shop",

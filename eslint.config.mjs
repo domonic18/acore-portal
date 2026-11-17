@@ -19,9 +19,9 @@ const ORCHESTRATION_EDGES = {
   // 后台改角色/注册奖励读取积分规则（规则常量在 points/rules）
   "users-admin": ["points"],
   auth: ["points"],
-  // 状态页聚合读进度数据；看板聚合状态与商品
+  // 看板聚合状态与商品；AI 区块读助手日聚合用量
   status: ["progression"],
-  stats: ["status", "catalog"],
+  stats: ["status", "catalog", "assistant"],
   // 渐进计划后台挂文章
   progression: ["content"],
   // 订单后台复用交付与状态机
@@ -30,6 +30,11 @@ const ORCHESTRATION_EDGES = {
   home: ["progression", "content", "catalog"],
   // 侧栏聚合在线人数与最新资讯（内置组件按页面范围启用时条件取数）
   sidebar: ["status", "content"],
+  // 后台保存文章/静态页与商品/FAQ 后调度语义检索向量重索引（fire-and-forget）
+  content: ["search"],
+  catalog: ["search"],
+  // AI 助手的检索工具复用统一搜索服务（spec §19 单一收口）
+  assistant: ["search"],
 };
 export default [
   {

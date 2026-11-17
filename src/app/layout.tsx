@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { AssistantDrawer } from "@/components/assistant/assistant-drawer";
 import { SiteFooter } from "@/components/site/footer";
 import { HideOnAdmin } from "@/components/site/chrome-gate";
 import { SiteHeaderClient } from "@/components/site/header-client";
@@ -84,6 +85,9 @@ export default async function RootLayout({
           />
         </HideOnAdmin>
         <PageViewBeacon />
+        <HideOnAdmin>
+          <AssistantDrawer />
+        </HideOnAdmin>
         <PortalPageBackground pageBackground={pageBackground} />
       </body>
     </html>

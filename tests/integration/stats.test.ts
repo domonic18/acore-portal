@@ -368,7 +368,7 @@ describe("M4 US4 GET /api/admin/stats(T026 契约 api-admin-m4)", () => {
     expect(okRes.status).toBe(200);
     const body = (await okRes.json()) as Record<string, unknown>;
     expect(Object.keys(body).sort()).toEqual(
-      ["articleTop", "funnel", "notFoundTop", "online", "orders7d", "pageView", "users7d"].sort(),
+      ["articleTop", "assistant", "funnel", "notFoundTop", "online", "orders7d", "pageView", "users7d"].sort(),
     );
   });
 });
