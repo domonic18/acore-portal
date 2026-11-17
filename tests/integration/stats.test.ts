@@ -324,12 +324,15 @@ describe("M4 US4 看板五区块聚合 getDashboard(T026)", () => {
   it("notFoundTop 合并今日 redis 键:hset 的 RUN 路径出现且计数正确", async () => {
     const path = `/nt-${RUN}/dash`;
     TRACKED_FIELDS.push(path);
-    await redis.hset(todayKey(), path, 3);
+    // 本地 dev redis 与 E2E 共享,今日键可能残留高计数字段把 Top10 挤满;
+    // 用远超残留的计数让用例只考察「redis 键合并进看板 Top」,不与污染比大小
+    const hits = 1_000_000;
+    await redis.hset(todayKey(), path, hits);
 
     const data = await getDashboard();
     expect(data.notFoundTop.find((n) => n.path === path)).toEqual({
       path,
-      count: 3,
+      count: hits,
     });
   });
 

@@ -341,7 +341,7 @@ describe("探针", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://gw.test/v1/chat/completions");
     const openaiInit = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect((openaiInit.headers as Record<string, string>).authorization).toBe("Bearer sk-oai");
-    expect(JSON.parse(openaiInit.body as string)).toMatchObject({ max_tokens: 1 });
+    expect(JSON.parse(openaiInit.body as string)).toMatchObject({ max_tokens: 64 });
 
     vi.mocked(fetchMock).mockClear();
     fetchMock.mockImplementation(async (..._args: FetchArgs) =>
@@ -374,6 +374,65 @@ describe("探针", () => {
     expect(okEmbed.ok).toBe(true);
     expect(okEmbed.message).toContain("维度 3");
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://emb.test/v4/embeddings");
+  });
+
+  it("思考模型兼容:thinking-only/content:null/message 信封判连通,HTTP 200 错误体摘录原因", async () => {
+    type FetchArgs = [url: RequestInfo | URL, init?: RequestInit];
+    // MiniMax-M3.1 实测形态:思考模型响应只有 thinking 块(HTTP 200)
+    const fetchMock = vi.fn(async (..._args: FetchArgs) =>
+      new Response(
+        JSON.stringify({
+          type: "message",
+          role: "assistant",
+          content: [{ type: "thinking", thinking: "…", signature: "sig" }],
+          stop_reason: "max_tokens",
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const thinkingOnly = await probeAiModelCandidate({
+      protocol: "anthropic",
+      role: "chat",
+      baseUrl: "https://gw.test/anthropic",
+      apiKey: "sk-ant",
+      modelId: "MiniMax-M3.1-Flash",
+    });
+    expect(thinkingOnly.ok).toBe(true);
+    expect(thinkingOnly.message).toContain("对话通道连通");
+    // 探针预算给足:max_tokens=1 时思考模型全部预算被 thinking 吃掉(MiniMax 返回 content:null)
+    const body = JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit).body as string);
+    expect(body.max_tokens).toBe(64);
+
+    // content:null 但 message 信封完整 → 仍判连通(端点/鉴权/协议三方已证明)
+    fetchMock.mockImplementation(async (..._args: FetchArgs) =>
+      new Response(
+        JSON.stringify({ type: "message", role: "assistant", content: null, stop_reason: "max_tokens" }),
+        { status: 200 },
+      ),
+    );
+    const nullContent = await probeAiModelCandidate({
+      protocol: "anthropic",
+      role: "chat",
+      baseUrl: "https://gw.test/anthropic",
+      apiKey: "sk-ant",
+      modelId: "m",
+    });
+    expect(nullContent.ok).toBe(true);
+
+    // HTTP 200 + 错误体 → 失败且原因可见(不再是笼统「响应结构不符合协议预期」)
+    fetchMock.mockImplementation(async (..._args: FetchArgs) =>
+      new Response(JSON.stringify({ error: { message: "model not found" } }), { status: 200 }),
+    );
+    const errBody = await probeAiModelCandidate({
+      protocol: "openai",
+      role: "chat",
+      baseUrl: "https://gw.test/v1",
+      apiKey: "sk-oai",
+      modelId: "m",
+    });
+    expect(errBody.ok).toBe(false);
+    expect(errBody.message).toContain("通道报错:model not found");
   });
 
   it("通道不通不抛错,失败消息不含密钥", async () => {

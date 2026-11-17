@@ -194,7 +194,7 @@ function ModelRow({
             </div>
           )}
         </Td>
-        <Td className="whitespace-nowrap">
+        <Td>
           <TestBadge model={model} probe={probe} testing={testing} />
         </Td>
         <Td>
@@ -264,8 +264,13 @@ function TestBadge({
   }
   const message = probe?.message ?? model.lastTest?.error ?? "失败";
   return (
-    <Badge tone="danger" title={message}>
-      失败
-    </Badge>
+    <div className="flex max-w-[240px] flex-col gap-1">
+      <div>
+        <Badge tone="danger">失败</Badge>
+      </div>
+      <span role="alert" className="whitespace-normal text-[11.5px] leading-snug text-[#eda9a9]">
+        {message}
+      </span>
+    </div>
   );
 }
