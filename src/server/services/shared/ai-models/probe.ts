@@ -95,9 +95,24 @@ function probeBody(input: AiModelProbeInput): string {
   }
   return JSON.stringify({
     model: input.modelId,
-    max_tokens: 1,
+    // 思考模型(MiniMax-M3.1 等)先产出 thinking 块:max_tokens=1 时全部预算被
+    // thinking 吃掉,MiniMax 会返回 content:null(HTTP 200)⇒ 给足预算让响应可校验
+    max_tokens: 64,
     messages: [{ role: "user", content: "ping" }],
   });
+}
+
+/** HTTP 200 但响应不是协议预期结构时,从错误体摘录首行原因(两端常见 error.message / MiniMax base_resp) */
+function protocolErrorHint(json: {
+  error?: { message?: unknown };
+  base_resp?: { status_msg?: unknown };
+} | null): string {
+  const candidates = [
+    typeof json?.error?.message === "string" ? json.error.message : "",
+    typeof json?.base_resp?.status_msg === "string" ? json.base_resp.status_msg : "",
+  ].filter(Boolean);
+  const first = candidates[0]?.split("\n")[0]?.trim();
+  return first ? `通道报错:${first.slice(0, 120)}` : "响应结构不符合协议预期";
 }
 
 async function interpretResponse(
@@ -106,19 +121,28 @@ async function interpretResponse(
   startedAt: number,
 ): Promise<AiModelProbeResult> {
   const json = (await res.json().catch(() => null)) as {
+    type?: string;
     choices?: unknown[];
     content?: unknown[];
     data?: { embedding?: number[] }[];
+    error?: { message?: unknown };
+    base_resp?: { status_msg?: unknown };
   } | null;
   if (input.role === "embedding") {
     const vec = json?.data?.[0]?.embedding;
     if (!Array.isArray(vec) || vec.length === 0) {
-      return fail("响应缺少向量数据", startedAt);
+      return fail(protocolErrorHint(json), startedAt);
     }
     return { ok: true, message: `向量通道连通(维度 ${vec.length})`, latencyMs: Date.now() - startedAt };
   }
-  const shaped = input.protocol === "anthropic" ? Array.isArray(json?.content) : Array.isArray(json?.choices);
-  if (!shaped) return fail("响应结构不符合协议预期", startedAt);
+  // anthropic 探针判连通不判生成质量:思考模型可能只回 thinking 块
+  // (甚至 max_tokens 仍耗尽时 content:null),content 数组(任意块型)
+  // 或 message 信封都能证明端点/鉴权/协议三方可用
+  const shaped =
+    input.protocol === "anthropic"
+      ? Array.isArray(json?.content) || json?.type === "message"
+      : Array.isArray(json?.choices);
+  if (!shaped) return fail(protocolErrorHint(json), startedAt);
   return {
     ok: true,
     message: `对话通道连通(模型 ${input.modelId})`,
