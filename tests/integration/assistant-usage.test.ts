@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db/business";
 import { beijingDateKey } from "@/lib/format";
+import { checkSiteTokenQuota } from "@/server/services/assistant/quota";
 import {
   getAssistantUsagePage,
   getAssistantUsageSummary,
@@ -9,7 +10,8 @@ import {
 } from "@/server/services/assistant/usage";
 
 /**
- * 助手用量日聚合集成(M9 W8):写入计数/词频,读侧汇总今日与区间口径。
+ * 助手用量日聚合集成(M9 W8):写入计数/词频,读侧汇总今日与区间口径;
+ * 站点日 Token 限额(2026-11-18)检查读同一张日聚合表。
  * 日聚合表按自然日累积,测试前后清当日行,避免污染其他用例。
  */
 
@@ -120,5 +122,31 @@ describe("getAssistantUsagePage(独立页读侧)", () => {
     expect(view.total.calls).toBe(0);
     expect(view.total.failureRate).toBe(0);
     expect(view.topKeywords).toEqual([]);
+  });
+});
+
+describe("checkSiteTokenQuota(站点日 Token 限额)", () => {
+  it("当日累计未达上限 → 放行并回已用 Token", async () => {
+    await recordAssistantUsage({ ok: true, promptTokens: 900, completionTokens: 100, question: null });
+    const verdict = await checkSiteTokenQuota(2000);
+    expect(verdict.allowed).toBe(true);
+    expect(verdict.usedTokens).toBe(1000);
+    expect(verdict.retryAfterSec).toBeUndefined();
+  });
+
+  it("当日累计达上限 → 拦截并回下一个北京日零点的 retryAfterSec", async () => {
+    await recordAssistantUsage({ ok: true, promptTokens: 1500, completionTokens: 500, question: null });
+    const verdict = await checkSiteTokenQuota(2000);
+    expect(verdict.allowed).toBe(false);
+    expect(verdict.usedTokens).toBe(2000);
+    expect(verdict.retryAfterSec).toBeGreaterThan(0);
+    expect(verdict.retryAfterSec).toBeLessThanOrEqual(24 * 3600);
+  });
+
+  it("上限 0 = 不限额(累计再高也放行)", async () => {
+    await recordAssistantUsage({ ok: true, promptTokens: 5000, completionTokens: 5000, question: null });
+    const verdict = await checkSiteTokenQuota(0);
+    expect(verdict.allowed).toBe(true);
+    expect(verdict.usedTokens).toBe(10000);
   });
 });

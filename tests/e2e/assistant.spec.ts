@@ -14,7 +14,7 @@ import { PrismaClient } from "../../src/generated/business";
 const prisma = new PrismaClient();
 const MOCK_ANSWER = "这是来自 mock 的流式回答。";
 
-let chatBindingBackup: { primaryId: number | null; backupId: number | null; dailyMax: number } | null = null;
+let chatBindingBackup: { primaryId: number | null; backupId: number | null; dailyTokenMax: number } | null = null;
 let mockModelId = 0;
 
 /** 进程内 mock openai 协议 /chat/completions:吐固定文本,末帧带 usage(审计聚合可非零) */
@@ -99,13 +99,13 @@ async function fillComposer(page: Page, text: string): Promise<void> {
 test.beforeAll(async () => {
   const row = await prisma.aiRoleBinding.findUnique({ where: { role: "chat" } });
   chatBindingBackup = row
-    ? { primaryId: row.primaryId, backupId: row.backupId, dailyMax: row.dailyMax }
+    ? { primaryId: row.primaryId, backupId: row.backupId, dailyTokenMax: row.dailyTokenMax }
     : null;
   // 先解绑,保证「通道未绑」用例的真实性
   await prisma.aiRoleBinding.upsert({
     where: { role: "chat" },
     update: { primaryId: null, backupId: null },
-    create: { role: "chat", primaryId: null, backupId: null, dailyMax: 20 },
+    create: { role: "chat", primaryId: null, backupId: null, dailyTokenMax: 0 },
   });
   mock = await startLlmMock();
 });
@@ -118,7 +118,7 @@ test.afterAll(async () => {
       data: {
         primaryId: chatBindingBackup.primaryId,
         backupId: chatBindingBackup.backupId,
-        dailyMax: chatBindingBackup.dailyMax,
+        dailyTokenMax: chatBindingBackup.dailyTokenMax,
       },
     });
   }
@@ -144,7 +144,7 @@ async function bindChatAtMock(): Promise<void> {
   mockModelId = model.id;
   await prisma.aiRoleBinding.update({
     where: { role: "chat" },
-    data: { primaryId: model.id, backupId: null, dailyMax: 20 },
+    data: { primaryId: model.id, backupId: null, dailyTokenMax: 0 },
   });
 }
 
