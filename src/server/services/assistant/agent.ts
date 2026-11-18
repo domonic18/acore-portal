@@ -10,7 +10,7 @@ import { createChatModel } from "./model-factory";
 import { ASSISTANT_SYSTEM_PROMPT } from "./prompt";
 import { searchSiteTool } from "./search-tool";
 import { resolveAiModel } from "@/server/services/shared/ai-models/resolver";
-import { formatDate, formatTime } from "@/lib/format";
+import { formatDate, formatTime, formatWeekday } from "@/lib/format";
 
 // checkpointer 无进程态(serde 内建),模块级单例随 agent 复用
 const checkpointer = new MysqlCheckpointSaver();
@@ -35,11 +35,7 @@ const askUserTool = tool(
 const getCurrentTimeTool = tool(
   () => {
     const now = new Date();
-    const weekday = new Intl.DateTimeFormat("zh-CN", {
-      timeZone: "Asia/Shanghai",
-      weekday: "long",
-    }).format(now);
-    return `当前时间:${formatDate(now)} ${formatTime(now)} ${weekday}(北京时区)`;
+    return `当前时间:${formatDate(now)} ${formatTime(now)} ${formatWeekday(now)}(北京时区)`;
   },
   {
     name: "get_current_time",
