@@ -3,6 +3,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/business";
 import { beijingDateKey } from "@/lib/format";
 import {
+  getAssistantUsagePage,
   getAssistantUsageSummary,
   recordAssistantUsage,
 } from "@/server/services/assistant/usage";
@@ -81,5 +82,43 @@ describe("recordAssistantUsage / getAssistantUsageSummary", () => {
     const summary = await getAssistantUsageSummary(7);
     expect(summary.today.calls).toBe(0);
     expect(summary.topKeywords).toEqual([]);
+  });
+});
+
+describe("getAssistantUsagePage(独立页读侧)", () => {
+  it("窗口内日全字段序列 + 区间合计 + 热门词", async () => {
+    await recordAssistantUsage({
+      ok: true,
+      promptTokens: 100,
+      completionTokens: 20,
+      question: "法师怎么升级",
+    });
+    await recordAssistantUsage({
+      ok: false,
+      promptTokens: 50,
+      completionTokens: 0,
+      question: "法师怎么升级",
+    });
+
+    const view = await getAssistantUsagePage(7);
+    expect(view.days).toBe(7);
+    expect(view.daily).toHaveLength(7);
+    expect(view.daily.at(-1)?.calls).toBe(2);
+    expect(view.daily.at(-1)?.failures).toBe(1);
+    expect(view.total.calls).toBe(2);
+    expect(view.total.failures).toBe(1);
+    expect(view.total.failureRate).toBe(50);
+    expect(view.total.tokens).toBe(170);
+    expect(view.topKeywords[0]?.keyword).toContain("法师");
+    expect(view.topKeywords[0]?.count).toBe(2);
+  });
+
+  it("全零窗口回全零序列而非空数组", async () => {
+    const view = await getAssistantUsagePage(7);
+    expect(view.daily).toHaveLength(7);
+    expect(view.daily.every((d) => d.calls === 0)).toBe(true);
+    expect(view.total.calls).toBe(0);
+    expect(view.total.failureRate).toBe(0);
+    expect(view.topKeywords).toEqual([]);
   });
 });

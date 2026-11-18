@@ -169,7 +169,7 @@ test.describe.serial("AI 助手(M9)", () => {
   test("配通道后 /search 接管为 Agent 问答页", async ({ page }) => {
     await bindChatAtMock();
     await page.goto("/search");
-    await expect(page.getByRole("heading", { name: "问问老克塔助手" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "问问小塔助手" })).toBeVisible();
     await expect(page.getByText("站内内容问答 · 回答附来源链接")).toBeVisible();
     // 降级形态不应出现
     await expect(page.getByRole("searchbox", { name: "搜索关键词" })).toHaveCount(0);

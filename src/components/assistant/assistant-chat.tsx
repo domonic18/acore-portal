@@ -84,7 +84,7 @@ function AssistantMessage(): React.ReactElement {
     <MessagePrimitive.Root className="mb-4">
       <div className="mb-1 flex items-center gap-1.5 text-[11px] text-muted">
         <Bot className="size-3.5 text-highlight" aria-hidden />
-        老克塔助手
+        小塔助手
       </div>
       <div className="min-w-0 space-y-1">
         <MessagePrimitive.Content

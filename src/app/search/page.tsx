@@ -50,7 +50,7 @@ function AgentSearch() {
             <Search className="size-5 text-highlight" aria-hidden />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-heading">问问老克塔助手</h1>
+            <h1 className="text-xl font-semibold text-heading">问问小塔助手</h1>
             <p className="mt-0.5 text-sm text-muted">
               用一句话提问,助手检索站内攻略、说明、商品与帖子后作答
             </p>
