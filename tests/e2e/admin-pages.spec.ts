@@ -16,13 +16,13 @@ async function loginAdmin(page: Page) {
 test("网站地图编辑页展示系统生成内容,核心页不可删/改别名", async ({ page }) => {
   await loginAdmin(page);
 
-  await page.goto("/admin/pages");
+  await page.goto("/admin/articles/pages");
   const row = page.getByRole("row").filter({ hasText: "/sitemap" });
   await expect(row.getByText("核心")).toBeVisible();
   await expect(row.getByRole("button", { name: "删除" })).toHaveCount(0);
 
   await row.getByRole("link", { name: "编辑" }).click();
-  await expect(page).toHaveURL(/\/admin\/pages\/\d+$/);
+  await expect(page).toHaveURL(/\/admin\/articles\/pages\/\d+$/);
   await expect(page.getByText("系统生成内容(前台实时显示)")).toBeVisible();
   await expect(page.getByTestId("sitemap-groups")).toBeVisible();
   await expect(page.getByTestId("sitemap-groups")).toContainText("主要栏目");

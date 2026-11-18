@@ -15,8 +15,6 @@ export default async function AdminServerStatusPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">状态配置</h1>
-
       <section className="rounded-xl border border-[#22385a] bg-[#13233a] p-4 text-sm">
         <h2 className="mb-2 font-semibold text-[#dcebf7]">实时读数(只读)</h2>
         {status.enabled ? (

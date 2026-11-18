@@ -17,7 +17,6 @@ export default async function AdminHomePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold">首页配置</h1>
       <BannerManager banners={banners} />
       <hr className="border-[#22385a]" />
       <FeaturedManager products={featured} candidates={candidates} />

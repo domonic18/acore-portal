@@ -39,17 +39,16 @@ export default async function AdminSecurityPage({
   });
 
   const nextHref = view.recent.nextCursor
-    ? `/admin/security?cursors=${[...cursors, view.recent.nextCursor.toString()].join(",")}`
+    ? `/admin/stats/security?cursors=${[...cursors, view.recent.nextCursor.toString()].join(",")}`
     : null;
   const prevHref =
     cursors.length > 0
-      ? `/admin/security?cursors=${cursors.slice(0, -1).join(",")}`
+      ? `/admin/stats/security?cursors=${cursors.slice(0, -1).join(",")}`
       : null;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold">安全看板</h1>
         <p className="text-xs text-[#6482a3]">
           统计窗口 {view.windowHours} 小时 · 生成于{" "}
           {formatDateTime(view.generatedAt)}

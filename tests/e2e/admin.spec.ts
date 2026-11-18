@@ -128,7 +128,7 @@ test.describe("p12 后台外壳", () => {
       "aria-current",
       "page",
     );
-    await expect(page.getByRole("navigation", { name: "面包屑" })).toContainText("运营");
+    await expect(page.getByRole("navigation", { name: "面包屑" })).toContainText("数据");
     // 门户 chrome 不出现在 /admin
     await expect(page.getByRole("navigation", { name: "主导航" })).toHaveCount(0);
     await expect(page.locator("footer")).toHaveCount(0);

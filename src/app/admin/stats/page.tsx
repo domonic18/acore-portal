@@ -89,8 +89,7 @@ export default async function AdminStatsPage({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-bold text-[#dcebf7]">统计看板</h1>
-          <p className="mt-0.5 text-[12.5px] text-[#6482a3]">
+          <p className="text-[12.5px] text-[#6482a3]">
             流量画像取自 WP Statistics 存档(截至 {overview.archive.lastDate ?? "—"}),
             趋势与业务指标为自建埋点实时口径。
           </p>

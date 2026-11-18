@@ -57,7 +57,6 @@ export default async function AdminProductsPage({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold">商品</h1>
         <FilterChip
           href={buildPageHref(
             "/admin/products",

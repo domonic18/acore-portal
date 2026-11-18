@@ -83,29 +83,33 @@ test.afterAll(async () => {
   await prisma.$disconnect();
 });
 
-test("游客与 user 访问 /admin/security → 被拦截回登录页", async ({ page }) => {
-  await page.goto("/admin/security");
-  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fsecurity$/);
-  await expect(page.getByRole("heading", { name: "安全看板" })).toHaveCount(0);
+test("游客与 user 访问 /admin/stats/security → 被拦截回登录页", async ({ page }) => {
+  await page.goto("/admin/stats/security");
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fstats%2Fsecurity$/);
+  await expect(page.getByRole("heading", { name: "看板" })).toHaveCount(0);
 
   await login(page, "legacyuser", "oldpass123");
-  await page.goto("/admin/security");
-  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fsecurity$/);
-  await expect(page.getByRole("heading", { name: "安全看板" })).toHaveCount(0);
+  await page.goto("/admin/stats/security");
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fstats%2Fsecurity$/);
+  await expect(page.getByRole("heading", { name: "看板" })).toHaveCount(0);
 });
 
 test.describe.serial("admin 安全看板", () => {
-  test("NAV 入口 + 审计行 + 按 IP 聚合 + 被锁账号", async ({ page }) => {
+  test("NAV 入口 + Tab 切换 + 审计行 + 按 IP 聚合 + 被锁账号", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
     await page.goto("/admin");
 
-    // 布局导航在 <header>(banner)内,/admin 主区自带 <nav> 卡片网格,须双重限定
+    // 布局导航在 <header>(banner)内,/admin 主区自带 <nav> 卡片网格,须双重限定。
+    // 菜单收敛(2026-11-18):安全看板并入看板页 Tab,菜单只剩「看板」单入口
     await expect(
-      page.getByRole("banner").getByRole("navigation").getByRole("link", { name: "安全看板" }),
-    ).toHaveAttribute("href", "/admin/security");
+      page.getByRole("banner").getByRole("navigation").getByRole("link", { name: "看板" }),
+    ).toHaveAttribute("href", "/admin/stats");
 
-    await page.goto("/admin/security");
-    await expect(page.getByRole("heading", { name: "安全看板" })).toBeVisible();
+    await page.goto("/admin/stats/security");
+    await expect(page.getByRole("tab", { name: "安全看板" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
 
     // 嫌疑来源 IP 聚合:失败数(25)与命中账号数(10)是两列,不可混淆
     const offenderRow = page.getByRole("row").filter({ hasText: ATTACK_IP }).first();
@@ -122,13 +126,16 @@ test.describe.serial("admin 安全看板", () => {
 
   test("流水翻页:游标链在 URL 里,「更早」可达", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
-    await page.goto("/admin/security");
+    await page.goto("/admin/stats/security");
 
     const older = page.getByRole("link", { name: "更早" });
     await expect(older).toBeVisible();
     await older.click();
     await expect(page).toHaveURL(/cursors=/);
-    await expect(page.getByRole("heading", { name: "安全看板" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "安全看板" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     await expect(page.getByRole("link", { name: "较新" })).toBeVisible();
   });
 });

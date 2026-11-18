@@ -14,8 +14,7 @@ export default async function AdminPagesPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold">静态页</h1>
-        <ButtonLink href="/admin/pages/new" variant="primary">
+        <ButtonLink href="/admin/articles/pages/new" variant="primary">
           新建静态页
         </ButtonLink>
       </div>
@@ -41,7 +40,7 @@ export default async function AdminPagesPage() {
               return (
                 <Tr key={p.id}>
                   <Td className="whitespace-nowrap">
-                    <Link prefetch={false} href={`/admin/pages/${p.id}`} className={linkCls}>
+                    <Link prefetch={false} href={`/admin/articles/pages/${p.id}`} className={linkCls}>
                       {p.title}
                     </Link>
                   </Td>
@@ -55,7 +54,7 @@ export default async function AdminPagesPage() {
                   <Td className="whitespace-nowrap text-xs text-[#6482a3]">{p.updatedAt.slice(0, 10)}</Td>
                   <Td>
                     <div className="flex items-center gap-2">
-                      <Link prefetch={false} href={`/admin/pages/${p.id}`} className={linkCls}>
+                      <Link prefetch={false} href={`/admin/articles/pages/${p.id}`} className={linkCls}>
                         编辑
                       </Link>
                       {core ? (
