@@ -102,6 +102,7 @@ test.beforeAll(async () => {
     ? { primaryId: row.primaryId, backupId: row.backupId, dailyTokenMax: row.dailyTokenMax }
     : null;
   // 先解绑,保证「通道未绑」用例的真实性
+  // dailyTokenMax: 0 = 不限额(E2E 不跑真实用量闸,避免被站点当日累计影响)
   await prisma.aiRoleBinding.upsert({
     where: { role: "chat" },
     update: { primaryId: null, backupId: null },
@@ -142,6 +143,7 @@ async function bindChatAtMock(): Promise<void> {
     },
   });
   mockModelId = model.id;
+  // dailyTokenMax: 0 = 不限额(同上:不跑真实用量闸)
   await prisma.aiRoleBinding.update({
     where: { role: "chat" },
     data: { primaryId: model.id, backupId: null, dailyTokenMax: 0 },
