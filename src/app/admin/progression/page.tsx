@@ -6,10 +6,5 @@ import { ProgressionAdmin } from "@/components/admin/progression-admin";
 export default async function AdminProgressionPage() {
   await requireAdmin();
   const nodes = await listAdminProgression();
-  return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">渐进计划</h1>
-      <ProgressionAdmin nodes={nodes} />
-    </div>
-  );
+  return <ProgressionAdmin nodes={nodes} />;
 }
