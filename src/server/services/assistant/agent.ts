@@ -10,6 +10,7 @@ import { createChatModel } from "./model-factory";
 import { ASSISTANT_SYSTEM_PROMPT } from "./prompt";
 import { searchSiteTool } from "./search-tool";
 import { resolveAiModel } from "@/server/services/shared/ai-models/resolver";
+import { formatDate, formatTime } from "@/lib/format";
 
 // checkpointer 无进程态(serde 内建),模块级单例随 agent 复用
 const checkpointer = new MysqlCheckpointSaver();
@@ -24,6 +25,27 @@ const askUserTool = tool(
     name: "ask_user",
     description: "当缺少关键信息无法回答时,向用户提出一个澄清问题并等待回复。",
     schema: z.object({ question: z.string().min(1).describe("要问用户的问题") }),
+  },
+);
+
+/**
+ * get_current_time(2026-11-18 用户反馈):模型训练记忆里没有「现在」,
+ * 问时间/日期必须给真实时钟——固定东八区(与站内展示口径同源 lib/format)。
+ */
+const getCurrentTimeTool = tool(
+  () => {
+    const now = new Date();
+    const weekday = new Intl.DateTimeFormat("zh-CN", {
+      timeZone: "Asia/Shanghai",
+      weekday: "long",
+    }).format(now);
+    return `当前时间:${formatDate(now)} ${formatTime(now)} ${weekday}(北京时区)`;
+  },
+  {
+    name: "get_current_time",
+    description:
+      "获取当前的日期、时间与星期(北京时区)。凡涉及「现在/今天/几点/日期/星期」的问题必须先调用本工具,不要凭记忆猜测。",
+    schema: z.object({}),
   },
 );
 
@@ -42,7 +64,7 @@ export async function getAssistantAgent(): Promise<DeepAgent | null> {
   if (!model) return null;
   const agent = createDeepAgent({
     model,
-    tools: [searchSiteTool, askUserTool],
+    tools: [searchSiteTool, askUserTool, getCurrentTimeTool],
     systemPrompt: ASSISTANT_SYSTEM_PROMPT,
     checkpointer,
   });
