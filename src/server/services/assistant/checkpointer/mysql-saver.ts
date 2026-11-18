@@ -16,6 +16,7 @@ import type {
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { Prisma } from "@/generated/business";
 import { prisma } from "@/lib/db/business";
+import { deleteAssistantThread } from "@/server/services/assistant/session-cleanup";
 
 /**
  * MySQL 检查点存取(M9 W5):对照 langgraph 官方 PostgresSaver/MemorySaver 语义移植。
@@ -222,11 +223,9 @@ export class MysqlCheckpointSaver extends BaseCheckpointSaver {
     }
   }
 
+  /** 删除整个线程:委托会话生命周期原语(检查点 + 中间写 + 台账同一事务,唯一写路径) */
   async deleteThread(threadId: string): Promise<void> {
-    await prisma.$transaction([
-      prisma.agentWrites.deleteMany({ where: { threadId } }),
-      prisma.agentCheckpoint.deleteMany({ where: { threadId } }),
-    ]);
+    await deleteAssistantThread(threadId);
   }
 
   /** 一次 superstep 的 pending writes,按 writesSortKey 序返回(校验对照 MemorySaver) */
