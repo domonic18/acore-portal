@@ -2,21 +2,18 @@ import { sendFeishuCard, type FeishuCard } from "../../src/server/services/share
 import type { SystemConfig } from "../../src/lib/config";
 
 /**
- * 备份告警出口(cron 备份 / 心跳检查 / 恢复演练共用):
+ * 运维告警出口(cron 备份 / 心跳检查 / 恢复演练 / 助手会话清理共用):
  * 通道配置取 system_config 的 notify.*(后台「设置」可改,免重启);
- * 未配置或通道故障一律降级为「只记日志」——告警坏掉绝不能连带备份失败。
+ * 未配置或通道故障一律降级为「只记日志」——告警坏掉绝不能连带主流程失败。
  */
 
-export type BackupAlertOutcome = "sent" | "skipped" | "failed";
+export type OpsAlertOutcome = "sent" | "skipped" | "failed";
 
 /**
- * 发一张备份告警卡片。
+ * 发一张运维告警卡片。
  * skipped = 通道未启用/未配置(降级模式);failed = 通道故障(已重试过,仍失败)。
  */
-export async function sendBackupAlert(
-  cfg: SystemConfig,
-  card: FeishuCard,
-): Promise<BackupAlertOutcome> {
+export async function sendOpsAlert(cfg: SystemConfig, card: FeishuCard): Promise<OpsAlertOutcome> {
   const notify = cfg.notify;
   if (!notify.feishuAlertEnabled || !notify.feishuWebhookUrl) return "skipped";
   const result = await sendFeishuCard(
@@ -28,7 +25,7 @@ export async function sendBackupAlert(
 }
 
 /** 告警发送结果的日志口径(不打印任何凭据) */
-export function describeAlert(outcome: BackupAlertOutcome): string {
+export function describeAlert(outcome: OpsAlertOutcome): string {
   switch (outcome) {
     case "sent":
       return "已发送";

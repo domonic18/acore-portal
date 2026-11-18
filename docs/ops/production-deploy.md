@@ -250,6 +250,18 @@ docker compose -f docker/docker-compose.prod.yml logs --tail 50 web
 30 5 * * 0 /home/ubuntu/acore-portal/scripts/cron/assistant-cleanup-run.sh >> /home/ubuntu/logs/acore-assistant/cleanup.log 2>&1
 ```
 
+> **会话清理的结果同步飞书**(2026-11-18):清理是无人值守的定时任务,
+> 每次跑都发一张卡(有回收＝绿 / 无超期＝蓝,兼作「任务确实在跑」的心跳),
+> 失败发红卡且退出码非零。通道复用后台「设置 → 通知」的 `notify.feishu*`
+> (webhook + 签名密钥 + 启用开关),**未配置时降级为只记日志**
+> (日志里会打「未配置通道…,仅记录日志」)——不影响清理本身。
+> 手动补跑(不等 cron 的排期):
+>
+> ```bash
+> sudo -n docker exec acore-portal-prod-web-1 \
+>   node_modules/.bin/tsx --conditions=react-server scripts/cron/assistant-cleanup.ts
+> ```
+
 ## 6. 从旧 WP 栈切换
 
 旧站(nginx+php+mysql8+redis)与新栈端口不冲突的前提是**先停旧栈**再起新栈:

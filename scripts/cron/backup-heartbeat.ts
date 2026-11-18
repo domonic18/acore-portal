@@ -16,7 +16,7 @@ import {
   type BackupManifest,
 } from "./backup-lib";
 import { createCosClient, getBuffer, type CosCredentials } from "./backup-cos";
-import { describeAlert, sendBackupAlert } from "./backup-alert";
+import { describeAlert, sendOpsAlert } from "./ops-alert";
 import { BACKUP_MANIFEST_KEY } from "../../src/constants/backup";
 
 function argValue(name: string): string | null {
@@ -69,7 +69,7 @@ async function main() {
     `[backup-heartbeat] 心跳缺失: ${target} ${last ? `最近备份 ${last.createdAt}` : "无任何备份记录"}` +
       `(阈值 ${maxAge} 小时)`,
   );
-  const outcome = await sendBackupAlert(
+  const outcome = await sendOpsAlert(
     cfg,
     buildBackupHeartbeatCard({ last, ageHours, maxAgeHours: maxAge }),
   );

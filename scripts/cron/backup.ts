@@ -51,7 +51,7 @@ import {
   putFile,
   type CosCredentials,
 } from "./backup-cos";
-import { describeAlert, sendBackupAlert } from "./backup-alert";
+import { describeAlert, sendOpsAlert } from "./ops-alert";
 
 const IDENT_RE = /^[A-Za-z0-9_]+$/;
 
@@ -281,7 +281,7 @@ async function main() {
       `[backup] ${meta.label} 完成: cos://${creds.bucket}/${key} ` +
         `压缩 ${bytes}B / 解压 ${scan.rawBytes}B / 表 ${scan.tables.length} 张 / 清理过期 ${removed} 个`,
     );
-    const outcome = await sendBackupAlert(
+    const outcome = await sendOpsAlert(
       cfg,
       buildBackupSuccessCard({ target, key, bytes, rawBytes: scan.rawBytes, tables: scan.tables.length }),
     );
@@ -292,7 +292,7 @@ async function main() {
     if (uploadedKey) {
       await deleteKeys(client, creds, [uploadedKey]).catch(() => undefined);
     }
-    await sendBackupAlert(cfg, buildBackupFailureCard({ target, reasons: [message] })).catch(
+    await sendOpsAlert(cfg, buildBackupFailureCard({ target, reasons: [message] })).catch(
       () => undefined,
     );
     process.exitCode = 1;
