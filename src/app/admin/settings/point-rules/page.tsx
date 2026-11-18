@@ -10,7 +10,7 @@ export default async function AdminPointRulesPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-[13px] text-[#6482a3]">
+      <p className="text-[13px] text-muted">
         这里管的是「获取类」积分的分值与开关:改动后对新发生的发放即刻生效,已入账的流水不追溯。
       </p>
 
