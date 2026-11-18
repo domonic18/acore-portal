@@ -5,8 +5,8 @@ import { RESERVED_SLUGS, ARCHIVE_SLUGS } from "@/constants/content";
 /**
  * T016 前置(Phase 1 checkpoint):SC-205 多级菜单结构断言。
  * 2026-10 与生产原站对齐(GuestMenu/LoginMenu):
- * 游客=首页▾｜公告▾｜数据库▾｜资讯｜论坛｜搜索;登录态追加 积分商店▾｜我的账户▾。
- * (搜索 M8 新增,2026-11-17;W7 后该路由升级为 AI 问答页,入口不变)
+ * 游客=首页▾｜公告▾｜数据库▾｜资讯｜论坛;登录态追加 积分商店▾｜我的账户▾。
+ * (搜索 2026-11-18 退出主导航:入口收敛为页头右侧搜索 ICON,header-client)
  */
 const GUEST_LABELS = SITE_NAV.filter((n) => !n.authOnly).map((n) => n.label);
 const AUTHED_LABELS = SITE_NAV.map((n) => n.label);
@@ -19,7 +19,6 @@ describe("SITE_NAV 多级菜单结构(SC-205)", () => {
       "数据库",
       "资讯",
       "论坛",
-      "搜索",
       "积分商店",
       "我的账户",
     ]);
@@ -94,7 +93,6 @@ describe("SITE_NAV 多级菜单结构(SC-205)", () => {
     expect(byLabel["公告"]?.href).toBe("/announcements");
     expect(byLabel["资讯"]?.href).toBe("/news");
     expect(byLabel["论坛"]?.href).toBe("/forum");
-    expect(byLabel["搜索"]?.href).toBe("/search");
     expect(byLabel["积分商店"]?.href).toBe("/shop");
     expect(byLabel["我的账户"]?.href).toBe("/account/overview");
     // RESERVED_SLUGS 是代码持有段,不得覆盖核心内容页;devlog 已是 Markdown 静态页

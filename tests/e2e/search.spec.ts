@@ -3,13 +3,13 @@ import { expect, test } from "@playwright/test";
 /**
  * /search 站内搜索 E2E(M8 W1 先行形态):
  * hero 引导态 / 关键词命中(mark 高亮 + 单一 bg-panel 列表)/ 空态 /
- * 导航入口可达 / 语义降级条(通道未配置恒显,W7 Agent 接管后仅故障时显示)。
+ * 页头搜索 ICON 入口可达(2026-11-18 搜索退出主导航) / 语义降级条(通道未配置恒显,W7 Agent 接管后仅故障时显示)。
  */
 test.describe("站内搜索(M8)", () => {
-  test("导航入口可达,hero 态展示分组范围", async ({ page }) => {
+  test("页头搜索 ICON 入口可达,hero 态展示分组范围", async ({ page }) => {
     await page.goto("/");
-    const nav = page.getByRole("navigation", { name: "主导航" });
-    await nav.getByText("搜索", { exact: true }).click();
+    // 2026-11-18 用户反馈:搜索退出主导航,入口收敛为页头右侧搜索 ICON(铃铛左侧)
+    await page.getByTestId("header-search-link").click();
     await expect(page).toHaveURL(/\/search$/);
     await expect(page.getByRole("heading", { name: "站内搜索" })).toBeVisible();
     await expect(
