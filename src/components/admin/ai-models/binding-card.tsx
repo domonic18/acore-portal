@@ -27,7 +27,7 @@ export function RoleBindingCard({
   const hydrated = useHydrated();
   const [primaryId, setPrimaryId] = useState<number | null>(binding.primaryId);
   const [backupId, setBackupId] = useState<number | null>(binding.backupId);
-  const [dailyMax, setDailyMax] = useState(String(binding.dailyMax));
+  const [dailyTokenMax, setDailyTokenMax] = useState(String(binding.dailyTokenMax));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -47,7 +47,7 @@ export function RoleBindingCard({
           role: binding.role,
           primaryId,
           backupId,
-          dailyMax: Number.parseInt(dailyMax, 10) || 0,
+          dailyTokenMax: Number.parseInt(dailyTokenMax, 10) || 0,
         }),
       });
       setNotice("已保存");
@@ -98,15 +98,16 @@ export function RoleBindingCard({
         />
         {isChat && (
           <label className="flex min-w-0 flex-col gap-1">
-            <span className="text-[11.5px] text-[#6482a3]">每用户日配额(0 = 不限额)</span>
+            <span className="text-[11.5px] text-[#6482a3]">站点日 Token 上限(0 = 不限额)</span>
             <Input
               type="number"
               min={0}
-              max={10000}
-              value={dailyMax}
-              aria-label="每用户日配额"
-              onChange={(e) => setDailyMax(e.target.value)}
+              max={1000000000}
+              value={dailyTokenMax}
+              aria-label="站点日 Token 上限"
+              onChange={(e) => setDailyTokenMax(e.target.value)}
             />
+            <span className="text-[11px] text-[#4a6285]">全站当日问答 Token 总量,一轮约数千</span>
           </label>
         )}
       </div>

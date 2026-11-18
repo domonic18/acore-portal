@@ -15,7 +15,7 @@ const GW_B = "E2E 网关B";
 const CHAT_OPTION = "e2e-aim-chat(MiniMax(国内版))";
 const EMB_OPTION = "e2e-aim-emb(智谱 AI)";
 
-let bindingBackup: { role: string; primaryId: number | null; backupId: number | null; dailyMax: number }[] = [];
+let bindingBackup: { role: string; primaryId: number | null; backupId: number | null; dailyTokenMax: number }[] = [];
 
 async function login(page: Page, username: string, password: string) {
   await page.goto("/login");
@@ -32,7 +32,7 @@ async function waitHydrated(page: Page): Promise<void> {
 
 test.beforeAll(async () => {
   bindingBackup = await prisma.aiRoleBinding.findMany({
-    select: { role: true, primaryId: true, backupId: true, dailyMax: true },
+    select: { role: true, primaryId: true, backupId: true, dailyTokenMax: true },
   });
 });
 
@@ -42,7 +42,7 @@ test.afterAll(async () => {
     await prisma.aiRoleBinding.upsert({
       where: { role: row.role },
       create: row,
-      update: { primaryId: row.primaryId, backupId: row.backupId, dailyMax: row.dailyMax },
+      update: { primaryId: row.primaryId, backupId: row.backupId, dailyTokenMax: row.dailyTokenMax },
     });
   }
   await prisma.aiRoleBinding.deleteMany({

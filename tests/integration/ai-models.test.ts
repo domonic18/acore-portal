@@ -13,7 +13,7 @@ import {
   updateAiModel,
 } from "@/server/services/shared/ai-models/crud";
 import { updateRoleBinding } from "@/server/services/shared/ai-models/bindings";
-import { getChatDailyMax, resolveAiModel } from "@/server/services/shared/ai-models/resolver";
+import { getChatDailyTokenMax, resolveAiModel } from "@/server/services/shared/ai-models/resolver";
 import { probeAiModelCandidate, testStoredAiModel } from "@/server/services/shared/ai-models/probe";
 import { GET as modelsGet, POST as modelsPost } from "@/app/api/admin/ai-models/route";
 import { DELETE as modelDelete } from "@/app/api/admin/ai-models/[id]/route";
@@ -37,7 +37,7 @@ const createdIds: number[] = [];
 let chatAId = 0; // openai 对话条目(主力)
 let anthropicChatId = 0; // anthropic 对话条目(备用)
 
-type BindingSnapshot = { role: string; primaryId: number | null; backupId: number | null; dailyMax: number };
+type BindingSnapshot = { role: string; primaryId: number | null; backupId: number | null; dailyTokenMax: number };
 let bindingSnapshot: BindingSnapshot[] = [];
 
 async function adminReq(
@@ -95,7 +95,7 @@ beforeAll(async () => {
   await prisma.$queryRaw`SELECT 1`;
   await redis.ping();
   bindingSnapshot = await prisma.aiRoleBinding.findMany({
-    select: { role: true, primaryId: true, backupId: true, dailyMax: true },
+    select: { role: true, primaryId: true, backupId: true, dailyTokenMax: true },
   });
   for (const who of [
     { username: ADMIN, role: "admin" as const, email: `aim-${RUN}@t.local` },
@@ -116,7 +116,7 @@ afterAll(async () => {
     await prisma.aiRoleBinding.upsert({
       where: { role: row.role },
       create: row,
-      update: { primaryId: row.primaryId, backupId: row.backupId, dailyMax: row.dailyMax },
+      update: { primaryId: row.primaryId, backupId: row.backupId, dailyTokenMax: row.dailyTokenMax },
     });
   }
   await prisma.aiRoleBinding.deleteMany({
@@ -190,11 +190,11 @@ describe("CRUD 往返(apiKey 只写不读)", () => {
 describe("删除保护与绑定校验", () => {
   it("删除被绑定引用的条目 → BINDING_REFERENCED;解绑后可删", async () => {
     const id = await makeModel({ name: "网关B", modelId: "gw-chat-9b", roles: ["chat"] });
-    await updateRoleBinding({ role: "chat", primaryId: id, backupId: null, dailyMax: 20 }, adminId);
+    await updateRoleBinding({ role: "chat", primaryId: id, backupId: null, dailyTokenMax: 20 }, adminId);
     await expect(deleteAiModel(id, adminId)).rejects.toMatchObject({
       code: "BINDING_REFERENCED",
     });
-    await updateRoleBinding({ role: "chat", primaryId: null, backupId: null, dailyMax: 20 }, adminId);
+    await updateRoleBinding({ role: "chat", primaryId: null, backupId: null, dailyTokenMax: 20 }, adminId);
     await deleteAiModel(id, adminId);
     expect(await prisma.aiModel.findUnique({ where: { id } })).toBeNull();
   });
@@ -216,16 +216,16 @@ describe("删除保护与绑定校验", () => {
     });
 
     await expect(
-      updateRoleBinding({ role: "chat", primaryId: chatId, backupId: chatId, dailyMax: 20 }, adminId),
+      updateRoleBinding({ role: "chat", primaryId: chatId, backupId: chatId, dailyTokenMax: 20 }, adminId),
     ).rejects.toMatchObject({ code: "SAME_MODEL" });
     await expect(
-      updateRoleBinding({ role: "chat", primaryId: disabledId, backupId: null, dailyMax: 20 }, adminId),
+      updateRoleBinding({ role: "chat", primaryId: disabledId, backupId: null, dailyTokenMax: 20 }, adminId),
     ).rejects.toMatchObject({ code: "MODEL_DISABLED" });
     await expect(
-      updateRoleBinding({ role: "chat", primaryId: embedId, backupId: null, dailyMax: 20 }, adminId),
+      updateRoleBinding({ role: "chat", primaryId: embedId, backupId: null, dailyTokenMax: 20 }, adminId),
     ).rejects.toMatchObject({ code: "ROLE_MISMATCH" });
     await expect(
-      updateRoleBinding({ role: "embedding", primaryId: anthropicEmbed, backupId: null, dailyMax: 20 }, adminId),
+      updateRoleBinding({ role: "embedding", primaryId: anthropicEmbed, backupId: null, dailyTokenMax: 20 }, adminId),
     ).rejects.toMatchObject({ code: "PROTOCOL_MISMATCH" });
   });
 
@@ -238,20 +238,20 @@ describe("删除保护与绑定校验", () => {
     });
     anthropicChatId = secondChat;
     const view = await updateRoleBinding(
-      { role: "chat", primaryId: chatAId, backupId: secondChat, dailyMax: 25 },
+      { role: "chat", primaryId: chatAId, backupId: secondChat, dailyTokenMax: 25 },
       adminId,
     );
-    expect(view).toEqual({ role: "chat", primaryId: chatAId, backupId: secondChat, dailyMax: 25 });
+    expect(view).toEqual({ role: "chat", primaryId: chatAId, backupId: secondChat, dailyTokenMax: 25 });
     const row = await prisma.aiRoleBinding.findUniqueOrThrow({ where: { role: "chat" } });
     expect(row.primaryId).toBe(chatAId);
     expect(row.backupId).toBe(secondChat);
-    expect(row.dailyMax).toBe(25);
+    expect(row.dailyTokenMax).toBe(25);
 
     const audit = await prisma.auditLog.findFirstOrThrow({
       where: { actorUserId: adminId, action: AUDIT_ACTION.AI_ROLE_BINDING_CHANGED },
       orderBy: { id: "desc" },
     });
-    expect(audit.payloadJson).toMatchObject({ role: "chat", primaryId: chatAId, dailyMax: 25 });
+    expect(audit.payloadJson).toMatchObject({ role: "chat", primaryId: chatAId, dailyTokenMax: 25 });
     expect(JSON.stringify(audit.payloadJson)).not.toContain(KEY_A);
   });
 });
@@ -281,7 +281,7 @@ describe("resolver 静态选边(真库)", () => {
     expect((await resolveAiModel("chat"))?.source).toBe("primary");
   });
 
-  it("embedding 角色绑定后可解析;getChatDailyMax 读绑定值", async () => {
+  it("embedding 角色绑定后可解析;getChatDailyTokenMax 读绑定值", async () => {
     const embedId = await makeModel({
       name: "向量网关",
       modelId: "embedding-3",
@@ -290,13 +290,13 @@ describe("resolver 静态选边(真库)", () => {
       apiKey: `sk-emb-${RUN}`,
     });
     await updateRoleBinding(
-      { role: "embedding", primaryId: embedId, backupId: null, dailyMax: 20 },
+      { role: "embedding", primaryId: embedId, backupId: null, dailyTokenMax: 20 },
       adminId,
     );
     const resolved = await resolveAiModel("embedding");
     expect(resolved?.source).toBe("primary");
     expect(resolved?.protocol).toBe("openai");
-    expect(await getChatDailyMax()).toBe(25);
+    expect(await getChatDailyTokenMax()).toBe(25);
   });
 });
 
@@ -506,14 +506,14 @@ describe("路由层契约", () => {
     const created = ((await createRes.json()) as { model: { id: number } }).model;
     createdIds.push(created.id);
 
-    await updateRoleBinding({ role: "chat", primaryId: created.id, backupId: null, dailyMax: 20 }, adminId);
+    await updateRoleBinding({ role: "chat", primaryId: created.id, backupId: null, dailyTokenMax: 20 }, adminId);
     const delRes = await modelDelete(await adminReq(`/api/admin/ai-models/${created.id}`, "DELETE"), {
       params: { id: String(created.id) },
     });
     expect(delRes.status).toBe(409);
     expect((await errorBody(delRes)).code).toBe("BINDING_REFERENCED");
 
-    await updateRoleBinding({ role: "chat", primaryId: null, backupId: null, dailyMax: 20 }, adminId);
+    await updateRoleBinding({ role: "chat", primaryId: null, backupId: null, dailyTokenMax: 20 }, adminId);
     const delRes2 = await modelDelete(await adminReq(`/api/admin/ai-models/${created.id}`, "DELETE"), {
       params: { id: String(created.id) },
     });
@@ -532,7 +532,7 @@ describe("路由层契约", () => {
         role: "chat",
         primaryId: chatId,
         backupId: chatId,
-        dailyMax: 20,
+        dailyTokenMax: 20,
       }),
     );
     expect(sameRes.status).toBe(422);
@@ -543,7 +543,7 @@ describe("路由层契约", () => {
         role: "chat",
         primaryId: chatId,
         backupId: null,
-        dailyMax: 25,
+        dailyTokenMax: 25,
       }),
     );
     expect(okRes.status).toBe(200);

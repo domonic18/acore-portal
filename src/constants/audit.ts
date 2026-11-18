@@ -118,7 +118,7 @@ export const AUDIT_ACTION = {
   AI_MODEL_STATUS_CHANGED: "ai_model_status_changed",
   /** AI 模型测试连接(category=admin;只记 id/name 与成败/延迟) */
   AI_MODEL_TESTED: "ai_model_tested",
-  /** AI 角色绑定变更(category=admin;payload 记 role/primaryId/backupId/dailyMax) */
+  /** AI 角色绑定变更(category=admin;payload 记 role/primaryId/backupId/dailyTokenMax) */
   AI_ROLE_BINDING_CHANGED: "ai_role_binding_changed",
 } as const;
 
