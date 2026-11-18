@@ -130,6 +130,20 @@ const configSchema = z.object({
     feishuWebhookUrl: z.string().default(""),
     feishuWebhookSecret: z.string().default(""),
   }),
+  // 商品运营 MCP(二期 M6):长期访问令牌按「只写不读」处理——
+  // 库中仅存 SHA-256 哈希,明文只在签发响应里出现一次,后台只回「已配置」与前缀;
+  // 签发即覆盖旧令牌 ⇒ 同时只有一枚活跃令牌(规格 §17.3)
+  mcp: z.object({
+    tokenHash: z.string().default(""),
+    tokenPrefix: z.string().default(""),
+    tokenScope: z.union([z.enum(["read", "write"]), z.literal("")]).default(""),
+    tokenExpiresAt: z.string().default(""),
+    tokenIssuedAt: z.string().default(""),
+    tokenAdminUserId: z.string().default(""),
+    qpsLimit: z.coerce.number().int().min(1).max(60).default(5),
+    dailyLimit: z.coerce.number().int().min(1).max(100_000).default(500),
+    ipMaxPerMin: z.coerce.number().int().min(1).max(600).default(60),
+  }),
   // 内容域(2026-11-05 用户反馈):正文目录开关;键缺省按 tocEnabled=true
   content: z.object({
     tocEnabled: z.boolean().default(true),
@@ -283,6 +297,17 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       feishuAlertEnabled: flat["notify.feishuAlertEnabled"] === "true",
       feishuWebhookUrl: flat["notify.feishuWebhookUrl"] ?? "",
       feishuWebhookSecret: flat["notify.feishuWebhookSecret"] ?? "",
+    },
+    mcp: {
+      tokenHash: flat["mcp.tokenHash"] ?? "",
+      tokenPrefix: flat["mcp.tokenPrefix"] ?? "",
+      tokenScope: flat["mcp.tokenScope"] ?? "",
+      tokenExpiresAt: flat["mcp.tokenExpiresAt"] ?? "",
+      tokenIssuedAt: flat["mcp.tokenIssuedAt"] ?? "",
+      tokenAdminUserId: flat["mcp.tokenAdminUserId"] ?? "",
+      qpsLimit: flat["mcp.qpsLimit"] ?? "5",
+      dailyLimit: flat["mcp.dailyLimit"] ?? "500",
+      ipMaxPerMin: flat["mcp.ipMaxPerMin"] ?? "60",
     },
     content: {
       tocEnabled: flat["content.tocEnabled"] !== "false",
