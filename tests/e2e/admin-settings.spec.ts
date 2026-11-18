@@ -6,7 +6,7 @@ import { reloadServerConfig } from "./helpers/config-reload";
 /**
  * M4 US5 系统设置 E2E(T032,quickstart S5.1-S5.3 简版自动化,主链路在集成层):
  * ① 权限口径:游客/user 访问 /admin/settings → 登录页;
- * ② 八组渲染+NAV 入口+敏感字段掩码态(已配置显「已配置,留空保持」,不回显明文);
+ * ② 十四组渲染+NAV 入口+敏感字段掩码态(已配置显「已配置,留空保持」,不回显明文);
  * ③ 保存校验:非法值 422 错误回显;合法保存「已保存,即时生效」;
  * ④ 测试发信:正常配置 → Mailpit 收到;坏 SMTP 配置热生效后 → 页面回显失败摘要。
  * smtp 键为全局行:用前快照、用后还原;E2E schema 指向 dev Mailpit(localhost:1025)。
@@ -161,7 +161,7 @@ test("user 角色 → 同样拦截(非 admin)", async ({ page }) => {
 });
 
 test.describe.serial("admin 设置页", () => {
-  test("八组渲染+NAV 入口+掩码态不回显明文", async ({ page }) => {
+  test("十四组渲染+NAV 入口+掩码态不回显明文", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
     await page.goto("/admin");
 

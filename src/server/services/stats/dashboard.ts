@@ -2,6 +2,11 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { redis } from "@/lib/redis";
 import { POINT_TX_TYPE } from "@/constants/points";
+import {
+  getAssistantUsageSummary,
+  EMPTY_ASSISTANT_USAGE,
+  type AssistantUsageSummary,
+} from "@/server/services/assistant/usage";
 import { getServerStatus } from "@/server/services/status/status";
 import { getConversionFunnel, EMPTY_FUNNEL, type ConversionFunnel } from "./funnel";
 import {
@@ -26,6 +31,7 @@ export type DashboardData = {
   users7d: { newRegistered: number };
   funnel: ConversionFunnel;
   pageView: PageViewSummary;
+  assistant: AssistantUsageSummary;
 };
 
 const TOP_N = 10;
@@ -63,6 +69,7 @@ export async function getDashboard(): Promise<DashboardData> {
     newRegistered,
     funnel,
     pageView,
+    assistant,
   ] = await Promise.all([
       getServerStatus().catch(() => null),
       prisma.article
@@ -88,6 +95,7 @@ export async function getDashboard(): Promise<DashboardData> {
       prisma.user.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
       getConversionFunnel().catch(() => EMPTY_FUNNEL),
       getPageViewSummary().catch(() => EMPTY_PAGE_VIEW_SUMMARY),
+      getAssistantUsageSummary().catch(() => EMPTY_ASSISTANT_USAGE),
     ]);
 
   return {
@@ -104,5 +112,6 @@ export async function getDashboard(): Promise<DashboardData> {
     users7d: { newRegistered },
     funnel,
     pageView,
+    assistant,
   };
 }

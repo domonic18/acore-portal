@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { PRODUCT_FAQ_LIMITS } from "@/constants/shop";
 import { writeAudit } from "@/server/services/shared/audit";
+import { scheduleIndex } from "@/server/services/search/indexing";
 import { ProductAdminError } from "./shared";
 
 /**
@@ -74,6 +75,7 @@ export async function createProductFaq(
     actorUserId: actorId,
     payload: { productId: input.productId.toString(), faqId: created.id.toString() },
   });
+  scheduleIndex("product_faq", created.id);
 }
 
 export async function updateProductFaq(
@@ -95,6 +97,7 @@ export async function updateProductFaq(
     actorUserId: actorId,
     payload: { productId: input.productId.toString(), faqId: input.faqId.toString() },
   });
+  scheduleIndex("product_faq", input.faqId);
 }
 
 export async function deleteProductFaq(
@@ -112,6 +115,7 @@ export async function deleteProductFaq(
     actorUserId: actorId,
     payload: { productId: input.productId.toString(), faqId: input.faqId.toString() },
   });
+  scheduleIndex("product_faq", input.faqId);
 }
 
 /**

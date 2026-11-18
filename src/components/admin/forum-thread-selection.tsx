@@ -6,6 +6,7 @@ import { useHydrated } from "@/lib/use-hydrated";
 import { errorMessage, requestJson } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
+import { BatchToolbar } from "@/components/admin/batch-toolbar";
 import {
   THREAD_LABEL_OPTIONS,
   THREAD_STATUS_TEXT,
@@ -139,50 +140,47 @@ export function ForumThreadBulkToolbar() {
   }
 
   return (
-    <div
-      data-testid="forum-bulk-toolbar"
-      className="flex flex-col gap-2 text-sm sm:flex sm:flex-wrap sm:items-center sm:gap-2"
-    >
-      <span className="text-[#93b2ce]">已选 {selected.size} 个主题</span>
-      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-        <Select
-          aria-label="批量状态"
-          disabled={busy || !hydrated}
-          value={status}
-          onChange={(e) => setStatus(e.target.value as ThreadStatusLabelValue)}
-          className="w-auto py-0.5 pr-7 text-xs"
-        >
-          {THREAD_LABEL_OPTIONS.map((v) => (
-            <option key={v} value={v}>
-              {THREAD_STATUS_TEXT[v]}
-            </option>
-          ))}
-        </Select>
-        <Button
-          type="button"
-          variant="primary"
-          size="sm"
-          disabled={busy || !hydrated || selected.size === 0}
-          onClick={() => void apply()}
-        >
-          应用状态
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={busy || selected.size === 0}
-          onClick={clear}
-        >
-          清空选择
-        </Button>
-      </div>
-      {message && <span className="text-xs text-[#6ee7b7]">{message}</span>}
-      {error && (
-        <span role="alert" className="text-xs text-[#eda9a9]">
-          {error}
-        </span>
-      )}
-    </div>
+    <BatchToolbar
+      testId="forum-bulk-toolbar"
+      className="sm:ml-auto"
+      countText={`已选 ${selected.size} 个主题`}
+      message={message}
+      error={error}
+      actions={
+        <>
+          <Select
+            aria-label="批量状态"
+            disabled={busy || !hydrated}
+            value={status}
+            onChange={(e) => setStatus(e.target.value as ThreadStatusLabelValue)}
+            className="w-auto py-0.5 pr-7 text-xs"
+          >
+            {THREAD_LABEL_OPTIONS.map((v) => (
+              <option key={v} value={v}>
+                {THREAD_STATUS_TEXT[v]}
+              </option>
+            ))}
+          </Select>
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            disabled={busy || !hydrated || selected.size === 0}
+            onClick={() => void apply()}
+          >
+            应用状态
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={busy || selected.size === 0}
+            onClick={clear}
+          >
+            清空选择
+          </Button>
+        </>
+      }
+    />
   );
 }

@@ -10,6 +10,7 @@ import { HeaderUserMenu } from "@/components/site/header-user-menu";
 /**
  * 全站页头交互层(M3 US1 T018,R12;2026-10 ardot 设计稿 p01 对齐):
  * 深蓝页头 + 金色登录/注册 + 登录态通知铃与头像(积分在头像下拉内,2026-11-05 收敛);
+ * 搜索入口 = 右上角搜索 ICON(2026-11-18 用户反馈,主导航不再放「搜索」文字项);
  * 桌面多级下拉 + 移动侧边抽屉(FR-205)。
  * 职责拆分(#84):导航见 header-nav、账户菜单见 header-user-menu,本文件只做外壳与编排。
  * 页头背景图与配色由 .site-header 类 + <html> 上的主题变量驱动(2026-11-06 主题系统)。
@@ -65,6 +66,18 @@ export function SiteHeaderClient({
           <HeaderDesktopNav items={items} />
 
           <div className="ml-auto flex items-center gap-4">
+            <a
+              href="/search"
+              title="搜索"
+              aria-label="搜索"
+              data-testid="header-search-link"
+              className="rounded-full border border-line-muted p-2 text-foreground transition-colors hover:border-highlight-deep hover:text-highlight-soft"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                <circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" strokeWidth="1.3" />
+                <path d="m14 14-3.4-3.4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </a>
             {authed ? (
               <>
                 <UnreadBadge />

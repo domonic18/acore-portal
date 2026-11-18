@@ -87,6 +87,7 @@ enum AuditCategory {
   points // M2:积分账务调整域(D7 迁移补录)
   content // M3:内容域后台操作(文章/页面/分类标签/媒体/渐进计划)
   forum // M3:论坛版主操作与越权(SC-207)
+  assistant // M9:AI 助手运行(只记聚合指标,不落对话正文)
 
   @@map("audit_category")
 }
@@ -436,6 +437,9 @@ model Product {
 
   @@index([categoryId, status])
   @@index([status, listed])
+  // 站内搜索(M8):标题与正文分立索引,查询层字段加权(标题×3/正文×1)
+  @@fulltext([name])
+  @@fulltext([description, detailMd])
   @@map("product")
 }
 
@@ -452,6 +456,7 @@ model ProductFaq {
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId, sort])
+  @@fulltext([question, answer])
   @@map("product_faq")
 }
 
@@ -636,6 +641,9 @@ model Article {
 
   @@index([categoryId, status, publishedAt])
   @@index([status, publishedAt])
+  // 站内搜索(M8):标题/正文分立 ngram FULLTEXT,查询层加权
+  @@fulltext([title])
+  @@fulltext([bodyMd])
   @@map("article")
 }
 
@@ -652,6 +660,8 @@ model ContentPage {
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
+  @@fulltext([title])
+  @@fulltext([bodyMd])
   @@map("content_page")
 }
 
@@ -733,6 +743,8 @@ model ForumThread {
   posts       ForumPost[]
 
   @@index([boardId, deletedAt, pinned, lastPostAt])
+  // 站内搜索(M8):W1 只搜主题标题(楼层正文新旧混存 HTML,待剥离后另行索引)
+  @@fulltext([title])
   @@map("forum_thread")
 }
 
@@ -774,6 +786,55 @@ model HomeBanner {
 
   @@index([enabled, sort])
   @@map("home_banner")
+}
+
+/// 语义检索向量库(M8 W2):每实体一行归一化 Float32 BLOB(点积=余弦),
+/// 进程内暴力扫(存量 <2 万行毫秒级);content_hash 变更才重算。
+/// 实体删除不级联(无外键):向量残留仅多一次无效候选,回查实体为空即剔除
+model SearchEmbedding {
+  id          BigInt   @id @default(autoincrement())
+  entityType  String   @map("entity_type") @db.VarChar(32) // constants/search SEARCH_ENTITY_TYPES
+  entityId    BigInt   @map("entity_id")
+  dim         Int // 向量维度(embedding 模型定)
+  contentHash String   @map("content_hash") @db.VarChar(64) // 索引文本 sha256
+  vector      Bytes
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([entityType, entityId])
+  @@map("search_embedding")
+}
+
+/// Agent 会话检查点(M9 W5,对照 langgraph PostgresSaver 表结构):
+/// 一行 = 一次 superstep 落盘(checkpoint Blob + metadata Json);
+/// parent_checkpoint_id 构成版本链(uuid6 字典序 = 时间序,取最新 = MAX(id))
+model AgentCheckpoint {
+  threadId           String  @map("thread_id") @db.VarChar(64)
+  checkpointNs       String  @default("") @map("checkpoint_ns") @db.VarChar(255)
+  checkpointId       String  @map("checkpoint_id") @db.VarChar(64)
+  parentCheckpointId String  @default("") @map("parent_checkpoint_id") @db.VarChar(64)
+  type               String? @db.VarChar(64) // serde 类型标记(json/msgid)
+  checkpoint         Bytes
+  metadata           Json?
+
+  @@id([threadId, checkpointNs, checkpointId])
+  @@map("agent_checkpoint")
+}
+
+/// Agent superstep 内中间写(pending writes,HITL 中断恢复依赖):
+/// idx<0 = 错误写(WRITES_IDX_MAP),常规写冲突不覆盖、错误写覆盖
+model AgentWrites {
+  threadId     String  @map("thread_id") @db.VarChar(64)
+  checkpointNs String  @default("") @map("checkpoint_ns") @db.VarChar(255)
+  checkpointId String  @map("checkpoint_id") @db.VarChar(64)
+  taskId       String  @map("task_id") @db.VarChar(64)
+  taskPath     String  @default("") @map("task_path") @db.VarChar(255)
+  idx          Int
+  channel      String  @default("") @db.VarChar(255)
+  type         String? @db.VarChar(64)
+  blob         Bytes?
+
+  @@id([threadId, checkpointNs, checkpointId, taskId, idx])
+  @@map("agent_writes")
 }
 
 /// 侧栏快捷卡(通用化:后台 /admin/sidebar CRUD,按 pages 页面类型渲染;
@@ -858,4 +919,93 @@ model PageViewEvent {
   // 范围扫描 created_at 后 path/visitor_id 均可在索引内取,免回表
   @@index([createdAt, path, visitorId])
   @@map("page_view_event")
+}
+
+/// AI 助手日聚合用量(M9 W8):看板「AI 助手」面板的聚合事实源。
+/// 调用量/token/失败按北京自然日聚合;问题词另表存脱敏词计数(不存对话正文)
+model AssistantUsage {
+  id               BigInt   @id @default(autoincrement())
+  day              String   @unique @db.Char(10) // 北京自然日 YYYY-MM-DD
+  calls            Int      @default(0)
+  failures         Int      @default(0)
+  promptTokens     Int      @default(0) @map("prompt_tokens")
+  completionTokens Int      @default(0) @map("completion_tokens")
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.DateTime(3)
+
+  @@map("assistant_usage")
+}
+
+/// 助手热门问题词(脱敏,按日计数;关键词来自提问抽词,不含正文)
+model AssistantUsageKeyword {
+  id      BigInt @id @default(autoincrement())
+  day     String @db.Char(10)
+  keyword String @db.VarChar(32)
+  count   Int    @default(0)
+
+  @@unique([day, keyword])
+  @@index([day, count])
+  @@map("assistant_usage_keyword")
+}
+
+/// 助手会话台账(2026-11-18,照 aitech-hub 形态):一行 = 一个 thread,
+/// run 收尾 upsert 维护标题(首问截断)/提问数/token/最近活动;对话正文仍在
+/// agent_checkpoint(LangGraph 序列化),后台「AI 对话」页经反序列化读取
+model AssistantSession {
+  threadId         String   @id @map("thread_id") @db.VarChar(64)
+  userId           BigInt?  @map("user_id")
+  title            String   @default("") @map("title") @db.VarChar(64)
+  runs             Int      @default(0)
+  promptTokens     Int      @default(0) @map("prompt_tokens")
+  completionTokens Int      @default(0) @map("completion_tokens")
+  createdAt        DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  lastMessageAt    DateTime @map("last_message_at") @db.DateTime(3)
+
+  @@index([lastMessageAt])
+  @@index([userId])
+  @@map("assistant_session")
+}
+
+/// AI 模型条目(LLM 通道重构,照 aitech-hub 形态):一行 = 一个可调用模型端点,
+/// openai 兼容 / anthropic 原生双协议;roles 为可服务角色数组(constants/ai-models)。
+/// apiKey 明文落库、API 层只写不读(规则 12 secret 口径);last_test_* 由「测试」动作回写
+model AiModel {
+  id                Int       @id @default(autoincrement())
+  name              String    @db.VarChar(100)
+  provider          String    @db.VarChar(50) // 自由串(预设下拉 + 其他)
+  protocol          String    @db.VarChar(20) // AI_PROTOCOLS: openai | anthropic
+  baseUrl           String?   @map("base_url") @db.VarChar(500) // 空 = SDK 默认端点
+  modelId           String    @map("model_id") @db.VarChar(100)
+  apiKey            String?   @map("api_key") @db.VarChar(500) // 空提交 = 保留现值;视图只回 apiKeyConfigured
+  roles             Json
+  enabled           Boolean   @default(true)
+  timeoutSec        Int       @default(120) @map("timeout_sec")
+  lastTestedAt      DateTime? @map("last_tested_at") @db.DateTime(3)
+  lastTestStatus    String?   @map("last_test_status") @db.VarChar(10) // ok | fail
+  lastTestError     String?   @map("last_test_error") @db.VarChar(500)
+  lastTestLatencyMs Int?      @map("last_test_latency_ms")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+
+  primaryBindings AiRoleBinding[] @relation("AiRoleBindingPrimary")
+  backupBindings  AiRoleBinding[] @relation("AiRoleBindingBackup")
+
+  @@map("ai_model")
+}
+
+/// AI 角色绑定(role 自然主键,一行一角色):primary/backup 按 enabled 静态选边,
+/// 非运行时故障切换;daily_max 仅 chat 绑定消费 = 站点当日 Token 总上限
+/// (2026-11-18 语义翻转,原「每用户日次数」限额按用户裁决移除),0=不限额
+model AiRoleBinding {
+  role          String   @id @db.VarChar(20) // AI_MODEL_ROLES: chat | embedding
+  primaryId     Int?     @map("primary_id")
+  backupId      Int?     @map("backup_id")
+  dailyTokenMax Int      @default(2000000) @map("daily_max")
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.DateTime(3)
+
+  primary AiModel? @relation("AiRoleBindingPrimary", fields: [primaryId], references: [id], onDelete: SetNull)
+  backup  AiModel? @relation("AiRoleBindingBackup", fields: [backupId], references: [id], onDelete: SetNull)
+
+  @@index([primaryId])
+  @@index([backupId])
+  @@map("ai_role_binding")
 }

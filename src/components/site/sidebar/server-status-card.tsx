@@ -12,9 +12,13 @@ export function ServerStatusCard({ status }: { status: ServerStatusResult | null
     <ContentAsideCard title="在线人数" testId="sidebar-server-status">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <div className="text-[34px] font-bold leading-none text-num">
+          {/* 数字即入口:点击直达在线人数页(2026-11-18 用户反馈) */}
+          <Link
+            href="/online-players"
+            className="text-[26px] font-bold leading-none text-num transition hover:text-link"
+          >
             {status.degraded ? "--" : fmt(status.onlineCount)}
-          </div>
+          </Link>
           <div className="mt-1.5 text-[12px] text-muted">
             {status.degraded ? "数据延迟" : status.online ? "当前在线" : "服务器未响应"}
           </div>

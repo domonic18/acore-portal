@@ -6,6 +6,7 @@ import { RESERVED_SLUGS, ARCHIVE_SLUGS } from "@/constants/content";
  * T016 前置(Phase 1 checkpoint):SC-205 多级菜单结构断言。
  * 2026-10 与生产原站对齐(GuestMenu/LoginMenu):
  * 游客=首页▾｜公告▾｜数据库▾｜资讯｜论坛;登录态追加 积分商店▾｜我的账户▾。
+ * (搜索 2026-11-18 退出主导航:入口收敛为页头右侧搜索 ICON,header-client)
  */
 const GUEST_LABELS = SITE_NAV.filter((n) => !n.authOnly).map((n) => n.label);
 const AUTHED_LABELS = SITE_NAV.map((n) => n.label);

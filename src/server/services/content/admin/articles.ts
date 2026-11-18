@@ -5,6 +5,7 @@ import { ADMIN_ARTICLE_PAGE_SIZE } from "@/constants/pagination";
 import { pageSlice, totalPageCount } from "@/lib/pagination";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { writeAudit } from "@/server/services/shared/audit";
+import { scheduleIndex } from "@/server/services/search/indexing";
 import { ContentAdminError, type ContentStatus } from "./shared";
 
 // ===== 文章 =====
@@ -170,6 +171,7 @@ export async function saveArticle(input: {
     actorUserId: input.actorUserId,
     payload: { id: result.id.toString(), slug, status: input.status },
   });
+  scheduleIndex("article", result.id);
   return result;
 }
 
@@ -209,4 +211,5 @@ export async function deleteArticle(id: bigint, actorUserId: bigint): Promise<vo
     actorUserId,
     payload: { id: id.toString(), slug: row.slug },
   });
+  scheduleIndex("article", id);
 }
