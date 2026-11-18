@@ -45,10 +45,10 @@ export function AssistantDrawer(): React.ReactElement {
         >
           <div className="flex items-center gap-2.5 border-b border-line px-4 py-3">
             <div className="flex size-8 items-center justify-center rounded-lg bg-highlight-deep text-sm font-extrabold text-ink">
-              克
+              塔
             </div>
             <div className="min-w-0">
-              <h2 className="text-sm font-bold text-heading">老克塔助手</h2>
+              <h2 className="text-sm font-bold text-heading">小塔助手</h2>
               <p className="text-[11px] text-muted">站内内容问答 · 回答附来源</p>
             </div>
             <div className="ml-auto flex items-center gap-1.5">

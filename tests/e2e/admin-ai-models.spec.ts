@@ -165,7 +165,7 @@ test.describe.serial("admin AI 模型管理台", () => {
     );
     await page.goto("/search");
     await expect(page.getByRole("searchbox", { name: "搜索关键词" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "问问老克塔助手" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "问问小塔助手" })).toHaveCount(0);
 
     // 恢复启用(条目留在表里,后续用例解绑后删除)
     await page.goto("/admin/ai-models");

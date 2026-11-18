@@ -14,7 +14,7 @@ export function SearchChat(): React.ReactElement {
   return (
     <div className="flex h-[68vh] min-h-[460px] flex-col overflow-hidden rounded-xl border border-line bg-panel">
       <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
-        <span className="text-sm font-semibold text-heading">老克塔助手</span>
+        <span className="text-sm font-semibold text-heading">小塔助手</span>
         <span className="text-[11px] text-muted">站内内容问答 · 回答附来源链接</span>
         <button
           type="button"
