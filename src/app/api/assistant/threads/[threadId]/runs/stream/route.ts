@@ -5,12 +5,12 @@ import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
 import { apiError, parseBody } from "@/server/http";
 import { getApiSession } from "@/server/session-guard";
 import { getAssistantAgent } from "@/server/services/assistant/agent";
-import { consumeAssistantQuota } from "@/server/services/assistant/quota";
+import { checkSiteTokenQuota } from "@/server/services/assistant/quota";
 import { createAssistantRunStream } from "@/server/services/assistant/run";
 import { recordAssistantSession } from "@/server/services/assistant/session-log";
 import { recordAssistantUsage } from "@/server/services/assistant/usage";
 import { writeAudit } from "@/server/services/shared/audit";
-import { getChatDailyMax } from "@/server/services/shared/ai-models/resolver";
+import { getChatDailyTokenMax } from "@/server/services/shared/ai-models/resolver";
 
 const schema = z
   .object({
@@ -50,10 +50,10 @@ export async function POST(
   const parsed = await parseBody(req, schema);
   if (!parsed.ok) return parsed.response;
 
-  const quota = await consumeAssistantQuota(session.userId, await getChatDailyMax());
-  if (!quota.allowed) {
-    return apiError(429, "QUOTA_EXCEEDED", "今日问答次数已用完,明天再来吧", {
-      retryAfterSec: quota.retryAfterSec,
+  const siteQuota = await checkSiteTokenQuota(await getChatDailyTokenMax());
+  if (!siteQuota.allowed) {
+    return apiError(429, "QUOTA_EXCEEDED", "今日站点问答额度已用完,明天再来吧", {
+      retryAfterSec: siteQuota.retryAfterSec,
     });
   }
   const agent = await getAssistantAgent();

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
-import { AI_CHAT_DAILY_MAX_DEFAULT, type AiModelRole, type AiProtocol } from "@/constants/ai-models";
+import { AI_SITE_DAILY_TOKEN_MAX_DEFAULT, type AiModelRole, type AiProtocol } from "@/constants/ai-models";
 
 import { parseRoles } from "./crud";
 
@@ -58,11 +58,11 @@ export async function resolveAiModel(role: AiModelRole): Promise<ResolvedAiModel
   };
 }
 
-/** chat 绑定的日配额(0=不限额);绑定行缺失时代码回落默认值 */
-export async function getChatDailyMax(): Promise<number> {
+/** chat 绑定的站点日 Token 上限(0=不限额);绑定行缺失时代码回落默认值 */
+export async function getChatDailyTokenMax(): Promise<number> {
   const binding = await prisma.aiRoleBinding.findUnique({ where: { role: "chat" } });
-  if (!binding) return AI_CHAT_DAILY_MAX_DEFAULT;
-  return binding.dailyMax;
+  if (!binding) return AI_SITE_DAILY_TOKEN_MAX_DEFAULT;
+  return binding.dailyTokenMax;
 }
 
 /** 条目是否承担某角色(校验/展示共用;roles Json 安全解析) */

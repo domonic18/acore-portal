@@ -5,8 +5,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import type { RoleBindingView } from "@/lib/ai-models-types";
 import {
-  AI_CHAT_DAILY_MAX_DEFAULT,
   AI_MODEL_ROLES,
+  AI_SITE_DAILY_TOKEN_MAX_DEFAULT,
   type AiModelRole,
 } from "@/constants/ai-models";
 import { AUDIT_ACTION } from "@/constants/audit";
@@ -25,7 +25,7 @@ export const roleBindingUpdateSchema = z.object({
   role: z.enum(AI_MODEL_ROLES),
   primaryId: z.number().int().positive().nullable(),
   backupId: z.number().int().positive().nullable(),
-  dailyMax: z.number().int().min(0).max(10000).default(AI_CHAT_DAILY_MAX_DEFAULT),
+  dailyTokenMax: z.number().int().min(0).max(1_000_000_000).default(AI_SITE_DAILY_TOKEN_MAX_DEFAULT),
 });
 export type RoleBindingUpdateInput = z.infer<typeof roleBindingUpdateSchema>;
 
@@ -33,7 +33,7 @@ type BindingRow = {
   role: string;
   primaryId: number | null;
   backupId: number | null;
-  dailyMax: number;
+  dailyTokenMax: number;
 };
 
 /**
@@ -75,7 +75,10 @@ export function validateBindingSelection(
 
 async function ensureBindingRows(): Promise<void> {
   await prisma.aiRoleBinding.createMany({
-    data: AI_MODEL_ROLES.map((role) => ({ role, dailyMax: AI_CHAT_DAILY_MAX_DEFAULT })),
+    data: AI_MODEL_ROLES.map((role) => ({
+      role,
+      dailyTokenMax: AI_SITE_DAILY_TOKEN_MAX_DEFAULT,
+    })),
     skipDuplicates: true,
   });
 }
@@ -88,7 +91,7 @@ export async function listRoleBindings(): Promise<RoleBindingView[]> {
     role: row.role as AiModelRole,
     primaryId: row.primaryId,
     backupId: row.backupId,
-    dailyMax: row.dailyMax,
+    dailyTokenMax: row.dailyTokenMax,
   }));
 }
 
@@ -107,7 +110,11 @@ export async function updateRoleBinding(
   await ensureBindingRows();
   const row = await prisma.aiRoleBinding.update({
     where: { role: input.role },
-    data: { primaryId: input.primaryId, backupId: input.backupId, dailyMax: input.dailyMax },
+    data: {
+      primaryId: input.primaryId,
+      backupId: input.backupId,
+      dailyTokenMax: input.dailyTokenMax,
+    },
   });
   await writeAudit({
     category: "admin",
@@ -117,13 +124,13 @@ export async function updateRoleBinding(
       role: input.role,
       primaryId: input.primaryId,
       backupId: input.backupId,
-      dailyMax: input.dailyMax,
+      dailyTokenMax: input.dailyTokenMax,
     },
   });
   return {
     role: row.role as AiModelRole,
     primaryId: row.primaryId,
     backupId: row.backupId,
-    dailyMax: row.dailyMax,
+    dailyTokenMax: row.dailyTokenMax,
   };
 }

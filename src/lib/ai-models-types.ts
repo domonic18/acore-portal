@@ -25,12 +25,12 @@ export type AiModelAdminView = {
   bindingRoles: { role: AiModelRole; position: "primary" | "backup" }[];
 };
 
-/** 角色绑定视图(一行一角色) */
+/** 角色绑定视图(一行一角色;dailyTokenMax 仅 chat 消费=站点日 Token 上限) */
 export type RoleBindingView = {
   role: AiModelRole;
   primaryId: number | null;
   backupId: number | null;
-  dailyMax: number;
+  dailyTokenMax: number;
 };
 
 /** 探针结果(候选值/已存条目两路共用) */

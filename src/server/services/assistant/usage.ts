@@ -49,6 +49,15 @@ export const EMPTY_ASSISTANT_USAGE: AssistantUsageSummary = {
   topKeywords: [],
 };
 
+/** 当日 Token 累计(prompt+completion;站点日 Token 限额的检查读侧) */
+export async function getTodayTokens(): Promise<number> {
+  const row = await prisma.assistantUsage.findUnique({
+    where: { day: beijingDateKey() },
+    select: { promptTokens: true, completionTokens: true },
+  });
+  return (row?.promptTokens ?? 0) + (row?.completionTokens ?? 0);
+}
+
 /** 记一次问答用量(计数与词频走 upsert 原子自增) */
 export async function recordAssistantUsage(record: AssistantUsageRecord): Promise<void> {
   const day = beijingDateKey();
