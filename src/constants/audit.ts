@@ -120,6 +120,10 @@ export const AUDIT_ACTION = {
   AI_MODEL_TESTED: "ai_model_tested",
   /** AI 角色绑定变更(category=admin;payload 记 role/primaryId/backupId/dailyTokenMax) */
   AI_ROLE_BINDING_CHANGED: "ai_role_binding_changed",
+  /** 后台删除助手会话(category=admin;只记 threadId 与删除行数,对话正文不入审计) */
+  ASSISTANT_SESSION_DELETED: "assistant_session_deleted",
+  /** 助手会话超期自动回收(category=admin;payload 记回收会话数/行数/保留期) */
+  ASSISTANT_SESSIONS_PRUNED: "assistant_sessions_pruned",
 } as const;
 
 export type AuditActionValue = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];
