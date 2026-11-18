@@ -1,6 +1,7 @@
 /**
  * 全站主导航(2026-10-29 对齐生产原站菜单结构,ardot p01-s3 为视觉基线):
  * 游客=首页▾/公告▾/数据库▾/资讯/论坛;登录态追加 积分商店▾(购物车/结账)+我的账户▾(用户中心各页)。
+ * 搜索不进主导航(2026-11-18 用户反馈):入口收敛为页头右侧搜索 ICON(铃铛左侧,header-client)。
  * 首页▾ 复刻原站二级菜单(项目简介/使用教程/客户端下载/登录器下载/补丁下载;
  * 后三项沿用旧站锚点直达教程页对应下载区,见 TUTORIAL_ANCHORS)。
  * 工具页 M4 US1 接线(封号记录/英雄榜/在线玩家/在线地图/DKP查询,契约 tools-and-seo);
@@ -60,7 +61,6 @@ export const SITE_NAV: readonly SiteNavItem[] = [
   },
   { label: "资讯", href: "/news" },
   { label: "论坛", href: "/forum" },
-  { label: "搜索", href: "/search" },
   {
     label: "积分商店",
     href: "/shop",

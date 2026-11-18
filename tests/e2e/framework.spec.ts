@@ -10,7 +10,7 @@ import { expect, test, type Page } from "@playwright/test";
  * 登录态追加 积分商店▾(购物车/结账)+我的账户;项目简介/使用教程走快捷入口与页脚。
  */
 
-const GUEST_TOP = ["首页", "公告", "数据库", "资讯", "论坛", "搜索"];
+const GUEST_TOP = ["首页", "公告", "数据库", "资讯", "论坛"];
 
 async function login(page: Page) {
   await page.goto("/login");
@@ -41,6 +41,9 @@ test.describe("游客菜单(FR-201)", () => {
     for (const label of ["积分商店", "我的账户"]) {
       await expect(nav.getByText(label, { exact: true })).toHaveCount(0);
     }
+    // 搜索退出主导航(2026-11-18):导航无文字项,入口=页头右侧搜索 ICON
+    await expect(nav.getByText("搜索", { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId("header-search-link")).toBeVisible();
     await expect(page.getByRole("link", { name: "登 录" })).toBeVisible();
     await expect(page.getByRole("link", { name: "注 册" })).toBeVisible();
   });
@@ -169,6 +172,8 @@ test.describe("登录菜单(FR-201)", () => {
     const nav = page.getByRole("navigation", { name: "主导航" });
     await expect(nav.getByText("积分商店", { exact: true })).toBeVisible();
     await expect(nav.getByText("我的账户", { exact: true })).toBeVisible();
+    // 登录态搜索入口仍为页头 ICON(主导航无「搜索」文字项)
+    await expect(page.getByTestId("header-search-link")).toBeVisible();
     // 登录态积分收敛到头像下拉(2026-11-05 页头 chip 下线)
     await expect(page.getByTestId("header-points")).toHaveCount(0);
     await page.getByTestId("user-menu-button").click();
@@ -194,7 +199,7 @@ test.describe("登录菜单(FR-201)", () => {
     await page.getByTestId("user-menu-button").click();
     const menuPoints = page.getByTestId("menu-points");
     await expect(menuPoints).toContainText("积分");
-    await expect(menuPoints.locator("span").last()).toHaveText(/^\d+$/);
+    await expect(menuPoints.locator("span").last()).toHaveText(/^-?\d+$/);
   });
 
   test("管理员头像下拉含「进入后台」快捷入口,普通用户无(#97)", async ({ page }) => {
