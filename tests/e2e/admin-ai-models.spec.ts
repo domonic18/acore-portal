@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "../../src/generated/business";
 
 /**
- * AI 模型管理台 E2E(LLM 通道重构):独立页 /admin/ai-models 两区块——
+ * AI 模型管理台 E2E(LLM 通道重构):AI 管理页「模型」Tab /admin/ai/models 两区块——
  * ① 供应商预设预填(选 MiniMax 即预填 openai 协议 + 建议 Base URL + 模型 ID placeholder);
  * ② 模型条目表折叠行(新增/用途徽章/API Key 无鉴权/行内测试失败落库/删除保护);
  * ③ 角色绑定卡(对话/向量绑主力 + 定位徽章 + 停用主力 → /search 降级态);
@@ -52,9 +52,9 @@ test.afterAll(async () => {
   await prisma.$disconnect();
 });
 
-test("游客访问 /admin/ai-models → 拦截回登录页", async ({ page }) => {
-  await page.goto("/admin/ai-models");
-  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fai-models/);
+test("游客访问 /admin/ai/models → 拦截回登录页", async ({ page }) => {
+  await page.goto("/admin/ai/models");
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fai%2Fmodels/);
 });
 
 test.describe.serial("admin AI 模型管理台", () => {
@@ -62,9 +62,9 @@ test.describe.serial("admin AI 模型管理台", () => {
     await login(page, "m1admin", "adminpass123");
     await page.goto("/admin");
     await expect(
-      page.getByRole("banner").getByRole("navigation").getByRole("link", { name: "AI 模型" }),
-    ).toHaveAttribute("href", "/admin/ai-models");
-    await page.goto("/admin/ai-models");
+      page.getByRole("banner").getByRole("navigation").getByRole("link", { name: "AI 管理" }),
+    ).toHaveAttribute("href", "/admin/ai");
+    await page.goto("/admin/ai/models");
 
     await expect(page.getByTestId("ai-binding-card-chat")).toBeVisible();
     await expect(page.getByTestId("ai-binding-card-embedding")).toBeVisible();
@@ -74,7 +74,7 @@ test.describe.serial("admin AI 模型管理台", () => {
 
   test("新增条目:供应商预设预填协议与 Base URL,保存后入表", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
-    await page.goto("/admin/ai-models");
+    await page.goto("/admin/ai/models");
     await waitHydrated(page);
     await page.getByTestId("ai-model-create").click();
     const form = page.getByTestId("ai-model-form-new");
@@ -98,7 +98,7 @@ test.describe.serial("admin AI 模型管理台", () => {
 
   test("绑定对话/向量角色 → 定位徽章;向量用途锁 openai 协议", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
-    await page.goto("/admin/ai-models");
+    await page.goto("/admin/ai/models");
     await waitHydrated(page);
 
     // 第二条目:仅向量用途(协议下拉锁定 openai);先勾向量再取消对话(至少一项约束)
@@ -137,7 +137,7 @@ test.describe.serial("admin AI 模型管理台", () => {
 
   test("删除被绑定引用的条目 → 行内错误引导先解绑", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
-    await page.goto("/admin/ai-models");
+    await page.goto("/admin/ai/models");
     await waitHydrated(page);
     const row = page.getByRole("row", { name: new RegExp(GW_A) });
     await row.getByRole("button", { name: `删除「${GW_A}」` }).click();
@@ -147,7 +147,7 @@ test.describe.serial("admin AI 模型管理台", () => {
 
   test("停用对话主力 → /search 回关键词降级态;行内测试失败落库", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
-    await page.goto("/admin/ai-models");
+    await page.goto("/admin/ai/models");
     await waitHydrated(page);
     const row = page.getByRole("row", { name: new RegExp(GW_A) });
 
@@ -168,7 +168,7 @@ test.describe.serial("admin AI 模型管理台", () => {
     await expect(page.getByRole("heading", { name: "问问小塔助手" })).toHaveCount(0);
 
     // 恢复启用(条目留在表里,后续用例解绑后删除)
-    await page.goto("/admin/ai-models");
+    await page.goto("/admin/ai/models");
     await waitHydrated(page);
     await page
       .getByRole("row", { name: new RegExp(GW_A) })
@@ -183,7 +183,7 @@ test.describe.serial("admin AI 模型管理台", () => {
 
   test("解绑后删除两条目 → 行消失", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
-    await page.goto("/admin/ai-models");
+    await page.goto("/admin/ai/models");
 
     const chatCard = page.getByTestId("ai-binding-card-chat");
     await expect(chatCard.getByLabel("主力模型")).toBeEnabled();
