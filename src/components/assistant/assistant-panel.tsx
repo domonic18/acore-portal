@@ -7,22 +7,12 @@
  */
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { RotateCcw, X } from "lucide-react";
-import { useEffect } from "react";
 
 import { AssistantChat } from "./assistant-chat";
 import { useAssistantRuntime } from "./use-assistant-runtime";
 
 export default function AssistantPanel({ onClose }: { onClose: () => void }) {
   const { runtime, banner, clearBanner, startNewThread } = useAssistantRuntime();
-
-  // Esc 关闭(开合是纯 UI 态,与 runtime 生命周期无关)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   return (
     <div
