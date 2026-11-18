@@ -79,56 +79,58 @@ export default async function AdminForumThreadsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <form
-        method="GET"
-        action="/admin/forum/threads"
-        className="flex flex-wrap items-end gap-3"
-      >
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-[#93b2ce]">版块</span>
-          <Select name="board" defaultValue={boardSlug} className="w-auto">
-            <option value="">全部版块</option>
-            {boards.map((b) => (
-              <option key={b.id} value={b.slug}>
-                {b.name}
-              </option>
-            ))}
-          </Select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-[#93b2ce]">标题关键词</span>
-          <Input name="q" defaultValue={q} placeholder="回车搜索" className="w-56" />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-[#93b2ce]">状态标签</span>
-          <Select name="label" defaultValue={label} className="w-auto">
-            <option value="">全部</option>
-            {THREAD_LABEL_OPTIONS.map((v) => (
-              <option key={v} value={v}>
-                {THREAD_STATUS_TEXT[v]}
-              </option>
-            ))}
-          </Select>
-        </label>
-        <ForumFilterChips
-          pinned={pinned === true}
-          featured={featured === true}
-          deleted={deleted}
-        />
-        <Button type="submit" variant="primary">
-          筛选
-        </Button>
-        <Link
-          prefetch={false}
-          href="/admin/forum/threads"
-          className={`rounded text-sm text-[#6482a3] underline-offset-2 hover:text-[#a8d9f5] hover:underline ${FOCUS_RING}`}
-        >
-          清除
-        </Link>
-      </form>
-
+      {/* Provider 包住筛选行与表格:批量工具条随勾选状态在筛选行内出现(对齐商品列表操作行) */}
       <ForumThreadSelectionProvider ids={items.map((t) => t.id)}>
-        {items.length > 0 && <ForumThreadBulkToolbar />}
+        <div className="flex flex-wrap items-end gap-3">
+          <form
+            method="GET"
+            action="/admin/forum/threads"
+            className="flex flex-wrap items-end gap-3"
+          >
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-[#93b2ce]">版块</span>
+              <Select name="board" defaultValue={boardSlug} className="w-auto">
+                <option value="">全部版块</option>
+                {boards.map((b) => (
+                  <option key={b.id} value={b.slug}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-[#93b2ce]">标题关键词</span>
+              <Input name="q" defaultValue={q} placeholder="回车搜索" className="w-56" />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-[#93b2ce]">状态标签</span>
+              <Select name="label" defaultValue={label} className="w-auto">
+                <option value="">全部</option>
+                {THREAD_LABEL_OPTIONS.map((v) => (
+                  <option key={v} value={v}>
+                    {THREAD_STATUS_TEXT[v]}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <ForumFilterChips
+              pinned={pinned === true}
+              featured={featured === true}
+              deleted={deleted}
+            />
+            <Button type="submit" variant="primary">
+              筛选
+            </Button>
+            <Link
+              prefetch={false}
+              href="/admin/forum/threads"
+              className={`rounded text-sm text-[#6482a3] underline-offset-2 hover:text-[#a8d9f5] hover:underline ${FOCUS_RING}`}
+            >
+              清除
+            </Link>
+          </form>
+          {items.length > 0 && <ForumThreadBulkToolbar />}
+        </div>
         {items.length === 0 ? (
           <p className="rounded-xl border border-dashed border-[#22385a] px-6 py-10 text-center text-[#6482a3]">
             没有匹配的主题。
