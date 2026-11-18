@@ -80,14 +80,29 @@ export async function recordAssistantUsage(record: AssistantUsageRecord): Promis
   }
 }
 
-function emptyDay(day: string) {
-  return { day, calls: 0, failures: 0 };
+/** 用量页视图(独立页 /admin/ai-usage):窗口内日全字段序列 + 合计 + 热门问题词 */
+export interface AssistantUsagePageView {
+  days: number;
+  daily: {
+    day: string;
+    calls: number;
+    failures: number;
+    promptTokens: number;
+    completionTokens: number;
+  }[];
+  total: {
+    calls: number;
+    failures: number;
+    failureRate: number;
+    promptTokens: number;
+    completionTokens: number;
+    tokens: number;
+  };
+  topKeywords: { keyword: string; count: number }[];
 }
 
-/** 看板摘要:今日指标 + 近 days 日序列 + 区间热门问题词 */
-export async function getAssistantUsageSummary(
-  days = 7,
-): Promise<AssistantUsageSummary> {
+/** 窗口内日全字段序列 + 区间合计 + 热门问题词(独立页与看板摘要共用读侧) */
+export async function getAssistantUsagePage(days = 7): Promise<AssistantUsagePageView> {
   const today = beijingDateKey();
   const dayKeys: string[] = [];
   for (let i = days - 1; i >= 0; i--) {
@@ -110,14 +125,53 @@ export async function getAssistantUsageSummary(
   ]);
 
   const byDay = new Map(rows.map((r) => [r.day, r]));
-  const todayRow = byDay.get(today);
-  const calls = todayRow?.calls ?? 0;
-  const failures = todayRow?.failures ?? 0;
+  const daily = dayKeys.map((day) => {
+    const row = byDay.get(day);
+    return {
+      day,
+      calls: row?.calls ?? 0,
+      failures: row?.failures ?? 0,
+      promptTokens: row?.promptTokens ?? 0,
+      completionTokens: row?.completionTokens ?? 0,
+    };
+  });
+  const sum = (pick: (d: (typeof daily)[number]) => number) =>
+    daily.reduce((acc, d) => acc + pick(d), 0);
+  const calls = sum((d) => d.calls);
+  const failures = sum((d) => d.failures);
 
   const merged = new Map<string, number>();
   for (const row of keywordRows) {
     merged.set(row.keyword, (merged.get(row.keyword) ?? 0) + row.count);
   }
+
+  return {
+    days,
+    daily,
+    total: {
+      calls,
+      failures,
+      failureRate: calls > 0 ? Math.round((failures / calls) * 100) : 0,
+      promptTokens: sum((d) => d.promptTokens),
+      completionTokens: sum((d) => d.completionTokens),
+      tokens: sum((d) => d.promptTokens + d.completionTokens),
+    },
+    topKeywords: [...merged.entries()]
+      .map(([keyword, count]) => ({ keyword, count }))
+      .sort((a, b) => b.count - a.count || a.keyword.localeCompare(b.keyword))
+      .slice(0, TOP_KEYWORDS),
+  };
+}
+
+/** 看板摘要:今日指标 + 近 days 日序列 + 区间热门问题词 */
+export async function getAssistantUsageSummary(
+  days = 7,
+): Promise<AssistantUsageSummary> {
+  const view = await getAssistantUsagePage(days);
+  const today = beijingDateKey();
+  const todayRow = view.daily.find((d) => d.day === today);
+  const calls = todayRow?.calls ?? 0;
+  const failures = todayRow?.failures ?? 0;
 
   return {
     today: {
@@ -128,15 +182,7 @@ export async function getAssistantUsageSummary(
       completionTokens: todayRow?.completionTokens ?? 0,
       tokens: (todayRow?.promptTokens ?? 0) + (todayRow?.completionTokens ?? 0),
     },
-    days: dayKeys.map((day) => {
-      const row = byDay.get(day);
-      return row
-        ? { day, calls: row.calls, failures: row.failures }
-        : emptyDay(day);
-    }),
-    topKeywords: [...merged.entries()]
-      .map(([keyword, count]) => ({ keyword, count }))
-      .sort((a, b) => b.count - a.count || a.keyword.localeCompare(b.keyword))
-      .slice(0, TOP_KEYWORDS),
+    days: view.daily.map((d) => ({ day: d.day, calls: d.calls, failures: d.failures })),
+    topKeywords: view.topKeywords,
   };
 }

@@ -1,4 +1,5 @@
 import {
+  Activity,
   AlertTriangle,
   BarChart3,
   Bot,
@@ -30,6 +31,7 @@ import {
 /** 导航 icon key → lucide 组件(constants 层只存 key,不引组件;RSC/客户端两用) */
 export const NAV_ICONS: Record<string, LucideIcon> = {
   gauge: Gauge,
+  activity: Activity,
   package: Package,
   folder: Folder,
   receipt: Receipt,
