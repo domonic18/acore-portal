@@ -11,6 +11,7 @@ import type { RoleBindingView } from "@/lib/ai-models-types";
 import {
   AI_MODEL_ROLE_HINTS,
   AI_MODEL_ROLE_LABELS,
+  AI_SITE_DAILY_TOKEN_MAX_LIMIT,
   type AiModelRole,
 } from "@/constants/ai-models";
 import type { AiModelAdminView } from "@/lib/ai-models-types";
@@ -102,7 +103,7 @@ export function RoleBindingCard({
             <Input
               type="number"
               min={0}
-              max={1000000000}
+              max={AI_SITE_DAILY_TOKEN_MAX_LIMIT}
               value={dailyTokenMax}
               aria-label="站点日 Token 上限"
               onChange={(e) => setDailyTokenMax(e.target.value)}
