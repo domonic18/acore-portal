@@ -32,7 +32,7 @@ function parseAmount(raw: string): number | null {
 }
 
 /**
- * 后台积分规则管控(/admin/point-rules):获取类事件的分值与开关。
+ * 后台积分规则管控(/admin/settings/point-rules):获取类事件的分值与开关。
  * 整页只有一个「保存」按钮(保存态文案用非按钮元素承载),未保存提示 + 刷新拦截。
  */
 export function PointRulesManager({ rules }: { rules: PointRuleItem[] }) {

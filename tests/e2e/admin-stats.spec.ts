@@ -75,7 +75,7 @@ test.describe("US4 统计看板(T027)", () => {
     await login(page, "legacyuser", "oldpass123");
     await page.goto("/admin/stats");
     await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fstats$/);
-    await expect(page.getByRole("heading", { name: "统计看板" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "看板" })).toHaveCount(0);
   });
 
   test("404 采集闭环:404 页 beacon 上报 → 看板 404 Top 榜出现该路径(FR-312)", async ({
@@ -123,10 +123,15 @@ test.describe("US4 统计看板(T027)", () => {
   }) => {
     await login(page, "m1admin", "adminpass123");
     await page.goto("/admin/stats");
-    await expect(page.getByRole("heading", { name: "统计看板" })).toBeVisible();
+    // 菜单收敛(2026-11-18):安全看板并入 /admin/stats 页内 Tab,页标题为组名「看板」
+    await expect(page.getByRole("heading", { name: "看板" })).toBeVisible();
     await expect(
-      page.getByRole("link", { name: "看板" }).filter({ hasText: "看板" }).first(),
+      page.getByRole("banner").getByRole("navigation").getByRole("link", { name: "看板" }),
     ).toHaveAttribute("href", "/admin/stats");
+    await expect(page.getByRole("tab", { name: "统计看板" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
 
     // KPI 概览行(在线/PV/UV/订单/积分/注册)
     for (const testid of [

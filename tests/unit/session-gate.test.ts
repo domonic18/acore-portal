@@ -25,7 +25,7 @@ describe("resolveSessionGate", () => {
         role: "admin",
         hasRefresh: false,
         method: "GET",
-        pathname: "/admin/categories",
+        pathname: "/admin/products/categories",
       }),
     ).toEqual({ kind: "pass", adminSurface: true });
   });
@@ -36,7 +36,7 @@ describe("resolveSessionGate", () => {
         role: "user",
         hasRefresh: true,
         method: "GET",
-        pathname: "/admin/categories",
+        pathname: "/admin/products/categories",
       }),
     ).toEqual({ kind: "login" });
   });

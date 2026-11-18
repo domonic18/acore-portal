@@ -32,6 +32,9 @@ async function createArticle(
   await page.goto("/admin/articles/new");
   await page.getByLabel("标题", { exact: true }).fill(input.title);
   await page.getByLabel(/别名 slug/).fill(input.slug);
+  // 显式选「公告」:表单默认类目取列表首项(sort 升序),dev 库残留的测试
+  // 分类(sort=0)会压过公告,默认值不可依赖(2026-11-18 实证)
+  await page.getByLabel("分类").selectOption({ label: "公告" });
   await page.getByPlaceholder(/正文 Markdown/).fill(input.bodyMd);
   // 非 exact:label 包裹 select,textContent 含 option 文案
   await page.getByLabel("状态").selectOption(input.status);
@@ -79,9 +82,10 @@ test.afterAll(async () => {
 test.describe("发文闭环(T034 SC-206)", () => {
   test("后台发文(MD 表格+代码块+图片)→ 前台渲染全对+归档可见", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
-    // ADMIN_NAV 内容域入口可达(T032;header 导航与页面主链同名,取首个)
+    // ADMIN_NAV 内容域入口可达(T032;header 导航与页面主链同名,取首个)。
+    // 菜单收敛(2026-11-18):文章+静态页合并为「内容」单入口
     await page.goto("/admin");
-    await expect(page.getByRole("link", { name: "文章" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "内容" }).first()).toBeVisible();
 
     await page.goto("/admin/articles/new");
     await page.getByLabel("标题", { exact: true }).fill(ART_TITLE);

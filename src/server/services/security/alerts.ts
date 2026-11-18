@@ -67,7 +67,7 @@ async function notifyAdmins(title: string, body: string): Promise<number> {
       type: NOTIFICATION_TYPE.SECURITY,
       title,
       body,
-      linkUrl: "/admin/security",
+      linkUrl: "/admin/stats/security",
     })),
   });
   return admins.length;

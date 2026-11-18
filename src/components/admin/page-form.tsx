@@ -70,7 +70,7 @@ export function PageForm({
         headers: { "content-type": "application/json" },
         body: JSON.stringify(values),
       });
-      router.push("/admin/pages");
+      router.push("/admin/articles/pages");
       router.refresh();
     } catch (err) {
       setError(errorMessage(err));

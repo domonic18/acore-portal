@@ -28,7 +28,6 @@ export default async function AdminCategoriesPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">分类</h1>
       <CategoryForm parentOptions={parentOptions} />
       {rows.length === 0 ? (
         <p className="rounded-xl border border-dashed border-[#22385a] px-6 py-10 text-center text-[#6482a3]">

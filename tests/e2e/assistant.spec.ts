@@ -190,10 +190,10 @@ test.describe.serial("AI 助手(M9)", () => {
     await expect(page.getByText("问点什么吧")).toBeVisible();
   });
 
-  test("悬浮球:守望塔头像/隐藏→右缘页签恢复→垂直拖拽记忆位置(2026-11-18)", async ({ page }) => {
+  test("悬浮球:熊猫人头像/隐藏→右缘页签恢复→垂直拖拽记忆位置(2026-11-18)", async ({ page }) => {
     await page.goto("/");
     const ball = page.getByRole("button", { name: "打开 AI 助手" });
-    // 守望塔小石人头像(贴「小塔助手」名,替换问号图标)
+    // 熊猫人头像(WOW 中立种族人物特写,2026-11-18 用户定稿)
     await expect(ball.locator("img")).toHaveAttribute("src", /assistant-avatar/);
     // 桌面 hover 出右上角 ✕ → 隐藏后球退场、右缘竖排页签接管
     await ball.hover();

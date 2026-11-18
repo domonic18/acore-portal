@@ -30,7 +30,6 @@ export default async function AdminArticlesPage({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold">文章</h1>
         <form action="/admin/articles" method="get" className="flex items-center gap-2">
           <Input name="q" defaultValue={q ?? ""} placeholder="搜索标题…" className="w-44" />
           <Select name="status" defaultValue={status ?? ""} className="w-auto">
