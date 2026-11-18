@@ -127,7 +127,7 @@ export function ProductBatchToolbar() {
   return (
     <div
       data-testid="product-batch-toolbar"
-      className="flex flex-col gap-2 text-sm sm:flex sm:flex-wrap sm:items-center sm:gap-2"
+      className="flex flex-col items-start gap-2 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-2"
     >
       <span className="text-[#93b2ce]">已选 {selected.size} 件</span>
       {/* 窄屏两列网格:按钮不再被挤成参差的一行(#48 移动端批量按钮排列) */}
