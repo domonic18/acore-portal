@@ -2,13 +2,17 @@
 
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { Fragment, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { FOCUS_RING } from "@/components/ui/admin-tokens";
+import { Button } from "@/components/ui/button";
 import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
+import { errorMessage, requestJson } from "@/lib/api-client";
 
 /**
- * 后台「AI 对话」列表客户端岛:行内「查看对话」展开拉取 thread 消息时间线
- * (GET /api/admin/assistant-sessions/[threadId],checkpoint 反序列化只读)。
+ * 后台「AI 对话」列表客户端岛:
+ * - 行内「查看对话」展开拉取 thread 消息时间线(GET /api/admin/assistant-sessions/[threadId])
+ * - 行内「删除」二次确认后删会话(DELETE 同路由;连检查点与台账一并删)
  * 日期已由页面层格式化为字符串(components 禁 import server)。
  */
 
@@ -31,10 +35,13 @@ interface ThreadMessage {
 }
 
 export function SessionsView({ items }: { items: AssistantSessionViewRow[] }) {
+  const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Record<string, ThreadMessage[]>>({});
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [errorId, setErrorId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function toggle(threadId: string) {
     if (openId === threadId) {
@@ -57,9 +64,26 @@ export function SessionsView({ items }: { items: AssistantSessionViewRow[] }) {
     }
   }
 
+  async function remove(threadId: string, title: string) {
+    if (!window.confirm(`确认删除会话「${title || threadId}」?对话记录将一并清除,不可恢复。`)) {
+      return;
+    }
+    setDeletingId(threadId);
+    setDeleteError(null);
+    try {
+      await requestJson(`/api/admin/assistant-sessions/${threadId}`, { method: "DELETE" });
+      if (openId === threadId) setOpenId(null);
+      router.refresh();
+    } catch (err) {
+      setDeleteError(errorMessage(err));
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   if (items.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-[#22385a] px-6 py-10 text-center text-[#6482a3]">
+      <p className="rounded-xl border border-dashed border-line px-6 py-10 text-center text-muted">
         暂无会话记录,用户与助手对话后这里会出现台账。
       </p>
     );
@@ -67,6 +91,11 @@ export function SessionsView({ items }: { items: AssistantSessionViewRow[] }) {
 
   return (
     <div data-testid="admin-assistant-sessions">
+      {deleteError && (
+        <p role="alert" className="mb-2 text-xs text-danger">
+          {deleteError}
+        </p>
+      )}
       <Table minWidth="min-w-[820px]">
       <THead>
         <Tr>
@@ -86,48 +115,59 @@ export function SessionsView({ items }: { items: AssistantSessionViewRow[] }) {
             <Fragment key={r.threadId}>
               <Tr>
                 <Td className="whitespace-nowrap">
-                  <span className="text-[#dcebf7]">{r.user || "已注销用户"}</span>
+                  <span className="text-foreground">{r.user || "已注销用户"}</span>
                   {r.userRole && (
-                    <span className="ml-1.5 rounded border border-[#22385a] px-1.5 py-0.5 text-[10.5px] text-[#6482a3]">
+                    <span className="ml-1.5 rounded border border-line px-1.5 py-0.5 text-[10.5px] text-muted">
                       {r.userRole}
                     </span>
                   )}
                 </Td>
                 <Td className="max-w-[280px]">
-                  <span className="line-clamp-2 text-[#c4d9ec]">{r.title || "(无标题)"}</span>
+                  <span className="line-clamp-2 text-body">{r.title || "(无标题)"}</span>
                 </Td>
                 <Td className="whitespace-nowrap">{r.runs}</Td>
-                <Td className="whitespace-nowrap text-[#e8c877]">{r.tokens}</Td>
-                <Td className="whitespace-nowrap text-[12px] text-[#6482a3]">{r.createdAt}</Td>
-                <Td className="whitespace-nowrap text-[12px] text-[#6482a3]">{r.lastMessageAt}</Td>
+                <Td className="whitespace-nowrap text-highlight">{r.tokens}</Td>
+                <Td className="whitespace-nowrap text-[12px] text-muted">{r.createdAt}</Td>
+                <Td className="whitespace-nowrap text-[12px] text-muted">{r.lastMessageAt}</Td>
                 <Td className="whitespace-nowrap">
-                  <button
-                    type="button"
-                    onClick={() => toggle(r.threadId)}
-                    aria-expanded={open}
-                    aria-label={`${open ? "收起" : "查看"}会话「${r.title || r.threadId}」`}
-                    className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[12px] text-[#6fb7e0] transition hover:bg-[#13233a] hover:text-[#a8d9f5] ${FOCUS_RING}`}
-                  >
-                    {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                    {open ? "收起" : "对话"}
-                  </button>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => toggle(r.threadId)}
+                      aria-expanded={open}
+                      aria-label={`${open ? "收起" : "查看"}会话「${r.title || r.threadId}」`}
+                      className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[12px] text-link transition hover:bg-chip hover:text-link-hover ${FOCUS_RING}`}
+                    >
+                      {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      {open ? "收起" : "对话"}
+                    </button>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      size="sm"
+                      disabled={deletingId === r.threadId}
+                      onClick={() => void remove(r.threadId, r.title)}
+                    >
+                      删除
+                    </Button>
+                  </div>
                 </Td>
               </Tr>
               {open && (
                 <Tr>
-                  <Td colSpan={7} className="bg-[#0e1b2e]">
+                  <Td colSpan={7} className="bg-panel-strong">
                     <div data-testid={`assistant-thread-${r.threadId}`} className="flex flex-col gap-2 px-1 py-1">
                       {loadingId === r.threadId && (
-                        <p className="py-3 text-center text-[12.5px] text-[#6482a3]">对话加载中…</p>
+                        <p className="py-3 text-center text-[12.5px] text-muted">对话加载中…</p>
                       )}
                       {errorId === r.threadId && (
-                        <p role="alert" className="py-3 text-center text-[12.5px] text-[#eda9a9]">
+                        <p role="alert" className="py-3 text-center text-[12.5px] text-danger">
                           对话加载失败,请稍后重试。
                         </p>
                       )}
                       {!(loadingId === r.threadId || errorId === r.threadId) &&
                         (messages[r.threadId]?.length ?? 0) === 0 && (
-                          <p className="py-3 text-center text-[12.5px] text-[#6482a3]">
+                          <p className="py-3 text-center text-[12.5px] text-muted">
                             该会话暂无可读消息(checkpoint 缺失或仅含系统帧)。
                           </p>
                         )}
@@ -136,11 +176,11 @@ export function SessionsView({ items }: { items: AssistantSessionViewRow[] }) {
                           key={i}
                           className={`max-w-[85%] rounded-lg px-3 py-2 text-[12.5px] leading-relaxed whitespace-pre-wrap ${
                             m.role === "user"
-                              ? "self-end bg-[#1d3a5f] text-[#dcebf7]"
-                              : "self-start border border-[#22385a] bg-[#13233a] text-[#c4d9ec]"
+                              ? "self-end bg-surface-alt text-foreground"
+                              : "self-start border border-line bg-chip text-body"
                           }`}
                         >
-                          <span className="mb-1 block text-[10.5px] font-semibold text-[#6482a3]">
+                          <span className="mb-1 block text-[10.5px] font-semibold text-muted">
                             {m.role === "user" ? "用户" : "小塔"}
                           </span>
                           {m.content}

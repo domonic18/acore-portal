@@ -35,8 +35,9 @@ export default async function AdminAssistantSessionsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-[12.5px] text-[#6482a3]">
+      <p className="text-[12.5px] text-muted">
         用户与助手「小塔」的会话台账:标题取首问截断,正文仅在行内展开时读取,不入库留存。
+        超过 30 天无活动的会话会被每周清理任务自动回收。
       </p>
       <SessionsView items={rows} />
       <AdminPager

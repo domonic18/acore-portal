@@ -88,4 +88,31 @@ test.describe.serial("admin AI 管理页", () => {
     await expand.click();
     await expect(list.getByText("暂无可读消息")).toBeHidden();
   });
+
+  test("对话 Tab:行内删除会话(二次确认后从列表消失)", async ({ page }) => {
+    const threadId = `${THREAD}-del`;
+    await prisma.assistantSession.create({
+      data: {
+        threadId,
+        userId: null,
+        title: "E2E 待删会话",
+        runs: 1,
+        promptTokens: 10,
+        completionTokens: 5,
+        lastMessageAt: new Date(),
+      },
+    });
+    await login(page, "m1admin", "adminpass123");
+    await page.goto("/admin/ai/sessions");
+    const list = page.getByTestId("admin-assistant-sessions");
+    await expect(list.getByText("E2E 待删会话")).toBeVisible();
+
+    // 破坏性动作有二次确认:对话框默认被自动 dismiss,须显式 accept 才继续
+    page.once("dialog", (dialog) => void dialog.accept());
+    const row = list.getByRole("row").filter({ hasText: "E2E 待删会话" });
+    await row.getByRole("button", { name: "删除" }).click();
+
+    await expect(list.getByText("E2E 待删会话")).toBeHidden();
+    expect(await prisma.assistantSession.count({ where: { threadId } })).toBe(0);
+  });
 });
