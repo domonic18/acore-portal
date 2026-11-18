@@ -151,6 +151,8 @@ export function AssistantDrawer(): React.ReactElement {
         </button>
       </div>
       {panelMounted && (
+        // 关闭只切 CSS 隐藏(contents 保留挂载,面板的 fixed 定位仍相对视口);
+        // 勿改成卸载或 hidden —— 会丢掉 runtime 里的对话状态(重开看不到上次对话)
         <div className={open ? "contents" : "hidden"}>
           <AssistantPanel onClose={() => setOpen(false)} />
         </div>

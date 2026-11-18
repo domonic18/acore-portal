@@ -7,6 +7,7 @@ import type { RoleBindingView } from "@/lib/ai-models-types";
 import {
   AI_MODEL_ROLES,
   AI_SITE_DAILY_TOKEN_MAX_DEFAULT,
+  AI_SITE_DAILY_TOKEN_MAX_LIMIT,
   type AiModelRole,
 } from "@/constants/ai-models";
 import { AUDIT_ACTION } from "@/constants/audit";
@@ -25,7 +26,12 @@ export const roleBindingUpdateSchema = z.object({
   role: z.enum(AI_MODEL_ROLES),
   primaryId: z.number().int().positive().nullable(),
   backupId: z.number().int().positive().nullable(),
-  dailyTokenMax: z.number().int().min(0).max(1_000_000_000).default(AI_SITE_DAILY_TOKEN_MAX_DEFAULT),
+  dailyTokenMax: z
+    .number()
+    .int()
+    .min(0)
+    .max(AI_SITE_DAILY_TOKEN_MAX_LIMIT)
+    .default(AI_SITE_DAILY_TOKEN_MAX_DEFAULT),
 });
 export type RoleBindingUpdateInput = z.infer<typeof roleBindingUpdateSchema>;
 

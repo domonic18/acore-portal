@@ -71,6 +71,9 @@ export const AI_PROVIDER_PRESETS: readonly AiProviderPreset[] = [
 /** 站点日 Token 上限默认值(行缺失时的代码回落,与迁移 DDL DEFAULT 一致;0=不限额) */
 export const AI_SITE_DAILY_TOKEN_MAX_DEFAULT = 2_000_000;
 
+/** 站点日 Token 上限的合法上界(后台表单与服务端校验同口径) */
+export const AI_SITE_DAILY_TOKEN_MAX_LIMIT = 1_000_000_000;
+
 /** 超时秒上下限(后台表单与服务端校验同口径) */
 export const AI_TIMEOUT_SEC_MIN = 10;
 export const AI_TIMEOUT_SEC_MAX = 600;

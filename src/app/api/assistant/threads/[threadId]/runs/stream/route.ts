@@ -10,7 +10,7 @@ import { createAssistantRunStream } from "@/server/services/assistant/run";
 import { recordAssistantSession } from "@/server/services/assistant/session-log";
 import { recordAssistantUsage } from "@/server/services/assistant/usage";
 import { writeAudit } from "@/server/services/shared/audit";
-import { getChatDailyTokenMax } from "@/server/services/shared/ai-models/resolver";
+import { resolveChatBinding } from "@/server/services/shared/ai-models/resolver";
 
 const schema = z
   .object({
@@ -50,13 +50,15 @@ export async function POST(
   const parsed = await parseBody(req, schema);
   if (!parsed.ok) return parsed.response;
 
-  const siteQuota = await checkSiteTokenQuota(await getChatDailyTokenMax());
+  // 一次解析 chat 绑定:生效模型 + 站点日 Token 上限(同一行,不分两次查)
+  const { model, dailyTokenMax } = await resolveChatBinding();
+  const siteQuota = await checkSiteTokenQuota(dailyTokenMax);
   if (!siteQuota.allowed) {
     return apiError(429, "QUOTA_EXCEEDED", "今日站点问答额度已用完,明天再来吧", {
       retryAfterSec: siteQuota.retryAfterSec,
     });
   }
-  const agent = await getAssistantAgent();
+  const agent = getAssistantAgent(model);
   if (!agent) return apiError(503, "ASSISTANT_UNAVAILABLE", "助手暂不可用,请稍后再试");
 
   const { stream, done } = createAssistantRunStream(agent, {

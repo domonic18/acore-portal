@@ -88,7 +88,7 @@ export default async function AdminForumThreadsPage({
             className="flex flex-wrap items-end gap-3"
           >
             <label className="flex flex-col gap-1 text-sm">
-              <span className="text-[#93b2ce]">版块</span>
+              <span className="text-body">版块</span>
               <Select name="board" defaultValue={boardSlug} className="w-auto">
                 <option value="">全部版块</option>
                 {boards.map((b) => (
@@ -99,11 +99,11 @@ export default async function AdminForumThreadsPage({
               </Select>
             </label>
             <label className="flex flex-col gap-1 text-sm">
-              <span className="text-[#93b2ce]">标题关键词</span>
+              <span className="text-body">标题关键词</span>
               <Input name="q" defaultValue={q} placeholder="回车搜索" className="w-56" />
             </label>
             <label className="flex flex-col gap-1 text-sm">
-              <span className="text-[#93b2ce]">状态标签</span>
+              <span className="text-body">状态标签</span>
               <Select name="label" defaultValue={label} className="w-auto">
                 <option value="">全部</option>
                 {THREAD_LABEL_OPTIONS.map((v) => (
@@ -124,7 +124,7 @@ export default async function AdminForumThreadsPage({
             <Link
               prefetch={false}
               href="/admin/forum/threads"
-              className={`rounded text-sm text-[#6482a3] underline-offset-2 hover:text-[#a8d9f5] hover:underline ${FOCUS_RING}`}
+              className={`rounded text-sm text-muted underline-offset-2 hover:text-link-hover hover:underline ${FOCUS_RING}`}
             >
               清除
             </Link>
@@ -132,7 +132,7 @@ export default async function AdminForumThreadsPage({
           {items.length > 0 && <ForumThreadBulkToolbar />}
         </div>
         {items.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-[#22385a] px-6 py-10 text-center text-[#6482a3]">
+          <p className="rounded-xl border border-dashed border-line px-6 py-10 text-center text-muted">
             没有匹配的主题。
           </p>
         ) : (
@@ -160,22 +160,22 @@ export default async function AdminForumThreadsPage({
                   <Td className="max-w-md">
                     <Link
                       href={`/forum/thread/${t.id}`}
-                      className={`rounded text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline ${FOCUS_RING}`}
+                      className={`rounded text-link underline-offset-2 hover:text-link-hover hover:underline ${FOCUS_RING}`}
                       target="_blank"
                     >
                       {t.pinned && <PinnedBadge />} {t.featured && <FeaturedBadge />} {t.title}
                     </Link>
                   </Td>
-                  <Td className="whitespace-nowrap text-[#93b2ce]">{t.boardName}</Td>
-                  <Td className="whitespace-nowrap text-[#93b2ce]">{t.authorName}</Td>
+                  <Td className="whitespace-nowrap text-body">{t.boardName}</Td>
+                  <Td className="whitespace-nowrap text-body">{t.authorName}</Td>
                   <Td>
                     <ThreadStatusBadge
                       statusLabel={t.statusLabel}
                       closedAt={t.closedAt ? new Date(t.closedAt) : null}
                     />
                   </Td>
-                  <Td className="whitespace-nowrap text-[#93b2ce]">{t.replyCount}</Td>
-                  <Td className="whitespace-nowrap text-xs text-[#6482a3]">
+                  <Td className="whitespace-nowrap text-body">{t.replyCount}</Td>
+                  <Td className="whitespace-nowrap text-xs text-muted">
                     {formatDateTime(t.lastPostAt)}
                   </Td>
                   <Td>

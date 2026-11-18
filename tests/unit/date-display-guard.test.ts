@@ -14,6 +14,9 @@ import path from "node:path";
  *     —— 北京 00:00–08:00 的内容会被算成前一天;
  *  ③ getFullYear/getMonth/getDate/getHours/getMinutes/getDay
  *     —— 取的是进程本地时区分量,同样随环境漂移。
+ *  ④ new Intl.DateTimeFormat(...) 未钉 timeZone(或钉的不是东八区)
+ *     —— 同上,格式化器缺 timeZone 时取运行时默认时区;
+ *     站内日期格式化只允许在 lib/format.ts 内构造(该文件是唯一出口)。
  *
  * 已知局限:toLocaleString("zh-CN") 只有在接收者是日期字面量
  * (Date / getTime() / *_at 等)时才判定为违规;接收者是别名变量
@@ -84,6 +87,20 @@ const DATE_RECEIVER = /(\bDate\b|getTime\s*\(|\bdate\b|\w+_at\b|\w+At\b)/;
 
 type Violation = { file: string; line: number; rule: string; text: string };
 
+/** 取 openParenIdx 处括号内的实参文本(支持跨行) */
+function readCallArgs(source: string, openParenIdx: number): string {
+  let depth = 0;
+  for (let i = openParenIdx; i < source.length; i++) {
+    const ch = source[i]!;
+    if (ch === "(") depth++;
+    else if (ch === ")") {
+      depth--;
+      if (depth === 0) return source.slice(openParenIdx + 1, i);
+    }
+  }
+  return source.slice(openParenIdx + 1);
+}
+
 function scanSource(source: string, label: string): Violation[] {
   const raw = stripComments(source);
   const violations: Violation[] = [];
@@ -112,6 +129,21 @@ function scanSource(source: string, label: string): Violation[] {
       report("本地时区分量取值", line);
     }
   });
+
+  // ④ Intl.DateTimeFormat 未钉时区(跨行构造,按整段源码判定)
+  const intlRe = /new\s+Intl\.DateTimeFormat\s*\(/g;
+  for (let m = intlRe.exec(raw); m !== null; m = intlRe.exec(raw)) {
+    const openParen = raw.indexOf("(", m.index + m[0].length - 1);
+    const args = readCallArgs(raw, openParen);
+    const tz = args.match(/timeZone\s*:\s*["']([^"']+)["']/);
+    const lineNo = raw.slice(0, m.index).split("\n").length;
+    const text = raw.slice(m.index, m.index + 80).split("\n")[0]!.trim();
+    if (!tz) {
+      violations.push({ file: label, line: lineNo, rule: "Intl.DateTimeFormat 未钉时区", text });
+    } else if (tz[1] !== "Asia/Shanghai") {
+      violations.push({ file: label, line: lineNo, rule: "Intl.DateTimeFormat 时区非东八区", text });
+    }
+  }
   return violations;
 }
 
@@ -137,11 +169,17 @@ describe("日期展示守卫", () => {
         'const e = new Date().toISOString().slice(0, 10);',
         'const f = new Date().getFullYear();',
         'const g = post.createdAt.toLocaleString("zh-CN");',
+        'const h = new Intl.DateTimeFormat("zh-CN", { weekday: "long" }).format(new Date());',
+        'const i = new Intl.DateTimeFormat("zh-CN", {',
+        '  timeZone: "UTC",',
+        '}).format(new Date());',
       ].join("\n"),
       "synthetic.ts",
     );
     expect(found.map((v) => v.rule).sort()).toEqual(
       [
+        "Intl.DateTimeFormat 时区非东八区",
+        "Intl.DateTimeFormat 未钉时区",
         "toISOString().slice 截日期",
         "toLocaleDateString",
         "toLocaleString() 无参",
@@ -151,6 +189,19 @@ describe("日期展示守卫", () => {
         "本地时区分量取值",
       ].sort(),
     );
+  });
+
+  it("钉了东八区的 Intl 格式化不误判", () => {
+    const found = scanSource(
+      [
+        'const j = new Intl.DateTimeFormat("zh-CN", {',
+        '  timeZone: "Asia/Shanghai",',
+        '  weekday: "long",',
+        '}).format(new Date());',
+      ].join("\n"),
+      "synthetic.ts",
+    );
+    expect(found).toEqual([]);
   });
 
   it("注释与数字格式化不误判", () => {

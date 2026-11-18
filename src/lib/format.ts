@@ -74,6 +74,14 @@ export function formatTime(value: string | Date): string {
   }).format(toDate(value));
 }
 
+/** 星期(东八区):星期一 */
+export function formatWeekday(value: string | Date): string {
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: TZ,
+    weekday: "long",
+  }).format(toDate(value));
+}
+
 /**
  * 北京自然日口径(偏移固定 +08:00,无夏令时):
  * 站内「今天/昨日/近 N 天」一律以北京自然日为界,与展示时区一致——

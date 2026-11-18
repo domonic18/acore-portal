@@ -11,6 +11,7 @@ import type { RoleBindingView } from "@/lib/ai-models-types";
 import {
   AI_MODEL_ROLE_HINTS,
   AI_MODEL_ROLE_LABELS,
+  AI_SITE_DAILY_TOKEN_MAX_LIMIT,
   type AiModelRole,
 } from "@/constants/ai-models";
 import type { AiModelAdminView } from "@/lib/ai-models-types";
@@ -64,17 +65,17 @@ export function RoleBindingCard({
   return (
     <div
       data-testid={`ai-binding-card-${binding.role}`}
-      className="rounded-xl border border-[#22385a] bg-[#0b1526] p-4"
+      className="rounded-xl border border-line bg-panel-strong p-4"
     >
       <div className="flex items-baseline justify-between gap-2">
-        <h2 className="text-[15px] font-semibold text-[#dcebf7]">
+        <h2 className="text-[15px] font-semibold text-heading">
           {AI_MODEL_ROLE_LABELS[binding.role]}
         </h2>
-        <span className="text-[11.5px] text-[#6482a3]">{AI_MODEL_ROLE_HINTS[binding.role]}</span>
+        <span className="text-[11.5px] text-muted">{AI_MODEL_ROLE_HINTS[binding.role]}</span>
       </div>
 
       {unbound && (
-        <p role="status" className="mt-2 rounded-md border border-[#e8c877]/30 bg-[#e8c877]/10 px-3 py-1.5 text-[12.5px] text-[#e8c877]">
+        <p role="status" className="mt-2 rounded-md border border-highlight/30 bg-highlight/10 px-3 py-1.5 text-[12.5px] text-highlight">
           未绑定模型:对应功能处于关闭/降级状态(前台 /search 为关键词降级态)。
         </p>
       )}
@@ -98,16 +99,16 @@ export function RoleBindingCard({
         />
         {isChat && (
           <label className="flex min-w-0 flex-col gap-1">
-            <span className="text-[11.5px] text-[#6482a3]">站点日 Token 上限(0 = 不限额)</span>
+            <span className="text-[11.5px] text-muted">站点日 Token 上限(0 = 不限额)</span>
             <Input
               type="number"
               min={0}
-              max={1000000000}
+              max={AI_SITE_DAILY_TOKEN_MAX_LIMIT}
               value={dailyTokenMax}
               aria-label="站点日 Token 上限"
               onChange={(e) => setDailyTokenMax(e.target.value)}
             />
-            <span className="text-[11px] text-[#4a6285]">全站当日问答 Token 总量,一轮约数千</span>
+            <span className="text-[11px] text-muted">全站当日问答 Token 总量,一轮约数千</span>
           </label>
         )}
       </div>
@@ -116,9 +117,9 @@ export function RoleBindingCard({
         <Button type="button" size="sm" disabled={busy} onClick={save} data-testid={`ai-binding-save-${binding.role}`}>
           {busy ? "保存中…" : "保存绑定"}
         </Button>
-        {notice && <span className="text-[12px] text-[#6ee7b7]">{notice}</span>}
+        {notice && <span className="text-[12px] text-ok-bright">{notice}</span>}
         {error && (
-          <span role="alert" className="text-[12px] text-[#eda9a9]">
+          <span role="alert" className="text-[12px] text-danger">
             {error}
           </span>
         )}
@@ -144,7 +145,7 @@ function ModelSelect({
 }) {
   return (
     <label className="flex min-w-0 flex-col gap-1">
-      <span className="text-[11.5px] text-[#6482a3]">{label}(主力优先;停用主力自动落备用)</span>
+      <span className="text-[11.5px] text-muted">{label}(主力优先;停用主力自动落备用)</span>
       <Select
         aria-label={`${label}模型`}
         value={value ?? ""}
