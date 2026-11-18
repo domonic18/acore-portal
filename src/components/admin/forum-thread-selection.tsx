@@ -141,7 +141,7 @@ export function ForumThreadBulkToolbar() {
   return (
     <div
       data-testid="forum-bulk-toolbar"
-      className="flex flex-col gap-2 text-sm sm:flex sm:flex-wrap sm:items-center sm:gap-2"
+      className="flex flex-col items-start gap-2 text-sm sm:ml-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-2"
     >
       <span className="text-[#93b2ce]">已选 {selected.size} 个主题</span>
       <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">

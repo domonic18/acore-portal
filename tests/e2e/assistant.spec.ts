@@ -190,7 +190,7 @@ test.describe.serial("AI 助手(M9)", () => {
     await expect(page.getByText("问点什么吧")).toBeVisible();
   });
 
-  test("悬浮球:熊猫人头像/隐藏→右缘页签恢复→垂直拖拽记忆位置(2026-11-18)", async ({ page }) => {
+  test("悬浮球:熊猫人头像/隐藏→右缘页签恢复(2026-11-18 拖拽已按反馈下线)", async ({ page }) => {
     await page.goto("/");
     const ball = page.getByRole("button", { name: "打开 AI 助手" });
     // 熊猫人头像(WOW 中立种族人物特写,2026-11-18 用户定稿)
@@ -205,46 +205,30 @@ test.describe.serial("AI 助手(M9)", () => {
     await page.reload();
     await expect(page.getByRole("button", { name: "打开 AI 助手" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "展开小塔助手" })).toBeVisible();
-    // 页签恢复球体
+    // 页签恢复球体(固定默认位;拖拽功能下线——拖拽后 ✕ 点击被 pointer capture 干扰)
     await tab.click();
-    const ball2 = page.getByRole("button", { name: "打开 AI 助手" });
-    await expect(ball2).toBeVisible();
-    // 垂直拖拽向上 200px:bottom 增大(范围限视口内),松手即持久化
-    const before = await ball2.boundingBox();
-    await page.mouse.move(
-      before.x + before.width / 2,
-      before.y + before.height / 2,
-    );
-    await page.mouse.down();
-    await page.mouse.move(
-      before.x + before.width / 2,
-      before.y + before.height / 2 - 200,
-      { steps: 8 },
-    );
-    await page.mouse.up();
-    // 移开鼠标;hover 缩放的 transition-transform 回弹期间 boundingBox 有亚像素漂移,
-    // 轮询到连续两次读数相同(过渡终态)再落位置基准
-    await page.mouse.move(10, 10);
-    let afterY = -1;
-    await expect(async () => {
-      const now = await ball2.boundingBox();
-      const prev = afterY;
-      afterY = now.y;
-      expect(now.y).toBe(prev); // 连续两次读数相同 = 过渡终态
-    }).toPass({ timeout: 5_000 });
-    expect(before.y - afterY).toBeGreaterThan(150);
-    // 刷新后贴存档位(水合恢复有竞态,轮询收敛)
-    await page.reload();
-    await expect(
-      page.getByRole("button", { name: "打开 AI 助手" }),
-    ).toBeVisible();
-    await expect
-      .poll(
-        async () =>
-          (await page.getByRole("button", { name: "打开 AI 助手" }).boundingBox())?.y ??
-          0,
-        { timeout: 5_000 },
-      )
-      .toBeCloseTo(afterY, 0);
+    await expect(page.getByRole("button", { name: "打开 AI 助手" })).toBeVisible();
+  });
+
+  test("对话框:ESC 不关闭、关闭重开保留上次对话(2026-11-18 二次反馈)", async ({ page }) => {
+    await login(page, "m1admin", "adminpass123");
+    await page.goto("/");
+    const ball = page.getByRole("button", { name: "打开 AI 助手" });
+    await ball.click();
+    const dialog = page.getByRole("dialog", { name: "AI 助手" });
+    await expect(dialog).toBeVisible();
+    await fillComposer(page, "介绍一下站点");
+    await page.getByRole("button", { name: "发送" }).click();
+    await expect(page.getByText(MOCK_ANSWER).first()).toBeVisible({ timeout: 30_000 });
+
+    // ESC 不关闭(输入时误按 ESC 不应丢面板;关闭只走 ✕)
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeVisible();
+
+    // 关闭再重开:上次对话仍在(面板隐藏不卸载,runtime 内存态保留)
+    await page.getByRole("button", { name: "关闭助手" }).click();
+    await expect(dialog).toBeHidden();
+    await ball.click();
+    await expect(page.getByText(MOCK_ANSWER).first()).toBeVisible();
   });
 });
