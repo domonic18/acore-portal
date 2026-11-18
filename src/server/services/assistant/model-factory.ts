@@ -4,17 +4,16 @@ import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatOpenAI } from "@langchain/openai";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 
-import { resolveAiModel } from "@/server/services/shared/ai-models/resolver";
+import type { ResolvedAiModel } from "@/server/services/shared/ai-models/resolver";
 
 /**
  * 对话模型工厂(M9 W6;LLM 通道重构后读 ai_model/ai_role_binding 专表):
- * resolveAiModel("chat") 按 enabled 静态选边(主力→备用),双协议构造——
- * openai 走 configuration.baseURL,anthropic 走 anthropicApiUrl,超时透传条目值。
- * 解析为 null(未绑定/全停用)返回 null,调用方据此降级(助手不可用/纯关键词)。
+ * 用**已解析**的条目构造客户端——按 enabled 静态选边(主力→备用)由
+ * resolver 负责,双协议构造——openai 走 configuration.baseURL,
+ * anthropic 走 anthropicApiUrl,超时透传条目值。
+ * 不自行查库:调用方一次解析、多处复用(避免同一请求重复读绑定行)。
  */
-export async function createChatModel(): Promise<BaseChatModel | null> {
-  const resolved = await resolveAiModel("chat");
-  if (!resolved) return null;
+export function createChatModel(resolved: ResolvedAiModel): BaseChatModel {
   // apiKey 允许 null(无鉴权条目):SDK 层不接受 null,以 undefined 透传
   // (调用时通道 401 属运行期故障,探针可提前暴露;不在此拦是为了让「无鉴权也能配置」)
   const apiKey = resolved.apiKey ?? undefined;

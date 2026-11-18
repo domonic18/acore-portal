@@ -13,7 +13,7 @@ import {
   updateAiModel,
 } from "@/server/services/shared/ai-models/crud";
 import { updateRoleBinding } from "@/server/services/shared/ai-models/bindings";
-import { getChatDailyTokenMax, resolveAiModel } from "@/server/services/shared/ai-models/resolver";
+import { resolveAiModel, resolveChatBinding } from "@/server/services/shared/ai-models/resolver";
 import { probeAiModelCandidate, testStoredAiModel } from "@/server/services/shared/ai-models/probe";
 import { GET as modelsGet, POST as modelsPost } from "@/app/api/admin/ai-models/route";
 import { DELETE as modelDelete } from "@/app/api/admin/ai-models/[id]/route";
@@ -281,7 +281,7 @@ describe("resolver 静态选边(真库)", () => {
     expect((await resolveAiModel("chat"))?.source).toBe("primary");
   });
 
-  it("embedding 角色绑定后可解析;getChatDailyTokenMax 读绑定值", async () => {
+  it("embedding 角色绑定后可解析;resolveChatBinding 一次带回 chat 上限", async () => {
     const embedId = await makeModel({
       name: "向量网关",
       modelId: "embedding-3",
@@ -296,7 +296,9 @@ describe("resolver 静态选边(真库)", () => {
     const resolved = await resolveAiModel("embedding");
     expect(resolved?.source).toBe("primary");
     expect(resolved?.protocol).toBe("openai");
-    expect(await getChatDailyTokenMax()).toBe(25);
+    const chat = await resolveChatBinding();
+    expect(chat.dailyTokenMax).toBe(25);
+    expect(chat.model?.source).toBe("primary");
   });
 });
 

@@ -9,7 +9,7 @@ import { MysqlCheckpointSaver } from "./checkpointer/mysql-saver";
 import { createChatModel } from "./model-factory";
 import { ASSISTANT_SYSTEM_PROMPT } from "./prompt";
 import { searchSiteTool } from "./search-tool";
-import { resolveAiModel } from "@/server/services/shared/ai-models/resolver";
+import type { ResolvedAiModel } from "@/server/services/shared/ai-models/resolver";
 import { formatDate, formatTime, formatWeekday } from "@/lib/format";
 
 // checkpointer 无进程态(serde 内建),模块级单例随 agent 复用
@@ -50,14 +50,12 @@ const g = globalThis as typeof globalThis & {
   __assistantAgent?: { key: string; agent: DeepAgent };
 };
 
-/** 组装助手 Agent;chat 绑定解析不出启用条目返回 null(调用方降级「助手暂不可用」) */
-export async function getAssistantAgent(): Promise<DeepAgent | null> {
-  const resolved = await resolveAiModel("chat");
-  const key = resolved ? `${resolved.id}|${resolved.protocol}|${resolved.baseUrl ?? ""}|${resolved.modelId}` : "";
+/** 组装助手 Agent(用调用方已解析的对话条目,不重复查库);条目为空返回 null(调用方降级「助手暂不可用」) */
+export function getAssistantAgent(resolved: ResolvedAiModel | null): DeepAgent | null {
   if (!resolved) return null;
+  const key = `${resolved.id}|${resolved.protocol}|${resolved.baseUrl ?? ""}|${resolved.modelId}`;
   if (g.__assistantAgent?.key === key) return g.__assistantAgent.agent;
-  const model = await createChatModel();
-  if (!model) return null;
+  const model = createChatModel(resolved);
   const agent = createDeepAgent({
     model,
     tools: [searchSiteTool, askUserTool, getCurrentTimeTool],
