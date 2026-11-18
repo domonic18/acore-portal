@@ -993,13 +993,14 @@ model AiModel {
 }
 
 /// AI 角色绑定(role 自然主键,一行一角色):primary/backup 按 enabled 静态选边,
-/// 非运行时故障切换;daily_max 仅 chat 绑定消费,0=不限额(沿用 llm.dailyQuota 语义)
+/// 非运行时故障切换;daily_max 仅 chat 绑定消费 = 站点当日 Token 总上限
+/// (2026-11-18 语义翻转,原「每用户日次数」限额按用户裁决移除),0=不限额
 model AiRoleBinding {
-  role      String   @id @db.VarChar(20) // AI_MODEL_ROLES: chat | embedding
-  primaryId Int?     @map("primary_id")
-  backupId  Int?     @map("backup_id")
-  dailyMax  Int      @default(20) @map("daily_max")
-  updatedAt DateTime @updatedAt @map("updated_at") @db.DateTime(3)
+  role          String   @id @db.VarChar(20) // AI_MODEL_ROLES: chat | embedding
+  primaryId     Int?     @map("primary_id")
+  backupId      Int?     @map("backup_id")
+  dailyTokenMax Int      @default(2000000) @map("daily_max")
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.DateTime(3)
 
   primary AiModel? @relation("AiRoleBindingPrimary", fields: [primaryId], references: [id], onDelete: SetNull)
   backup  AiModel? @relation("AiRoleBindingBackup", fields: [backupId], references: [id], onDelete: SetNull)
