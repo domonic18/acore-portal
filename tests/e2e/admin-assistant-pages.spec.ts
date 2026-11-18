@@ -2,10 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "../../src/generated/business";
 
 /**
- * 后台「AI 用量」与「AI 对话」页 E2E(2026-11-18 用户反馈):
- * NAV 两入口;用量页 KPI 与区间切换(7d/30d);对话页台账列表 + 行内展开拉消息时间线
- * (无 checkpoint 的 thread 显示暂无消息空态;消息往返由集成测试覆盖)。
- * 游客拦截;台账行用后清理。
+ * 后台「AI 管理」页 E2E(2026-11-18 用户反馈:模型/用量/对话三菜单合并为
+ * 单入口 /admin/ai,页内 Tab 切换):NAV 单入口;用量 Tab KPI 与区间切换
+ * (7d/30d);对话 Tab 台账列表 + 行内展开拉消息时间线(无 checkpoint 的
+ * thread 显示暂无消息空态;消息往返由集成测试覆盖)。游客拦截;台账行用后清理。
  */
 const prisma = new PrismaClient();
 const THREAD = `e2e-sess-${Date.now().toString(36)}-list`;
@@ -23,22 +23,29 @@ test.afterAll(async () => {
   await prisma.$disconnect();
 });
 
-test("游客访问两新页 → 拦截回登录页", async ({ page }) => {
-  await page.goto("/admin/ai-usage");
-  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fai-usage/);
-  await page.goto("/admin/assistant-sessions");
-  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fassistant-sessions/);
+test("游客访问 /admin/ai → 拦截回登录页", async ({ page }) => {
+  await page.goto("/admin/ai/usage");
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fai%2Fusage/);
+  await page.goto("/admin/ai/sessions");
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fai%2Fsessions/);
 });
 
-test.describe.serial("admin AI 用量与 AI 对话页", () => {
-  test("NAV 入口 + 用量页 KPI 与区间切换", async ({ page }) => {
+test.describe.serial("admin AI 管理页", () => {
+  test("NAV 单入口 + Tab 切换 + 用量 KPI 与区间切换", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
     await page.goto("/admin");
     const nav = page.getByRole("banner").getByRole("navigation");
-    await expect(nav.getByRole("link", { name: "AI 用量" })).toHaveAttribute("href", "/admin/ai-usage");
-    await expect(nav.getByRole("link", { name: "AI 对话" })).toHaveAttribute("href", "/admin/assistant-sessions");
+    await expect(nav.getByRole("link", { name: "AI 管理" })).toHaveAttribute("href", "/admin/ai");
+    // 三菜单已合并:旧「AI 模型/AI 用量/AI 对话」不再出现在导航
+    for (const label of ["AI 模型", "AI 用量", "AI 对话"]) {
+      await expect(nav.getByRole("link", { name: label })).toHaveCount(0);
+    }
 
-    await page.goto("/admin/ai-usage");
+    // /admin/ai 默认落模型 Tab;切到用量 Tab
+    await page.goto("/admin/ai");
+    await expect(page).toHaveURL(/\/admin\/ai\/models$/);
+    await page.getByRole("tab", { name: "用量" }).click();
+    await expect(page).toHaveURL(/\/admin\/ai\/usage$/);
     const view = page.getByTestId("admin-ai-usage");
     await expect(view).toBeVisible();
     await expect(view.getByText("近 7 日调用")).toBeVisible();
@@ -47,11 +54,11 @@ test.describe.serial("admin AI 用量与 AI 对话页", () => {
     await expect(view.getByText("调用分布")).toBeVisible();
 
     await view.getByRole("link", { name: "近 30 天" }).click();
-    await expect(page).toHaveURL(/\/admin\/ai-usage\?range=30d/);
+    await expect(page).toHaveURL(/\/admin\/ai\/usage\?range=30d/);
     await expect(page.getByTestId("admin-ai-usage").getByText("近 30 日调用")).toBeVisible();
   });
 
-  test("对话页:台账列表 + 行内展开(无 checkpoint → 空态)", async ({ page }) => {
+  test("对话 Tab:台账列表 + 行内展开(无 checkpoint → 空态)", async ({ page }) => {
     await prisma.assistantSession.create({
       data: {
         threadId: THREAD,
@@ -64,7 +71,7 @@ test.describe.serial("admin AI 用量与 AI 对话页", () => {
       },
     });
     await login(page, "m1admin", "adminpass123");
-    await page.goto("/admin/assistant-sessions");
+    await page.goto("/admin/ai/sessions");
     const list = page.getByTestId("admin-assistant-sessions");
     await expect(list.getByText("E2E 会话标题示例")).toBeVisible();
     await expect(list.getByText("已注销用户")).toBeVisible();

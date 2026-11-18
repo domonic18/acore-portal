@@ -6,7 +6,7 @@ import { Table, Td, Th, THead, Tr } from "@/components/ui/table";
 import { FOCUS_RING } from "@/components/ui/admin-tokens";
 
 /**
- * AI 用量页视图(独立页 /admin/ai-usage,2026-11-18 用户反馈):
+ * AI 用量视图(AI 管理页「用量」Tab /admin/ai/usage,2026-11-18 用户反馈):
  * 窗口 KPI(调用/失败率/token/日均)+ 调用日柱(失败红段)+ 每日明细表 + 热门问题词。
  * 纯展示,数据由页面层 services/assistant/usage 传入(components 禁 import server)。
  */
@@ -56,7 +56,7 @@ export function AiUsageView({ view, range }: { view: UsageView; range: string })
             <Link
               key={r.value}
               prefetch={false}
-              href={`/admin/ai-usage?range=${r.value}`}
+              href={`/admin/ai/usage?range=${r.value}`}
               className={`rounded-md border border-transparent px-3 py-1 text-[#93b2ce] transition hover:bg-[#13233a] hover:text-[#dcebf7] ${FOCUS_RING}`}
             >
               {r.label}

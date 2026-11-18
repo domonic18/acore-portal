@@ -22,7 +22,7 @@ import { ToolsGroup } from "./tools-group";
  * 敏感字段按组+字段定口径:只写不读者(smtp/captcha/soap/cos 密钥)已配置显
  * 「已配置,留空保持」,空提交=保持原值;连接串(game库)回显脱敏串,
  * 提交值等于脱敏形态或口令位仍是 *** 时按未改处理。
- * AI 模型通道已独立成页 /admin/ai-models(LLM 通道重构),不再属 settings。
+ * AI 模型通道已独立成 AI 管理页(/admin/ai/models,LLM 通道重构),不再属 settings。
  */
 export function SettingsForms({ view }: { view: SettingsView }) {
   return (

@@ -80,7 +80,7 @@ export async function recordAssistantUsage(record: AssistantUsageRecord): Promis
   }
 }
 
-/** 用量页视图(独立页 /admin/ai-usage):窗口内日全字段序列 + 合计 + 热门问题词 */
+/** 用量页视图(AI 管理页「用量」Tab /admin/ai/usage):窗口内日全字段序列 + 合计 + 热门问题词 */
 export interface AssistantUsagePageView {
   days: number;
   daily: {

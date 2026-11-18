@@ -6,7 +6,7 @@ import { listAssistantSessionsAdmin } from "@/server/services/assistant/session-
 import { requireAdmin } from "@/server/session-guard";
 
 /**
- * 后台「AI 对话」页(2026-11-18 用户反馈,照 aitech-hub 形态):会话台账列表,
+ * 后台「AI 管理 → 对话」Tab(2026-11-18 用户反馈,照 aitech-hub 形态):会话台账列表,
  * 行内展开拉取 checkpoint 反序列化的消息时间线(正文不入库,只读)。
  */
 export const dynamic = "force-dynamic";
@@ -35,19 +35,16 @@ export default async function AdminAssistantSessionsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-bold">AI 对话</h1>
-        <p className="mt-0.5 text-[12.5px] text-[#6482a3]">
-          用户与助手「小塔」的会话台账:标题取首问截断,正文仅在行内展开时读取,不入库留存。
-        </p>
-      </div>
+      <p className="text-[12.5px] text-[#6482a3]">
+        用户与助手「小塔」的会话台账:标题取首问截断,正文仅在行内展开时读取,不入库留存。
+      </p>
       <SessionsView items={rows} />
       <AdminPager
         page={page}
         totalPages={totalPages}
         total={total}
         unit="条会话"
-        href={(p) => buildPageHref("/admin/assistant-sessions", {}, p)}
+        href={(p) => buildPageHref("/admin/ai/sessions", {}, p)}
       />
     </div>
   );

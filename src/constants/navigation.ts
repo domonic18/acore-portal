@@ -121,9 +121,8 @@ export const ADMIN_NAV_GROUPS = [
       { href: "/admin/security", label: "安全看板", icon: "shield" },
       { href: "/admin/server-status", label: "状态配置", icon: "server" },
       { href: "/admin/sidebar", label: "侧栏入口", icon: "panel-left" },
-      { href: "/admin/ai-models", label: "AI 模型", icon: "bot" },
-      { href: "/admin/ai-usage", label: "AI 用量", icon: "activity" },
-      { href: "/admin/assistant-sessions", label: "AI 对话", icon: "messages-square" },
+      // AI 管理(2026-11-18 用户反馈:模型/用量/对话三菜单合并为单入口,页内 Tab)
+      { href: "/admin/ai", label: "AI 管理", icon: "bot" },
       { href: "/admin/settings", label: "设置", icon: "settings" },
     ],
   },
