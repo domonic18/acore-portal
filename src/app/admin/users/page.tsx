@@ -5,6 +5,7 @@ import { AdminPager } from "@/components/ui/pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FilterChip } from "@/components/ui/filter-chip";
 import { Table, TableEmpty, Td, Th, THead, Tr } from "@/components/ui/table";
 import { FOCUS_RING } from "@/components/ui/admin-tokens";
 import { displayUserName, formatDate } from "@/lib/format";
@@ -59,26 +60,16 @@ export default async function AdminUsersPage({
         )}
       </form>
 
-      <nav className="flex items-center gap-2 text-sm" aria-label="角色筛选">
-        {ROLE_TABS.map((t) =>
-          t.value === role ? (
-            <span
-              key={t.value || "all"}
-              className="rounded-md border border-[#6fb7e0]/50 bg-[#6fb7e0]/10 px-3 py-1 font-semibold text-[#a8d9f5]"
-            >
-              {t.label}
-            </span>
-          ) : (
-            <Link
-              key={t.value || "all"}
-              prefetch={false}
-              href={`/admin/users${t.value ? `?role=${t.value}` : ""}`}
-              className={`rounded-md border border-transparent px-3 py-1 text-[#93b2ce] transition hover:bg-[#13233a] hover:text-[#dcebf7] ${FOCUS_RING}`}
-            >
-              {t.label}
-            </Link>
-          ),
-        )}
+      <nav className="flex flex-wrap items-center gap-2 text-sm" aria-label="角色筛选">
+        {ROLE_TABS.map((t) => (
+          <FilterChip
+            key={t.value || "all"}
+            href={`/admin/users${t.value ? `?role=${t.value}` : ""}`}
+            active={t.value === role}
+          >
+            {t.label}
+          </FilterChip>
+        ))}
       </nav>
 
       {users.length === 0 ? (

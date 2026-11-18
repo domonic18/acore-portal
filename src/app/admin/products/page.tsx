@@ -56,68 +56,69 @@ export default async function AdminProductsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <FilterChip
-          href={buildPageHref(
-            "/admin/products",
-            {
-              lowStock: lowStock ? undefined : "1",
-              q,
-              type,
-              category: categoryId?.toString(),
-            },
-            1,
-          )}
-          active={lowStock}
-          icon={<AlertTriangle />}
-        >
-          仅看低库存
-        </FilterChip>
-        <ButtonLink href="/admin/products/new" variant="primary">
-          新建商品
-        </ButtonLink>
-      </div>
-
-      <form
-        action="/admin/products"
-        method="get"
-        className="flex flex-wrap items-center gap-2"
-        aria-label="商品筛选"
-      >
-        {lowStock && <input type="hidden" name="lowStock" value="1" />}
-        <Input
-          name="q"
-          defaultValue={q ?? ""}
-          placeholder="搜索名称 / slug / SKU…"
-          className="w-52"
-          aria-label="搜索商品"
-        />
-        <Select name="type" defaultValue={type ?? ""} className="w-auto" aria-label="商品类别">
-          <option value="">全部类别</option>
-          <option value={PRODUCT_TYPE.GAME_ITEM}>物品类</option>
-          <option value={PRODUCT_TYPE.SERVICE}>服务类</option>
-        </Select>
-        <Select
-          name="category"
-          defaultValue={categoryId?.toString() ?? ""}
-          className="w-auto"
-          aria-label="所属分类"
-        >
-          <option value="">全部分类</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.depth > 0 ? "　".repeat(c.depth) : ""}
-              {c.name}({c.productCount})
-            </option>
-          ))}
-        </Select>
-        <Button type="submit" size="md">
-          筛选
-        </Button>
-      </form>
-
+      {/* Provider 包住操作行与表格:批量工具条随勾选状态在操作行内出现(2026-11-18) */}
       <ProductSelectionProvider ids={items.map((p) => p.id)}>
-        {items.length > 0 && <ProductBatchToolbar />}
+        <div className="flex flex-wrap items-center gap-3">
+          <FilterChip
+            href={buildPageHref(
+              "/admin/products",
+              {
+                lowStock: lowStock ? undefined : "1",
+                q,
+                type,
+                category: categoryId?.toString(),
+              },
+              1,
+            )}
+            active={lowStock}
+            icon={<AlertTriangle />}
+          >
+            仅看低库存
+          </FilterChip>
+          {items.length > 0 && <ProductBatchToolbar />}
+          <ButtonLink href="/admin/products/new" variant="primary" className="ml-auto">
+            新建商品
+          </ButtonLink>
+        </div>
+
+        <form
+          action="/admin/products"
+          method="get"
+          className="flex flex-wrap items-center gap-2"
+          aria-label="商品筛选"
+        >
+          {lowStock && <input type="hidden" name="lowStock" value="1" />}
+          <Input
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="搜索名称 / slug / SKU…"
+            className="w-52"
+            aria-label="搜索商品"
+          />
+          <Select name="type" defaultValue={type ?? ""} className="w-auto" aria-label="商品类别">
+            <option value="">全部类别</option>
+            <option value={PRODUCT_TYPE.GAME_ITEM}>物品类</option>
+            <option value={PRODUCT_TYPE.SERVICE}>服务类</option>
+          </Select>
+          <Select
+            name="category"
+            defaultValue={categoryId?.toString() ?? ""}
+            className="w-auto"
+            aria-label="所属分类"
+          >
+            <option value="">全部分类</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.depth > 0 ? "　".repeat(c.depth) : ""}
+                {c.name}({c.productCount})
+              </option>
+            ))}
+          </Select>
+          <Button type="submit" size="md">
+            筛选
+          </Button>
+        </form>
+
         {items.length === 0 ? (
           <p className="rounded-xl border border-dashed border-[#22385a] px-6 py-10 text-center text-[#6482a3]">
             {lowStock || q || type || categoryId
