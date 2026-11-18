@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useHydrated } from "@/lib/use-hydrated";
 import { errorMessage, requestJson } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { BatchToolbar } from "@/components/admin/batch-toolbar";
 
 /**
  * 商品列表批量选择(二期商城增强):Provider 持选中态,
@@ -125,28 +126,23 @@ export function ProductBatchToolbar() {
   }
 
   return (
-    <div
-      data-testid="product-batch-toolbar"
-      className="flex flex-col items-start gap-2 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-2"
-    >
-      <span className="text-[#93b2ce]">已选 {selected.size} 件</span>
-      {/* 窄屏两列网格:按钮不再被挤成参差的一行(#48 移动端批量按钮排列) */}
-      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-        {ACTIONS.map((a) => (
-          <Button
-            key={a.action}
-            type="button"
-            variant="secondary"
-            size="sm"
-            disabled={busy || !hydrated || selected.size === 0}
-            onClick={() => void run(a.action)}
-          >
-            {a.label}
-          </Button>
-        ))}
-      </div>
-      {message && <span className="text-xs text-[#6ee7b7]">{message}</span>}
-      {error && <span className="text-xs text-[#eda9a9]">{error}</span>}
-    </div>
+    <BatchToolbar
+      testId="product-batch-toolbar"
+      countText={`已选 ${selected.size} 件`}
+      message={message}
+      error={error}
+      actions={ACTIONS.map((a) => (
+        <Button
+          key={a.action}
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={busy || !hydrated || selected.size === 0}
+          onClick={() => void run(a.action)}
+        >
+          {a.label}
+        </Button>
+      ))}
+    />
   );
 }
