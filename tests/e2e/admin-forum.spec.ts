@@ -93,9 +93,9 @@ test.afterAll(async () => {
 
 test("越权:普通用户访问后台论坛页重定向+API 403", async ({ page }) => {
   await login(page, "legacyuser", "oldpass123");
-  await page.goto("/admin/forum?tab=threads");
+  await page.goto("/admin/forum/threads");
   // middleware 浅校验先行:非 admin 一律引导回登录页(middleware.ts /admin 分支)
-  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fforum$/);
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fforum%2Fthreads$/);
   // page.request 与浏览器上下文共享 cookie:带 legacyuser 会话才能命中 403(无会话是 401)
   const res = await page.request.post(`/api/admin/forum/threads/${threadId}`, {
     data: { action: "pin", pinned: true },
@@ -105,7 +105,7 @@ test("越权:普通用户访问后台论坛页重定向+API 403", async ({ page 
 
 test("管理闭环:置顶/关闭/标签/删除/回收站恢复 全落库+审计", async ({ page }) => {
   await login(page, "m1admin", "adminpass123");
-  await page.goto(`/admin/forum?tab=threads&q=${encodeURIComponent(THREAD_TITLE)}`);
+  await page.goto(`/admin/forum/threads?q=${encodeURIComponent(THREAD_TITLE)}`);
   const row = page.getByRole("row", { name: new RegExp(THREAD_TITLE) });
   await expect(row).toBeVisible();
 
@@ -139,7 +139,7 @@ test("管理闭环:置顶/关闭/标签/删除/回收站恢复 全落库+审计"
   await row.getByRole("button", { name: "删除", exact: true }).click();
   await expect(page.getByText("没有匹配的主题。")).toBeVisible(); // 默认视图过滤软删
 
-  await page.goto(`/admin/forum?tab=threads&q=${encodeURIComponent(THREAD_TITLE)}&deleted=1`);
+  await page.goto(`/admin/forum/threads?q=${encodeURIComponent(THREAD_TITLE)}&deleted=1`);
   const trashRow = page.getByRole("row", { name: new RegExp(THREAD_TITLE) });
   await expect(trashRow).toBeVisible();
   const restoreBtn = trashRow.getByRole("button", { name: "恢复" });
@@ -166,7 +166,7 @@ test("管理闭环:置顶/关闭/标签/删除/回收站恢复 全落库+审计"
 
 test("批量设状态:多选两个主题一次设为已关闭/已解决(落库+审计)", async ({ page }) => {
   await login(page, "m1admin", "adminpass123");
-  await page.goto(`/admin/forum?tab=threads&board=${BOARD_SLUG}`);
+  await page.goto(`/admin/forum/threads?board=${BOARD_SLUG}`);
   const rowA = page.getByRole("row", { name: new RegExp(THREAD_TITLE) });
   const rowB = page.getByRole("row", { name: new RegExp(THREAD_TITLE_B) });
   await expect(rowA).toBeVisible();
