@@ -58,15 +58,16 @@
 
 - 目标: 把后台商品能力以 MCP 协议对外暴露，供 Claude Code 等客户端调用——查询/新增/修改/上下架，取代逐个填表单
 - 验收标准（可执行）:
-  1. **令牌鉴权生效**——无令牌/错令牌调 `POST /api/mcp` 返回 401；有效令牌可 `tools/list` 拿到 6 个白名单工具（§17.2）
-  2. **白名单工具全量可用**——`list_products`/`get_product`/`create_product`/`update_product`/`set_product_status`/`list_categories` 逐个调用成功，白名单外工具名返回拒绝
+  1. **令牌鉴权生效**——无令牌/错令牌调 `POST /api/mcp` 返回 401；有效令牌可 `tools/list` 拿到 **7 个**白名单工具（§17.2）
+  2. **白名单工具全量可用**——`list_products`/`get_product`/`create_product`/`update_product`/`set_product_status`/`list_categories`/`search_site` 逐个调用成功，白名单外工具名返回拒绝
   3. **每次调用可审计**——`audit_log` 落一行，只含工具名/目标 id/成败/耗时，**不含令牌与请求体全文**
   4. **与后台表单同校验**——同一违规输入（MCP 与后台表单各一次）均返 422 且 `field` 一致（`sku`/`gameItemId`）
   5. **限速生效**——超令牌级 QPS/日配额返回 429
 - 预估工作量: 1 周
-- 状态: **未开始** — 规格 §17；**传输已定：MCP Streamable HTTP**（`POST /api/mcp`，零额外运维、不做 stdio 桥接）；**鉴权口径已定**（§17.3：令牌只写不读、仅存哈希，绑定管理员身份+作用域（只读/可写）+有效期，审计只记 id，令牌级限速复用 `hitRateLimit`）
+- 状态: **开发完成（待生产联调）** — 规格 §17；**传输已定：MCP Streamable HTTP**（`POST /api/mcp`，零额外运维、不做 stdio 桥接）；**鉴权口径已定**（§17.3：令牌只写不读、仅存哈希，绑定管理员身份+作用域（只读/可写）+有效期，审计只记 id，令牌级限速复用 `hitRateLimit`）
 - 依赖: 无（可先行）
-- **后续返工（登记在此避免漏项）**：M8 交付统一检索 service 后，须回 M6 补一个 `search_site` 工具（规格 §19.4「给人搜=给 agent 搜=给 MCP 搜」同源），否则 MCP 与站内检索两套口径漂移
+- **M8 返工项已在本轮一并落地（2026-11-18）**：M8-a 统一检索 service 已交付，故 `search_site` 工具随 M6 一起交付（与助手侧 `search_site` 同一 `services/search` 入口），避免三处检索口径漂移——**本项不再挂起**
+- 落地形态（2026-11-18）：官方 `@modelcontextprotocol/sdk` + Web 标准传输 + 无状态 JSON 响应（每请求新建 Server，零会话存储）；令牌存 `system_config` 的 `mcp` 组、**签发即轮换**（同时只有一枚活跃令牌）；后台令牌管理台 `/admin/mcp-tokens`（签发/吊销/限额/最近调用）；工具集恒 7 个（`src/constants/mcp.ts` 单一出处，守卫 `tests/unit/mcp-tools.test.ts`），**无删除入口**；测试：单测 10 + 集成 7 + E2E 6 全绿
 
 ### M7 内容聚合: 资讯与视频信息流
 
@@ -139,14 +140,14 @@
 ### 依赖关系（口径已按规格 §19.1 / §20.2 核对）
 
 ```
-M6 商品运营 MCP ──────────────►（M8 交付后回补 search_site 工具，不阻塞 M6 交付）
+M6 商品运营 MCP ──────────────►（search_site 工具已于 2026-11-18 随 M6 一并交付）
 M8-a 检索底座 + 结果页 ───────► M9 AI 助手
 M7 内容聚合 ──► M8-b 接入 feed_item 第五类
 ```
 
 - **M9 依赖 M8，不依赖 M7**：M9 知识源是站内教程 `Article` / 静态页 `ContentPage` / 商品 `ProductFaq` / 论坛精选帖（规格 §20.2），**不含聚合条目** ⇒ M7 不在 M9 的关键路径上。
 - **M8 分两段**：M8-a（词项层 + 结果页 + agent 检索工具 + 资讯/帖子/商品/静态页·FAQ 四类）零依赖；M8-b（接 `feed_item` 第五类 + 其向量化）待 M7 落地。
-- **M6 零依赖**，但其「搜索工具」须等 M8 统一检索 service 落地后回补（M6 返工登记）。
+- **M6 零依赖**；其「搜索工具」原登记为「待 M8 统一检索 service 落地后回补」，**已于 2026-11-18 随 M6 一并交付**（M8-a 统一检索 service 先落地，返工项消解）。
 
 ### 排期建议（单人或双人，均按里程碑粒度）
 
@@ -228,7 +229,7 @@ M7 内容聚合 ──► M8-b 接入 feed_item 第五类
 | embedding 供应商可达性/成本 | 语义层不可用或成本失控 | 语义层不可用即整体降级为词项检索；embedding 通道可后台切换；向量存 MySQL 无新增组件 |
 | agent 多步 token 放大 | 单次问答成本超预期 | 步数与 token 预算闸（默认 8 步）+ 日配额（§19.6/§20.3 同一套） |
 | 语料增长致向量召回退化 | 检索精度下降 | 5 万条阈值重评 PG+pgvector sidecar（§19.5 已定）；进程内索引增量更新 |
-| 检索口径双写漂移 | 结果页/agent/MCP 三处不一致 | 统一检索 service 单源供给三处；M8 交付后回 M6 补 `search_site` 工具（见 M6 返工登记） |
+| 检索口径双写漂移 | 结果页/agent/MCP 三处不一致 | 统一检索 service 单源供给三处；`search_site` 工具已随 M6 交付（MCP 与助手侧同一入口） |
 
 ## 二期后置池
 
@@ -251,6 +252,7 @@ M7 内容聚合 ──► M8-b 接入 feed_item 第五类
 
 | 日期 | 变更 | 原因 |
 |------|------|------|
+| 2026-11-18 | **M6 商品运营 MCP 交付(二期首个小里程碑)**:① **定位**——MCP 只是后台商品能力的**对外投影**,写入一律走 `services/catalog` 同一入口、检索走 `services/search` 统一检索,**不另写一套 CRUD、不因调用方是 AI 而放松校验**(SKU↔物品绑定/服务类处理器注册表/限购/可堆叠 `_stack` 一律照旧);域间引用在 `ORCHESTRATION_EDGES` 登记 `mcp: ["catalog", "search"]`;② **协议层**——官方 `@modelcontextprotocol/sdk`(1.32.2 精确锁定),Web 标准传输吃 Next.js 的 `Request`/`Response`,**无状态模式**(`sessionIdGenerator: undefined` + `enableJsonResponse: true`)⇒ 每请求新建 Server、零会话存储;③ **工具集恒 7 个**——规格 6 个商品工具 + `search_site`(M8-a 统一检索 service 已交付,返工项一并落地),单一出处 `src/constants/mcp.ts` 的 `MCP_TOOL`,守卫 `tests/unit/mcp-tools.test.ts` 锁死「不多不少」;**无任何删除入口**(不可逆操作不暴露);④ **SKU 只能派生不能手写**——物品类由所选物品 id 派生(可堆叠与否由游戏数据 `stackable` 决定,不由调用方自选)、服务类由处理器键派生;`update_product` 收到与现值不同的 `sku` 一律 422 `field=sku`;⑤ **令牌**——存 `system_config` 的 `mcp` 组、**只写不读**(库中仅 SHA-256,明文只在签发响应出现一次)、**签发即轮换**(同时只有一枚活跃令牌,旧令牌即时作废)、吊销=清空哈希;令牌状态键**不进设置页**(整组全量提交会冲掉令牌)⇒ MCP 域直写 + `reloadSystemConfig()` 热生效;⑥ **闸门顺序**——IP 兜底限速 429 → Bearer 校验 401(失败文案统一,不区分原因以免被探测)→ 只读越权 403(路由层直接拒)→ 令牌级 QPS/日配额 429(**失败关闭**:Redis 故障即 503,绝不放开无限调用);批量 JSON-RPC 数组逐条判作用域、逐条扣配额;⑦ **审计只记 id 与结果**——`mcp_tool_called` 只记 `{tool, ok, targetId?, durationMs, errorCode?}`,另记令牌签发/吊销/限额变更三动作(只记作用域与键名);⑧ **后台管理台**——`/admin/mcp-tokens`(签发/吊销/限额/最近调用,明文一次性展示 + 复制 + 「仅显示一次」提示)与导航入口,API 走 `requireApiAdmin`;⑨ **验证**——`make check` 141 文件/1149 用例绿(新增单元 10 例:白名单恒 7 个/作用域标签/工具层禁直连数据库与禁自写 SKU 前缀;集成 7 例:库里只有哈希、覆盖签发使旧令牌失效、吊销失效、过期拒绝、限额即时生效);E2E 新增 6 例(游客拦截/无令牌 401/initialize+tools/list 7 个+tools/call 成功/只读越权 403/吊销后 401/超日配额 429);`pnpm lint:migrations` 绿(本次无迁移,`system_config` 是 KV 表);规格 §17 与 AGENTS 规则 35 同步回写 | 用户指令:接下来我们要开发商品运营 MCP 功能 |
 | 2026-11-18 | **助手会话清理结果同步飞书**:① **为什么同步**——清理是无人值守的定时任务(周频),跑没跑、回收多少、有没有失败站内看不出来 ⇒ 结果同步飞书自定义机器人;② **每次跑都发一张卡**(有回收＝绿 / 无超期＝蓝)⇒ 兼作「清理任务确实在跑」的心跳,否则「无事可清」与「任务没跑」在飞书里长得一样;失败发红卡(带失败原因)且退出码仍非零;③ **告警故障不牵连清理**——通道未配置或发送失败一律降级为只记日志(与备份告警同口径),清理本身的成败与退出码不受影响;卡片只落数量与时间,对话正文不入卡片(T048 脱敏口径);④ **通道出口统一**——`scripts/cron/backup-alert.ts` 泛化为 `scripts/cron/ops-alert.ts`(运维告警通用出口,`sendBackupAlert`→`sendOpsAlert`,备份/心跳两处调用点同步改),cron 脚本禁自带 fetch,否则每个脚本各写一套通道口径;卡片构造器落 `scripts/cron/assistant-cleanup-alert.ts`;⑤ **验证**——`make check` 139 文件/1132 用例绿(新增单元 6 例:绿/蓝两态卡片字段、无超期不谎报删除量、红卡带失败原因、失败原因为空给占位、脚本接线守卫「必须发卡片 + 走 ops-alert 且禁自带 fetch」);本地 tsx 实跑 cron 脚本通过(通道未配置时降级只记日志);规格 §20.7 与 AGENTS 规则 34⑧、生产发布手册 §5 同步回写 | 用户指令:给会话清理增加飞书同步功能 |
 | 2026-11-18 | **助手会话数据生命周期(保留期 + 删除入口 + 周频回收)**:① **问题定性**——存储健康度排查发现助手对话正文落在 LangGraph 检查点表,`put` 每轮落一份**含全量消息的状态快照** ⇒ 单会话占用随问答轮数**平方级**增长,沉睡会话不回收会把业务库撑爆(结构性增长,非配置问题;生产尚无 AI 存储,异常在 develop→main 后显现);② **保留期**——默认 30 天,锚点取 `assistant_session.last_message_at`(最近活动时刻,已有索引),**不给检查点表加时间列**;③ **删除路径唯一**——新服务 `services/assistant/session-cleanup.ts` 提供原语(单事务清 `agent_writes` + `agent_checkpoint` + `assistant_session` 三处),后台手动删除与自动清理共用;checkpointer 的 `deleteThread` 改为委托该原语(原先是第二条独立路径);守卫 `tests/unit/assistant-retention.test.ts` 扫全仓禁第二处 `deleteMany`;④ **后台入口**——会话台账行内加「删除」按钮(短文字危险操作 + 二次确认),新增 `DELETE /api/admin/assistant-sessions/[threadId]`,审计 `assistant_session_deleted` 只记 threadId 与删除行数(正文不入审计);顺将该页与 `/admin/ai/sessions` 页头的 arbitrary-hex 换成语义 token(规则 26);⑤ **周频自动回收**——`scripts/cron/assistant-cleanup.ts`(容器内 tsx,直接调服务层原语,不自带删除逻辑)+ `scripts/cron/assistant-cleanup-run.sh`(宿主 wrapper),后随发布资产下发(`remote-release.sh` 的 ASSETS/chmod/完整性校验三处登记);**频次按成本定为周频**(检查点表按 `last_message_at` 索引扫 + 批量删是秒级操作,日频只徒增扫描与锁竞争);有回收时审计 `assistant_sessions_pruned`;⑥ **孤儿检查点不自动清理**——有 checkpoint 无台账行者无时间列可判年龄且可能是跑中的会话,自动清理会误删,只能后台按 threadId 手工删;⑦ **验证**——`make check` 138 文件/1126 用例绿(新增集成 4 例:删除原语清三表/幂等删不存在的会话/超期删活跃留/保留期内一条不删;单元 5 例:保留期常量、cron 不自带删除逻辑、发布资产登记、删除路径唯一全仓扫描);本地 tsx 实跑 cron 脚本通过(回收 0 个会话);E2E 新增「行内删除会话(二次确认后从列表消失)」用例;规格 §20.7 与 AGENTS 规则 34、生产发布手册 crontab 段同步回写 | 用户指令:按存储健康度排查结论实施 A(保留期)/B(删除原语 + 自动清理)/C(后台删除入口),并把 B 的每日自动清理改为每周 |
 | 2026-11-18 | **助手限额改站点日 Token 总闸(移除每用户限额)**:① **语义翻转**——`ai_role_binding.daily_max` 从「每用户日问答次数」翻转为「**站点当日 Token 总上限**」(用户裁决:每人限额太麻烦,只要全站日闸防滥用);Prisma 字段改名 `dailyTokenMax`(列名复用 `daily_max` 零 DDL 漂移),迁移 `20261118110000_site_daily_token_quota` 把 DEFAULT 提到 200 万并把旧次数语义存量值(≤10000)一次性换算;② **检查实现**——重写 `services/assistant/quota.ts` 为 `checkSiteTokenQuota()`:读 `assistant_usage` 当日聚合(prompt+completion,run 收尾已记账)与上限比较,超限 429「今日站点问答额度已用完」+ 次日北京零点 retryAfterSec;Token 在流式响应结束才可知,故为「检查放行、收尾记账、下一轮拦截」,并发小幅超越属可接受取舍(注释写明);原 Redis 次数窗口路径删除;③ **后台 UI**——chat 绑定卡「每用户日配额」→「站点日 Token 上限(0=不限额)」+ 一轮约数千 Token 的提示;④ **验证**——集成新增 3 例(未达上限放行回已用/达上限拦截回次日 retryAfterSec/0=不限)+ ai-models 集成与两个 E2E spec 字段改名(tsc/lint/迁移幂等/`migrate diff --from-url` 零漂移全绿);规格 §12/§19.4/§19.6/§20.3/§20.5 同步回写 | 用户反馈:不对每个用户做限额(太麻烦),但要站点当日整体 Token 限额避免被无限制使用 |
