@@ -239,12 +239,15 @@ docker compose -f docker/docker-compose.prod.yml logs --tail 50 web
   每次发布随 compose 一起下发到部署根 ⇒ **宿主脚本与镜像同 commit**。
   (早前是首次备份时手工从镜像 `docker cp` 出来的,两份不同源会漂:
   宿主的排除参数过期 ⇒ dump 与判据口径不符 ⇒ 备份恒判失败。)
+  助手会话清理的宿主编排脚本 `scripts/cron/assistant-cleanup-run.sh` 同样在 `ASSETS` 内(口径同上)。
 - **crontab 挂在部署根下**(运维账号家目录的 `logs/` 须可写,cron 不在 docker 组,
   脚本自探 `docker` → `sudo -n docker`):
 
 ```cron
 30 3 * * * /home/ubuntu/acore-portal/scripts/cron/backup-run.sh >> /home/ubuntu/logs/acore-backup/backup.log 2>&1
 30 4 * * * /home/ubuntu/acore-portal/scripts/cron/backup-heartbeat-run.sh >> /home/ubuntu/logs/acore-backup/heartbeat.log 2>&1
+# 助手会话超期回收(周频;对话正文落在检查点表,沉睡会话不回收会撑爆业务库)
+30 5 * * 0 /home/ubuntu/acore-portal/scripts/cron/assistant-cleanup-run.sh >> /home/ubuntu/logs/acore-assistant/cleanup.log 2>&1
 ```
 
 ## 6. 从旧 WP 栈切换
