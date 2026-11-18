@@ -947,6 +947,24 @@ model AssistantUsageKeyword {
   @@map("assistant_usage_keyword")
 }
 
+/// 助手会话台账(2026-11-18,照 aitech-hub 形态):一行 = 一个 thread,
+/// run 收尾 upsert 维护标题(首问截断)/提问数/token/最近活动;对话正文仍在
+/// agent_checkpoint(LangGraph 序列化),后台「AI 对话」页经反序列化读取
+model AssistantSession {
+  threadId         String   @id @map("thread_id") @db.VarChar(64)
+  userId           BigInt?  @map("user_id")
+  title            String   @default("") @map("title") @db.VarChar(64)
+  runs             Int      @default(0)
+  promptTokens     Int      @default(0) @map("prompt_tokens")
+  completionTokens Int      @default(0) @map("completion_tokens")
+  createdAt        DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  lastMessageAt    DateTime @map("last_message_at") @db.DateTime(3)
+
+  @@index([lastMessageAt])
+  @@index([userId])
+  @@map("assistant_session")
+}
+
 /// AI 模型条目(LLM 通道重构,照 aitech-hub 形态):一行 = 一个可调用模型端点,
 /// openai 兼容 / anthropic 原生双协议;roles 为可服务角色数组(constants/ai-models)。
 /// apiKey 明文落库、API 层只写不读(规则 12 secret 口径);last_test_* 由「测试」动作回写

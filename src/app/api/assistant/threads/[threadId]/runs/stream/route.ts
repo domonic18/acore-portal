@@ -7,6 +7,7 @@ import { getApiSession } from "@/server/session-guard";
 import { getAssistantAgent } from "@/server/services/assistant/agent";
 import { consumeAssistantQuota } from "@/server/services/assistant/quota";
 import { createAssistantRunStream } from "@/server/services/assistant/run";
+import { recordAssistantSession } from "@/server/services/assistant/session-log";
 import { recordAssistantUsage } from "@/server/services/assistant/usage";
 import { writeAudit } from "@/server/services/shared/audit";
 import { getChatDailyMax } from "@/server/services/shared/ai-models/resolver";
@@ -80,6 +81,14 @@ export async function POST(
     // 看板「AI 助手」面板的日聚合(只落聚合指标与脱敏问题词,正文不入库)
     await recordAssistantUsage({
       ok: stats.ok,
+      promptTokens: stats.promptTokens,
+      completionTokens: stats.completionTokens,
+      question: parsed.data.messages?.[0]?.content ?? null,
+    }).catch(() => undefined);
+    // 会话台账(后台「AI 对话」页列表;标题只落首问截断,正文仍在 checkpoint)
+    await recordAssistantSession({
+      threadId,
+      userId: BigInt(session.userId),
       promptTokens: stats.promptTokens,
       completionTokens: stats.completionTokens,
       question: parsed.data.messages?.[0]?.content ?? null,

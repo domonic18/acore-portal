@@ -123,6 +123,7 @@ export const ADMIN_NAV_GROUPS = [
       { href: "/admin/sidebar", label: "侧栏入口", icon: "panel-left" },
       { href: "/admin/ai-models", label: "AI 模型", icon: "bot" },
       { href: "/admin/ai-usage", label: "AI 用量", icon: "activity" },
+      { href: "/admin/assistant-sessions", label: "AI 对话", icon: "messages-square" },
       { href: "/admin/settings", label: "设置", icon: "settings" },
     ],
   },
