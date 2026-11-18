@@ -120,6 +120,8 @@ export const ADMIN_NAV_GROUPS = [
       { href: "/admin/sidebar", label: "侧栏入口", icon: "panel-left" },
       // AI 管理(2026-11-18 用户反馈:模型/用量/对话三菜单合并为单入口,页内 Tab)
       { href: "/admin/ai", label: "AI 管理", icon: "bot" },
+      // 商品运营 MCP 令牌(二期 M6):签发/吊销/限额
+      { href: "/admin/mcp-tokens", label: "MCP 令牌", icon: "plug" },
       { href: "/admin/settings", label: "设置", icon: "settings" },
     ],
   },

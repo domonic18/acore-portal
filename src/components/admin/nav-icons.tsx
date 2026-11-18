@@ -15,6 +15,7 @@ import {
   Newspaper,
   Package,
   PanelLeft,
+  Plug,
   Receipt,
   Server,
   Settings,
@@ -47,6 +48,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   users: Users,
   server: Server,
   "panel-left": PanelLeft,
+  plug: Plug,
   settings: Settings,
   // 版块图标候选(后台图标选择器与前台 NavIcon 共用)
   swords: Swords,

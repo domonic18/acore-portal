@@ -124,6 +124,14 @@ export const AUDIT_ACTION = {
   ASSISTANT_SESSION_DELETED: "assistant_session_deleted",
   /** 助手会话超期自动回收(category=admin;payload 记回收会话数/行数/保留期) */
   ASSISTANT_SESSIONS_PRUNED: "assistant_sessions_pruned",
+  /** M6 MCP 工具调用(category=admin;payload 只记工具名/目标 id/成败/耗时) */
+  MCP_TOOL_CALLED: "mcp_tool_called",
+  /** M6 MCP 令牌签发(category=admin;只记作用域与绑定管理员,不记明文与哈希) */
+  MCP_TOKEN_ISSUED: "mcp_token_issued",
+  /** M6 MCP 令牌吊销(category=admin) */
+  MCP_TOKEN_REVOKED: "mcp_token_revoked",
+  /** M6 MCP 限额调整(category=admin;只记键名) */
+  MCP_TOKEN_LIMITS_CHANGED: "mcp_token_limits_changed",
 } as const;
 
 export type AuditActionValue = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];
