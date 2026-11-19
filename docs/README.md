@@ -37,7 +37,7 @@
 
 | 文档 | 说明 |
 |------|------|
-| [development-plan.md](plan/development-plan.md) | 一期 M1-M4 里程碑与完成状态 + 二期 M6-M9 规划;**只在此维护状态,不回填过程** |
+| [development-plan.md](plan/development-plan.md) | 里程碑总表(开发先后顺序)与各里程碑目标/验收标准/状态;**只在此维护状态,不回填过程** |
 | [ci-deploy-pipeline-plan.md](plan/ci-deploy-pipeline-plan.md) | CI 发布流水线方案(**待核对 · 未实施**):现状、目标形态、内部项目演练计划、待决问题清单 |
 
 ### 里程碑特性规格(specs/)——**仅本地,不入库**

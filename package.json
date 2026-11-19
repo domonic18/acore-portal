@@ -26,7 +26,7 @@
     "db:migrate": "prisma migrate dev --schema prisma/schema-business/schema.prisma",
     "db:deploy": "prisma migrate deploy --schema prisma/schema-business/schema.prisma",
     "db:seed": "tsx scripts/dev/seed.ts",
-    "cron:reconcile-points": "tsx scripts/cron/reconcile-points.ts",
+    "cron:reconcile-points": "tsx --conditions=react-server scripts/cron/reconcile-points.ts",
     "cron:recover-deliveries": "tsx --conditions=react-server scripts/cron/recover-deliveries.ts",
     "cron:backup": "tsx --conditions=react-server scripts/cron/backup.ts",
     "cron:backup-heartbeat": "tsx --conditions=react-server scripts/cron/backup-heartbeat.ts",
