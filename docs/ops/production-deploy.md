@@ -208,6 +208,20 @@ COS 对象默认**私有**:匿名 GET 返回 403。门户正文里的图是直�
 - **存量对象补 ACL**:上传时若未带(历史数据),按 `image_asset_map` 的 `new_url` 逐个
   `putObjectAcl` 补一遍
 
+**完整性体检**(逐对象读 ACL,回答「存量对象是否**全部**可匿名读」):
+
+```bash
+sudo -n docker exec acore-portal-prod-web-1 \
+  node_modules/.bin/tsx --conditions=react-server scripts/ops/cos-public-read-audit.ts
+```
+
+- 桶级已是 `public-read` ⇒ 全部对象继承,直接出结论;
+- 桶级私有 ⇒ 逐对象读 ACL,列出仍不可匿名读的对象,退出码 2;
+- **只报告不修改**;确认清单无误后显式加 `--fix` 才把对象 ACL 改成 `public-read`;
+- 备份前缀(`backups/`)按设计私有,体检默认跳过。
+- 排查提醒:CAM 子账号常无 `GetBucket` 列举权限 ⇒ `getBucket` 返回**空列表而不是报错**,
+  看起来像「对象不存在」。空列表时先核对列举权限,别直接下结论「对象都没补」。
+
 ## 4. 验证清单
 
 ```bash
