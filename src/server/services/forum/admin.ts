@@ -39,6 +39,12 @@ export async function adminListThreads(opts: {
   pinned?: boolean;
   featured?: boolean;
   label?: string;
+  /** 精确匹配 authorName 快照列(M6 增补:按账号翻帖,巡检用) */
+  authorName?: string;
+  /** 只看该时刻之后创建的主题(M6 增补) */
+  createdAfter?: Date;
+  /** 每页条数上限 50(M6 增补;缺省仍 ADMIN_FORUM_PAGE_SIZE) */
+  pageSize?: number;
   deleted?: boolean;
   page?: number;
 }): Promise<{
@@ -53,6 +59,8 @@ export async function adminListThreads(opts: {
     closedAt: string | null;
     statusLabel: ThreadStatusLabelValue;
     replyCount: number;
+    viewCount: number;
+    createdAt: string;
     lastPostAt: string;
   }[];
   page: number;
@@ -60,11 +68,17 @@ export async function adminListThreads(opts: {
   total: number;
 }> {
   const page = Number.isInteger(opts.page) && opts.page! > 0 ? opts.page! : 1;
+  const pageSize =
+    Number.isInteger(opts.pageSize) && opts.pageSize! > 0
+      ? Math.min(opts.pageSize!, 50)
+      : ADMIN_FORUM_PAGE_SIZE;
   const where: Prisma.ForumThreadWhereInput = {
     deletedAt: opts.deleted ? { not: null } : null,
   };
   if (opts.boardId) where.boardId = opts.boardId;
   if (opts.q?.trim()) where.title = { contains: opts.q.trim() };
+  if (opts.authorName?.trim()) where.authorName = opts.authorName.trim();
+  if (opts.createdAfter) where.createdAt = { gte: opts.createdAfter };
   if (opts.pinned !== undefined) where.pinned = opts.pinned;
   if (opts.featured !== undefined) where.featured = opts.featured;
   if (
@@ -77,15 +91,15 @@ export async function adminListThreads(opts: {
     prisma.forumThread.findMany({
       where,
       orderBy: [{ lastPostAt: "desc" }],
-      skip: (page - 1) * ADMIN_FORUM_PAGE_SIZE,
-      take: ADMIN_FORUM_PAGE_SIZE,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
       include: { board: { select: { slug: true, name: true } } },
     }),
     prisma.forumThread.count({ where }),
   ]);
   return {
     page,
-    totalPages: paginate(total, page, ADMIN_FORUM_PAGE_SIZE).totalPages,
+    totalPages: paginate(total, page, pageSize).totalPages,
     total,
     items: rows.map((t) => ({
       id: t.id.toString(),
@@ -98,6 +112,8 @@ export async function adminListThreads(opts: {
       closedAt: t.closedAt?.toISOString() ?? null,
       statusLabel: t.statusLabel as ThreadStatusLabelValue,
       replyCount: t.replyCount,
+      viewCount: t.viewCount,
+      createdAt: t.createdAt.toISOString(),
       lastPostAt: t.lastPostAt.toISOString(),
     })),
   };

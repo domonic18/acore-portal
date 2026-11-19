@@ -59,6 +59,8 @@ export const AUDIT_ACTION = {
   FORUM_THREAD_FEATURED: "forum_thread_featured",
   FORUM_THREAD_DELETE: "forum_thread_delete",
   FORUM_THREAD_UNDELETE: "forum_thread_undelete",
+  /** M6 增补:MCP 改标题(category=forum;payload 记 id/oldTitle/newTitle,标题非正文不脱敏) */
+  FORUM_THREAD_TITLE_EDIT: "forum_thread_title_edit",
   /** M4 后台版块管理(category=forum;payload 含 id/slug,改名记 old/new) */
   FORUM_BOARD_SAVED: "forum_board_saved",
   FORUM_BOARD_DELETED: "forum_board_deleted",
