@@ -4,6 +4,8 @@ import { z } from "zod";
 
 import type { McpScopeValue } from "@/constants/mcp";
 import { ProductAdminError } from "@/server/services/catalog/admin/shared";
+import { ForumModerateError } from "@/server/services/forum/moderate";
+import { ForumWriteError } from "@/server/services/forum/write";
 import { GameDbError } from "@/server/services/shared/game-identity";
 
 /**
@@ -85,6 +87,23 @@ export function slugFromSku(sku: string): string {
 export function toMcpFailure(err: unknown): McpToolOutcome {
   if (err instanceof ProductAdminError) {
     return { ok: false, code: err.code, message: err.message, field: err.field };
+  }
+  if (err instanceof ForumWriteError) {
+    const mapped: Record<
+      ForumWriteError["code"],
+      { code: string; message: string }
+    > = {
+      BOARD_NOT_FOUND: { code: "NOT_FOUND", message: "版块不存在。" },
+      THREAD_NOT_FOUND: { code: "NOT_FOUND", message: "主题不存在或已下架。" },
+      THREAD_CLOSED: { code: "THREAD_CLOSED", message: "主题已关闭,无法回复。" },
+      FLOOR_CONFLICT: { code: "FLOOR_CONFLICT", message: "楼层写入冲突,请重试。" },
+    };
+    return { ok: false, ...mapped[err.code] };
+  }
+  if (err instanceof ForumModerateError) {
+    return err.code === "THREAD_NOT_FOUND"
+      ? { ok: false, code: "NOT_FOUND", message: "主题不存在或已下架。", field: "id" }
+      : { ok: false, code: "VALIDATION_FAILED", message: err.message, field: "id" };
   }
   if (err instanceof GameDbError) {
     return {
