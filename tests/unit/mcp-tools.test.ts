@@ -15,10 +15,10 @@ import {
 } from "@/constants/mcp";
 
 /**
- * MCP 工具注册表单测(二期 M6;规格 §17.2):
- * ① 工具白名单恒为 7 个(名字与常量一致,不多不少);
+ * MCP 工具注册表单测(二期 M6;规格 §17.2;M6 增补论坛运营):
+ * ① 工具白名单恒为 12 个(名字与常量一致,不多不少);
  * ② 作用域标签正确(读写各归其位);
- * ③ 守卫:写入必须走 catalog 同一入口,不得在工具层自写 SKU 或直连数据库。
+ * ③ 守卫:写入必须走 catalog/forum 同一入口,不得在工具层自写 SKU 或直连数据库。
  */
 
 const REPO_ROOT = join(__dirname, "..", "..");
@@ -30,8 +30,8 @@ const TOOLS_SRC = readdirSync(TOOLS_DIR)
   .join("\n");
 
 describe("MCP 工具注册表", () => {
-  it("白名单恒为 7 个工具", () => {
-    expect(MCP_TOOLS).toHaveLength(7);
+  it("白名单恒为 12 个工具", () => {
+    expect(MCP_TOOLS).toHaveLength(12);
     expect(MCP_TOOLS.map((t) => t.name).sort()).toEqual(
       [
         MCP_TOOL.LIST_PRODUCTS,
@@ -41,6 +41,11 @@ describe("MCP 工具注册表", () => {
         MCP_TOOL.SET_PRODUCT_STATUS,
         MCP_TOOL.LIST_CATEGORIES,
         MCP_TOOL.SEARCH_SITE,
+        MCP_TOOL.LIST_FORUM_THREADS,
+        MCP_TOOL.GET_FORUM_THREAD,
+        MCP_TOOL.REPLY_FORUM_THREAD,
+        MCP_TOOL.UPDATE_FORUM_THREAD_TITLE,
+        MCP_TOOL.DELETE_FORUM_THREAD,
       ].sort(),
     );
   });
@@ -54,21 +59,31 @@ describe("MCP 工具注册表", () => {
     expect(findMcpTool("no_such_tool")).toBeUndefined();
   });
 
-  it("作用域标签:三个写工具 + 四个只读工具", () => {
+  it("作用域标签:六个写工具 + 六个只读工具", () => {
     const scopeOf = (name: string) => findMcpTool(name)?.scope;
     expect(scopeOf(MCP_TOOL.CREATE_PRODUCT)).toBe(MCP_SCOPE.WRITE);
     expect(scopeOf(MCP_TOOL.UPDATE_PRODUCT)).toBe(MCP_SCOPE.WRITE);
     expect(scopeOf(MCP_TOOL.SET_PRODUCT_STATUS)).toBe(MCP_SCOPE.WRITE);
+    expect(scopeOf(MCP_TOOL.REPLY_FORUM_THREAD)).toBe(MCP_SCOPE.WRITE);
+    expect(scopeOf(MCP_TOOL.UPDATE_FORUM_THREAD_TITLE)).toBe(MCP_SCOPE.WRITE);
+    expect(scopeOf(MCP_TOOL.DELETE_FORUM_THREAD)).toBe(MCP_SCOPE.WRITE);
     expect(scopeOf(MCP_TOOL.LIST_PRODUCTS)).toBe(MCP_SCOPE.READ);
     expect(scopeOf(MCP_TOOL.GET_PRODUCT)).toBe(MCP_SCOPE.READ);
     expect(scopeOf(MCP_TOOL.LIST_CATEGORIES)).toBe(MCP_SCOPE.READ);
     expect(scopeOf(MCP_TOOL.SEARCH_SITE)).toBe(MCP_SCOPE.READ);
+    expect(scopeOf(MCP_TOOL.LIST_FORUM_THREADS)).toBe(MCP_SCOPE.READ);
+    expect(scopeOf(MCP_TOOL.GET_FORUM_THREAD)).toBe(MCP_SCOPE.READ);
   });
 
-  it("不暴露不可逆操作(删商品)", () => {
+  it("不暴露不可逆操作(商品删档/论坛恢复与单删楼层)", () => {
     const names = MCP_TOOLS.map((t) => t.name);
     expect(names).not.toContain("delete_product");
     expect(TOOLS_SRC).not.toContain("deleteProduct");
+    // 论坛下架是可逆软删,可暴露;但恢复与单删楼层不暴露,留后台人工
+    expect(names).not.toContain("undelete_forum_thread");
+    expect(names).not.toContain("delete_forum_post");
+    expect(TOOLS_SRC).not.toContain("undeleteThread");
+    expect(TOOLS_SRC).not.toContain("deletePost");
   });
 });
 
@@ -89,10 +104,18 @@ describe("MCP 常量", () => {
 });
 
 describe("工具层接线守卫", () => {
-  it("写入走 catalog 同一入口(不另写 CRUD)", () => {
+  it("商品写入走 catalog 同一入口(不另写 CRUD)", () => {
     expect(TOOLS_SRC).toContain("saveProduct");
     expect(TOOLS_SRC).toContain("setProductStatus");
     expect(TOOLS_SRC).toContain("getAdminProduct");
+  });
+
+  it("论坛写入走 forum 同一入口(不另写 CRUD)", () => {
+    expect(TOOLS_SRC).toContain("adminListThreads");
+    expect(TOOLS_SRC).toContain("listThreadPosts");
+    expect(TOOLS_SRC).toContain("createReply");
+    expect(TOOLS_SRC).toContain("updateThreadTitle");
+    expect(TOOLS_SRC).toContain("deleteThread");
   });
 
   it("工具层禁直连数据库", () => {
