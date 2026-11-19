@@ -208,8 +208,19 @@ COS 对象默认**私有**:匿名 GET 返回 403。门户正文里的图是直�
 - **存量对象补 ACL**:上传时若未带(历史数据),按 `image_asset_map` 的 `new_url` 逐个
   `putObjectAcl` 补一遍
 
-**排查提醒**:CAM 子账号常无 `GetBucket` 列举权限 → `getBucket` 会返回**空列表而不是报错**,
-看起来像"对象不存在"。验对象是否真在,用 `headObject` 或直接匿名 GET,别信列举结果。
+**完整性体检**(逐对象读 ACL,回答「存量对象是否**全部**可匿名读」):
+
+```bash
+sudo -n docker exec acore-portal-prod-web-1 \
+  node_modules/.bin/tsx --conditions=react-server scripts/ops/cos-public-read-audit.ts
+```
+
+- 桶级已是 `public-read` ⇒ 全部对象继承,直接出结论;
+- 桶级私有 ⇒ 逐对象读 ACL,列出仍不可匿名读的对象,退出码 2;
+- **只报告不修改**;确认清单无误后显式加 `--fix` 才把对象 ACL 改成 `public-read`;
+- 备份前缀(`backups/`)按设计私有,体检默认跳过。
+- 排查提醒:CAM 子账号常无 `GetBucket` 列举权限 ⇒ `getBucket` 返回**空列表而不是报错**,
+  看起来像「对象不存在」。空列表时先核对列举权限,别直接下结论「对象都没补」。
 
 ## 4. 验证清单
 
@@ -240,6 +251,7 @@ docker compose -f docker/docker-compose.prod.yml logs --tail 50 web
   (早前是首次备份时手工从镜像 `docker cp` 出来的,两份不同源会漂:
   宿主的排除参数过期 ⇒ dump 与判据口径不符 ⇒ 备份恒判失败。)
   助手会话清理的宿主编排脚本 `scripts/cron/assistant-cleanup-run.sh` 同样在 `ASSETS` 内(口径同上)。
+  积分对账的宿主编排脚本 `scripts/cron/reconcile-points-run.sh` 亦同。
 - **crontab 挂在部署根下**(运维账号家目录的 `logs/` 须可写,cron 不在 docker 组,
   脚本自探 `docker` → `sudo -n docker`):
 
@@ -248,7 +260,26 @@ docker compose -f docker/docker-compose.prod.yml logs --tail 50 web
 30 4 * * * /home/ubuntu/acore-portal/scripts/cron/backup-heartbeat-run.sh >> /home/ubuntu/logs/acore-backup/heartbeat.log 2>&1
 # 助手会话超期回收(周频;对话正文落在检查点表,沉睡会话不回收会撑爆业务库)
 30 5 * * 0 /home/ubuntu/acore-portal/scripts/cron/assistant-cleanup-run.sh >> /home/ubuntu/logs/acore-assistant/cleanup.log 2>&1
+# 积分日终对账(每日;账实一致是积分铁律,差异同步飞书红卡)
+30 2 * * * /home/ubuntu/acore-portal/scripts/cron/reconcile-points-run.sh >> /home/ubuntu/logs/acore-reconcile/reconcile-points.log 2>&1
 ```
+
+> **积分对账的结果同步飞书**(2026-11-19):对账是无人值守的定时任务,
+> 每次跑都发一张卡(有差异＝红 / 账实一致＝蓝,兼作「任务确实在跑」的心跳),
+> 失败发红卡。通道复用后台「设置 → 通知」的 `notify.feishu*`
+> (webhook + 签名密钥 + 启用开关),**未配置时降级为只记日志**
+> (日志里会打「未配置通道…,仅记录日志」)——不影响对账结论与退出码
+> (0 一致 / 2 有差异 / 1 失败)。差异**只报告不自动修复**:
+> 管理员确认后经 `recalculateLedger` 重算账本。
+> 手动补跑(不等 cron 的排期):
+>
+> ```bash
+> sudo -n docker exec acore-portal-prod-web-1 \
+>   node_modules/.bin/tsx --conditions=react-server scripts/cron/reconcile-points.ts
+> ```
+>
+> `--conditions=react-server` 不可省:飞书卡片与系统配置在 server-only 服务层,
+> 缺该条件时模块导入会失败(脚本降级为只记日志,不崩但不发卡)。
 
 > **会话清理的结果同步飞书**(2026-11-18):清理是无人值守的定时任务,
 > 每次跑都发一张卡(有回收＝绿 / 无超期＝蓝,兼作「任务确实在跑」的心跳),
