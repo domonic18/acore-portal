@@ -63,6 +63,22 @@ export async function featureThread(id: bigint, featured: boolean, actor: Actor)
 }
 
 /**
+ * 改主题标题(M6 增补,MCP 客服场景):软删主题拒绝(requireThread),
+ * 审计记新旧标题(与 forum_thread_created 同口径——标题是公开内容,不属正文脱敏)。
+ */
+export async function updateThreadTitle(id: bigint, title: string, actor: Actor) {
+  const thread = await requireThread(id);
+  const updated = await prisma.forumThread.update({ where: { id }, data: { title } });
+  await writeAudit({
+    category: AUDIT_CATEGORY.FORUM,
+    action: AUDIT_ACTION.FORUM_THREAD_TITLE_EDIT,
+    actorUserId: actor.id,
+    payload: { threadId: id.toString(), oldTitle: thread.title, newTitle: title },
+  });
+  return updated;
+}
+
+/**
  * 状态写入的唯一直写函数(事务内):
  * - status=closed ⇒ status_label=closed + closed_at=now(关闭后禁回帖);
  * - 其余状态 ⇒ status_label=status + closed_at=null(离开关闭态即重开)。

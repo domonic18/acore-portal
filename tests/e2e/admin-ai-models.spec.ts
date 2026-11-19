@@ -212,6 +212,8 @@ test.describe.serial("admin AI 模型管理台", () => {
     await login(page, "m1admin", "adminpass123");
     await page.goto("/admin/settings");
     await expect(page.getByTestId("settings-group-llm")).toHaveCount(0);
+    // SMTP 组已随设置页拆 Tab 迁到「邮件与告警」页
+    await page.goto("/admin/settings/mail");
     await expect(page.getByTestId("settings-group-smtp")).toBeVisible();
   });
 });

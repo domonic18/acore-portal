@@ -59,6 +59,8 @@ export const AUDIT_ACTION = {
   FORUM_THREAD_FEATURED: "forum_thread_featured",
   FORUM_THREAD_DELETE: "forum_thread_delete",
   FORUM_THREAD_UNDELETE: "forum_thread_undelete",
+  /** M6 增补:MCP 改标题(category=forum;payload 记 id/oldTitle/newTitle,标题非正文不脱敏) */
+  FORUM_THREAD_TITLE_EDIT: "forum_thread_title_edit",
   /** M4 后台版块管理(category=forum;payload 含 id/slug,改名记 old/new) */
   FORUM_BOARD_SAVED: "forum_board_saved",
   FORUM_BOARD_DELETED: "forum_board_deleted",
@@ -124,6 +126,16 @@ export const AUDIT_ACTION = {
   ASSISTANT_SESSION_DELETED: "assistant_session_deleted",
   /** 助手会话超期自动回收(category=admin;payload 记回收会话数/行数/保留期) */
   ASSISTANT_SESSIONS_PRUNED: "assistant_sessions_pruned",
+  /** M6 MCP 工具调用(category=admin;payload 只记工具名/目标 id/成败/耗时) */
+  MCP_TOOL_CALLED: "mcp_tool_called",
+  /** M6 MCP 令牌签发/轮换(category=admin;只记作用域与绑定管理员,不记明文) */
+  MCP_TOKEN_ISSUED: "mcp_token_issued",
+  /** M6 MCP 令牌明文取回(复制令牌;category=admin;只记取回事实,不记明文) */
+  MCP_TOKEN_COPIED: "mcp_token_copied",
+  /** M6 MCP 令牌作用域切换(category=admin;只记新旧作用域) */
+  MCP_TOKEN_SCOPE_CHANGED: "mcp_token_scope_changed",
+  /** M6 MCP 限额调整(category=admin;只记键名) */
+  MCP_TOKEN_LIMITS_CHANGED: "mcp_token_limits_changed",
 } as const;
 
 export type AuditActionValue = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];

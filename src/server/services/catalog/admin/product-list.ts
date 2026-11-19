@@ -77,10 +77,17 @@ export type AdminProductFilters = {
   /** 分类 id(所属分类) */
   categoryId?: bigint;
   lowStock?: boolean;
+  /** 发布态:draft / published(白名单外忽略) */
+  status?: string;
+  /** 目录可见性(上下架) */
+  listed?: boolean;
 };
 
+/** 单页条数上限:后台页固定 ADMIN_PRODUCT_PAGE_SIZE;MCP 可按需缩小但不得放大到拖垮响应 */
+export const ADMIN_PRODUCT_PAGE_SIZE_MAX = 50;
+
 export async function listAdminProducts(
-  opts: AdminProductFilters & { page?: number },
+  opts: AdminProductFilters & { page?: number; pageSize?: number },
 ): Promise<{
   items: AdminProductListItem[];
   page: number;
@@ -88,7 +95,11 @@ export async function listAdminProducts(
   total: number;
 }> {
   const page = Number.isInteger(opts.page) && opts.page! > 0 ? opts.page! : 1;
-  const { skip, take } = pageSlice(page, ADMIN_PRODUCT_PAGE_SIZE);
+  const pageSize =
+    Number.isInteger(opts.pageSize) && opts.pageSize! > 0
+      ? Math.min(opts.pageSize!, ADMIN_PRODUCT_PAGE_SIZE_MAX)
+      : ADMIN_PRODUCT_PAGE_SIZE;
+  const { skip, take } = pageSlice(page, pageSize);
   const select = { category: { select: { name: true } } } as const;
 
   const q = opts.q?.trim();
@@ -97,6 +108,8 @@ export async function listAdminProducts(
     opts.type === PRODUCT_TYPE.GAME_ITEM || opts.type === PRODUCT_TYPE.SERVICE
       ? opts.type
       : undefined;
+  // 发布态同理只认白名单值
+  const status = opts.status === "draft" || opts.status === "published" ? opts.status : undefined;
   const where: Prisma.ProductWhereInput = {
     ...(q
       ? {
@@ -108,6 +121,8 @@ export async function listAdminProducts(
         }
       : {}),
     ...(type ? { type } : {}),
+    ...(status ? { status } : {}),
+    ...(opts.listed !== undefined ? { listed: opts.listed } : {}),
     ...(opts.categoryId !== undefined ? { categoryId: opts.categoryId } : {}),
   };
   // 低库存判定是「本行 stock ≤ 本行阈值」(列比列,FR-128),Prisma where 表达不了
@@ -129,7 +144,7 @@ export async function listAdminProducts(
 
   return {
     page,
-    totalPages: totalPageCount(total, ADMIN_PRODUCT_PAGE_SIZE),
+    totalPages: totalPageCount(total, pageSize),
     total,
     items: rows.map(toListItem),
   };

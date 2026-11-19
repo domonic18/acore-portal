@@ -130,6 +130,18 @@ const configSchema = z.object({
     feishuWebhookUrl: z.string().default(""),
     feishuWebhookSecret: z.string().default(""),
   }),
+  // 商品运营 MCP(二期 M6):MiniMax 式长期令牌——明文落库(与 SMTP/COS 密钥同库同权限,
+  // 仅管理员会话可读)、掩码显示、随时复制、随时轮换、**无有效期**;
+  // 轮换即覆盖旧令牌 ⇒ 同时只有一枚活跃令牌(规格 §17.3)
+  mcp: z.object({
+    token: z.string().default(""),
+    tokenScope: z.union([z.enum(["read", "write"]), z.literal("")]).default(""),
+    tokenIssuedAt: z.string().default(""),
+    tokenAdminUserId: z.string().default(""),
+    qpsLimit: z.coerce.number().int().min(1).max(60).default(5),
+    dailyLimit: z.coerce.number().int().min(1).max(100_000).default(500),
+    ipMaxPerMin: z.coerce.number().int().min(1).max(600).default(60),
+  }),
   // 内容域(2026-11-05 用户反馈):正文目录开关;键缺省按 tocEnabled=true
   content: z.object({
     tocEnabled: z.boolean().default(true),
@@ -283,6 +295,15 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       feishuAlertEnabled: flat["notify.feishuAlertEnabled"] === "true",
       feishuWebhookUrl: flat["notify.feishuWebhookUrl"] ?? "",
       feishuWebhookSecret: flat["notify.feishuWebhookSecret"] ?? "",
+    },
+    mcp: {
+      token: flat["mcp.token"] ?? "",
+      tokenScope: flat["mcp.tokenScope"] ?? "",
+      tokenIssuedAt: flat["mcp.tokenIssuedAt"] ?? "",
+      tokenAdminUserId: flat["mcp.tokenAdminUserId"] ?? "",
+      qpsLimit: flat["mcp.qpsLimit"] ?? "5",
+      dailyLimit: flat["mcp.dailyLimit"] ?? "500",
+      ipMaxPerMin: flat["mcp.ipMaxPerMin"] ?? "60",
     },
     content: {
       tocEnabled: flat["content.tocEnabled"] !== "false",
