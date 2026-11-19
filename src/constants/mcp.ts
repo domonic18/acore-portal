@@ -26,6 +26,12 @@ export const MCP_TOOL = {
   LIST_CATEGORIES: "list_categories",
   /** 站内检索(M8-a 统一检索 service 的同源投影,与 AI 助手侧同一函数) */
   SEARCH_SITE: "search_site",
+  /** 论坛运营(巡检灌水/申诉客服;写入走 services/forum 同一入口,下架=可逆软删) */
+  LIST_FORUM_THREADS: "list_forum_threads",
+  GET_FORUM_THREAD: "get_forum_thread",
+  REPLY_FORUM_THREAD: "reply_forum_thread",
+  UPDATE_FORUM_THREAD_TITLE: "update_forum_thread_title",
+  DELETE_FORUM_THREAD: "delete_forum_thread",
 } as const;
 
 export type McpToolName = (typeof MCP_TOOL)[keyof typeof MCP_TOOL];

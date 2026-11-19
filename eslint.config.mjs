@@ -36,7 +36,7 @@ const ORCHESTRATION_EDGES = {
   // AI 助手的检索工具复用统一搜索服务（spec §19 单一收口）
   assistant: ["search"],
   // 商品运营 MCP 是后台商品能力的对外投影：写入走 catalog 同一入口，检索复用 search
-  mcp: ["catalog", "search"],
+  mcp: ["catalog", "search", "forum"],
 };
 export default [
   {
