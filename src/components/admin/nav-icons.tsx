@@ -14,6 +14,7 @@ import {
   MessagesSquare,
   Newspaper,
   Package,
+  Palette,
   PanelLeft,
   Plug,
   Receipt,
@@ -48,6 +49,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   users: Users,
   server: Server,
   "panel-left": PanelLeft,
+  palette: Palette,
   plug: Plug,
   settings: Settings,
   // 版块图标候选(后台图标选择器与前台 NavIcon 共用)

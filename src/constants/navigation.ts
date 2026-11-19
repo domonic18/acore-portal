@@ -120,8 +120,9 @@ export const ADMIN_NAV_GROUPS = [
       { href: "/admin/sidebar", label: "侧栏入口", icon: "panel-left" },
       // AI 管理(2026-11-18 用户反馈:模型/用量/对话三菜单合并为单入口,页内 Tab)
       { href: "/admin/ai", label: "AI 管理", icon: "bot" },
-      // 商品运营 MCP 令牌(二期 M6):签发/吊销/限额
-      { href: "/admin/mcp-tokens", label: "MCP 令牌", icon: "plug" },
+      // 站点主题(2026-11-19 用户反馈:配色主题独立菜单,后续在此扩充更多主题与预览页)
+      { href: "/admin/theme", label: "站点主题", icon: "palette" },
+      // 商品运营 MCP 接入(二期 M6)已并入设置页 Tab(2026-11-19),不再单列菜单
       { href: "/admin/settings", label: "设置", icon: "settings" },
     ],
   },
