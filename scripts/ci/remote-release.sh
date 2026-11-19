@@ -93,6 +93,8 @@ ASSETS=(
   scripts/cron/backup-heartbeat-run.sh
   # 宿主侧助手会话清理编排脚本(周频 crontab 入口):与备份同款,crontab 跑宿主这份
   scripts/cron/assistant-cleanup-run.sh
+  # 宿主侧积分对账编排脚本(每日 crontab 入口):同上
+  scripts/cron/reconcile-points-run.sh
 )
 TARBALL_DIR="$(mktemp -d)"
 TARBALL="$TARBALL_DIR/deploy-assets.tar.gz"
@@ -105,12 +107,12 @@ cd "$1"
 # --no-same-owner:不让归档里的 uid/gid 覆盖服务器属主
 tar --no-same-owner -xzf /tmp/deploy-assets.tar.gz
 rm -f /tmp/deploy-assets.tar.gz
-chmod 755 scripts/deploy.sh scripts/cron/backup-run.sh scripts/cron/backup-heartbeat-run.sh scripts/cron/assistant-cleanup-run.sh
+chmod 755 scripts/deploy.sh scripts/cron/backup-run.sh scripts/cron/backup-heartbeat-run.sh scripts/cron/assistant-cleanup-run.sh scripts/cron/reconcile-points-run.sh
 # 资产落地完整性校验:缺任何一项都中止,不带着半套资产继续发布
 for f in scripts/deploy.sh prisma/schema-business/schema.prisma docker/docker-compose.prod.yml \
          docker/caddy/Caddyfile docker/nginx-stream/nginx.conf.template docker/web/Dockerfile \
          scripts/cron/backup-run.sh scripts/cron/backup-heartbeat-run.sh \
-         scripts/cron/assistant-cleanup-run.sh; do
+         scripts/cron/assistant-cleanup-run.sh scripts/cron/reconcile-points-run.sh; do
     [ -f "$f" ] || { echo "ERROR: 资产缺失:$f" >&2; exit 1; }
 done
 echo "--- 已同步:发布资产齐全 ---"
