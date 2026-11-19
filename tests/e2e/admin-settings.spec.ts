@@ -6,9 +6,11 @@ import { reloadServerConfig } from "./helpers/config-reload";
 /**
  * M4 US5 系统设置 E2E(T032,quickstart S5.1-S5.3 简版自动化,主链路在集成层):
  * ① 权限口径:游客/user 访问 /admin/settings → 登录页;
- * ② 十四组渲染+NAV 入口+敏感字段掩码态(已配置显「已配置,留空保持」,不回显明文);
+ * ② 各 Tab 渲染 + NAV 入口 + 敏感字段掩码态(已配置显「已配置,留空保持」,不回显明文);
  * ③ 保存校验:非法值 422 错误回显;合法保存「已保存,即时生效」;
  * ④ 测试发信:正常配置 → Mailpit 收到;坏 SMTP 配置热生效后 → 页面回显失败摘要。
+ * 2026-11-19:设置页拆 Tab(常规/游戏通道/邮件与告警/安全/存储与备份/MCP 接入/积分规则),
+ * 站点主题独立成菜单页(/admin/theme)。
  * smtp 键为全局行:用前快照、用后还原;E2E schema 指向 dev Mailpit(localhost:1025)。
  */
 const prisma = new PrismaClient();
@@ -161,7 +163,7 @@ test("user 角色 → 同样拦截(非 admin)", async ({ page }) => {
 });
 
 test.describe.serial("admin 设置页", () => {
-  test("十四组渲染+NAV 入口+掩码态不回显明文", async ({ page }) => {
+  test("各 Tab 渲染 + NAV 入口 + 掩码态不回显明文", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
     await page.goto("/admin");
 
@@ -169,28 +171,31 @@ test.describe.serial("admin 设置页", () => {
     await expect(
       page.getByRole("banner").getByRole("navigation").getByRole("link", { name: "设置" }),
     ).toHaveAttribute("href", "/admin/settings");
-    await page.goto("/admin/settings");
 
-    for (const group of [
-      "app",
-      "soap",
-      "gamedb",
-      "smtp",
-      "captcha",
-      "security",
-      "notify",
-      "content",
-      "site",
-      "appearance",
-      "theme",
-      "tools",
-      "cos",
-      "backup",
-    ]) {
-      await expect(page.getByTestId(`settings-group-${group}`)).toBeVisible();
+    // 常规 Tab:五分区合成一张卡(2026-11-19 用户反馈:分组小卡太碎)
+    await page.goto("/admin/settings");
+    await expect(page.getByTestId("settings-group-general")).toBeVisible();
+    for (const section of ["app", "site", "content", "appearance", "tools"]) {
+      await expect(page.getByTestId(`settings-section-${section}`)).toBeVisible();
     }
-    // 服务端 config 是进程级快照:经 UI 保存密码触发 reloadSystemConfig 后,
-    // 重渲染的表单才进入「已配置」掩码态(顺带验证保存闭环)
+
+    // 其余各 Tab:按页核对分组卡
+    const tabs: [string, string[]][] = [
+      ["/admin/settings/game", ["soap", "gamedb"]],
+      ["/admin/settings/mail", ["smtp", "notify"]],
+      ["/admin/settings/security", ["captcha", "security"]],
+      ["/admin/settings/storage", ["cos", "backup"]],
+    ];
+    for (const [path, groups] of tabs) {
+      await page.goto(path);
+      for (const group of groups) {
+        await expect(page.getByTestId(`settings-group-${group}`)).toBeVisible();
+      }
+    }
+
+    // 敏感字段掩码态(邮件与告警 Tab):服务端 config 是进程级快照,经 UI 保存密码
+    // 触发 reloadSystemConfig 后,重渲染的表单才进入「已配置」掩码态
+    await page.goto("/admin/settings/mail");
     const pwdField = page.getByTestId("settings-field-smtp-password");
     await expect(pwdField).toHaveAttribute("type", "password");
     await expect(pwdField).toHaveAttribute("placeholder", "未配置");
@@ -207,7 +212,7 @@ test.describe.serial("admin 设置页", () => {
     await login(page, "m1admin", "adminpass123");
     const row = await prisma.systemConfig.findFirst({ where: { key: "gamedb.characters" } });
     const password = row ? new URL(row.value).password : "";
-    await page.goto("/admin/settings");
+    await page.goto("/admin/settings/game");
 
     const field = page.getByTestId("settings-field-gamedb-characters");
     await expect(field).toHaveValue(/:\*\*\*@/);
@@ -223,9 +228,9 @@ test.describe.serial("admin 设置页", () => {
 
   test("保存校验:非法值 422 回显;合法保存即时生效", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
-    await page.goto("/admin/settings");
 
-    // 清空 host → 422 VALIDATION_FAILED 错误回显
+    // 清空 host → 422 VALIDATION_FAILED 错误回显(邮件与告警 Tab)
+    await page.goto("/admin/settings/mail");
     const host = page.getByTestId("settings-field-smtp-host");
     await host.fill("");
     await page.getByTestId("settings-save-smtp").click();
@@ -234,6 +239,7 @@ test.describe.serial("admin 设置页", () => {
     await host.fill("localhost");
 
     // security 组合法保存 → 成功提示;值实际落库(热生效经集成层覆盖,这里看 UI 闭环)
+    await page.goto("/admin/settings/security");
     const maxFails = page.getByTestId("settings-field-security-loginMaxFails");
     await maxFails.fill("7");
     await page.getByTestId("settings-save-security").click();
@@ -248,11 +254,11 @@ test.describe.serial("admin 设置页", () => {
     await expect(page.getByTestId("settings-result-security")).toContainText("已保存");
   });
 
-  test("site 组保存 → 页脚/侧栏 QQ 卡即时生效", async ({ page }) => {
+  test("常规 Tab 保存 → 页脚/侧栏 QQ 卡即时生效", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
     await page.goto("/admin/settings");
 
-    // site 组:站点名+副标题+备案号+英文版权声明 → 页脚;QQ 群号+二维码 → 首页侧栏卡
+    // 站点名+副标题+备案号+英文版权声明 → 页脚;QQ 群号+二维码 → 首页侧栏卡
     const siteName = `老克塔 E2E${Date.now().toString(36)}`;
     const icp = `京ICP备E2E${Date.now().toString(36)}号`;
     await page.getByTestId("settings-field-site-name").fill(siteName);
@@ -262,8 +268,8 @@ test.describe.serial("admin 设置页", () => {
     await page.getByTestId("settings-field-site-qqGroup").fill("88888888");
     await page.getByTestId("settings-field-site-qqGroupQr").fill("/favicon-192.png");
     await page.getByTestId("settings-field-site-qqGroupJoinUrl").fill("https://qm.qq.com/q/e2ejoinkey");
-    await page.getByTestId("settings-save-site").click();
-    await expect(page.getByTestId("settings-result-site")).toContainText("已保存");
+    await page.getByTestId("settings-save-general").click();
+    await expect(page.getByTestId("settings-result-general")).toContainText("已保存");
     await page.goto("/");
     const footer = page.getByRole("contentinfo");
     // 站点名/副标题/备案号/英文声明均在页脚版权行即时生效
@@ -288,13 +294,13 @@ test.describe.serial("admin 设置页", () => {
     );
   });
 
-  test("appearance 组保存 → 页头 logo 即时生效", async ({ page }) => {
+  test("常规 Tab 保存 → 页头 logo 即时生效", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
     await page.goto("/admin/settings");
 
     await page.getByTestId("settings-field-appearance-logoUrl").fill("/favicon-192.png");
-    await page.getByTestId("settings-save-appearance").click();
-    await expect(page.getByTestId("settings-result-appearance")).toContainText("已保存");
+    await page.getByTestId("settings-save-general").click();
+    await expect(page.getByTestId("settings-result-general")).toContainText("已保存");
 
     await page.goto("/");
     await expect(
@@ -302,13 +308,12 @@ test.describe.serial("admin 设置页", () => {
     ).toHaveAttribute("src", "/favicon-192.png");
   });
 
-  test("theme 组:切到 WLK → 首页落地 data-theme=wlk;切回 TBC 恢复", async ({ page }) => {
+  test("站点主题独立页:切到 WLK → 首页落地 data-theme=wlk;切回 TBC 恢复", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
-    await page.goto("/admin/settings");
+    await page.goto("/admin/theme");
 
-    await page.getByTestId("settings-field-theme-active-wlk").check();
-    await page.getByTestId("settings-save-theme").click();
-    await expect(page.getByTestId("settings-result-theme")).toContainText("已保存");
+    await page.getByTestId("theme-activate-wlk").click();
+    await expect(page.getByTestId("theme-current-wlk")).toBeVisible();
     const row = await prisma.systemConfig.findUnique({
       where: { key: "theme.active" },
       select: { value: true },
@@ -319,12 +324,31 @@ test.describe.serial("admin 设置页", () => {
     await page.goto("/");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "wlk");
 
-    await page.goto("/admin/settings");
-    await page.getByTestId("settings-field-theme-active-tbc").check();
-    await page.getByTestId("settings-save-theme").click();
-    await expect(page.getByTestId("settings-result-theme")).toContainText("已保存");
+    await page.goto("/admin/theme");
+    await page.getByTestId("theme-activate-tbc").click();
+    await expect(page.getByTestId("theme-current-tbc")).toBeVisible();
     await page.goto("/");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "tbc");
+  });
+
+  test("站点主题整页预览:只影响当前浏览器,不改库里的当前主题", async ({ page, context }) => {
+    await login(page, "m1admin", "adminpass123");
+    await page.goto("/admin/theme");
+
+    const [preview] = await Promise.all([
+      context.waitForEvent("page"),
+      page.getByTestId("theme-preview-wlk").click(),
+    ]);
+    await preview.waitForLoadState("domcontentloaded");
+    await expect(preview.locator("html")).toHaveAttribute("data-theme", "wlk");
+    await preview.close();
+
+    // 库里的当前主题未变(预览只是短期 cookie)
+    const row = await prisma.systemConfig.findUnique({
+      where: { key: "theme.active" },
+      select: { value: true },
+    });
+    expect(row?.value).toBe("tbc");
   });
 
   test("content 组:目录开关关闭 → 文章/静态页目录消失,重开恢复", async ({ page }) => {
@@ -336,8 +360,8 @@ test.describe.serial("admin 设置页", () => {
     const tocSwitch = page.getByTestId("settings-field-content-tocEnabled");
     await expect(tocSwitch).toHaveAttribute("aria-checked", "true");
     await tocSwitch.click();
-    await page.getByTestId("settings-save-content").click();
-    await expect(page.getByTestId("settings-result-content")).toContainText("已保存");
+    await page.getByTestId("settings-save-general").click();
+    await expect(page.getByTestId("settings-result-general")).toContainText("已保存");
 
     // 关闭后有 h2 标题的正文不再渲染目录(左列与顶部回落块整块移除,栅格回落两栏)
     await page.goto("/post/seed-announcement-second");
@@ -349,27 +373,28 @@ test.describe.serial("admin 设置页", () => {
     // 重开 → 目录恢复
     await page.goto("/admin/settings");
     await page.getByTestId("settings-field-content-tocEnabled").click();
-    await page.getByTestId("settings-save-content").click();
-    await expect(page.getByTestId("settings-result-content")).toContainText("已保存");
+    await page.getByTestId("settings-save-general").click();
+    await expect(page.getByTestId("settings-result-general")).toContainText("已保存");
     await page.goto("/post/seed-announcement-second");
     await expect(page.getByTestId("article-toc-rail")).toBeVisible();
   });
 
   test("tools / cos / backup 三组:保存即时生效,cos 桶名为开关", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
-    await page.goto("/admin/settings");
 
-    // tools:换站地址只改配置
+    // tools(常规 Tab):换站地址只改配置
+    await page.goto("/admin/settings");
     await page.getByTestId("settings-field-tools-rankBase").fill("https://rank.e2e.test");
-    await page.getByTestId("settings-save-tools").click();
-    await expect(page.getByTestId("settings-result-tools")).toContainText("已保存");
+    await page.getByTestId("settings-save-general").click();
+    await expect(page.getByTestId("settings-result-general")).toContainText("已保存");
     const toolsRow = await prisma.systemConfig.findUnique({
       where: { key: "tools.rankBase" },
       select: { value: true },
     });
     expect(toolsRow?.value).toBe("https://rank.e2e.test");
 
-    // cos:填桶名即启用,其余四项缺一不可 → 报错且不落库
+    // cos / backup(存储与备份 Tab):填桶名即启用,其余四项缺一不可 → 报错且不落库
+    await page.goto("/admin/settings/storage");
     const cosBefore = await prisma.systemConfig.findFirst({
       where: { key: "cos.bucket" },
       select: { value: true },
@@ -398,7 +423,7 @@ test.describe.serial("admin 设置页", () => {
 
   test("飞书告警通道:坏地址回显失败且不落库(候选值只测不存)", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
-    await page.goto("/admin/settings");
+    await page.goto("/admin/settings/mail");
 
     // 填一个连不通的地址 → 真发卡片失败 → 失败摘要回显(不 5xx)
     await page.getByTestId("settings-field-notify-feishuWebhookUrl").fill("http://127.0.0.1:1/hook");
@@ -417,7 +442,7 @@ test.describe.serial("admin 设置页", () => {
 
   test("测试发信:Mailpit 收到;坏配置热生效后回显失败摘要", async ({ page }) => {
     await login(page, "m1admin", "adminpass123");
-    await page.goto("/admin/settings");
+    await page.goto("/admin/settings/mail");
 
     // 正常配置(E2E schema: localhost:1025 → dev Mailpit)直发成功
     await page.getByTestId("settings-testmail-to").fill(TEST_TO);
