@@ -7,8 +7,9 @@ import { resolveE2ERedisUrl } from "./redis-url";
 /**
  * 商品运营 MCP E2E(二期 M6;规格 §17;M6 增补论坛运营工具)
  *
- * 覆盖:后台签发令牌 → 明文一次性展示 → POST /api/mcp initialize/tools/list/tools/call;
- * 无令牌 401;只读令牌调写工具 403;吊销后令牌立即失效;
+ * 覆盖:后台接入页(令牌默认已有一枚/掩码显示/随时复制/随时轮换/作用域切换/无有效期)
+ * → POST /api/mcp initialize/tools/list/tools/call;
+ * 无令牌 401;只读令牌调写工具 403;轮换后旧令牌立即失效;
  * 论坛工具链:list/get 读帖 → 官方回帖(floor 递增、作者=绑定管理员)→
  * 改标题(审计新旧)→ 下架软删(前台 404、回收站可见)。
  */
@@ -50,22 +51,47 @@ async function mcpPost(
   return { status: res.status(), json };
 }
 
-/** 在后台签发一枚令牌并回传明文 */
+/**
+ * 取一枚可用令牌:进接入页 → 切作用域 → 轮换(旧令牌即时失效)→ 取回明文。
+ * 明文取回走「复制令牌」的同一服务端动作(reveal),不经剪贴板,避免自动化环境读剪贴板不稳。
+ */
 async function issueToken(page: Page, scope: "read" | "write"): Promise<string> {
-  await page.goto("/admin/mcp-tokens");
-  const scopeSelect = page.getByLabel("令牌作用域");
-  await expect(scopeSelect).toBeEnabled();
-  await scopeSelect.selectOption(scope);
-  await page.getByLabel("令牌有效天数").fill("30");
-  await page.getByRole("button", { name: "签发新令牌" }).click();
-  const plain = page.getByTestId("mcp-token-plain");
-  await expect(plain).toBeVisible();
-  return (await plain.textContent())?.trim() ?? "";
+  await page.goto("/admin/settings/mcp");
+  const masked = page.getByTestId("mcp-token-masked");
+  await expect(masked).toBeVisible();
+  const before = (await masked.textContent()) ?? "";
+
+  const scopeButton = page.getByTestId(`mcp-scope-${scope}`);
+  await expect(scopeButton).toBeEnabled();
+  await scopeButton.click();
+
+  const rotate = page.getByRole("button", { name: "轮换令牌" });
+  await expect(rotate).toBeEnabled();
+  await rotate.click();
+  const confirm = page.getByRole("button", { name: "确认轮换" });
+  await expect(confirm).toBeEnabled();
+  await confirm.click();
+  // 轮换完成的同步点 = 掩码串变化(新令牌)。状态徽标「生效中」轮换前后同形,
+  // 拿它当完成信号会在 rotate 请求落地前就去取明文,取回上一枚旧令牌
+  await expect(masked).not.toHaveText(before);
+
+  const res = await page.request.post("/api/admin/mcp-token", { data: { action: "reveal" } });
+  expect(res.status()).toBe(200);
+  const body = (await res.json()) as { plain: string };
+  return body.plain;
 }
 
-test("游客访问 /admin/mcp-tokens → 拦截回登录页", async ({ page }) => {
-  await page.goto("/admin/mcp-tokens");
-  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fmcp-tokens/);
+test("游客访问 /admin/settings/mcp → 拦截回登录页", async ({ page }) => {
+  await page.goto("/admin/settings/mcp");
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fsettings%2Fmcp/);
+});
+
+test("旧入口 /admin/mcp-tokens → 308 跳设置页 MCP 接入 Tab", async ({ page }) => {
+  await login(page, "m1admin", "adminpass123");
+  // 308 是永久重定向:必须禁用自动跟随才能看到 308 本身
+  const res = await page.request.get("/admin/mcp-tokens", { maxRedirects: 0 });
+  expect(res.status()).toBe(308);
+  expect(res.headers()["location"]).toBe("/admin/settings/mcp");
 });
 
 test.describe.serial("商品运营 MCP 端点", () => {
@@ -110,7 +136,7 @@ test.describe.serial("商品运营 MCP 端点", () => {
     expect(res.json?.error?.data?.code).toBe("UNAUTHORIZED");
   });
 
-  test("签发 → initialize / tools/list(12 个) / tools/call list_products", async ({
+  test("接入页取令牌 → initialize / tools/list(12 个) / tools/call list_products", async ({
     page,
     request,
   }) => {
@@ -169,6 +195,24 @@ test.describe.serial("商品运营 MCP 端点", () => {
     expect(Array.isArray(payload.items)).toBe(true);
   });
 
+  test("接入页:掩码令牌 + 长期有效 + 服务地址与接入示例", async ({ page }) => {
+    await login(page, "m1admin", "adminpass123");
+    await page.goto("/admin/settings/mcp");
+
+    // 默认已有一枚令牌(进页自动补发),掩码显示,无有效期
+    await expect(page.getByTestId("mcp-token-masked")).toBeVisible();
+    await expect(page.getByTestId("mcp-token-status")).toHaveText("生效中");
+    await expect(page.getByText("长期有效(无过期)")).toBeVisible();
+
+    // 服务地址与常见 agent 接入示例
+    const endpoint = page.getByTestId("mcp-endpoint");
+    await expect(endpoint).toBeVisible();
+    await expect(endpoint).toContainText("/api/mcp");
+    await expect(page.getByText("Claude Code(命令行一键接入)")).toBeVisible();
+    await expect(page.getByText("通用 MCP 客户端(.mcp.json)")).toBeVisible();
+    await expect(page.getByText("WorkBuddy(~/.workbuddy/mcp.json,同 mcpServers 格式)")).toBeVisible();
+  });
+
   test("只读令牌调写工具 → 403", async ({ page, request }) => {
     await login(page, "m1admin", "adminpass123");
     const token = await issueToken(page, "read");
@@ -187,17 +231,21 @@ test.describe.serial("商品运营 MCP 端点", () => {
     expect(call.json?.error?.data?.code).toBe("FORBIDDEN");
   });
 
-  test("吊销后令牌立即失效 → 401", async ({ page, request }) => {
+  test("轮换后旧令牌立即失效 → 401", async ({ page, request }) => {
     await login(page, "m1admin", "adminpass123");
     const token = await issueToken(page, "write");
 
     const ok = await mcpPost(request, { jsonrpc: "2.0", id: 5, method: "tools/list" }, token);
     expect(ok.status).toBe(200);
 
-    await page.goto("/admin/mcp-tokens");
-    await page.getByRole("button", { name: "吊销令牌" }).click();
-    await page.getByRole("button", { name: "确认吊销" }).click();
-    await expect(page.getByTestId("mcp-token-status")).toHaveText("未签发");
+    // 再轮换一次:旧令牌即时作废(无独立吊销入口)
+    await page.goto("/admin/settings/mcp");
+    const masked = page.getByTestId("mcp-token-masked");
+    const before = (await masked.textContent()) ?? "";
+    await page.getByRole("button", { name: "轮换令牌" }).click();
+    await page.getByRole("button", { name: "确认轮换" }).click();
+    // 等掩码串变化 = 新令牌已落地(否则旧令牌此刻仍有效,断言会假通过)
+    await expect(masked).not.toHaveText(before);
 
     const after = await mcpPost(request, { jsonrpc: "2.0", id: 6, method: "tools/list" }, token);
     expect(after.status).toBe(401);

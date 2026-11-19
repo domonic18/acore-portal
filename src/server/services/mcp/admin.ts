@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getConfig } from "@/lib/config";
+import { sha256Hex } from "@/lib/auth/game-hash";
 import { AUDIT_ACTION } from "@/constants/audit";
 import type { McpAdminView } from "@/constants/mcp";
 import { queryAuditLog } from "@/server/services/shared/audit";
@@ -8,16 +9,15 @@ import { readMcpTokenView } from "./auth";
 import { readMcpDailyUsage } from "./quota";
 
 /**
- * 后台令牌页视图(二期 M6)
+ * 后台 MCP 接入页视图(二期 M6)
  *
- * 令牌视图只回「已配置」布尔 + 前缀 + 作用域 + 有效期 + 签发时刻,
- * 永不回哈希/明文(规则 12 只写不读口径)。
+ * 令牌视图只回掩码串与元信息(明文仅在「复制令牌」动作里单独取回)。
  * 最近调用取 audit_log 的 mcp_tool_called 事件——只记工具名/目标 id/成败/耗时。
  */
 
 export async function readMcpAdminView(): Promise<McpAdminView> {
   const [token, config] = await Promise.all([readMcpTokenView(), getConfig()]);
-  const tokenId = config.mcp.tokenHash ? config.mcp.tokenHash.slice(0, 12) : null;
+  const tokenId = config.mcp.token ? sha256Hex(config.mcp.token).slice(0, 12) : null;
   const todayCalls = tokenId ? (await readMcpDailyUsage(tokenId)).count : 0;
 
   const recent = await queryAuditLog({
@@ -28,6 +28,7 @@ export async function readMcpAdminView(): Promise<McpAdminView> {
   return {
     token,
     todayCalls,
+    endpoint: `${config.app.url.replace(/\/+$/, "")}/api/mcp`,
     recentCalls: recent.items.map((item) => ({
       id: item.id,
       tool: typeof item.payload.tool === "string" ? item.payload.tool : "",

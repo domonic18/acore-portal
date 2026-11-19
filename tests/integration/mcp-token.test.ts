@@ -4,20 +4,22 @@ import { prisma } from "@/lib/db/business";
 import { reloadSystemConfig } from "@/lib/config";
 import { sha256Hex } from "@/lib/auth/game-hash";
 import { AUDIT_ACTION } from "@/constants/audit";
-import { MCP_CONFIG_KEYS, MCP_SCOPE } from "@/constants/mcp";
+import { MCP_CONFIG_KEYS, MCP_SCOPE, MCP_TOKEN_PLAIN_PREFIX, maskMcpToken } from "@/constants/mcp";
 import {
-  issueMcpToken,
+  ensureMcpToken,
   readMcpTokenView,
-  revokeMcpToken,
+  revealMcpToken,
+  rotateMcpToken,
   updateMcpLimits,
+  updateMcpTokenScope,
   verifyMcpToken,
 } from "@/server/services/mcp/auth";
 
 /**
- * MCP 长期访问令牌集成(二期 M6;规格 §17.3)
+ * MCP 访问令牌集成(二期 M6;规格 §17.3;2026-11-19 改 MiniMax 式)
  *
- * 口径:令牌只写不读(库中仅存哈希)、签发即覆盖(同时只有一枚活跃令牌)、
- * 吊销即失效、过期拒绝;后台视图与审计都不回显明文/哈希。
+ * 口径:默认已有一枚(进页自动补发)、掩码显示、随时复制、随时轮换、**无有效期**;
+ * 令牌状态键不进设置页(整组提交会覆盖),故由本域直写 system_config + 热生效。
  */
 
 const MCP_KEYS = Object.values(MCP_CONFIG_KEYS);
@@ -35,27 +37,31 @@ afterAll(async () => {
   if (prior.length > 0) await prisma.systemConfig.createMany({ data: prior });
   await reloadSystemConfig();
   await prisma.auditLog.deleteMany({
-    where: { action: { in: [AUDIT_ACTION.MCP_TOKEN_ISSUED, AUDIT_ACTION.MCP_TOKEN_REVOKED] } },
+    where: {
+      action: {
+        in: [
+          AUDIT_ACTION.MCP_TOKEN_ISSUED,
+          AUDIT_ACTION.MCP_TOKEN_COPIED,
+          AUDIT_ACTION.MCP_TOKEN_SCOPE_CHANGED,
+          AUDIT_ACTION.MCP_TOKEN_LIMITS_CHANGED,
+        ],
+      },
+    },
   });
 });
 
-describe("MCP 令牌签发与校验", () => {
-  it("签发后库中只有哈希,明文不落库;校验通过", async () => {
-    const issued = await issueMcpToken({ scope: MCP_SCOPE.WRITE, ttlDays: 30 });
-
-    expect(issued.plain.startsWith("lokta_mcp_")).toBe(true);
-    expect(issued.tokenPrefix.length).toBeGreaterThan("lokta_mcp_".length);
+describe("MCP 令牌默认补发与校验", () => {
+  it("库里无令牌时自动补发一枚,前缀固定,校验通过", async () => {
+    const issued = await ensureMcpToken();
+    expect(issued.created).toBe(true);
+    expect(issued.plain.startsWith(MCP_TOKEN_PLAIN_PREFIX)).toBe(true);
 
     const rows = await prisma.systemConfig.findMany({
       where: { key: { in: MCP_KEYS } },
       select: { key: true, value: true },
     });
     const flat = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-    expect(flat[MCP_CONFIG_KEYS.tokenHash]).toBe(sha256Hex(issued.plain));
-    expect(flat[MCP_CONFIG_KEYS.tokenHash]).not.toContain(issued.plain);
-    for (const row of rows) {
-      expect(row.value).not.toContain(issued.plain);
-    }
+    expect(flat[MCP_CONFIG_KEYS.token]).toBe(issued.plain);
 
     const check = await verifyMcpToken(issued.plain);
     expect(check.ok).toBe(true);
@@ -65,20 +71,42 @@ describe("MCP 令牌签发与校验", () => {
     }
   });
 
-  it("后台视图只回「已配置」与前缀,不含哈希/明文", async () => {
-    const issued = await issueMcpToken({ scope: MCP_SCOPE.READ, ttlDays: 30 });
+  it("已有令牌时补发不覆盖(重复进页拿到同一枚)", async () => {
+    const first = await ensureMcpToken();
+    const second = await ensureMcpToken();
+    expect(second.created).toBe(false);
+    expect(second.plain).toBe(first.plain);
+  });
+
+  it("后台视图只回掩码串,不含明文", async () => {
+    const issued = await ensureMcpToken();
     const view = await readMcpTokenView();
 
     expect(view.configured).toBe(true);
-    expect(view.scope).toBe(MCP_SCOPE.READ);
-    expect(view.tokenPrefix).toBe(issued.tokenPrefix);
+    expect(view.scope).toBe(MCP_SCOPE.WRITE);
+    expect(view.maskedToken).toBe(maskMcpToken(issued.plain));
+    expect(view.maskedToken).not.toContain(issued.plain);
     expect(JSON.stringify(view)).not.toContain(issued.plain);
-    expect(JSON.stringify(view)).not.toContain(sha256Hex(issued.plain));
   });
 
-  it("覆盖签发使旧令牌立即失效(同时只有一枚活跃令牌)", async () => {
-    const first = await issueMcpToken({ scope: MCP_SCOPE.WRITE, ttlDays: 30 });
-    const second = await issueMcpToken({ scope: MCP_SCOPE.WRITE, ttlDays: 30 });
+  it("复制动作回明文(供后台剪贴板),并留审计", async () => {
+    const issued = await ensureMcpToken();
+    const plain = await revealMcpToken();
+    expect(plain).toBe(issued.plain);
+
+    const audit = await prisma.auditLog.findFirst({
+      where: { action: AUDIT_ACTION.MCP_TOKEN_COPIED },
+      orderBy: { id: "desc" },
+    });
+    expect(audit).not.toBeNull();
+    // 审计只落前缀,不落明文
+    expect(audit?.payloadJson).not.toContain(issued.plain);
+  });
+
+  it("轮换覆盖旧令牌,旧令牌立即失效", async () => {
+    const first = await ensureMcpToken();
+    await rotateMcpToken();
+    const second = await ensureMcpToken();
 
     expect(second.plain).not.toBe(first.plain);
 
@@ -90,33 +118,18 @@ describe("MCP 令牌签发与校验", () => {
     expect(newCheck.ok).toBe(true);
   });
 
-  it("吊销后校验失败", async () => {
-    const issued = await issueMcpToken({ scope: MCP_SCOPE.WRITE, ttlDays: 30 });
-    expect((await verifyMcpToken(issued.plain)).ok).toBe(true);
-
-    await revokeMcpToken();
+  it("作用域切换即时生效,无需轮换", async () => {
+    const issued = await ensureMcpToken();
+    await updateMcpTokenScope(MCP_SCOPE.READ);
 
     const check = await verifyMcpToken(issued.plain);
-    expect(check.ok).toBe(false);
-    if (!check.ok) expect(check.reason).toBe("not_configured");
-    expect((await readMcpTokenView()).configured).toBe(false);
-  });
-
-  it("过期令牌拒绝", async () => {
-    const issued = await issueMcpToken({ scope: MCP_SCOPE.WRITE, ttlDays: 1 });
-    await prisma.systemConfig.update({
-      where: { key: MCP_CONFIG_KEYS.tokenExpiresAt },
-      data: { value: new Date(Date.now() - 60_000).toISOString() },
-    });
-    await reloadSystemConfig();
-
-    const check = await verifyMcpToken(issued.plain);
-    expect(check.ok).toBe(false);
-    if (!check.ok) expect(check.reason).toBe("expired");
+    expect(check.ok).toBe(true);
+    if (check.ok) expect(check.scope).toBe(MCP_SCOPE.READ);
+    expect((await readMcpTokenView()).scope).toBe(MCP_SCOPE.READ);
   });
 
   it("错误令牌一律 invalid(不区分不存在/不匹配)", async () => {
-    await issueMcpToken({ scope: MCP_SCOPE.WRITE, ttlDays: 30 });
+    await ensureMcpToken();
     const check = await verifyMcpToken("lokta_mcp_definitely_wrong");
     expect(check.ok).toBe(false);
     if (!check.ok) expect(check.reason).toBe("invalid");

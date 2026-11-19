@@ -8,7 +8,6 @@ import {
   MCP_DEFAULT_DAILY_LIMIT,
   MCP_DEFAULT_IP_MAX_PER_MIN,
   MCP_DEFAULT_QPS_LIMIT,
-  MCP_DEFAULT_TOKEN_TTL_DAYS,
   MCP_SCOPE,
   MCP_TOKEN_PLAIN_PREFIX,
   MCP_TOOL,
@@ -94,9 +93,8 @@ describe("MCP 常量", () => {
     }
   });
 
-  it("令牌明文前缀与默认限额齐备", () => {
+  it("令牌明文前缀与默认限额齐备(令牌无有效期,故无 TTL 常量)", () => {
     expect(MCP_TOKEN_PLAIN_PREFIX.startsWith("lokta_mcp_")).toBe(true);
-    expect(MCP_DEFAULT_TOKEN_TTL_DAYS).toBeGreaterThan(0);
     expect(MCP_DEFAULT_QPS_LIMIT).toBeGreaterThan(0);
     expect(MCP_DEFAULT_DAILY_LIMIT).toBeGreaterThan(0);
     expect(MCP_DEFAULT_IP_MAX_PER_MIN).toBeGreaterThan(0);
