@@ -4,8 +4,9 @@
  * MCP 是后台商品能力的对外投影——工具只暴露白名单内的动作,
  * 写入一律走 services/catalog 的同一入口,不因调用方是 AI 而放松校验。
  *
- * 令牌口径:长期访问令牌(Bearer)按「只写不读」处理,库中仅存 SHA-256 哈希;
- * 明文只在签发响应里出现一次。签发即覆盖旧令牌 ⇒ 同时只有一枚活跃令牌。
+ * 令牌口径:MiniMax 式长期令牌——默认已有一枚、掩码显示、随时复制、随时轮换、
+ * **无有效期**;明文落 system_config(与 SMTP/COS 密钥同库同权限,仅管理员会话可读),
+ * 轮换即覆盖旧令牌。
  */
 
 /** 令牌作用域:只读 / 可写 */
@@ -38,14 +39,10 @@ export type McpToolName = (typeof MCP_TOOL)[keyof typeof MCP_TOOL];
 
 /** system_config 的 mcp 组键名(令牌状态 + 限额) */
 export const MCP_CONFIG_KEYS = {
-  /** 令牌 SHA-256 哈希(明文永不落库、永不回显) */
-  tokenHash: "mcp.tokenHash",
-  /** 令牌明文前缀(后台识别用,非机密) */
-  tokenPrefix: "mcp.tokenPrefix",
+  /** 令牌明文(MiniMax 式:掩码显示、随时复制;与 SMTP/COS 密钥同库同权限) */
+  token: "mcp.token",
   /** 作用域:read | write */
   tokenScope: "mcp.tokenScope",
-  /** 过期时刻(ISO) */
-  tokenExpiresAt: "mcp.tokenExpiresAt",
   /** 签发时刻(ISO) */
   tokenIssuedAt: "mcp.tokenIssuedAt",
   /** 绑定的管理员身份(审计 actor) */
@@ -58,11 +55,17 @@ export const MCP_CONFIG_KEYS = {
   ipMaxPerMin: "mcp.ipMaxPerMin",
 } as const;
 
-/** 令牌明文前缀:后台回显前 12 位便于人工识别 */
+/** 令牌明文前缀:便于人工识别 */
 export const MCP_TOKEN_PLAIN_PREFIX = "lokta_mcp_";
 
-/** 令牌默认有效期(天):后台签发时可改 */
-export const MCP_DEFAULT_TOKEN_TTL_DAYS = 90;
+/** 掩码展示:前 12 位 + 掩码 + 后 4 位(中段不外泄) */
+export function maskMcpToken(plain: string): string {
+  if (!plain) return "";
+  const mask = "•".repeat(8);
+  return plain.length <= 16
+    ? `${plain.slice(0, 4)}${mask}`
+    : `${plain.slice(0, 12)}${mask}${plain.slice(-4)}`;
+}
 
 /** 默认限额:配置键缺省时的回落值 */
 export const MCP_DEFAULT_QPS_LIMIT = 5;
@@ -72,16 +75,15 @@ export const MCP_DEFAULT_IP_MAX_PER_MIN = 60;
 /**
  * 后台令牌页视图契约(服务端视图层与客户端岛共用一份)
  *
- * 令牌视图**永不回哈希与明文**(只写不读口径);
+ * 令牌视图只回**掩码**串与元信息(明文仅在「复制令牌」时按管理员会话单独取回);
  * 最近调用只带工具名/目标 id/成败/耗时,不带请求体全文。
  */
 export type McpTokenView = {
-  /** 是否已配置活跃令牌(哈希非空) */
+  /** 是否已配置活跃令牌 */
   configured: boolean;
-  /** 令牌明文前缀(非机密,便于人工识别) */
-  tokenPrefix: string;
+  /** 掩码令牌(前 12 位 + 掩码 + 后 4 位) */
+  maskedToken: string;
   scope: McpScopeValue | null;
-  expiresAt: string | null;
   issuedAt: string | null;
   adminUserId: string | null;
   qpsLimit: number;
@@ -103,4 +105,6 @@ export type McpAdminView = {
   /** 今日已调用次数(令牌级日配额计数) */
   todayCalls: number;
   recentCalls: McpRecentCall[];
+  /** MCP 服务地址(由站点 URL 派生) */
+  endpoint: string;
 };

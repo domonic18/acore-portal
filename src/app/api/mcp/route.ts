@@ -88,7 +88,7 @@ export async function POST(req: Request): Promise<Response> {
   const plain = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
   const token = await verifyMcpToken(plain);
   if (!token.ok) {
-    return rpcError(401, "UNAUTHORIZED", "令牌无效或已过期。");
+    return rpcError(401, "UNAUTHORIZED", "令牌无效。");
   }
 
   // ③④ 作用域 + 配额(只对真实的工具调用计费)

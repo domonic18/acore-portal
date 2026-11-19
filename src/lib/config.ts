@@ -130,14 +130,12 @@ const configSchema = z.object({
     feishuWebhookUrl: z.string().default(""),
     feishuWebhookSecret: z.string().default(""),
   }),
-  // 商品运营 MCP(二期 M6):长期访问令牌按「只写不读」处理——
-  // 库中仅存 SHA-256 哈希,明文只在签发响应里出现一次,后台只回「已配置」与前缀;
-  // 签发即覆盖旧令牌 ⇒ 同时只有一枚活跃令牌(规格 §17.3)
+  // 商品运营 MCP(二期 M6):MiniMax 式长期令牌——明文落库(与 SMTP/COS 密钥同库同权限,
+  // 仅管理员会话可读)、掩码显示、随时复制、随时轮换、**无有效期**;
+  // 轮换即覆盖旧令牌 ⇒ 同时只有一枚活跃令牌(规格 §17.3)
   mcp: z.object({
-    tokenHash: z.string().default(""),
-    tokenPrefix: z.string().default(""),
+    token: z.string().default(""),
     tokenScope: z.union([z.enum(["read", "write"]), z.literal("")]).default(""),
-    tokenExpiresAt: z.string().default(""),
     tokenIssuedAt: z.string().default(""),
     tokenAdminUserId: z.string().default(""),
     qpsLimit: z.coerce.number().int().min(1).max(60).default(5),
@@ -299,10 +297,8 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       feishuWebhookSecret: flat["notify.feishuWebhookSecret"] ?? "",
     },
     mcp: {
-      tokenHash: flat["mcp.tokenHash"] ?? "",
-      tokenPrefix: flat["mcp.tokenPrefix"] ?? "",
+      token: flat["mcp.token"] ?? "",
       tokenScope: flat["mcp.tokenScope"] ?? "",
-      tokenExpiresAt: flat["mcp.tokenExpiresAt"] ?? "",
       tokenIssuedAt: flat["mcp.tokenIssuedAt"] ?? "",
       tokenAdminUserId: flat["mcp.tokenAdminUserId"] ?? "",
       qpsLimit: flat["mcp.qpsLimit"] ?? "5",
