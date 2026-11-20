@@ -15,6 +15,8 @@ import { reloadServerConfig } from "./helpers/config-reload";
  */
 const prisma = new PrismaClient();
 const SMTP_KEYS = ["smtp.host", "smtp.port", "smtp.user", "smtp.password", "smtp.from"];
+// eluna 是可选依赖:本用例擦空它(清除),用后还原
+const GAMEDB_KEYS = ["gamedb.eluna"];
 const SECURITY_KEYS = ["security.loginMaxFails", "security.loginWindowSec", "security.loginLockSec"];
 const SITE_KEYS = [
   "site.name",
@@ -49,6 +51,7 @@ const TEST_TO = `e2e-testmail-${Date.now().toString(36)}@lokta.local`;
 const MAILPIT_API = "http://127.0.0.1:8025";
 
 let smtpBackup: { key: string; value: string }[] = [];
+let gamedbBackup: { key: string; value: string }[] = [];
 let securityBackup: { key: string; value: string }[] = [];
 let siteBackup: { key: string; value: string }[] = [];
 let contentBackup: { key: string; value: string }[] = [];
@@ -75,6 +78,10 @@ async function login(page: Page, username: string, password: string) {
 test.beforeAll(async () => {
   smtpBackup = await prisma.systemConfig.findMany({
     where: { key: { in: SMTP_KEYS } },
+    select: { key: true, value: true },
+  });
+  gamedbBackup = await prisma.systemConfig.findMany({
+    where: { key: { in: GAMEDB_KEYS } },
     select: { key: true, value: true },
   });
   securityBackup = await prisma.systemConfig.findMany({
@@ -117,6 +124,7 @@ test.afterAll(async () => {
       key: {
         in: [
           ...SMTP_KEYS,
+          ...GAMEDB_KEYS,
           ...SECURITY_KEYS,
           ...SITE_KEYS,
           ...APPEARANCE_KEYS,
@@ -131,6 +139,7 @@ test.afterAll(async () => {
   });
   const restore = [
     ...smtpBackup,
+    ...gamedbBackup,
     ...securityBackup,
     ...siteBackup,
     ...appearanceBackup,
@@ -224,6 +233,33 @@ test.describe.serial("admin 设置页", () => {
     await expect(page.getByTestId("settings-result-gamedb")).toContainText("已保存");
     const after = await prisma.systemConfig.findFirst({ where: { key: "gamedb.characters" } });
     expect(after?.value).toBe(row?.value);
+  });
+
+  test("游戏库(eluna):可选依赖擦空=清除;必需依赖擦空=保持现值", async ({ page }) => {
+    await login(page, "m1admin", "adminpass123");
+    const charactersRow = await prisma.systemConfig.findFirst({
+      where: { key: "gamedb.characters" },
+    });
+    await page.goto("/admin/settings/game");
+
+    // 可选依赖在界面上须说清口径(留空=未配置)
+    await expect(page.getByTestId("settings-hint-gamedb-eluna")).toContainText("留空=未配置");
+
+    // 擦空 eluna ⇒ 清除(落空串,配置层判为未配置)
+    await page.getByTestId("settings-field-gamedb-eluna").fill("");
+    await page.getByTestId("settings-save-gamedb").click();
+    await expect(page.getByTestId("settings-result-gamedb")).toContainText("已保存");
+    const cleared = await prisma.systemConfig.findFirst({ where: { key: "gamedb.eluna" } });
+    expect(cleared?.value).toBe("");
+
+    // 必需依赖擦空 ⇒ 保持现值(可选口径不外溢)
+    await page.getByTestId("settings-field-gamedb-characters").fill("");
+    await page.getByTestId("settings-save-gamedb").click();
+    await expect(page.getByTestId("settings-result-gamedb")).toContainText("已保存");
+    const characters = await prisma.systemConfig.findFirst({
+      where: { key: "gamedb.characters" },
+    });
+    expect(characters?.value).toBe(charactersRow?.value);
   });
 
   test("保存校验:非法值 422 回显;合法保存即时生效", async ({ page }) => {

@@ -81,14 +81,17 @@ docker compose --env-file .env.prod -f docker/docker-compose.prod.yml up -d --bu
 ```sql
 -- ① 迁移链要读源库 wp_legacy(链的每一步都在读它,缺这条会在第一步 SELECT 失败)
 GRANT SELECT ON wp_legacy.* TO 'acore_portal'@'%';
--- ② eluna:AC 侧根本没有 eluna 库(老站的 eluna 配置五项全空),
---    而门户运行时校验要求四库连接串齐 → 在**门户自己的实例**里建一个空库顶上
+-- ② eluna:AC 侧根本没有 eluna 库(老站的 eluna 配置五项全空)。
+--    2026-11-20 起 gamedb.eluna 已是**可选依赖**(见下),不建这个空库也能起门户;
+--    建它只为兼容仍在跑旧配置的实例,新部署可跳过。
 CREATE DATABASE IF NOT EXISTS acore_eluna CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 GRANT SELECT ON acore_eluna.* TO 'acore_portal'@'%';
 ```
 
-> eluna 这条是**权宜之计**:AC 无 eluna 库,门户不该因它起不来(启动自检会真连四库)。
-> 根因修法是把 `gamedb.eluna` 改成可选、自检跳过缺失的库——待单独修。
+> eluna 这条曾是**权宜之计**:AC 无 eluna 库,门户不该因它起不来(启动自检会真连四库)。
+> **根因已修(2026-11-20)**:`gamedb.eluna` 改为可选依赖——未配置时启动自检跳过该库、
+> 不阻断启动;配了却连不上仍 fail-fast(配错 ≠ 未配置)。后台「脚本库(eluna)」留空即未配置。
+> 依赖 eluna 的功能(RAF 招募进度等)在未配置时按降级/空态处理,不得报错拖垮门户。
 
 ## 2. 建库与迁移
 

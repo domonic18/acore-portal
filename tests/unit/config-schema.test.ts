@@ -175,6 +175,48 @@ describe("buildConfigFromRows M4 五组(T003)", () => {
   });
 });
 
+/**
+ * eluna 是可选依赖(2026-11-20):未配置 ≠ 配置错误。
+ * 键缺省 / 留空 / 纯空白 ⇒ 未配置(不阻断启动);填了却不是合法 URL ⇒ 仍 fail-fast(配错 ≠ 未配置)。
+ */
+describe("buildConfigFromRows eluna 可选依赖", () => {
+  function rowsWithoutEluna(...extra: [string, string][]) {
+    return [...BASE_ROWS.filter(([key]) => key !== "gamedb.eluna"), ...extra].map(
+      ([key, value]) => ({ key, value }),
+    );
+  }
+
+  it("键缺省 → gamedb.eluna 为 undefined(未配置)", () => {
+    expect(buildConfigFromRows(rowsWithoutEluna()).gamedb.eluna).toBeUndefined();
+  });
+
+  it("留空串 / 纯空白 → 同为未配置(undefined)", () => {
+    expect(buildConfigFromRows(rowsWithoutEluna(["gamedb.eluna", ""])).gamedb.eluna).toBeUndefined();
+    expect(
+      buildConfigFromRows(rowsWithoutEluna(["gamedb.eluna", "   "])).gamedb.eluna,
+    ).toBeUndefined();
+  });
+
+  it("已配置 → 原样保留(不做脱敏/改写)", () => {
+    const c = buildConfigFromRows(rows());
+    expect(c.gamedb.eluna).toBe("mysql://u:p@127.0.0.1:3306/acore_eluna");
+  });
+
+  it("配了但不是合法 URL → 仍 fail-fast(配错 ≠ 未配置)", () => {
+    expect(() =>
+      buildConfigFromRows(rowsWithoutEluna(["gamedb.eluna", "not-a-url"])),
+    ).toThrow(/system_config 配置校验失败/);
+  });
+
+  it("其余三库缺失仍 fail-fast(必需依赖不因 eluna 可选而放宽)", () => {
+    const base = BASE_ROWS.filter(([key]) => key !== "gamedb.auth").map(([key, value]) => ({
+      key,
+      value,
+    }));
+    expect(() => buildConfigFromRows(base)).toThrow(/system_config 配置校验失败/);
+  });
+});
+
 /** 主题系统(2026-11-06):theme 组 flat-dotted 形状 + 默认值 + 脏 active 回落 */
 describe("buildConfigFromRows theme 组(主题系统)", () => {
   it("全键缺省取默认:active=tbc,TBC 背景留空回落 appearance,WLK 取内置冷色资源", () => {
