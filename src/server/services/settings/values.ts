@@ -7,6 +7,7 @@ import type { SensitiveMode } from "@/server/services/settings/schemas";
  * - masked(脱敏回显):脱敏占位 *** 处的口令用现值回填——
  *   管理员改 host/库名而没动口令时,不能把 *** 原样写进库;
  *   整串等于现值的脱敏形态时视为未改
+ * - masked-clearable(可选依赖项):同 masked,但空串=清除(落空串⇒配置层判为未配置)
  * - 非敏感字段:原样返回
  */
 export function resolveSubmittedValue(
@@ -18,8 +19,8 @@ export function resolveSubmittedValue(
   if (mode === "secret") {
     return submitted === "" ? cur : submitted;
   }
-  if (mode === "masked") {
-    if (submitted === "") return cur;
+  if (mode === "masked" || mode === "masked-clearable") {
+    if (submitted === "") return mode === "masked-clearable" ? "" : cur;
     if (submitted === maskConnectionUrl(cur)) return cur;
     return mergeMaskedPassword(cur, submitted) ?? submitted;
   }

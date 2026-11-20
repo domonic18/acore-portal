@@ -283,8 +283,10 @@ export const groupKeys: Record<keyof typeof groupSchemas, Record<string, string>
  * 全局集合会把新组里同名的 password/secretKey 误判成另一组的字段):
  * - secret:只写不读,明文永不回显;空串=保持原值
  * - masked:读回脱敏值(连接串口令以 *** 替换);提交值等于脱敏形态=未改
+ * - masked-clearable:同 masked,但**提交空串=清除该配置**(可选依赖项专用,
+ *   如 eluna:擦空输入框即「未配置」,让「可选」在后台可达,不必改库)
  */
-export type SensitiveMode = "secret" | "masked";
+export type SensitiveMode = "secret" | "masked" | "masked-clearable";
 
 export const sensitiveFields: Partial<
   Record<keyof typeof groupSchemas, Partial<Record<string, SensitiveMode>>>
@@ -292,7 +294,13 @@ export const sensitiveFields: Partial<
   soap: { password: "secret" },
   smtp: { password: "secret" },
   captcha: { appSecret: "secret", secretKey: "secret" },
-  gamedb: { auth: "masked", characters: "masked", world: "masked", eluna: "masked" },
+  gamedb: {
+    auth: "masked",
+    characters: "masked",
+    world: "masked",
+    // eluna 可选依赖:允许擦空清除(其余三库是必需依赖,擦空=保持现值)
+    eluna: "masked-clearable",
+  },
   cos: { secretKey: "secret" },
   // 飞书 webhook 地址本身含 bot key,密钥同理 → 两者都只写不读
   notify: { feishuWebhookUrl: "secret", feishuWebhookSecret: "secret" },

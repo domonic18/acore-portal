@@ -27,7 +27,8 @@ export async function getSettingsView(): Promise<SettingsView> {
       auth: maskConnectionUrl(config.gamedb.auth),
       characters: maskConnectionUrl(config.gamedb.characters),
       world: maskConnectionUrl(config.gamedb.world),
-      eluna: maskConnectionUrl(config.gamedb.eluna),
+      // eluna 是可选依赖:未配置时回空串(输入框留空=未配置),不回脱敏串
+      eluna: config.gamedb.eluna ? maskConnectionUrl(config.gamedb.eluna) : "",
     },
     smtp: {
       host: config.smtp.host,

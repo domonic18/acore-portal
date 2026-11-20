@@ -35,7 +35,14 @@ export async function register() {
     }
     throw new Error(`[boot] 游戏库自检失败: ${down.map((c) => c.name).join(", ")}`);
   }
-  console.log(`[boot] 游戏库自检通过: ${checks.map((c) => c.name).join(", ")}`);
+  // 未配置的可选依赖(eluna)算跳过,不算「已自检通过」——日志要把两者分开,
+  // 否则「没配」与「配了但正常」在排障时长得一样
+  const skipped = checks.filter((c) => c.skipped).map((c) => c.name);
+  const probed = checks.filter((c) => !c.skipped).map((c) => c.name);
+  console.log(
+    `[boot] 游戏库自检通过: ${probed.join(", ")}` +
+      (skipped.length > 0 ? `(未配置跳过: ${skipped.join(", ")})` : ""),
+  );
 
   const { checkSoap } = await import("@/server/soap/health");
   const soap = await checkSoap();

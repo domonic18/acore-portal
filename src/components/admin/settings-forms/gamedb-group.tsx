@@ -9,11 +9,15 @@ import { GroupSection, SaveBar, useGroupSave } from "./common";
 
 type Target = "auth" | "characters" | "world" | "eluna";
 
-const TARGETS: Array<{ key: Target; label: string }> = [
+const TARGETS: Array<{ key: Target; label: string; hint?: string }> = [
   { key: "auth", label: "认证库(auth)" },
   { key: "characters", label: "角色库(characters)" },
   { key: "world", label: "世界库(world)" },
-  { key: "eluna", label: "脚本库(eluna)" },
+  {
+    key: "eluna",
+    label: "脚本库(eluna)",
+    hint: "可选依赖:留空=未配置(启动自检跳过,依赖它的功能按降级处理);填了则必须连得通",
+  },
 ];
 
 type ProbeState = { busy: boolean; result: { ok: boolean; text: string } | null };
@@ -64,9 +68,9 @@ export function GameDbGroup({ view }: { view: SettingsView["gamedb"] }) {
     <GroupSection
       name="gamedb"
       title="游戏四库"
-      description="AzerothCore 四库连接串;口令以 *** 脱敏回显——只改 host/库名时口令自动沿用,换口令才需要整串重填;保存后免重启换库"
+      description="AzerothCore 四库连接串;口令以 *** 脱敏回显——只改 host/库名时口令自动沿用,换口令才需要整串重填;保存后免重启换库;脚本库(eluna)为可选依赖,留空=未配置"
     >
-      {TARGETS.map(({ key, label }) => {
+      {TARGETS.map(({ key, label, hint }) => {
         const probe = probes[key];
         return (
           <div key={key} className="flex flex-col gap-1">
@@ -97,6 +101,11 @@ export function GameDbGroup({ view }: { view: SettingsView["gamedb"] }) {
                 className={`ml-56 text-sm ${probe.result.ok ? "text-[#6ee7b7]" : "text-[#eda9a9]"}`}
               >
                 {probe.result.text}
+              </span>
+            ) : null}
+            {hint ? (
+              <span className="ml-56 text-xs text-muted" data-testid={`settings-hint-gamedb-${key}`}>
+                {hint}
               </span>
             ) : null}
           </div>
