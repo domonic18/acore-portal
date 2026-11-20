@@ -53,7 +53,10 @@ const configSchema = z.object({
     auth: z.string().url(),
     characters: z.string().url(),
     world: z.string().url(),
-    eluna: z.string().url(),
+    // eluna 是**可选依赖**:游戏端 Eluna 脚本尚未落地、该库不存在时留空即可——
+    // 缺失不阻断启动(自检跳过),依赖它的功能按「未配置」降级。
+    // 一旦填了却不是合法 URL,仍按配置错误 fail-fast:配错 ≠ 未配置。
+    eluna: z.string().url().optional(),
   }),
   // COS 对象存储(M2 US6 图片迁移;未配置=功能未启用,不阻塞启动,US6 首用时报错)
   cos: z
@@ -233,7 +236,8 @@ function flattenToSchema(rows: { key: string; value: string }[]) {
       auth: flat["gamedb.auth"],
       characters: flat["gamedb.characters"],
       world: flat["gamedb.world"],
-      eluna: flat["gamedb.eluna"],
+      // 缺行/留空/纯空白=未配置(可选依赖);非空则原样交 schema 校验(配错会 fail-fast)
+      eluna: flat["gamedb.eluna"]?.trim() || undefined,
     },
     cos: flat["cos.bucket"]
       ? {
