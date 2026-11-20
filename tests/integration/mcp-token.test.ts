@@ -30,6 +30,10 @@ beforeAll(async () => {
     where: { key: { in: MCP_KEYS } },
     select: { key: true, value: true },
   });
+  // 清空后重载配置快照:ensureMcpToken 读的是 config 缓存,
+  // 不清库则库里已有令牌(开发库常驻一枚)⇒ created 恒为 false,用例失真
+  await prisma.systemConfig.deleteMany({ where: { key: { in: MCP_KEYS } } });
+  await reloadSystemConfig();
 });
 
 afterAll(async () => {
