@@ -89,7 +89,7 @@ N1 目标(沿用 development-plan N1 验收标准):
 | `src/server/services/auth/register.ts:32-36,167-171` | 跨库写无原子性(SC-004):站点事务(占位用户+令牌+邮件)后调 `authDb.createAccount`,失败走 `purgeSiteUser` 补偿 |
 | `src/constants/invitation.ts` | 邀请码状态机 `available/disabled/finish` + `expired` 实时推导不落库;`INVITATION_ALIMITS` 码值形态与随机字符集 |
 
-### 3.2 AzerothCore 侧事实(本地源码核对,`azerothcore-wotlk`)
+### 3.2 AzerothCore 侧事实(源码核对,路径相对 AC 仓库根)
 
 > 只读核对,结论以源码为准。
 
@@ -717,8 +717,8 @@ model RafRewardGrant {
 | 销售榜无 `source` 过滤 | `src/server/services/stats/sales.ts:44-62` |
 | 幂等台账先例 | `prisma/schema-business/schema.prisma`(`badge_grant`) |
 | 发货链路可复用(零元单走同一条) | `src/server/services/shop/`、`src/constants/soap.ts`、AGENTS 规则 3 |
-| AC 角色表字段与索引 | `azerothcore-wotlk/data/sql/base/db_characters/characters.sql`(、`totaltime` 在 :51、`idx_account` 在 :105) |
-| AC 成就表结构 | `azerothcore-wotlk/data/sql/base/db_characters/character_achievement.sql` |
-| AC 成就准则计数表 | `azerothcore-wotlk/data/sql/base/db_characters/character_achievement_progress.sql` |
-| AC 任务表结构 | `azerothcore-wotlk/data/sql/base/db_characters/character_queststatus.sql` |
-| AC 账号表(账号级时长、大写用户名) | `azerothcore-wotlk/data/sql/base/db_auth/account.sql` |
+| AC 角色表字段与索引 | `data/sql/base/db_characters/characters.sql`(`totaltime` 在 :51、`idx_account` 在 :105) |
+| AC 成就表结构 | `data/sql/base/db_characters/character_achievement.sql` |
+| AC 成就准则计数表 | `data/sql/base/db_characters/character_achievement_progress.sql` |
+| AC 任务表结构 | `data/sql/base/db_characters/character_queststatus.sql` |
+| AC 账号表(账号级时长、大写用户名) | `data/sql/base/db_auth/account.sql` |
