@@ -32,6 +32,10 @@ export const MCP_TOOL = {
   GET_FORUM_THREAD: "get_forum_thread",
   REPLY_FORUM_THREAD: "reply_forum_thread",
   UPDATE_FORUM_THREAD_TITLE: "update_forum_thread_title",
+  /** 主题状态标签流转(后台状态功能同源;AI 处理完帖子可自行置 resolved 闭环) */
+  SET_FORUM_THREAD_LABEL: "set_forum_thread_label",
+  /** 版主加精/取消加精(后台加精功能同源) */
+  SET_FORUM_THREAD_FEATURED: "set_forum_thread_featured",
   DELETE_FORUM_THREAD: "delete_forum_thread",
 } as const;
 

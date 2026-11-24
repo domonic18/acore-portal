@@ -69,13 +69,28 @@ export async function readMcpTokenView(): Promise<McpTokenView> {
 
 /**
  * 默认签发:库里没有令牌时补一枚(首次进入接入页即生效)。
- * 已有令牌则原样返回,不覆盖。
+ * 已有令牌则原样返回,不覆盖;**但绑定为空时回填**——早期自动补发没传
+ * 管理员身份,令牌存在而 tokenAdminUserId 为空 ⇒ 论坛写工具(实名 actor)
+ * 全被拒,回填即自愈,免轮换、客户端配置不用动。
  */
 export async function ensureMcpToken(
   actorUserId?: bigint | null,
 ): Promise<{ plain: string; created: boolean }> {
   const mcp = (await getConfig()).mcp;
-  if (mcp.token) return { plain: mcp.token, created: false };
+  if (mcp.token) {
+    if (!mcp.tokenAdminUserId && actorUserId != null) {
+      await writeConfigKeys({
+        [MCP_CONFIG_KEYS.tokenAdminUserId]: actorUserId.toString(),
+      });
+      await writeAudit({
+        category: AUDIT_CATEGORY.ADMIN,
+        action: AUDIT_ACTION.MCP_TOKEN_BOUND,
+        actorUserId,
+        payload: { reason: "bind-backfill" },
+      });
+    }
+    return { plain: mcp.token, created: false };
+  }
 
   const plain = generateMcpTokenPlain();
   await writeConfigKeys({

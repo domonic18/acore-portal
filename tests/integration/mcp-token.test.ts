@@ -48,6 +48,7 @@ afterAll(async () => {
           AUDIT_ACTION.MCP_TOKEN_COPIED,
           AUDIT_ACTION.MCP_TOKEN_SCOPE_CHANGED,
           AUDIT_ACTION.MCP_TOKEN_LIMITS_CHANGED,
+          AUDIT_ACTION.MCP_TOKEN_BOUND,
         ],
       },
     },
@@ -80,6 +81,33 @@ describe("MCP 令牌默认补发与校验", () => {
     const second = await ensureMcpToken();
     expect(second.created).toBe(false);
     expect(second.plain).toBe(first.plain);
+  });
+
+  it("令牌存在但绑定为空 ⇒ 带 actor 的补发回填绑定(免轮换自愈)", async () => {
+    // 早期自动补发(页面路径)没传 actor ⇒ 令牌在而 tokenAdminUserId 为空,
+    // 论坛写工具(实名 actor)全被拒;带 actor 进页应回填且不换令牌
+    const before = await ensureMcpToken();
+    expect(before.created).toBe(false);
+    expect((await readMcpTokenView()).adminUserId).toBeNull();
+
+    const after = await ensureMcpToken(4242n);
+    expect(after.created).toBe(false);
+    expect(after.plain).toBe(before.plain);
+
+    const check = await verifyMcpToken(before.plain);
+    if (!check.ok) throw new Error("令牌校验失败");
+    expect(check.adminUserId).toBe(4242n);
+
+    const audit = await prisma.auditLog.findFirst({
+      where: { action: AUDIT_ACTION.MCP_TOKEN_BOUND },
+      orderBy: { id: "desc" },
+    });
+    expect(audit).not.toBeNull();
+  });
+
+  it("绑定已存在 ⇒ 补发不覆盖既有绑定(只在空时回填)", async () => {
+    await ensureMcpToken(9999n);
+    expect((await readMcpTokenView()).adminUserId).toBe("4242");
   });
 
   it("后台视图只回掩码串,不含明文", async () => {
