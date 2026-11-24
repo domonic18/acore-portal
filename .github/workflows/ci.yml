@@ -347,11 +347,15 @@ jobs:
 
   # ============================================================
   # 测试环境自动部署(push develop;自托管 runner 落 Mac Mini 常驻栈)
+  # 开关:仓库变量 DEPLOY_STAGING_ENABLED,设 'true' 才部署,缺省/其他值一律跳过。
+  # 用意:Mac Mini 测试栈按需启停(省常驻资源),栈停止期间自动部署只会把
+  # mysql+web 拉起来然后 unhealthy 失败;要用测试环境时先置 true 并
+  # compose start 拉起栈,停用改 false 或删变量——开合均不动代码。
   # ============================================================
   deploy-staging:
     name: deploy(测试环境发布)
     needs: [docker-release]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && vars.DEPLOY_STAGING_ENABLED == 'true'
     runs-on: [self-hosted]
     timeout-minutes: 60
     # 部署串行:两次部署撞车会留下半新半旧的栈

@@ -31,6 +31,11 @@ check ─┬─ build ─┬─ integration ─┬─ db-migration-guard ─┬�
   `main` push 会构建 amd64 镜像并进入**生产部署队列**(经 `environment: production` 批准后
   才真正发布,见 `production-deploy.md` §7),不在本节范围。
   作业失败时在 Actions 页对那次 run 选 Re-run all jobs 重跑(`ci.yml` 已无 `workflow_dispatch` 入口)。
+- **部署开关:仓库变量 `DEPLOY_STAGING_ENABLED`**——设 `true` 才执行,缺省/其他值一律
+  跳过(作业显示 skipped)。Mac Mini 测试栈按需启停(省常驻资源):栈停止期间自动部署
+  只会把 mysql+web 拉起来然后 unhealthy 失败,故常态保持关。要用测试环境:仓库变量置
+  `true` + `docker compose … start` 拉起栈,之后的 `push develop` 恢复自动部署;停用改回
+  `false` 或删变量,均不动代码。
 - `docker-release` 产出镜像并推到 TCR(`ccr.ccs.tencentyun.com/lokta/acore-portal:<tag>`),
   `deploy-staging` 从 TCR 拉取该 tag 部署——**测试环境不再本地 build**
   (与生产同一条镜像通道,避免"测过的镜像≠发布的镜像")。
