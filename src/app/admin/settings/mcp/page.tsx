@@ -10,8 +10,9 @@ import { McpTokensManager } from "@/components/admin/mcp-tokens/manager";
  * 同时给出服务地址与常见 agent(Claude Code / WorkBuddy / Cursor)的接入示例。
  */
 export default async function AdminSettingsMcpPage() {
-  await requireAdmin();
-  await ensureMcpToken();
+  const session = await requireAdmin();
+  // 传会话管理员身份:补发/回填把令牌绑定到当前管理员(论坛写工具的实名 actor)
+  await ensureMcpToken(BigInt(session.userId));
   const view = await readMcpAdminView();
 
   return (
