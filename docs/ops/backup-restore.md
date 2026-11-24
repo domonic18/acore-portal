@@ -182,6 +182,25 @@ SELECT (SELECT COUNT(*) FROM acore_portal.user),
 - 业务库恢复后,Redis 会话/限速/404 计数等键为易失缓存,无需恢复(丢失可重建);
 - `wp_legacy` 是只读留档,恢复只用于取证核对,不接应用连接串。
 
+### 6.1 恢复后必做:重建站内检索的 FULLTEXT 索引
+
+站内检索关键词路走 InnoDB FULLTEXT(ngram,见 `services/search/fulltext.ts`)。
+**恢复出来的行不进 FULLTEXT 索引**(存量行能否召回取决于恢复时点),表现为
+「搜得到老内容、搜不到恢复后新发布的内容」,且**不报错**。
+
+恢复完成后(以及任何大批量删改业务表之后)跑一次体检+重建:
+
+```bash
+mysql -h <host> -u <user> -p <业务库名> < scripts/ops/rebuild-fulltext-index.sql
+```
+
+脚本含只读体检段(各表最新一行是否已入索引)+ `OPTIMIZE TABLE` 重建段,
+幂等可重复执行;`OPTIMIZE` 在 InnoDB 下是 rebuild+analyze,期间持表锁,
+生产库按低峰窗口执行。
+
+> **为什么不能用 `ALTER TABLE ... ADD FULLTEXT`**:它复用同一份已损坏的 FTS 辅助表,
+> 实测重建后新增行依然搜不到;只有整表 recreate(`OPTIMIZE TABLE`)才恢复(2026-11-20 实测)。
+
 ## 7. 配置变更重启口径
 
 - 后台「设置」页(`/admin/settings`)保存:**即时热生效**——服务层保存后调

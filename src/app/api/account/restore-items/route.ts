@@ -8,7 +8,11 @@ import { getClientIp } from "@/server/services/shared/client-ip";
 
 /**
  * 契约:200 {items}/401 未登录/403 CHARACTER_NOT_OWNED+审计/503 GAME_DB_UNAVAILABLE。
- * M1 只读;执行入口 M2 开放。
+ * 本路由只读(选物列表:列该角色可恢复的物品)。
+ * 恢复的**执行入口不在这里**:走商城服务类商品
+ * (services/shop/handlers/item-restore.ts 的 .send items 邮寄,
+ * 支付前 precheck 三关:角色归属→服务器在线→命中可恢复列表),
+ * 即「下单 → 支付 → 发货」闭环,本接口只负责给选物界面供数。
  */
 export async function GET(req: NextRequest) {
   const session = await getApiSession(req);
