@@ -6,6 +6,12 @@ import { searchSite } from "@/server/services/search";
  * 站内搜索集成(混合检索关键词路):ngram FULLTEXT 真库中文检索,
  * 覆盖五实体发布口径 / 分组 URL 契约 / FAQ 判别 / 标题加权 / 短查询空结果。
  * 语义路在此走降级(embedding 通道未配置 → searchSite.semantic=false)。
+ *
+ * ⚠ 本文件是 **FULLTEXT 索引健康的守卫**,禁当"环境问题"删用例:
+ *   InnoDB FULLTEXT 索引失配时,**旧行照常召回、新插入的行不进索引**
+ *   (症状＝搜得到老内容、搜不到新内容,且不报错);
+ *   本文件用"刚插入的行能否被召回"把这种失配暴露出来(2026-11-20 实测命中)。
+ *   库侧失配的处置:scripts/ops/rebuild-fulltext-index.sql(OPTIMIZE 重建)。
  */
 const RUN = Date.now().toString(36);
 const A_SLUG_PREFIX = `srch-a-${RUN}-`;
