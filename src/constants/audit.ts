@@ -136,6 +136,8 @@ export const AUDIT_ACTION = {
   MCP_TOKEN_SCOPE_CHANGED: "mcp_token_scope_changed",
   /** M6 MCP 限额调整(category=admin;只记键名) */
   MCP_TOKEN_LIMITS_CHANGED: "mcp_token_limits_changed",
+  /** M6 MCP 令牌补绑管理员(存量令牌绑定为空时回填;category=admin;不记明文) */
+  MCP_TOKEN_BOUND: "mcp_token_bound",
 } as const;
 
 export type AuditActionValue = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];
