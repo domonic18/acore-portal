@@ -136,7 +136,7 @@ test.describe.serial("商品运营 MCP 端点", () => {
     expect(res.json?.error?.data?.code).toBe("UNAUTHORIZED");
   });
 
-  test("接入页取令牌 → initialize / tools/list(12 个) / tools/call list_products", async ({
+  test("接入页取令牌 → initialize / tools/list(14 个) / tools/call list_products", async ({
     page,
     request,
   }) => {
@@ -174,6 +174,8 @@ test.describe.serial("商品运营 MCP 端点", () => {
       "list_products",
       "reply_forum_thread",
       "search_site",
+      "set_forum_thread_featured",
+      "set_forum_thread_label",
       "set_product_status",
       "update_forum_thread_title",
       "update_product",
@@ -283,12 +285,12 @@ test.describe.serial("商品运营 MCP 端点", () => {
     }
   });
 
-  test("论坛工具链:list/get → 官方回帖 → 改题 → 下架(软删)", async ({ page, request }) => {
+  test("论坛工具链:list/get → 官方回帖 → 改题 → 状态流转/加精 → 下架(软删)", async ({ page, request }) => {
     await clearAdminThreadRateLimit();
     await login(page, "m1admin", "adminpass123");
     const token = await issueToken(page, "write");
 
-    // 工具链连发 7 次调用,超默认 QPS(5 次/秒)会被 429 打断:测试期调高,完事还原
+    // 工具链连发 10 次调用,超默认 QPS(5 次/秒)会被 429 打断:测试期调高,完事还原
     const patchedQps = await page.request.patch("/api/admin/mcp-token", {
       data: { qpsLimit: 30 },
     });
@@ -351,17 +353,41 @@ test.describe.serial("商品运营 MCP 端点", () => {
       expect(titlePayload.oldTitle).toBe("e2e MCP 论坛工具链靶帖");
       expect(titlePayload.newTitle).toBe("e2e MCP 改题后的申诉标题");
 
+      // 写:状态流转 resolved(AI 处理完自行闭环)→ none 可重置(能进能出)
+      const label = await call(14, "set_forum_thread_label", {
+        id: threadId,
+        label: "resolved",
+      });
+      expect(label.json?.result?.isError).toBeFalsy();
+      const labelPayload = JSON.parse(label.json.result.content[0].text);
+      expect(labelPayload.label).toBe("resolved");
+
+      const labelReset = await call(15, "set_forum_thread_label", {
+        id: threadId,
+        label: "none",
+      });
+      expect(labelReset.json?.result?.isError).toBeFalsy();
+
+      // 写:加精(与后台同源;可逆,再置 false 即取消)
+      const featured = await call(16, "set_forum_thread_featured", {
+        id: threadId,
+        featured: true,
+      });
+      expect(featured.json?.result?.isError).toBeFalsy();
+      const featuredPayload = JSON.parse(featured.json.result.content[0].text);
+      expect(featuredPayload.featured).toBe(true);
+
       // 写:下架(软删) → 前台 404,默认列表不见,回收站可见
-      const del = await call(14, "delete_forum_thread", { id: threadId });
+      const del = await call(17, "delete_forum_thread", { id: threadId });
       expect(del.json?.result?.isError).toBeFalsy();
       const pageAfter = await request.get(`/forum/thread/${threadId}`);
       expect(pageAfter.status()).toBe(404);
 
-      const listAfter = await call(15, "list_forum_threads", { boardSlug: BOARD_SLUG });
+      const listAfter = await call(18, "list_forum_threads", { boardSlug: BOARD_SLUG });
       const listAfterPayload = JSON.parse(listAfter.json.result.content[0].text);
       expect(listAfterPayload.items.some((t: { id: string }) => t.id === threadId)).toBe(false);
 
-      const listDeleted = await call(16, "list_forum_threads", {
+      const listDeleted = await call(19, "list_forum_threads", {
         boardSlug: BOARD_SLUG,
         includeDeleted: true,
       });

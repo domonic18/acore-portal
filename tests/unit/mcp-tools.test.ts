@@ -15,7 +15,7 @@ import {
 
 /**
  * MCP 工具注册表单测(二期 M6;规格 §17.2;M6 增补论坛运营):
- * ① 工具白名单恒为 12 个(名字与常量一致,不多不少);
+ * ① 工具白名单恒为 14 个(名字与常量一致,不多不少);
  * ② 作用域标签正确(读写各归其位);
  * ③ 守卫:写入必须走 catalog/forum 同一入口,不得在工具层自写 SKU 或直连数据库。
  */
@@ -29,8 +29,8 @@ const TOOLS_SRC = readdirSync(TOOLS_DIR)
   .join("\n");
 
 describe("MCP 工具注册表", () => {
-  it("白名单恒为 12 个工具", () => {
-    expect(MCP_TOOLS).toHaveLength(12);
+  it("白名单恒为 14 个工具", () => {
+    expect(MCP_TOOLS).toHaveLength(14);
     expect(MCP_TOOLS.map((t) => t.name).sort()).toEqual(
       [
         MCP_TOOL.LIST_PRODUCTS,
@@ -44,6 +44,8 @@ describe("MCP 工具注册表", () => {
         MCP_TOOL.GET_FORUM_THREAD,
         MCP_TOOL.REPLY_FORUM_THREAD,
         MCP_TOOL.UPDATE_FORUM_THREAD_TITLE,
+        MCP_TOOL.SET_FORUM_THREAD_LABEL,
+        MCP_TOOL.SET_FORUM_THREAD_FEATURED,
         MCP_TOOL.DELETE_FORUM_THREAD,
       ].sort(),
     );
@@ -58,13 +60,15 @@ describe("MCP 工具注册表", () => {
     expect(findMcpTool("no_such_tool")).toBeUndefined();
   });
 
-  it("作用域标签:六个写工具 + 六个只读工具", () => {
+  it("作用域标签:八个写工具 + 六个只读工具", () => {
     const scopeOf = (name: string) => findMcpTool(name)?.scope;
     expect(scopeOf(MCP_TOOL.CREATE_PRODUCT)).toBe(MCP_SCOPE.WRITE);
     expect(scopeOf(MCP_TOOL.UPDATE_PRODUCT)).toBe(MCP_SCOPE.WRITE);
     expect(scopeOf(MCP_TOOL.SET_PRODUCT_STATUS)).toBe(MCP_SCOPE.WRITE);
     expect(scopeOf(MCP_TOOL.REPLY_FORUM_THREAD)).toBe(MCP_SCOPE.WRITE);
     expect(scopeOf(MCP_TOOL.UPDATE_FORUM_THREAD_TITLE)).toBe(MCP_SCOPE.WRITE);
+    expect(scopeOf(MCP_TOOL.SET_FORUM_THREAD_LABEL)).toBe(MCP_SCOPE.WRITE);
+    expect(scopeOf(MCP_TOOL.SET_FORUM_THREAD_FEATURED)).toBe(MCP_SCOPE.WRITE);
     expect(scopeOf(MCP_TOOL.DELETE_FORUM_THREAD)).toBe(MCP_SCOPE.WRITE);
     expect(scopeOf(MCP_TOOL.LIST_PRODUCTS)).toBe(MCP_SCOPE.READ);
     expect(scopeOf(MCP_TOOL.GET_PRODUCT)).toBe(MCP_SCOPE.READ);

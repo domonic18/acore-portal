@@ -10,18 +10,24 @@ import {
   getForumThread,
   listThreadPosts,
 } from "@/server/services/forum/browse";
-import { deleteThread, updateThreadTitle } from "@/server/services/forum/moderate";
+import {
+  deleteThread,
+  featureThread,
+  labelThread,
+  updateThreadTitle,
+  ForumModerateError,
+} from "@/server/services/forum/moderate";
 import { createReply } from "@/server/services/forum/write";
 import { getSiteUsername } from "@/server/services/shared/site-identity";
 
 import { defineTool, parseId, type McpToolContext, type McpToolDef } from "./shared";
 
 /**
- * 论坛运营工具分册(5 个;M6 增补)
+ * 论坛运营工具分册(7 个;M6 增补,2026-11-24 增补状态流转/加精)
  *
  * 服务 AI 巡检(灌水识别)与客服(账号申诉跟进)。写入一律走 services/forum
- * 同一入口(createReply / updateThreadTitle / deleteThread),closed 闸与
- * 软删闸照旧——不因调用方是 AI 而放松校验。
+ * 同一入口(createReply / updateThreadTitle / labelThread / featureThread /
+ * deleteThread),closed 闸与软删闸照旧——不因调用方是 AI 而放松校验。
  *
  * 「下架」= deleteThread 软删:前台不可见、内容保留、后台可恢复(可逆,
  * 故可暴露);恢复(undelete)与单删楼层不暴露,留在后台人工处理。
@@ -63,6 +69,21 @@ const updateTitleSchema = z.object({
 
 const deleteThreadSchema = z.object({
   id: z.string().describe("主题 id"),
+});
+
+const setThreadLabelSchema = z.object({
+  id: z.string().describe("主题 id"),
+  label: z
+    .enum(THREAD_LABEL_OPTIONS)
+    .describe(
+      "目标状态标签:none(重置未标记)/resolved(已处理)/needs_info(需补充信息)/" +
+        "closed(关闭并禁回帖)",
+    ),
+});
+
+const setThreadFeaturedSchema = z.object({
+  id: z.string().describe("主题 id"),
+  featured: z.boolean().describe("true=加精,false=取消加精"),
 });
 
 /** 写工具公共前置:审计需要实名管理员,未绑定即拒 */
@@ -247,6 +268,69 @@ export const FORUM_TOOLS: McpToolDef[] = [
         data: { updated: true, threadId: parsed.id.toString(), title: args.title },
         targetId: parsed.id.toString(),
       };
+    },
+  }),
+
+  defineTool({
+    name: MCP_TOOL.SET_FORUM_THREAD_LABEL,
+    title: "设置论坛主题状态",
+    description:
+      "流转主题状态标签(none/resolved/needs_info/closed),与后台状态功能同源。" +
+      "AI 处理完帖子后置 resolved 闭环;需玩家补充材料置 needs_info;" +
+      "closed 即关帖(关帖后禁回帖)。审计记录操作者。",
+    scope: MCP_SCOPE.WRITE,
+    schema: setThreadLabelSchema,
+    run: async (args, ctx) => {
+      const actor = requireActor(ctx);
+      if (!actor.ok) return actor;
+      const parsed = parseId(args.id);
+      if (!parsed.ok) return parsed;
+      try {
+        const thread = await labelThread(parsed.id, args.label, {
+          id: actor.actorUserId,
+        });
+        return {
+          ok: true,
+          data: { threadId: parsed.id.toString(), label: thread.statusLabel },
+          targetId: parsed.id.toString(),
+        };
+      } catch (err) {
+        if (err instanceof ForumModerateError && err.code === "THREAD_NOT_FOUND") {
+          return { ok: false, code: "NOT_FOUND", message: "主题不存在。", field: "id" };
+        }
+        throw err;
+      }
+    },
+  }),
+
+  defineTool({
+    name: MCP_TOOL.SET_FORUM_THREAD_FEATURED,
+    title: "设置论坛主题加精",
+    description:
+      "版主加精/取消加精(与后台加精功能同源,标题前显示「精」标识)。" +
+      "用于置顶推荐优质攻略帖;审计记录操作者。",
+    scope: MCP_SCOPE.WRITE,
+    schema: setThreadFeaturedSchema,
+    run: async (args, ctx) => {
+      const actor = requireActor(ctx);
+      if (!actor.ok) return actor;
+      const parsed = parseId(args.id);
+      if (!parsed.ok) return parsed;
+      try {
+        const thread = await featureThread(parsed.id, args.featured, {
+          id: actor.actorUserId,
+        });
+        return {
+          ok: true,
+          data: { threadId: parsed.id.toString(), featured: thread.featured },
+          targetId: parsed.id.toString(),
+        };
+      } catch (err) {
+        if (err instanceof ForumModerateError && err.code === "THREAD_NOT_FOUND") {
+          return { ok: false, code: "NOT_FOUND", message: "主题不存在。", field: "id" };
+        }
+        throw err;
+      }
     },
   }),
 
