@@ -1,17 +1,19 @@
+import { cn } from "@/lib/cn";
+
 type Tone = "ok" | "muted" | "warn" | "danger" | "accent";
 
 const TONE: Record<Tone, string> = {
-  ok: "border-[#34d399]/30 bg-[#34d399]/10 text-[#6ee7b7]",
-  muted: "border-[#22385a] bg-[#13233a] text-[#93b2ce]",
-  warn: "border-[#e8c877]/30 bg-[#e8c877]/10 text-[#e8c877]",
-  danger: "border-[#eda9a9]/30 bg-[#eda9a9]/10 text-[#eda9a9]",
-  accent: "border-[#6fb7e0]/30 bg-[#6fb7e0]/10 text-[#a8d9f5]",
+  ok: "border-success-solid/30 bg-success-solid/10 text-success",
+  muted: "border-border bg-card text-muted-foreground",
+  warn: "border-warning/30 bg-warning/10 text-warning",
+  danger: "border-destructive/30 bg-destructive/10 text-destructive",
+  accent: "border-primary/30 bg-primary/10 text-primary-bright",
 };
 
 /** 后台状态徽章(订单态/库存态/角色等),tone 语义见各页面用法 */
 export function Badge({
   tone = "muted",
-  className = "",
+  className,
   title,
   children,
 }: {
@@ -23,7 +25,11 @@ export function Badge({
   return (
     <span
       title={title}
-      className={`inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[11.5px] leading-4 ${TONE[tone]} ${className}`}
+      className={cn(
+        "inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[11.5px] leading-4",
+        TONE[tone],
+        className,
+      )}
     >
       {children}
     </span>

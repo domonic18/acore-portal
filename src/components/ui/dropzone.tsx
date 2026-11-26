@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { UploadCloud } from "lucide-react";
 import { FOCUS_RING } from "./admin-tokens";
+import { cn } from "@/lib/cn";
 
 /**
  * 拖放上传区(2026-11-03 用户反馈:裸 file input 像 label 不像控件):
@@ -47,11 +48,15 @@ export function Dropzone({
         setDragOver(false);
         if (!disabled && !busy) emit(e.dataTransfer.files);
       }}
-      className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed px-6 py-6 text-center transition ${FOCUS_RING} ${
+      className={cn(
+        "flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed px-6 py-6 text-center transition",
+        FOCUS_RING,
         dragOver
-          ? "border-[#6fb7e0] bg-[#6fb7e0]/10"
-          : "border-[#22385a] bg-[#0b1526]/60 hover:border-[#6fb7e0]/50"
-      } ${disabled || busy ? "cursor-not-allowed opacity-50" : ""} ${className}`}
+          ? "border-primary bg-primary/10"
+          : "border-border bg-background/60 hover:border-primary/50",
+        (disabled || busy) && "cursor-not-allowed opacity-50",
+        className,
+      )}
     >
       <input
         ref={inputRef}
@@ -64,12 +69,12 @@ export function Dropzone({
       />
       <UploadCloud
         aria-hidden="true"
-        className={`h-6 w-6 text-[#6fb7e0] ${busy ? "animate-pulse" : ""}`}
+        className={cn("h-6 w-6 text-primary", busy && "animate-pulse")}
       />
-      <span className="text-[13px] font-medium text-[#dcebf7]">
+      <span className="text-[13px] font-medium text-foreground">
         {busy ? "上传中…" : "点击选择或拖拽文件到此处"}
       </span>
-      <span className="text-[11.5px] text-[#6482a3]">{hint}</span>
+      <span className="text-[11.5px] text-faint-foreground">{hint}</span>
     </label>
   );
 }

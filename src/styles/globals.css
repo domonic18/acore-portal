@@ -172,6 +172,18 @@
   --secondary-foreground: var(--theme-foreground);
   --border: var(--theme-line);
   --ring: var(--theme-accent);
+  /* 扩展语义变量:前台取主题等价物,后台经 [data-admin-scope] 钉为控制台 hex;
+   * 状态三色的消费面全在后台(ui/ 基件),前台无消费者,故直接写字面量 */
+  --foreground: var(--theme-foreground);
+  --muted-foreground: var(--theme-muted);
+  --faint-foreground: var(--theme-muted);
+  --border-strong: var(--theme-line-strong);
+  --hover: var(--theme-surface-hover);
+  --primary-bright: var(--theme-link-hover);
+  --success: #6ee7b7;
+  --success-solid: #34d399;
+  --warning: #e8c877;
+  --destructive: #eda9a9;
   /* 弹层规格:控件圆角 8px / 弹层圆角 10px(设计稿 2026-11-26) */
   --radius-control: 0.5rem;
   --radius-overlay: 0.625rem;
@@ -188,6 +200,12 @@
   --secondary-foreground: #dcebf7;
   --border: #22385a;
   --ring: #6fb7e0;
+  --foreground: #dcebf7;
+  --muted-foreground: #93b2ce;
+  --faint-foreground: #6482a3;
+  --border-strong: #3a587e;
+  --hover: #16283f;
+  --primary-bright: #a8d9f5;
 }
 
 /* ---------- Tailwind 工具类桥接 ---------- */
@@ -215,7 +233,7 @@
   --color-line-menu: var(--theme-line-menu);
   --color-separator: var(--theme-separator);
 
-  --color-foreground: var(--theme-foreground);
+  --color-foreground: var(--foreground);
   --color-heading: var(--theme-heading);
   --color-body: var(--theme-body);
   --color-muted: var(--theme-muted);
@@ -259,6 +277,15 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-border: var(--border);
   --color-ring: var(--ring);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-faint-foreground: var(--faint-foreground);
+  --color-border-strong: var(--border-strong);
+  --color-hover: var(--hover);
+  --color-primary-bright: var(--primary-bright);
+  --color-success: var(--success);
+  --color-success-solid: var(--success-solid);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
   --radius-control: var(--radius-control);
   --radius-overlay: var(--radius-overlay);
 
