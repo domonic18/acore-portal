@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getSessionFromToken, type SessionPayload, type SessionRole } from "@/lib/auth/session";
 import { SESSION } from "@/constants/session";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "@/constants/audit";
+import { MODERATOR_ROLE_VALUES } from "@/constants/roles";
 import { writeAudit } from "@/server/services/shared/audit";
 import { getClientIp } from "@/server/services/shared/client-ip";
 
@@ -63,7 +64,7 @@ export async function getApiAdminSession(req: NextRequest): Promise<SessionPaylo
   return session;
 }
 
-const MODERATOR_ROLES: ReadonlySet<SessionRole> = new Set(["moderator", "admin"]);
+const MODERATOR_ROLES: ReadonlySet<SessionRole> = new Set(MODERATOR_ROLE_VALUES);
 
 /** 论坛版主 RSC 守卫(R5):moderator|admin 通过;user 越权记 forum_moderation_violation 后回论坛 */
 export async function requireModerator(): Promise<SessionPayload> {

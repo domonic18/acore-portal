@@ -8,3 +8,9 @@ export const USER_ROLES = ["user", "moderator", "admin"] as const;
 
 /** 可管理全站数据的角色(提权到此角色需二次确认) */
 export const ADMIN_ROLE = "admin";
+
+/**
+ * 论坛版主角色域(与 session-guard 的守卫口径同源):论坛版主是全局角色
+ * (moderator|admin),不按版块划分——版块头「版主组」展示同用此域。
+ */
+export const MODERATOR_ROLE_VALUES = ["moderator", "admin"] as const;
