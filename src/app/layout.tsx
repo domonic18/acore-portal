@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { AssistantDrawer } from "@/components/assistant/assistant-drawer";
 import { SiteFooter } from "@/components/site/footer";
 import { HideOnAdmin } from "@/components/site/chrome-gate";
@@ -72,23 +74,26 @@ export default async function RootLayout({
   return (
     <html lang="zh-CN" data-theme={theme.id} style={themeStyle}>
       <body className="flex min-h-screen flex-col antialiased">
-        <HideOnAdmin>
-          <SiteHeaderClient {...header} />
-        </HideOnAdmin>
-        <div className="flex-1">{children}</div>
-        <HideOnAdmin>
-          <SiteFooter
-            name={footer.name}
-            tagline={footer.tagline}
-            icp={footer.icp}
-            copyrightEn={footer.copyrightEn}
-          />
-        </HideOnAdmin>
-        <PageViewBeacon />
-        <HideOnAdmin>
-          <AssistantDrawer />
-        </HideOnAdmin>
-        <PortalPageBackground pageBackground={pageBackground} />
+        <TooltipProvider>
+          <HideOnAdmin>
+            <SiteHeaderClient {...header} />
+          </HideOnAdmin>
+          <div className="flex-1">{children}</div>
+          <HideOnAdmin>
+            <SiteFooter
+              name={footer.name}
+              tagline={footer.tagline}
+              icp={footer.icp}
+              copyrightEn={footer.copyrightEn}
+            />
+          </HideOnAdmin>
+          <PageViewBeacon />
+          <HideOnAdmin>
+            <AssistantDrawer />
+          </HideOnAdmin>
+          <PortalPageBackground pageBackground={pageBackground} />
+          <Toaster />
+        </TooltipProvider>
       </body>
     </html>
   );

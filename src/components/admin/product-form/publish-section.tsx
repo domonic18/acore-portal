@@ -1,6 +1,6 @@
 "use client";
 
-import { Select } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { FormField } from "./field";
 import type { ProductFormValues } from "./use-product-form";

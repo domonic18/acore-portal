@@ -1,8 +1,9 @@
 import { FOCUS_RING } from "./admin-tokens";
+import { cn } from "@/lib/cn";
 
 /** 后台统一表格外壳(横滚+深色圆角);保留语义 table,E2E 依赖 row/name 断言 */
 export function Table({
-  className = "",
+  className,
   children,
   minWidth = "min-w-[680px]",
 }: {
@@ -12,8 +13,8 @@ export function Table({
   minWidth?: string;
 }) {
   return (
-    <div className={`overflow-x-auto rounded-xl border border-[#22385a] ${className}`}>
-      <table className={`w-full ${minWidth} border-collapse text-[13px] text-[#dcebf7]`}>
+    <div className={cn("overflow-x-auto rounded-xl border border-border", className)}>
+      <table className={cn("w-full border-collapse text-[13px] text-foreground", minWidth)}>
         {children}
       </table>
     </div>
@@ -22,12 +23,12 @@ export function Table({
 
 export function THead({ children }: { children: React.ReactNode }) {
   return (
-    <thead className="bg-[#13233a]/80 text-left">{children}</thead>
+    <thead className="bg-card/80 text-left">{children}</thead>
   );
 }
 
 export function Th({
-  className = "",
+  className,
   children,
 }: {
   className?: string;
@@ -36,7 +37,10 @@ export function Th({
   return (
     <th
       // 表头不折行(#48 移动端逐字竖排);窄屏由表格外壳横滚承担
-      className={`whitespace-nowrap border-b border-[#22385a] px-3 py-2.5 text-xs font-normal text-[#6482a3] ${className}`}
+      className={cn(
+        "whitespace-nowrap border-b border-border px-3 py-2.5 text-xs font-normal text-faint-foreground",
+        className,
+      )}
     >
       {children}
     </th>
@@ -44,7 +48,7 @@ export function Th({
 }
 
 export function Tr({
-  className = "",
+  className,
   children,
   ...rest
 }: {
@@ -54,7 +58,10 @@ export function Tr({
   return (
     <tr
       {...rest}
-      className={`border-b border-[#22385a]/40 transition last:border-b-0 hover:bg-[#16283f] ${className}`}
+      className={cn(
+        "border-b border-border/40 transition last:border-b-0 hover:bg-hover",
+        className,
+      )}
     >
       {children}
     </tr>
@@ -62,7 +69,7 @@ export function Tr({
 }
 
 export function Td({
-  className = "",
+  className,
   children,
   colSpan,
 }: {
@@ -71,7 +78,7 @@ export function Td({
   colSpan?: number;
 }) {
   return (
-    <td colSpan={colSpan} className={`px-3 py-2.5 align-middle ${className}`}>
+    <td colSpan={colSpan} className={cn("px-3 py-2.5 align-middle", className)}>
       {children}
     </td>
   );
@@ -81,7 +88,7 @@ export function Td({
 export function TableEmpty({ colSpan, label = "暂无数据" }: { colSpan: number; label?: string }) {
   return (
     <tr>
-      <td colSpan={colSpan} className="px-3 py-8 text-center text-[13px] text-[#6482a3]">
+      <td colSpan={colSpan} className="px-3 py-8 text-center text-[13px] text-faint-foreground">
         {label}
       </td>
     </tr>
@@ -92,7 +99,7 @@ export function TableEmpty({ colSpan, label = "暂无数据" }: { colSpan: numbe
 export function TableCellLink({
   href,
   children,
-  className = "",
+  className,
 }: {
   href: string;
   children: React.ReactNode;
@@ -101,7 +108,11 @@ export function TableCellLink({
   return (
     <a
       href={href}
-      className={`rounded text-[#6fb7e0] underline-offset-2 hover:text-[#a8d9f5] hover:underline ${FOCUS_RING} ${className}`}
+      className={cn(
+        "rounded text-primary underline-offset-2 hover:text-primary-bright hover:underline",
+        FOCUS_RING,
+        className,
+      )}
     >
       {children}
     </a>

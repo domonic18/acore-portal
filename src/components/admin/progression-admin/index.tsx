@@ -13,7 +13,7 @@ import {
 } from "../progression-card-editor";
 import { uploadMediaFiles } from "../media-library";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { errorMessage, requestJson } from "@/lib/api-client";
 import { toDraft, toPayload, type AdminProgressionNode } from "./draft";
 

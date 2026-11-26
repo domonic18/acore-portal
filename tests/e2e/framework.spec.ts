@@ -145,11 +145,11 @@ test.describe("游客菜单(FR-201)", () => {
     await page.goto("/");
     const button = page.getByTestId("mobile-menu-button");
     const menu = page.getByTestId("mobile-menu");
-    const backdrop = page.getByTestId("mobile-menu-backdrop");
     await expect(menu).toHaveCount(0);
     await button.click();
     await expect(menu).toBeVisible();
-    await expect(backdrop).toBeVisible();
+    // Radix Drawer 打开即锁背景滚动(react-remove-scroll 的 body 标记,替代旧 backdrop 断言)
+    await expect(page.locator("body")).toHaveAttribute("data-scroll-locked", "1");
     await expect(menu.getByText("公告", { exact: true })).toBeVisible();
     // 游客抽屉无商城/账户入口(设计稿 LoginMenu 口径:登录态才出现)
     await expect(menu.getByText("积分商店", { exact: true })).toHaveCount(0);
@@ -159,9 +159,8 @@ test.describe("游客菜单(FR-201)", () => {
     await menu.getByTestId("mobile-submenu-toggle-首页").click();
     await expect(menu.getByRole("link", { name: "客户端下载", exact: true })).toBeVisible();
     // 遮罩点击关闭抽屉(侧边浮出不再推挤页面;点左侧纯遮罩区,避开右侧抽屉面板)
-    await backdrop.click({ position: { x: 40, y: 200 } });
+    await page.mouse.click(40, 200);
     await expect(menu).toHaveCount(0);
-    await expect(backdrop).toHaveCount(0);
   });
 });
 

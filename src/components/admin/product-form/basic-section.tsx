@@ -1,6 +1,7 @@
 "use client";
 
-import { Input, Select, Textarea } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { FOCUS_RING } from "@/components/ui/admin-tokens";
 import { FormField, FormRow } from "./field";
 import { ItemPicker } from "./item-picker";

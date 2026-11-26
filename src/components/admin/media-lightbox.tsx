@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
   ChevronLeft,
   ChevronRight,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import type { MediaAssetItem } from "@/components/admin/media-library";
 import { FOCUS_RING } from "@/components/ui/admin-tokens";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 function formatSize(bytes: number): string {
@@ -19,9 +21,27 @@ function formatSize(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
+// 灯箱本体 z-60,ui/tooltip 默认 z-50 会被遮罩压住;调用侧抬层级(cn 合并后者优先)。
+// 模块级定义:组件内定义的组件每次渲染都是新类型,会导致子树反复重挂载。
+function ToolbarTip({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="bottom" className="z-70">
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 /**
  * 媒体大图查看器(WP 媒体库式):全屏 overlay + 适应/1:1 切换 + 左右切换 +
- * 复制 URL/新窗口原图/删除;Esc/点背景关闭。onDelete 缺省=纯预览(选择模式)。
+ * 复制 URL/新窗口原图/删除;Esc 关闭。onDelete 缺省=纯预览(选择模式)。
+ *
+ * 全屏中性色查看器,不套 ui/dialog 的居中卡片壳,直接用 Radix 原语组合——
+ * 焦点陷阱/ESC/滚动锁定由底座免费获得;← → 切换仍走 window 键盘监听。
+ * z-60 压在普通弹层(z-50)之上(灯箱可从媒体选择弹窗里打开);
+ * 工具条用白色透明度系是刻意的——控件悬浮在任意图片内容之上,不随主题令牌。
  */
 export function MediaLightbox({
   items,
@@ -52,13 +72,12 @@ export function MediaLightbox({
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
       if (e.key === "ArrowLeft") go(-1);
       if (e.key === "ArrowRight") go(1);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [go, onClose]);
+  }, [go]);
 
   if (!current) return null;
   const asset = current;
@@ -87,122 +106,137 @@ export function MediaLightbox({
     }
   }
 
+  const toolbarBtn = `rounded-lg border border-white/20 p-1.5 text-white/80 hover:bg-white/10 ${FOCUS_RING}`;
+
   return (
-    <div
-      role="dialog"
-      aria-label={`媒体预览:${asset.originalName}`}
-      className="fixed inset-0 z-[60] flex flex-col bg-black/85"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+    <DialogPrimitive.Root
+      open
+      onOpenChange={(o) => {
+        if (!o) onClose();
       }}
     >
-      <header className="flex flex-wrap items-center gap-3 border-b border-white/10 px-4 py-2.5 text-[13px] text-white/90">
-        <span className="min-w-0 truncate font-medium">{asset.originalName}</span>
-        <span className="text-white/50">{formatSize(asset.sizeBytes)}</span>
-        <span className="rounded-full border border-white/20 px-2 py-0.5 text-xs text-white/70">
-          {asset.category}
-        </span>
-        <span className="ml-auto flex items-center gap-1.5">
-          {!isVideo && (
-            <button
-              type="button"
-              onClick={() => setZoomed((v) => !v)}
-              title={zoomed ? "适应窗口" : "原始尺寸 1:1"}
-              className={`rounded-lg border border-white/20 p-1.5 text-white/80 hover:bg-white/10 ${FOCUS_RING}`}
-            >
-              {zoomed ? <Minimize2 aria-hidden="true" className="h-4 w-4" /> : <Maximize2 aria-hidden="true" className="h-4 w-4" />}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={copyUrl}
-            title="复制 URL"
-            className={`rounded-lg border border-white/20 p-1.5 text-white/80 hover:bg-white/10 ${FOCUS_RING}`}
-          >
-            <Copy aria-hidden="true" className="h-4 w-4" />
-          </button>
-          <a
-            href={asset.url}
-            target="_blank"
-            rel="noreferrer"
-            title="新窗口打开原图"
-            className={`rounded-lg border border-white/20 p-1.5 text-white/80 hover:bg-white/10 ${FOCUS_RING}`}
-          >
-            <ExternalLink aria-hidden="true" className="h-4 w-4" />
-          </a>
-          {onDeleted && (
-            <button
-              type="button"
-              onClick={remove}
-              className="rounded-lg border border-[#eda9a9]/50 bg-[#eda9a9]/10 px-2.5 py-1.5 text-xs text-[#eda9a9] hover:bg-[#eda9a9]/20"
-            >
-              删除
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={onClose}
-            title="关闭(Esc)"
-            className={`rounded-lg border border-white/20 p-1.5 text-white/80 hover:bg-white/10 ${FOCUS_RING}`}
-          >
-            <X aria-hidden="true" className="h-4 w-4" />
-          </button>
-        </span>
-      </header>
-
-      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
-        {isVideo ? (
-          <video
-            src={asset.url}
-            controls
-            preload="metadata"
-            className="max-h-full max-w-full"
-          />
-        ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={asset.url}
-            alt={asset.originalName}
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setZoomed((v) => !v);
-            }}
-            className={
-              zoomed
-                ? "max-w-none cursor-zoom-out"
-                : "max-h-full max-w-full cursor-zoom-in object-contain"
-            }
-          />
-        )}
-        {items.length > 1 && (
-          <>
-            <button
-              type="button"
-              aria-label="上一张"
-              onClick={() => go(-1)}
-              className={`absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white/90 hover:bg-black/70 ${FOCUS_RING}`}
-            >
-              <ChevronLeft aria-hidden="true" className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              aria-label="下一张"
-              onClick={() => go(1)}
-              className={`absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white/90 hover:bg-black/70 ${FOCUS_RING}`}
-            >
-              <ChevronRight aria-hidden="true" className="h-5 w-5" />
-            </button>
-            <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs text-white/80">
-              {index + 1} / {items.length}
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-60 bg-scrim/85" />
+        <DialogPrimitive.Content className="fixed inset-0 z-60 flex flex-col outline-none">
+          <DialogPrimitive.Title className="sr-only">
+            {`媒体预览:${asset.originalName}`}
+          </DialogPrimitive.Title>
+          <header className="flex flex-wrap items-center gap-3 border-b border-white/10 px-4 py-2.5 text-[13px] text-white/90">
+            <span className="min-w-0 truncate font-medium">{asset.originalName}</span>
+            <span className="text-white/50">{formatSize(asset.sizeBytes)}</span>
+            <span className="rounded-full border border-white/20 px-2 py-0.5 text-xs text-white/70">
+              {asset.category}
             </span>
-          </>
-        )}
-      </div>
+            <span className="ml-auto flex items-center gap-1.5">
+              {!isVideo && (
+                <ToolbarTip label={zoomed ? "适应窗口" : "原始尺寸 1:1"}>
+                  <button
+                    type="button"
+                    onClick={() => setZoomed((v) => !v)}
+                    aria-label={zoomed ? "适应窗口" : "原始尺寸 1:1"}
+                    className={toolbarBtn}
+                  >
+                    {zoomed ? <Minimize2 aria-hidden="true" className="h-4 w-4" /> : <Maximize2 aria-hidden="true" className="h-4 w-4" />}
+                  </button>
+                </ToolbarTip>
+              )}
+              <ToolbarTip label="复制 URL">
+                <button
+                  type="button"
+                  onClick={copyUrl}
+                  aria-label="复制 URL"
+                  className={toolbarBtn}
+                >
+                  <Copy aria-hidden="true" className="h-4 w-4" />
+                </button>
+              </ToolbarTip>
+              <ToolbarTip label="新窗口打开原图">
+                <a
+                  href={asset.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="新窗口打开原图"
+                  className={toolbarBtn}
+                >
+                  <ExternalLink aria-hidden="true" className="h-4 w-4" />
+                </a>
+              </ToolbarTip>
+              {onDeleted && (
+                <button
+                  type="button"
+                  onClick={remove}
+                  className="rounded-lg border border-destructive/50 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive hover:bg-destructive/20"
+                >
+                  删除
+                </button>
+              )}
+              <ToolbarTip label="关闭(Esc)">
+                <DialogPrimitive.Close
+                  aria-label="关闭"
+                  className={toolbarBtn}
+                >
+                  <X aria-hidden="true" className="h-4 w-4" />
+                  <span className="sr-only">关闭</span>
+                </DialogPrimitive.Close>
+              </ToolbarTip>
+            </span>
+          </header>
 
-      <footer className="flex items-center gap-3 border-t border-white/10 px-4 py-2 text-xs text-white/50">
-        <span>← → 切换 · Esc 关闭{isVideo ? "" : " · 点击图片切换 1:1"}</span>
-        {copied && <span className="text-[#6ee7b7]">URL 已复制</span>}
-        {error && <span className="text-[#eda9a9]">{error}</span>}
-      </footer>
-    </div>
+          <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
+            {isVideo ? (
+              <video
+                src={asset.url}
+                controls
+                preload="metadata"
+                className="max-h-full max-w-full"
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={asset.url}
+                alt={asset.originalName}
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) setZoomed((v) => !v);
+                }}
+                className={
+                  zoomed
+                    ? "max-w-none cursor-zoom-out"
+                    : "max-h-full max-w-full cursor-zoom-in object-contain"
+                }
+              />
+            )}
+            {items.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  aria-label="上一张"
+                  onClick={() => go(-1)}
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white/90 hover:bg-black/70 ${FOCUS_RING}`}
+                >
+                  <ChevronLeft aria-hidden="true" className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="下一张"
+                  onClick={() => go(1)}
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white/90 hover:bg-black/70 ${FOCUS_RING}`}
+                >
+                  <ChevronRight aria-hidden="true" className="h-5 w-5" />
+                </button>
+                <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs text-white/80">
+                  {index + 1} / {items.length}
+                </span>
+              </>
+            )}
+          </div>
+
+          <footer className="flex items-center gap-3 border-t border-white/10 px-4 py-2 text-xs text-white/50">
+            <span>← → 切换 · Esc 关闭{isVideo ? "" : " · 点击图片切换 1:1"}</span>
+            {copied && <span className="text-success">URL 已复制</span>}
+            {error && <span className="text-destructive">{error}</span>}
+          </footer>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }

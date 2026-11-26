@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "../../src/generated/business";
+import { pickOption } from "./helpers/ui";
 
 /**
  * AI 模型管理台 E2E(LLM 通道重构):AI 管理页「模型」Tab /admin/ai/models 两区块——
@@ -81,8 +82,9 @@ test.describe.serial("admin AI 模型管理台", () => {
     await expect(form).toBeVisible();
 
     // 选预设即预填:协议 openai + 建议 Base URL + 模型 ID placeholder
-    await form.getByLabel("供应商").selectOption({ label: "MiniMax(国内版)" });
-    await expect(form.getByLabel("协议")).toHaveValue("openai");
+    await pickOption(form.getByLabel("供应商"), { label: "MiniMax(国内版)" });
+    // Radix 触发器无 input value:断言触发器显示的协议文案
+    await expect(form.getByLabel("协议")).toContainText("openai 兼容");
     await expect(form.getByLabel("Base URL")).toHaveValue("https://api.minimaxi.com/v1");
     await expect(form.getByLabel("模型 ID")).toHaveAttribute("placeholder", "MiniMax-Text-01");
 
@@ -108,9 +110,10 @@ test.describe.serial("admin AI 模型管理台", () => {
     await form.getByText("向量模型", { exact: true }).click();
     await form.getByText("对话模型", { exact: true }).click();
     await expect(form.getByLabel("协议")).toBeDisabled();
-    await expect(form.getByLabel("协议")).toHaveValue("openai");
+    // Radix 触发器无 input value:断言触发器显示的协议文案
+    await expect(form.getByLabel("协议")).toContainText("openai 兼容");
     await form.getByLabel("名称").fill(GW_B);
-    await form.getByLabel("供应商").selectOption({ label: "智谱 AI" });
+    await pickOption(form.getByLabel("供应商"), { label: "智谱 AI" });
     await expect(form.getByLabel("Base URL")).toHaveValue("https://open.bigmodel.cn/api/paas/v4");
     await form.getByLabel("模型 ID").fill("e2e-aim-emb");
     await form.getByTestId("ai-model-save").click();
@@ -120,16 +123,16 @@ test.describe.serial("admin AI 模型管理台", () => {
     // 绑定卡下拉按规则 30 以「可选中」为水合信号
     const chatCard = page.getByTestId("ai-binding-card-chat");
     await expect(chatCard.getByLabel("主力模型")).toBeEnabled();
-    await chatCard.getByLabel("主力模型").selectOption({ label: CHAT_OPTION });
-    await chatCard.getByLabel("备用模型").selectOption({ label: "未绑定" });
+    await pickOption(chatCard.getByLabel("主力模型"), { label: CHAT_OPTION });
+    await pickOption(chatCard.getByLabel("备用模型"), { label: "未绑定" });
     await chatCard.getByTestId("ai-binding-save-chat").click();
     await expect(chatCard.getByText("已保存")).toBeVisible();
     await expect(page.getByRole("row", { name: new RegExp(GW_A) })).toContainText("对话模型·主力");
 
     // 向量卡绑主力 → 行定位徽章「向量模型·主力」
     const embCard = page.getByTestId("ai-binding-card-embedding");
-    await embCard.getByLabel("主力模型").selectOption({ label: EMB_OPTION });
-    await embCard.getByLabel("备用模型").selectOption({ label: "未绑定" });
+    await pickOption(embCard.getByLabel("主力模型"), { label: EMB_OPTION });
+    await pickOption(embCard.getByLabel("备用模型"), { label: "未绑定" });
     await embCard.getByTestId("ai-binding-save-embedding").click();
     await expect(embCard.getByText("已保存")).toBeVisible();
     await expect(page.getByRole("row", { name: new RegExp(GW_B) })).toContainText("向量模型·主力");
@@ -187,13 +190,13 @@ test.describe.serial("admin AI 模型管理台", () => {
 
     const chatCard = page.getByTestId("ai-binding-card-chat");
     await expect(chatCard.getByLabel("主力模型")).toBeEnabled();
-    await chatCard.getByLabel("主力模型").selectOption({ label: "未绑定" });
+    await pickOption(chatCard.getByLabel("主力模型"), { label: "未绑定" });
     await chatCard.getByTestId("ai-binding-save-chat").click();
     await expect(chatCard.getByText("已保存")).toBeVisible();
 
     const embCard = page.getByTestId("ai-binding-card-embedding");
     await expect(embCard.getByLabel("主力模型")).toBeEnabled();
-    await embCard.getByLabel("主力模型").selectOption({ label: "未绑定" });
+    await pickOption(embCard.getByLabel("主力模型"), { label: "未绑定" });
     await embCard.getByTestId("ai-binding-save-embedding").click();
     await expect(embCard.getByText("已保存")).toBeVisible();
 

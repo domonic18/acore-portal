@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "../../src/generated/business";
+import { pickOption } from "./helpers/ui";
 
 /**
  * 二期商城增强后台 E2E:
@@ -245,15 +246,15 @@ test.describe("商品增强后台(限购/批量/复制)", () => {
     await expect(page.getByRole("link", { name: `E2E 限购商品 ${RUN}` })).toBeVisible();
 
     // 类别筛选与服务类叠加:只留服务类
-    await page.getByLabel("商品类别").selectOption("service");
+    await pickOption(page.getByLabel("商品类别"), { value: "service" });
     await page.getByRole("button", { name: "筛选" }).click();
     await expect(page).toHaveURL(/type=service/);
     await expect(page.getByRole("link", { name: `E2E 限购商品 ${RUN}` })).toHaveCount(0);
 
     // 所属分类筛选:选中夹具分类后仍能看到该分类下的商品
     await page.getByLabel("搜索商品").fill("");
-    await page.getByLabel("商品类别").selectOption("");
-    await page.getByLabel("所属分类").selectOption(categoryId.toString());
+    await pickOption(page.getByLabel("商品类别"), { value: "" });
+    await pickOption(page.getByLabel("所属分类"), { value: categoryId.toString() });
     await page.getByRole("button", { name: "筛选" }).click();
     await expect(page).toHaveURL(/category=/);
     await expect(page.getByRole("link", { name: `E2E 限购商品 ${RUN}` })).toBeVisible();

@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import { Input} from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { errorMessage, requestJson } from "@/lib/api-client";
 import { useHydrated } from "@/lib/use-hydrated";
 import type { RoleBindingView } from "@/lib/ai-models-types";

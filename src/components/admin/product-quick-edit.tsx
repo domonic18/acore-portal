@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import { Input} from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { ProductStatusActions } from "@/components/admin/product-status-actions";
 import { ProductRowCheckbox } from "@/components/admin/product-selection";
@@ -198,7 +199,13 @@ export function ProductQuickEditRow({ product }: { product: QuickEditProduct }) 
         </td>
         <td className="whitespace-nowrap px-3 py-2.5">
           <div className="flex flex-wrap items-center gap-1.5">
-            <Button variant="ghost" size="sm" onClick={startEdit} aria-expanded={open}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={startEdit}
+              aria-expanded={open}
+              aria-controls={open ? `quick-edit-${product.id}` : undefined}
+            >
               快速编辑
             </Button>
             <ProductStatusActions
@@ -212,10 +219,11 @@ export function ProductQuickEditRow({ product }: { product: QuickEditProduct }) 
       </tr>
 
       {open && draft && (
-        <tr data-testid="product-quick-edit-row" className="bg-[#0b1526]/80">
+        <tr id={`quick-edit-${product.id}`} data-testid="product-quick-edit-row" className="bg-[#0b1526]/80">
           <td colSpan={9} className="border-b border-[#22385a]/40 px-6 py-4">
             <form
               data-testid="product-quick-edit-form"
+              aria-label={`快速编辑:${product.name}`}
               onSubmit={(e) => {
                 e.preventDefault();
                 void save();
@@ -229,6 +237,7 @@ export function ProductQuickEditRow({ product }: { product: QuickEditProduct }) 
                 <Field label="原价(积分)">
                   <Input
                     inputMode="numeric"
+                    autoFocus
                     value={draft.price}
                     onChange={(e) => setDraft({ ...draft, price: e.target.value })}
                   />

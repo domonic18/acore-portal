@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useHydrated } from "@/lib/use-hydrated";
 import { errorMessage, requestJson } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { BatchToolbar } from "@/components/admin/batch-toolbar";
 import {
   THREAD_LABEL_OPTIONS,

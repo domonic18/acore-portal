@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { unlink } from "node:fs/promises";
 import path from "node:path";
 import { PrismaClient, type ProgressionNode } from "../../src/generated/business";
+import { pickOption } from "./helpers/ui";
 
 /**
  * 渐进计划后台 WYSIWYG E2E:
@@ -85,14 +86,14 @@ test("admin 时间轴就地编辑+新增+排序+指针 → 前台即时生效", 
   await page.getByTestId("progression-add").click();
   await page.getByTestId("progression-title").fill("E2E 新增阶段");
   await page.getByTestId("progression-body").fill("副本:●E2E 副本");
-  await page.getByTestId("progression-status").selectOption("open");
+  await pickOption(page.getByTestId("progression-status"), { value: "open" });
   await page.getByRole("button", { name: "完成编辑" }).click();
 
   // 上移一位:数组顺序即时间轴顺序
   await cards.last().getByRole("button", { name: "上移阶段" }).click();
 
   // 当前阶段指针钉到第一张卡
-  await page.getByTestId("progression-current").selectOption({ label: "E2E 渐进改" });
+  await pickOption(page.getByTestId("progression-current"), { label: "E2E 渐进改" });
   await expect(page.getByTestId("progression-dirty")).toBeVisible();
 
   await page.getByTestId("progression-save").click();

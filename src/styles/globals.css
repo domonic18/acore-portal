@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 /*
  * 站点主题令牌(2026-11-06 主题系统):
@@ -153,6 +154,60 @@
   --theme-panel-overlay: rgba(11, 23, 40, 0.95);
 }
 
+/* ---------- shadcn/ui 语义层(Radix 组件桥接,2026-11-26 设计稿批准口径) ---------- */
+/*
+ * 语义变量只在此处声明一次:值引用 var(--theme-*),而 var() 在**声明元素**上按
+ * 该元素的主题解析(html 带 data-theme=wlk 时 --theme-* 已翻转),故双主题自动
+ * 跟随,勿在 wlk 块重复声明。后台控制台经 [data-admin-scope] 覆写为 admin hex;
+ * Radix Portal 弹层挂在 body、不在 admin 子树内,由调用方在弹层根元素补
+ * data-admin-scope 属性获得同款令牌。
+ */
+:root {
+  --background: var(--theme-page);
+  --card: var(--theme-panel-strong);
+  --popover: var(--theme-panel-strong);
+  --primary: var(--theme-highlight-deep);
+  --primary-foreground: var(--theme-ink);
+  --secondary: var(--theme-panel);
+  --secondary-foreground: var(--theme-foreground);
+  --border: var(--theme-line);
+  --ring: var(--theme-accent);
+  /* 扩展语义变量:前台取主题等价物,后台经 [data-admin-scope] 钉为控制台 hex;
+   * 状态三色的消费面全在后台(ui/ 基件),前台无消费者,故直接写字面量 */
+  --foreground: var(--theme-foreground);
+  --muted-foreground: var(--theme-muted);
+  --faint-foreground: var(--theme-muted);
+  --border-strong: var(--theme-line-strong);
+  --hover: var(--theme-surface-hover);
+  --primary-bright: var(--theme-link-hover);
+  --success: #6ee7b7;
+  --success-solid: #34d399;
+  --warning: #e8c877;
+  --destructive: #eda9a9;
+  /* 弹层规格:控件圆角 8px / 弹层圆角 10px(设计稿 2026-11-26) */
+  --radius-control: 0.5rem;
+  --radius-overlay: 0.625rem;
+}
+
+/* 后台深色控制台作用域:语义层覆写(值与 admin-tokens 旧 hex 同源) */
+[data-admin-scope] {
+  --background: #0b1526;
+  --card: #13233a;
+  --popover: #13233a;
+  --primary: #6fb7e0;
+  --primary-foreground: #081120;
+  --secondary: #13233a;
+  --secondary-foreground: #dcebf7;
+  --border: #22385a;
+  --ring: #6fb7e0;
+  --foreground: #dcebf7;
+  --muted-foreground: #93b2ce;
+  --faint-foreground: #6482a3;
+  --border-strong: #3a587e;
+  --hover: #16283f;
+  --primary-bright: #a8d9f5;
+}
+
 /* ---------- Tailwind 工具类桥接 ---------- */
 @theme inline {
   --color-page: var(--theme-page);
@@ -178,7 +233,7 @@
   --color-line-menu: var(--theme-line-menu);
   --color-separator: var(--theme-separator);
 
-  --color-foreground: var(--theme-foreground);
+  --color-foreground: var(--foreground);
   --color-heading: var(--theme-heading);
   --color-body: var(--theme-body);
   --color-muted: var(--theme-muted);
@@ -211,6 +266,32 @@
   --color-ally-text: var(--theme-ally-text);
   --color-horde: var(--theme-horde);
   --color-horde-text: var(--theme-horde-text);
+
+  /* shadcn 语义工具类(bg-background / bg-popover / bg-primary …) */
+  --color-background: var(--background);
+  --color-card: var(--card);
+  --color-popover: var(--popover);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-faint-foreground: var(--faint-foreground);
+  --color-border-strong: var(--border-strong);
+  --color-hover: var(--hover);
+  --color-primary-bright: var(--primary-bright);
+  --color-success: var(--success);
+  --color-success-solid: var(--success-solid);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
+  --radius-control: var(--radius-control);
+  --radius-overlay: var(--radius-overlay);
+
+  /* 弹层双层阴影(设计稿口径:近影 + 远景晕) */
+  --shadow-pop: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 12px 32px -6px rgb(0 0 0 / 0.45);
+  --shadow-overlay: 0 4px 6px -1px rgb(0 0 0 / 0.35), 0 16px 40px -8px rgb(0 0 0 / 0.5);
 }
 
 /* ---------- 基础背景与文字 ---------- */

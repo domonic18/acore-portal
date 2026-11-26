@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "../../src/generated/business";
 import { hashPhpass } from "../../src/lib/auth/phpass";
+import { pickOption } from "./helpers/ui";
 
 /**
  * M4 用户角色权限管理 E2E:
@@ -72,8 +73,7 @@ test("改角色落库+审计+会话重置提示;列表只读徽章;角色 tab �
   await expect(page).toHaveURL(new RegExp(`/admin/users/${userId}$`));
 
   const roleSelect = page.getByLabel("角色");
-  await expect(roleSelect).toBeEnabled(); // 水合同步点:水合前改动会丢 onChange
-  await roleSelect.selectOption("moderator");
+  await pickOption(roleSelect, { value: "moderator" });
   await page.getByRole("button", { name: "分配角色" }).click();
   await expect(page.getByText("已保存,该用户会话已重置")).toBeVisible();
 
@@ -102,8 +102,7 @@ test("自改拒绝:m1admin 改自己角色 → 422 提示且角色不变", async
   await login(page, "m1admin", "adminpass123");
   await page.goto(`/admin/users/${adminId}`);
   const selfSelect = page.getByLabel("角色");
-  await expect(selfSelect).toBeEnabled(); // 水合同步点
-  await selfSelect.selectOption("user");
+  await pickOption(selfSelect, { value: "user" });
   await page.getByRole("button", { name: "分配角色" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "不能修改自己的角色" })).toBeVisible();
 

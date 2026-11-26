@@ -6,7 +6,8 @@ import { MarkdownEditor } from "@/components/admin/markdown-editor";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Input, Select } from "@/components/ui/input";
+import { Input} from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { errorMessage, requestJson } from "@/lib/api-client";
 
 /** 静态页表单(T032,FR-216):slug 保留字/冲突错误由服务端 422 原样呈现 */

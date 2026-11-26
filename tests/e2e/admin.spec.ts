@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "../../src/generated/business";
+import { pickOption } from "./helpers/ui";
 
 /**
  * T055 US5 运营后台 E2E(quickstart S5):
@@ -216,9 +217,9 @@ test.describe("US5 运营后台(T055)", () => {
     // 列表页有「图」列(缩略图/占位)
     await page.goto("/admin/products");
     await expect(page.getByRole("columnheader", { name: "图" })).toBeVisible();
-    // 媒体管理页:上传可选 FileBird 分类
+    // 媒体管理页:上传可选 FileBird 分类(默认「其他」,切到「商店配图」)
     await page.goto("/admin/media");
-    await expect(page.getByLabel("上传分类")).toBeVisible();
+    await pickOption(page.getByLabel("上传分类"), { label: "商店配图" });
     await expect(page.getByLabel("上传分类")).toContainText("商店配图");
   });
 
