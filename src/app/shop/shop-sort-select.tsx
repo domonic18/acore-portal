@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { SHOP_SORT_OPTIONS } from "@/constants/shop";
 import { buildShopHref, type ShopQuery } from "@/lib/shop-query";
 import { useHydrated } from "@/lib/use-hydrated";
+import { Select } from "@/components/ui/select";
 
 /**
  * 商城排序下拉:切换即改 URL(排序进 URL ⇒ 可分享可回退)。
@@ -15,7 +16,7 @@ export function ShopSortSelect({ query }: { query: ShopQuery }) {
   const hydrated = useHydrated();
 
   return (
-    <select
+    <Select
       value={query.sort}
       disabled={!hydrated}
       aria-label="排序方式"
@@ -24,13 +25,13 @@ export function ShopSortSelect({ query }: { query: ShopQuery }) {
         if (!next) return;
         router.push(buildShopHref(query, { sort: next.value, page: 1 }));
       }}
-      className="bg-transparent py-2.5 text-[13.5px] text-foreground outline-none disabled:opacity-60"
+      className="w-auto min-w-0 border-0 bg-transparent px-0 py-2.5 text-[13.5px] focus-visible:ring-2"
     >
       {SHOP_SORT_OPTIONS.map((option) => (
-        <option key={option.value} value={option.value} className="bg-panel text-foreground">
+        <option key={option.value} value={option.value}>
           {option.label}
         </option>
       ))}
-    </select>
+    </Select>
   );
 }

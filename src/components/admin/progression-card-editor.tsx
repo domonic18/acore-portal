@@ -3,7 +3,8 @@
 import type { RefObject } from "react";
 import { formatPhaseDate } from "@/components/site/progression-timeline";
 import { Button } from "@/components/ui/button";
-import { Input, Select, Textarea } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { FOCUS_RING } from "@/components/ui/admin-tokens";
 
 /**

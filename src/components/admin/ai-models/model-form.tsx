@@ -5,7 +5,8 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { CheckChip } from "@/components/ui/check-chip";
-import { Input, Select } from "@/components/ui/input";
+import { Input} from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { errorMessage, requestJson } from "@/lib/api-client";
 import type { AiModelAdminView, AiModelProbeResult } from "@/lib/ai-models-types";
 import {

@@ -6,7 +6,7 @@ import { ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { useHydrated } from "@/lib/use-hydrated";
 import { errorMessage, requestJson } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
-import { FOCUS_RING } from "@/components/ui/admin-tokens";
+import { Select } from "@/components/ui/select";
 
 export type FeaturedProduct = {
   id: string;
@@ -120,12 +120,12 @@ export function FeaturedManager({
 
       {candidates.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
-          <select
+          <Select
             aria-label="选择商品"
             value={candidateId}
             onChange={(e) => setCandidateId(e.target.value)}
             disabled={disabled}
-            className={`min-w-[280px] flex-1 rounded-lg border border-[#22385a] bg-[#0b1526] px-3 py-2 text-sm text-[#dcebf7] ${FOCUS_RING}`}
+            className="min-w-[280px] flex-1 py-2 text-sm"
           >
             <option value="">选择要加入精选的商品(已上架且目录可见)…</option>
             {candidates.map((c) => (
@@ -133,7 +133,7 @@ export function FeaturedManager({
                 {c.name}({c.price} 积分)
               </option>
             ))}
-          </select>
+          </Select>
           <Button type="button" variant="primary" disabled={disabled || !candidateId} onClick={add}>
             <Plus aria-hidden="true" className="h-4 w-4" />
             加入精选

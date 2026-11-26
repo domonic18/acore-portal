@@ -9,6 +9,7 @@ import {
 } from "@/constants/forum";
 import { errorMessage, requestJson } from "@/lib/api-client";
 import { useHydrated } from "@/lib/use-hydrated";
+import { Select } from "@/components/ui/select";
 
 /**
  * 版主操作条(T040,FR-220):仅 moderator/admin 服务端渲染可见;
@@ -100,18 +101,18 @@ export function ModeratorActions({
       </button>
       <label className="flex items-center gap-1 text-muted">
         状态标签
-        <select
+        <Select
           disabled={busy || !hydrated}
           value={statusLabel}
           onChange={(e) => act("/label", "POST", { label: e.target.value })}
-          className="rounded border border-line-strong bg-panel-inset px-1 py-1 text-foreground"
+          className="w-auto rounded-md border-line-strong bg-panel-inset px-1 py-1"
         >
           {THREAD_LABEL_OPTIONS.map((v) => (
             <option key={v} value={v}>
               {THREAD_STATUS_TEXT[v]}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       <button
         type="button"

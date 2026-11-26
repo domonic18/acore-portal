@@ -1,6 +1,7 @@
 "use client";
 
 import { className, raceName } from "@/constants/characters";
+import { Select } from "@/components/ui/select";
 
 /**
  * T025 角色选择组件(仅本人角色;服务端归属校验在 POST /api/cart 链,
@@ -28,11 +29,11 @@ export function CharacterSelect({
   return (
     <label className="flex flex-col gap-1 text-sm">
       <span className="text-muted">选择角色</span>
-      <select
+      <Select
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled || characters.length === 0}
-        className="rounded border border-line bg-panel-inset px-3 py-2 text-foreground disabled:opacity-50"
+        className="border-line bg-panel-inset py-2 text-[13.5px]"
       >
         <option value="">{characters.length === 0 ? "名下暂无角色" : "请选择角色"}</option>
         {characters.map((c) => (
@@ -40,7 +41,7 @@ export function CharacterSelect({
             {c.name} · {raceName(c.race)} {className(c.class)} · Lv{c.level}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   );
 }

@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { MEDIA_CATEGORIES, MEDIA_DEFAULT_CATEGORY } from "@/constants/media";
 import { prepareUploadFile } from "@/lib/media/prepare-upload";
-import { Input, Select } from "@/components/ui/input";
+import { Input} from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { FOCUS_RING } from "@/components/ui/admin-tokens";
 import { MediaLightbox } from "@/components/admin/media-lightbox";
 import { errorMessage, requestJson } from "@/lib/api-client";

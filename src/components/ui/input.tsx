@@ -18,19 +18,3 @@ export function Textarea({
 }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea {...rest} className={twMerge(`${FIELD} leading-6`, className)} />;
 }
-
-/** 后台统一下拉(原生 select,option 继承深色) */
-export function Select({
-  className = "",
-  ...rest
-}: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select
-      {...rest}
-      className={twMerge(
-        `${FIELD} appearance-none bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%236482a3%22 stroke-width=%222%22><path d=%22m6 9 6 6 6-6%22/></svg>')] bg-[position:right_0.6rem_center] bg-no-repeat pr-8`,
-        className,
-      )}
-    />
-  );
-}

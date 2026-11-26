@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { USER_ROLES } from "@/constants/roles";
 import { errorMessage, requestJson } from "@/lib/api-client";
 import { needsElevationConfirm } from "@/lib/role-elevation";
