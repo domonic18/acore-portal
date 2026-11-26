@@ -2,15 +2,17 @@
  * 论坛域常量(M3):状态标签中文映射(Q3 字段化)
  *
  * 状态取值与 forum_thread.status_label 枚举一一对应(单一真相源):
- *   none       —— 无标签
- *   resolved   —— 已解决
- *   needs_info —— 请补充(版主提示发帖人补充更多信息,站内信通知作者)
- *   closed     —— 已关闭(不可回帖;closed_at 同步落关闭时间)
+ *   none        —— 无标签
+ *   resolved    —— 已解决
+ *   needs_info  —— 请补充(版主提示发帖人补充更多信息,站内信通知作者)
+ *   in_progress —— 处理中(版主已受理,正在跟进/等待修复排期)
+ *   closed      —— 已关闭(不可回帖;closed_at 同步落关闭时间)
  */
 export const THREAD_STATUS_LABEL = {
   none: "",
   resolved: "已解决",
   needs_info: "请补充",
+  in_progress: "处理中",
   closed: "已关闭",
 } as const;
 
@@ -22,6 +24,7 @@ export const THREAD_LABEL_OPTIONS = [
   "none",
   "resolved",
   "needs_info",
+  "in_progress",
   "closed",
 ] as const;
 
