@@ -1,13 +1,20 @@
 import { prisma } from "@/lib/db";
+import { Prisma } from "@/generated/business";
 import {
   FORUM_POST_PAGE_SIZE,
   FORUM_THREAD_PAGE_SIZE,
 } from "@/constants/pagination";
+import {
+  FORUM_BOARD_TABS,
+  type ForumBoardTabKey,
+} from "@/constants/forum";
+import { MODERATOR_ROLE_VALUES } from "@/constants/roles";
 
 /**
  * 论坛浏览查询层(T038,FR-219;2026-11-04 开放登录用户发帖回帖,写路径见 write.ts/moderate.ts):
  * 版块列表(聚合主题数/回复数;#57 后前台不再展示板块内最新主题)/版块主题列表 20/页
- * (pinned desc+lastPostAt desc)/主题楼层 20/页(floor asc);软删(deletedAt)全域过滤;阅读数原子自增(R2 Q7 口径)。
+ * (筛选 tab:latest=lastPostAt/hot=viewCount/replies=replyCount/featured=仅加精,置顶恒先)
+ * /主题楼层 20/页(floor asc);软删(deletedAt)全域过滤;阅读数原子自增(R2 Q7 口径)。
  */
 export async function listForumBoards() {
   const [boards, replyTotals] = await Promise.all([
@@ -118,18 +125,77 @@ export async function getForumBoardBySlug(slug: string) {
   return prisma.forumBoard.findUnique({ where: { slug } });
 }
 
+/** 版块头统计(主题数在列表查询已有,这里补回复数与精华数,供头部与筛选 chip) */
+export async function getForumBoardStats(boardId: bigint) {
+  const [replySum, featuredCount] = await Promise.all([
+    prisma.forumThread.aggregate({
+      where: { boardId, deletedAt: null },
+      _sum: { replyCount: true },
+    }),
+    prisma.forumThread.count({
+      where: { boardId, deletedAt: null, featured: true },
+    }),
+  ]);
+  return { replyCount: replySum._sum.replyCount ?? 0, featuredCount };
+}
+
+/** 版块头版主组:论坛版主是全局角色(moderator|admin),不按版块划分 */
+export async function listForumModerators(limit = 5) {
+  const users = await prisma.user.findMany({
+    where: { role: { in: [...MODERATOR_ROLE_VALUES] }, status: "active" },
+    select: { username: true },
+    orderBy: { id: "asc" },
+    take: limit,
+  });
+  return users.map((u) => u.username);
+}
+
+/** 主贴是否含图:floor=1 内容(存量=HTML / 新帖=Markdown)命中图片语法即视为带图 */
+function postHasImage(content: string): boolean {
+  return /<img[\s>]/i.test(content) || /!\[[^\]]*\]\([^)]+\)/.test(content);
+}
+
+/** 本页主题的最近回帖人(设计稿「最后回复」列;窗口函数一次取全页,免 N+1) */
+async function mapLastRepliers(threadIds: bigint[]): Promise<Map<string, string>> {
+  if (threadIds.length === 0) return new Map();
+  const rows = await prisma.$queryRaw<{ thread_id: bigint; author_name: string }[]>(Prisma.sql`
+    SELECT thread_id, author_name
+    FROM (
+      SELECT thread_id, author_name,
+             ROW_NUMBER() OVER (PARTITION BY thread_id ORDER BY created_at DESC, id DESC) AS rn
+      FROM forum_post
+      WHERE deleted_at IS NULL AND thread_id IN (${Prisma.join(threadIds)})
+    ) ranked
+    WHERE rn = 1
+  `);
+  return new Map(rows.map((r) => [r.thread_id.toString(), r.author_name]));
+}
+
 export async function listBoardThreads(opts: {
   boardId: bigint;
   page?: number;
   pageSize?: number;
+  tab?: ForumBoardTabKey;
 }) {
   const page = Math.max(1, opts.page ?? 1);
   const pageSize = Math.min(50, Math.max(1, opts.pageSize ?? FORUM_THREAD_PAGE_SIZE));
-  const where = { boardId: opts.boardId, deletedAt: null };
-  const [items, total] = await Promise.all([
+  const tab: ForumBoardTabKey =
+    opts.tab && FORUM_BOARD_TABS.some((t) => t.key === opts.tab) ? opts.tab : "latest";
+  const where: Prisma.ForumThreadWhereInput = {
+    boardId: opts.boardId,
+    deletedAt: null,
+    ...(tab === "featured" ? { featured: true } : {}),
+  };
+  const orderBy: Prisma.ForumThreadOrderByWithRelationInput[] =
+    tab === "hot"
+      ? [{ pinned: "desc" }, { viewCount: "desc" }]
+      : tab === "replies"
+        ? [{ pinned: "desc" }, { replyCount: "desc" }]
+        : [{ pinned: "desc" }, { lastPostAt: "desc" }];
+  const [threads, total] = await Promise.all([
     prisma.forumThread.findMany({
       where,
-      orderBy: [{ pinned: "desc" }, { lastPostAt: "desc" }],
+      orderBy,
       skip: (page - 1) * pageSize,
       take: pageSize,
       select: {
@@ -144,10 +210,30 @@ export async function listBoardThreads(opts: {
         viewCount: true,
         replyCount: true,
         lastPostAt: true,
+        createdAt: true,
       },
     }),
     prisma.forumThread.count({ where }),
   ]);
+
+  // 行级图形化信息批量补齐:主贴带图 + 最近回帖人(各一次查询,免行内 N+1)
+  const ids = threads.map((t) => t.id);
+  const [floorOnePosts, lastReplierByThread] = await Promise.all([
+    prisma.forumPost.findMany({
+      where: { threadId: { in: ids }, floor: 1, deletedAt: null },
+      select: { threadId: true, contentHtml: true },
+    }),
+    mapLastRepliers(ids),
+  ]);
+  const hasImageByThread = new Map(
+    floorOnePosts.map((p) => [p.threadId.toString(), postHasImage(p.contentHtml)]),
+  );
+
+  const items = threads.map((t) => ({
+    ...t,
+    hasImage: hasImageByThread.get(t.id.toString()) ?? false,
+    lastReplierName: lastReplierByThread.get(t.id.toString()) ?? t.authorName,
+  }));
   return { items, total, page, pageSize };
 }
 

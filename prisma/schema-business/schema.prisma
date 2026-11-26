@@ -110,11 +110,12 @@ enum ProgressionStatus {
   @@map("progression_status")
 }
 
-/// 论坛状态标签(Q3 字段化:【已解决】【请补充】【已关闭】;closed 同步落 closed_at,关闭后禁回帖)
+/// 论坛状态标签(Q3 字段化:【已解决】【请补充】【已关闭】;2026-11-25 增补【处理中】)
 enum ThreadStatusLabel {
   none
   resolved
   needs_info
+  in_progress
   closed
 
   @@map("thread_status_label")
