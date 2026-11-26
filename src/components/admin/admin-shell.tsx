@@ -43,7 +43,7 @@ export function AdminShell({
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] flex-col bg-[#081120] lg:min-h-screen lg:flex-row">
+    <div data-admin-scope className="flex min-h-[calc(100vh-4rem)] flex-col bg-[#081120] lg:min-h-screen lg:flex-row">
       {/* 移动端导航=顶栏汉堡抽屉(#44);品牌区+横滑条仅桌面显示 */}
       <header className="hidden border-b border-[#22385a] bg-[#0b1526] lg:block lg:sticky lg:top-0 lg:h-screen lg:w-[232px] lg:overflow-y-auto lg:border-b-0 lg:border-r lg:py-5">
         <div className="flex items-center gap-3 px-4 pb-3 pt-4 lg:px-6 lg:pb-6 lg:pt-0">
