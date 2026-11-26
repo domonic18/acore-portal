@@ -72,10 +72,16 @@ export function Select({
   ...rest
 }: SelectProps) {
   const options = React.useMemo(() => collectOptions(children), [children]);
-  const radixValue = value === undefined ? undefined : toRadix(String(value));
-  const radixDefault = defaultValue === undefined ? undefined : toRadix(String(defaultValue));
+  // 内部镜像状态:非受控用法(无 value/onChange,常见于 GET 筛选表单)也要让
+  // sr-only 提交用 select 跟随点选,否则表单提交的是 defaultValue 而非当前选择
+  const [inner, setInner] = React.useState(() =>
+    defaultValue === undefined ? "" : String(defaultValue),
+  );
+  const isControlled = value !== undefined;
+  const radixValue = isControlled ? toRadix(String(value)) : toRadix(inner);
 
   const handleValueChange = (next: string) => {
+    setInner(fromRadix(next));
     onChange?.({
       target: { value: fromRadix(next), name },
     } as React.ChangeEvent<HTMLSelectElement>);
@@ -85,7 +91,6 @@ export function Select({
     <>
       <SelectPrimitive.Root
         value={radixValue}
-        defaultValue={radixDefault}
         onValueChange={handleValueChange}
         disabled={disabled}
       >
@@ -122,8 +127,9 @@ export function Select({
                   key={option.value}
                   value={toRadix(option.value)}
                   disabled={option.disabled}
+                  data-value={option.value}
                   className={cn(
-                    "flex h-8 cursor-default select-none items-center gap-2 rounded-md px-2 text-[13px] outline-none focus:bg-panel focus:text-heading data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+                    "flex h-8 cursor-default select-none items-center gap-2 rounded-md px-2 text-[13px] outline-none data-[highlighted]:bg-panel data-[highlighted]:text-heading data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
                   )}
                 >
                   <SelectPrimitive.ItemIndicator asChild>
@@ -146,7 +152,7 @@ export function Select({
           aria-hidden="true"
           tabIndex={-1}
           name={name}
-          value={radixValue === undefined ? String(defaultValue ?? "") : String(value)}
+          value={isControlled ? String(value) : inner}
           onChange={() => {}}
           disabled={disabled}
           className="sr-only"

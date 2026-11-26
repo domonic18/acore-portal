@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "../../src/generated/business";
+import { pickOption } from "./helpers/ui";
 
 /**
  * 商城左栏分面 E2E(FR-109 重构后):
@@ -121,8 +122,7 @@ test.describe("商城分面筛选", () => {
   test("E5 排序下拉切换 + URL 参数正确", async ({ page }) => {
     await page.goto(`/shop?category=${PARENT.slug}`);
     const select = page.getByRole("combobox", { name: "排序方式" });
-    await expect(select).toBeEnabled();
-    await select.selectOption("price_asc");
+    await pickOption(select, { value: "price_asc" });
     await expect(page).toHaveURL(/[?&]sort=price_asc/);
     const order = await cards(page).evaluateAll((els) =>
       els.map((e) => e.getAttribute("href") ?? ""),
@@ -131,7 +131,7 @@ test.describe("商城分面筛选", () => {
     expect(order.indexOf(`/shop/${P2.slug}`)).toBeLessThan(order.indexOf(`/shop/${P3.slug}`));
 
     // 降序相反
-    await select.selectOption("price_desc");
+    await pickOption(select, { value: "price_desc" });
     await expect(page).toHaveURL(/[?&]sort=price_desc/);
     const desc = await cards(page).evaluateAll((els) =>
       els.map((e) => e.getAttribute("href") ?? ""),

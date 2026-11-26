@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "../../src/generated/business";
+import { pickOption } from "./helpers/ui";
 
 /**
  * M4 后台论坛管理 E2E:
@@ -117,12 +118,11 @@ test("管理闭环:置顶/关闭/标签/删除/回收站恢复 全落库+审计"
   await expect(row.getByRole("button", { name: "取消置顶" })).toBeEnabled(); // refresh 后态翻转
   // 状态标签与关闭态同源:下拉选「已关闭」即关帖,切「已解决」即重开(closed_at 同写)
   const labelSelect = row.getByLabel("状态标签");
-  await expect(labelSelect).toBeEnabled();
-  await labelSelect.selectOption("resolved");
-  await expect(labelSelect).toHaveValue("resolved");
+  await pickOption(labelSelect, { value: "resolved" });
+  await expect(labelSelect).toContainText("已解决");
   await row.getByRole("button", { name: "关闭", exact: true }).click();
   await expect(row.getByRole("button", { name: "开放" })).toBeEnabled();
-  await expect(labelSelect).toHaveValue("closed");
+  await expect(labelSelect).toContainText("已关闭");
 
   let db = await prisma.forumThread.findUniqueOrThrow({ where: { id: BigInt(threadId) } });
   expect(db.pinned).toBe(true);
@@ -130,8 +130,8 @@ test("管理闭环:置顶/关闭/标签/删除/回收站恢复 全落库+审计"
   expect(db.statusLabel).toBe("closed");
 
   // 切回「已解决」即重开(closed_at 同清)
-  await labelSelect.selectOption("resolved");
-  await expect(labelSelect).toHaveValue("resolved");
+  await pickOption(labelSelect, { value: "resolved" });
+  await expect(labelSelect).toContainText("已解决");
   db = await prisma.forumThread.findUniqueOrThrow({ where: { id: BigInt(threadId) } });
   expect(db.closedAt).toBeNull();
   expect(db.statusLabel).toBe("resolved");
@@ -182,8 +182,7 @@ test("批量设状态:多选两个主题一次设为已关闭/已解决(落库+�
   await expect(toolbar.getByText("已选 2 个主题")).toBeVisible();
 
   const bulkStatus = page.getByLabel("批量状态");
-  await expect(bulkStatus).toBeEnabled();
-  await bulkStatus.selectOption("closed");
+  await pickOption(bulkStatus, { value: "closed" });
   await toolbar.getByRole("button", { name: "应用状态" }).click();
 
   // 已关闭:徽标同写(closed_at 非空时以关闭态为准)
@@ -199,7 +198,7 @@ test("批量设状态:多选两个主题一次设为已关闭/已解决(落库+�
   // 切「已解决」即重开(closed_at 同清)
   await cbA.check();
   await cbB.check();
-  await bulkStatus.selectOption("resolved");
+  await pickOption(bulkStatus, { value: "resolved" });
   await toolbar.getByRole("button", { name: "应用状态" }).click();
   await expect(rowA.getByText("【已解决】")).toBeVisible();
   await expect(rowB.getByText("【已解决】")).toBeVisible();

@@ -154,8 +154,11 @@ export function AssistantDrawer(): React.ReactElement {
       {panelMounted && (
         // 关闭只切 CSS 隐藏:forceMount 常驻挂载,面板 runtime 对话状态不丢
         // (问题3 反馈:重开要看到上次对话,勿改成卸载)。modal={false}:非模态
-        // 抽屉,不整页 aria-hidden/不锁滚动/不困焦点(与旧 fixed 面板同语义),
-        // Esc 关闭由底座接管。
+        // 抽屉,不整页 aria-hidden/不锁滚动/不困焦点(与旧 fixed 面板同语义);
+        // Esc 不关闭是产品口径(输入误按不丢面板,关闭只走 ✕),拦掉底座的
+        // Escape 收起。forceMount 的代价:关闭态 DismissableLayer 仍在文档上
+        // 监听,点球重开的 pointerdown 会被当成「外部交互」把刚打开的面板
+        // 再次关掉(E2E 实测复现)——关闭只走 ✕,外部交互一律不收敛。
         <Drawer
           modal={false}
           open={open}
@@ -166,6 +169,9 @@ export function AssistantDrawer(): React.ReactElement {
           <DrawerContent
             forceMount
             aria-describedby={undefined}
+            onEscapeKeyDown={(e) => e.preventDefault()}
+            onPointerDownOutside={(e) => e.preventDefault()}
+            onFocusOutside={(e) => e.preventDefault()}
             className={`w-full max-w-[420px] border-line-strong bg-panel shadow-[-24px_0_60px_-24px_rgba(0,0,0,0.9)] ${
               open ? "" : "hidden"
             }`}

@@ -154,7 +154,7 @@ test.describe.serial("AI 助手(M9)", () => {
   test("游客抽屉发消息 → 401 横幅", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "打开 AI 助手" }).click();
-    await expect(page.getByRole("dialog", { name: "AI 助手" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "小塔助手" })).toBeVisible();
     await fillComposer(page, "介绍一下站点");
     await page.getByRole("button", { name: "发送" }).click();
     await expect(page.getByText("请先登录后使用助手")).toBeVisible();
@@ -217,7 +217,7 @@ test.describe.serial("AI 助手(M9)", () => {
     await page.goto("/");
     const ball = page.getByRole("button", { name: "打开 AI 助手" });
     await ball.click();
-    const dialog = page.getByRole("dialog", { name: "AI 助手" });
+    const dialog = page.getByRole("dialog", { name: "小塔助手" });
     await expect(dialog).toBeVisible();
     await fillComposer(page, "介绍一下站点");
     await page.getByRole("button", { name: "发送" }).click();

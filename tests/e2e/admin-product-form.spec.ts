@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "../../src/generated/business";
+import { pickOption } from "./helpers/ui";
 
 /**
  * 商品编辑台 E2E(两栏重构后的交互基线):
@@ -147,8 +148,8 @@ test.describe("商品编辑台(物品选择器 / SKU 派生 / 图片面板)", ()
 
     await page.getByRole("group", { name: "商品类型" }).getByRole("button", { name: "服务类" }).click();
     const serviceSelect = page.getByLabel("服务类型", { exact: true });
-    await serviceSelect.selectOption("char-change-name");
-    await expect(serviceSelect).toHaveValue("char-change-name");
+    await pickOption(serviceSelect, { value: "char-change-name" });
+    await expect(serviceSelect).toContainText("角色改名");
     // 服务类的 SKU 只是商品唯一标识:自动取处理器键,不可手改(发货依据是 handler_key)
     const sku = page.getByLabel("SKU", { exact: true });
     await expect(sku).toHaveValue("char-change-name");

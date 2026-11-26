@@ -119,7 +119,8 @@ test.describe("US3 通知域(quickstart S3)", () => {
     const toast = page.getByTestId("unread-toast");
     await expect(toast).toBeVisible();
     await expect(toast).toContainText("1 条新通知");
-    await toast.click();
+    // sonner 弹泡的跳转入口是「查看」动作按钮(整泡点击不再导航)
+    await toast.getByRole("button", { name: "查看" }).click();
     await expect(page).toHaveURL(/\/account\/notifications$/);
     await expect(page.getByTestId("inbox-item").first()).toContainText(
       "积分入账 +50",
