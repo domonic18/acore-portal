@@ -167,7 +167,7 @@ export async function closeThread(id: bigint, closed: boolean, actor: Actor) {
 }
 
 /**
- * 状态标签流转(状态下拉):none/resolved/needs_info/closed 均可选
+ * 状态标签流转(状态下拉):none/resolved/needs_info/in_progress/closed 均可选
  * (选 closed 即关闭主题,关闭后不再接受回帖)。
  */
 export async function labelThread(id: bigint, label: string, actor: Actor) {

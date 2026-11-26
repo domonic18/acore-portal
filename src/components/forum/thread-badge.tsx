@@ -5,6 +5,8 @@ import {
 
 const STATUS_TONE: Partial<Record<ThreadStatusLabelValue, string>> = {
   resolved: "border-ok/35 bg-ok/12 text-ok-text",
+  // 处理中=蓝(版主已受理、跟进中),与已解决·绿/请补充·黄/已关闭·灰四态色区分
+  in_progress: "border-link/35 bg-link/12 text-link",
   needs_info: "border-warn/35 bg-warn/12 text-warn",
   closed: "border-body/30 bg-body/15 text-body",
 };

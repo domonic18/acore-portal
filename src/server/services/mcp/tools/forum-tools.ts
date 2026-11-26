@@ -77,7 +77,7 @@ const setThreadLabelSchema = z.object({
     .enum(THREAD_LABEL_OPTIONS)
     .describe(
       "目标状态标签:none(重置未标记)/resolved(已处理)/needs_info(需补充信息)/" +
-        "closed(关闭并禁回帖)",
+        "in_progress(处理中)/closed(关闭并禁回帖)",
     ),
 });
 

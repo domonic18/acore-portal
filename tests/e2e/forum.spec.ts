@@ -375,6 +375,63 @@ test.describe("US5 论坛(T041)", () => {
     await expect(page.getByText("后可回帖;游客仅可浏览。")).toBeVisible();
   });
 
+  // 版块页改版(2026-11-26 用户反馈五项):筛选 chips/版主组/处理中徽标/行图形化
+  test("版块页改版:筛选 chips/版主组/处理中徽标/带图·热帖·回复气泡·新角标", async ({ page }) => {
+    const moderator = await prisma.user.findUniqueOrThrow({
+      where: { username: "m3moderator" },
+      select: { id: true },
+    });
+    const thread = await prisma.forumThread.create({
+      data: {
+        boardId,
+        title: `E2E 改版图形化主题 ${RUN}`,
+        authorUserId: moderator.id,
+        authorName: "m3moderator",
+        statusLabel: "in_progress",
+        replyCount: 12,
+        lastPostAt: new Date(),
+        legacyWpTopicId: 9_951_001,
+      },
+    });
+    await prisma.forumPost.create({
+      data: {
+        threadId: thread.id,
+        floor: 1,
+        authorUserId: moderator.id,
+        authorName: "m3moderator",
+        contentHtml: '<p>启动报错日志截图</p><img src="/uploads/e2e-board-upgrade.png" alt="log">',
+        legacyWpPostId: 9_952_001,
+      },
+    });
+    try {
+      await page.goto(`/forum/${BOARD_SLUG}`);
+
+      // 筛选 chips:四个 tab 可见,默认最新;精华 tab 切换走 URL 参数
+      await expect(page.getByRole("link", { name: "最新", exact: true })).toBeVisible();
+      await expect(page.getByRole("link", { name: "热门", exact: true })).toBeVisible();
+      await expect(page.getByRole("link", { name: "热帖", exact: true })).toBeVisible();
+      await page.getByRole("link", { name: /^精华/ }).click();
+      await expect(page).toHaveURL(new RegExp(`filter=featured`));
+      await expect(page.getByText("暂无主题。", { exact: true })).toBeVisible();
+      await page.goto(`/forum/${BOARD_SLUG}?filter=replies`);
+      await expect(page).toHaveURL(/filter=replies/);
+
+      // 版主组:版块头展示 moderator/admin 账号
+      await page.goto(`/forum/${BOARD_SLUG}`);
+      await expect(page.getByText("版主:")).toBeVisible();
+      await expect(page.getByText("m3moderator").first()).toBeVisible();
+
+      // 行图形化:处理中徽标(蓝)/带图标识/热帖火焰/回复气泡/新角标
+      await expect(page.getByText("【处理中】")).toBeVisible();
+      await expect(page.getByLabel("主贴含图片")).toBeVisible();
+      await expect(page.getByLabel("热帖")).toBeVisible();
+      await expect(page.getByText("新", { exact: true }).first()).toBeVisible();
+    } finally {
+      await prisma.forumPost.deleteMany({ where: { threadId: thread.id } });
+      await prisma.forumThread.delete({ where: { id: thread.id } });
+    }
+  });
+
   // 用户反馈:版规与说明置于最新主题上方,最近回复置于最新主题下方
   test("右栏顺序:版规与说明 ▲ 最新主题 ▲ 最近回复(垂直堆叠)", async ({ page }) => {
     await page.goto("/forum");
@@ -521,7 +578,7 @@ test.describe("发帖回帖(#34 2026-11-04;编辑器 vditor IR 升级 2026-11-09
   test("游客:版块页无发帖按钮,发帖/回帖 API 401", async ({ page, request }) => {
     await page.goto(`/forum/${POST_BOARD_SLUG}`);
     await expect(page.getByRole("link", { name: "登录后可发帖" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "发帖", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "发新帖", exact: true })).toHaveCount(0);
 
     const t = await request.post("/api/forum/threads", {
       data: { boardSlug: POST_BOARD_SLUG, title: "x", content: "yy" },
@@ -592,9 +649,9 @@ test.describe("发帖回帖(#34 2026-11-04;编辑器 vditor IR 升级 2026-11-09
   }) => {
     await login(page, "legacyuser", "oldpass123");
     await page.goto(`/forum/${POST_BOARD_SLUG}`);
-    await expect(page.getByRole("link", { name: "发帖", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "发新帖", exact: true })).toBeVisible();
 
-    await page.getByRole("link", { name: "发帖", exact: true }).click();
+    await page.getByRole("link", { name: "发新帖", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/forum/${POST_BOARD_SLUG}/new$`));
     await page.getByLabel(/标题/).fill(THREAD_TITLE);
     await fillComposer(page, "欢迎来到**发帖测试**主题。\n\n第二段内容。");
