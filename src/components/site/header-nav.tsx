@@ -77,9 +77,8 @@ export function HeaderDesktopNav({ items }: { items: readonly SiteNavItem[] }) {
 }
 
 /**
- * 移动抽屉(设计稿:侧边浮出;顶部展开会推挤页面导致跳动)。
- * 须渲染在 header 之外:header 的 backdrop-filter 会成为 fixed 子元素的
- * 包含块,遮罩会被压缩到页头高度;且 header z-40 栈上下文困住抽屉层级。
+ * 移动抽屉内容层:遮罩/滚动锁定/Esc 关闭由 ui/drawer(Radix)承担,
+ * Portal 弹层天然逃出页头 backdrop-filter 包含块与 z-40 栈上下文(旧实现注释)。
  * 面板自身限高滚动(overscroll-contain 防滚动链穿透到底层页面)。
  */
 export function HeaderMobileNav({
@@ -93,19 +92,11 @@ export function HeaderMobileNav({
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
 
   return (
-    <>
-      <div
-        data-testid="mobile-menu-backdrop"
-        aria-hidden="true"
-        onClick={onClose}
-        className="fixed inset-0 z-50 bg-black/60 lg:hidden"
-      />
-      <nav
-        aria-label="移动导航"
-        data-testid="mobile-menu"
-        className="fixed inset-y-0 right-0 z-[60] w-72 max-w-[85vw] overflow-y-auto overscroll-contain border-l border-line bg-panel-strong shadow-xl shadow-black/40 lg:hidden"
-      >
-        <ul className="px-4 py-3 text-[15px]">
+    <nav
+      aria-label="移动导航"
+      className="overscroll-contain text-[15px] lg:hidden"
+    >
+      <ul className="px-4 py-3">
           {items.map((item) => {
             const open = expandedGroup === item.label;
             return (
@@ -177,8 +168,7 @@ export function HeaderMobileNav({
               </li>
             );
           })}
-        </ul>
-      </nav>
-    </>
+      </ul>
+    </nav>
   );
 }

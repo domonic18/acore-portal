@@ -11,15 +11,16 @@
 import { X } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 
 const AssistantPanel = dynamic(() => import("./assistant-panel"), {
   ssr: false,
   loading: () => (
-    <div
-      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[420px] flex-col border-l border-line-strong bg-panel"
-      role="dialog"
-      aria-label="AI 助手"
-    >
+    <div className="flex h-full w-full flex-col bg-panel">
       <div className="flex flex-1 items-center justify-center text-sm text-muted">
         助手加载中…
       </div>
@@ -151,11 +152,28 @@ export function AssistantDrawer(): React.ReactElement {
         </button>
       </div>
       {panelMounted && (
-        // 关闭只切 CSS 隐藏(contents 保留挂载,面板的 fixed 定位仍相对视口);
-        // 勿改成卸载或 hidden —— 会丢掉 runtime 里的对话状态(重开看不到上次对话)
-        <div className={open ? "contents" : "hidden"}>
-          <AssistantPanel onClose={() => setOpen(false)} />
-        </div>
+        // 关闭只切 CSS 隐藏:forceMount 常驻挂载,面板 runtime 对话状态不丢
+        // (问题3 反馈:重开要看到上次对话,勿改成卸载)。modal={false}:非模态
+        // 抽屉,不整页 aria-hidden/不锁滚动/不困焦点(与旧 fixed 面板同语义),
+        // Esc 关闭由底座接管。
+        <Drawer
+          modal={false}
+          open={open}
+          onOpenChange={(o) => {
+            if (!o) setOpen(false);
+          }}
+        >
+          <DrawerContent
+            forceMount
+            aria-describedby={undefined}
+            className={`w-full max-w-[420px] border-line-strong bg-panel shadow-[-24px_0_60px_-24px_rgba(0,0,0,0.9)] ${
+              open ? "" : "hidden"
+            }`}
+          >
+            <DrawerTitle className="sr-only">小塔助手</DrawerTitle>
+            <AssistantPanel onClose={() => setOpen(false)} />
+          </DrawerContent>
+        </Drawer>
       )}
     </>
   );

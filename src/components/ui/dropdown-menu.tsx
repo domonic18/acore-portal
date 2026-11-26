@@ -36,7 +36,7 @@ function DropdownMenuItem({
     <DropdownMenuPrimitive.Item
       {...props}
       className={cn(
-        "flex h-8 cursor-default select-none items-center gap-2 rounded-md px-2 text-[13px] text-foreground outline-none focus:bg-panel focus:text-heading data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "flex h-8 cursor-default select-none items-center gap-2 rounded-md px-2 text-[13px] text-foreground outline-none data-[highlighted]:bg-panel data-[highlighted]:text-heading data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         "[&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted",
         className,
       )}

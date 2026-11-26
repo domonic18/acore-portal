@@ -15,11 +15,8 @@ export default function AssistantPanel({ onClose }: { onClose: () => void }) {
   const { runtime, banner, clearBanner, startNewThread } = useAssistantRuntime();
 
   return (
-    <div
-      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[420px] animate-[slide-in-right_0.2s_ease-out] flex-col border-l border-line-strong bg-panel shadow-[-24px_0_60px_-24px_rgba(0,0,0,0.9)]"
-      role="dialog"
-      aria-label="AI 助手"
-    >
+    // 外壳/定位/滑入动画由 ui/drawer 的 DrawerContent 承担,这里只排内容
+    <div className="flex h-full min-h-0 w-full flex-col">
       <div className="flex items-center gap-2.5 border-b border-line px-4 py-3">
         {/* 守望塔小石人头像(与悬浮球同源,public/assistant-avatar.png) */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
