@@ -1,17 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { SiteNavItem } from "@/constants/navigation";
 import { UnreadBadge } from "@/components/site/unread-badge";
 import { HeaderDesktopNav, HeaderMobileNav } from "@/components/site/header-nav";
 import { HeaderUserMenu } from "@/components/site/header-user-menu";
+import { Drawer, DrawerContent, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 
 /**
  * 全站页头交互层(M3 US1 T018,R12;2026-10 ardot 设计稿 p01 对齐):
  * 深蓝页头 + 金色登录/注册 + 登录态通知铃与头像(积分在头像下拉内,2026-11-05 收敛);
  * 搜索入口 = 右上角搜索 ICON(2026-11-18 用户反馈,主导航不再放「搜索」文字项);
- * 桌面多级下拉 + 移动侧边抽屉(FR-205)。
+ * 桌面多级下拉 + 移动侧边抽屉(FR-205,Radix 承担遮罩/滚动锁定/Esc)。
  * 职责拆分(#84):导航见 header-nav、账户菜单见 header-user-menu,本文件只做外壳与编排。
  * 页头背景图与配色由 .site-header 类 + <html> 上的主题变量驱动(2026-11-06 主题系统)。
  */
@@ -31,21 +32,6 @@ export function SiteHeaderClient({
   logoUrl: string;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  // #55:移动菜单展开时锁定底层页面滚动,滚动只发生在抽屉面板内;Esc 关抽屉
-  useEffect(() => {
-    if (!mobileOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMobileOpen(false);
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = prev;
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [mobileOpen]);
 
   return (
     <>
@@ -99,40 +85,45 @@ export function SiteHeaderClient({
               </div>
             )}
 
-            {/* 移动汉堡 */}
-            <button
-              type="button"
-              aria-label="菜单"
-              aria-expanded={mobileOpen}
-              data-testid="mobile-menu-button"
-              onClick={() => setMobileOpen((v) => !v)}
-              className="rounded-md border border-line-strong p-2 text-body hover:text-link lg:hidden"
-            >
-              <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-                {mobileOpen ? (
-                  <path
-                    d="M3 3l12 12M15 3L3 15"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                ) : (
-                  <path
-                    d="M2 4.5h14M2 9h14M2 13.5h14"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                )}
-              </svg>
-            </button>
+            {/* 移动汉堡(抽屉触发器;展开态图标由 mobileOpen 派生) */}
+            <Drawer open={mobileOpen} onOpenChange={setMobileOpen}>
+              <DrawerTrigger
+                asChild
+                data-testid="mobile-menu-button"
+                className="rounded-md border border-line-strong p-2 text-body hover:text-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 lg:hidden"
+              >
+                <button type="button" aria-label="菜单">
+                  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+                    {mobileOpen ? (
+                      <path
+                        d="M3 3l12 12M15 3L3 15"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    ) : (
+                      <path
+                        d="M2 4.5h14M2 9h14M2 13.5h14"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    )}
+                  </svg>
+                </button>
+              </DrawerTrigger>
+              <DrawerContent
+                data-testid="mobile-menu"
+                aria-describedby={undefined}
+                className="w-72 max-w-[85vw] border-line bg-panel-strong shadow-xl shadow-black/40"
+              >
+                <DrawerTitle className="sr-only">导航菜单</DrawerTitle>
+                <HeaderMobileNav items={items} onClose={() => setMobileOpen(false)} />
+              </DrawerContent>
+            </Drawer>
           </div>
         </div>
       </header>
-
-      {mobileOpen && (
-        <HeaderMobileNav items={items} onClose={() => setMobileOpen(false)} />
-      )}
     </>
   );
 }

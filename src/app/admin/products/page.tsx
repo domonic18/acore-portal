@@ -5,7 +5,8 @@ import { listAdminCategoryOptions, listAdminProducts } from "@/server/services/c
 import { AdminPager } from "@/components/ui/pagination";
 import { Table, THead, Th } from "@/components/ui/table";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import { Input} from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { buildPageHref } from "@/lib/pagination";
 import { ProductQuickEditRow } from "@/components/admin/product-quick-edit";

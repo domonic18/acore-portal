@@ -1,28 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { toast } from "sonner";
 import { useUnreadCount } from "@/lib/use-unread-count";
 import { UNREAD_TOAST_MS } from "@/constants/notification";
 
 /**
  * 站点页头未读徽标+弹泡(FR-310,契约 api-notification 弹泡口径):
  * 轮询取数在 useUnreadCount Hook(issue #85 展示层无 IO),本组件只负责渲染:
- * count 增长才弹 toast(点击跳收件箱);仅登录态渲染(header authed 分支)。
+ * count 增长才弹 toast(点击跳收件箱,sonner 承担自动消失);仅登录态渲染
+ * (header authed 分支)。Toaster 挂在根 layout。
  */
 export function UnreadBadge() {
   const { count, delta } = useUnreadCount();
-  const [toast, setToast] = useState<number | null>(null);
 
   useEffect(() => {
     if (delta <= 0) return;
-    setToast(delta);
+    toast(`你有 ${delta} 条新通知`, {
+      duration: UNREAD_TOAST_MS,
+      testId: "unread-toast",
+      action: {
+        label: "查看",
+        onClick: () => {
+          window.location.href = "/account/notifications";
+        },
+      },
+    });
   }, [delta]);
-
-  useEffect(() => {
-    if (toast === null) return;
-    const timer = window.setTimeout(() => setToast(null), UNREAD_TOAST_MS);
-    return () => window.clearTimeout(timer);
-  }, [toast]);
 
   return (
     <>
@@ -52,18 +56,6 @@ export function UnreadBadge() {
           </span>
         )}
       </a>
-      {toast !== null && (
-        <button
-          type="button"
-          data-testid="unread-toast"
-          onClick={() => {
-            window.location.href = "/account/notifications";
-          }}
-          className="fixed right-4 top-16 z-50 rounded border border-highlight-deep bg-surface px-4 py-2 text-sm text-highlight-soft shadow-lg"
-        >
-          你有 {toast} 条新通知,点击查看
-        </button>
-      )}
     </>
   );
 }

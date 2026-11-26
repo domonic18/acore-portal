@@ -5,6 +5,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { PrismaClient } from "../../src/generated/business";
 import { AUDIT_ACTION, AUDIT_CATEGORY } from "../../src/constants/audit";
 import { resolveE2ERedisUrl } from "./redis-url";
+import { pickOption } from "./helpers/ui";
 
 /**
  * T041 US5 论坛 E2E(quickstart S4;SC-201/207):
@@ -268,15 +269,15 @@ test.describe("US5 论坛(T041)", () => {
     await expect(page.getByText("精", { exact: true }).first()).toBeVisible();
 
     // 标签流转 → 【已解决】徽标
-    await page.getByLabel("状态标签").selectOption("resolved");
+    await pickOption(page.getByLabel("状态标签"), { value: "resolved" });
     await expect(page.getByText("【已解决】")).toBeVisible();
 
     // 「请补充」标签 → 【请补充】徽标(「规范」已下线,不再有该选项)
-    await page.getByLabel("状态标签").selectOption("needs_info");
+    await pickOption(page.getByLabel("状态标签"), { value: "needs_info" });
     await expect(page.getByText("【请补充】")).toBeVisible();
 
     // 「已关闭」可直接在下拉选定(不再只经「关闭主题」按钮)
-    await page.getByLabel("状态标签").selectOption("closed");
+    await pickOption(page.getByLabel("状态标签"), { value: "closed" });
     await expect(page.getByText("【已关闭】")).toBeVisible();
 
     // 关闭 → 已关闭徽标 + 状态唯一出口(下拉随时可切回其他标签即重开)
@@ -284,7 +285,7 @@ test.describe("US5 论坛(T041)", () => {
     await expect(page.getByText("【已关闭】")).toBeHidden();
     await page.getByRole("button", { name: "关闭主题" }).click();
     await expect(page.getByText("【已关闭】")).toBeVisible();
-    await expect(page.getByLabel("状态标签")).toHaveValue("closed");
+    await expect(page.getByLabel("状态标签")).toContainText("已关闭");
 
     // 软删 → 回版块列表且主题不再可见;库内数据保留
     // exact:新版编辑器工具栏「删除线」按钮与「删除」子串冲突(strict mode)

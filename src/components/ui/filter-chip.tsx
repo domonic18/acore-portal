@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { FOCUS_RING } from "./admin-tokens";
+import { cn } from "@/lib/cn";
 
 const CHIP = `inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-[12.5px] transition select-none`;
-const ACTIVE = "border-[#6fb7e0] bg-[#6fb7e0]/15 font-medium text-[#a8d9f5]";
-const INACTIVE = "border-[#22385a] text-[#93b2ce] hover:border-[#6fb7e0]/40 hover:text-[#dcebf7]";
+const ACTIVE = "border-primary bg-primary/15 font-medium text-primary-bright";
+const INACTIVE = "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground";
 
 function ChipInner({
   icon,
@@ -45,7 +46,7 @@ export function FilterChip({
     <Link
       href={href}
       aria-pressed={active}
-      className={`${CHIP} ${active ? ACTIVE : INACTIVE} ${FOCUS_RING} ${className}`}
+      className={cn(CHIP, active ? ACTIVE : INACTIVE, FOCUS_RING, className)}
     >
       <ChipInner icon={icon} active={active}>
         {children}
@@ -78,7 +79,14 @@ export function FilterChipToggle({
 }) {
   return (
     <label
-      className={`${CHIP} cursor-pointer ${checked ? ACTIVE : INACTIVE} ${FOCUS_RING} has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#6fb7e0]/60 ${className}`}
+      className={cn(
+        CHIP,
+        "cursor-pointer",
+        checked ? ACTIVE : INACTIVE,
+        FOCUS_RING,
+        "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/60",
+        className,
+      )}
     >
       <input
         type="checkbox"

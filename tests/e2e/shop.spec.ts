@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "../../src/generated/business";
+import { pickOption } from "./helpers/ui";
 
 /**
  * T026 US2 商城 E2E(quickstart S2 → FR-108~112/120):
@@ -124,7 +125,7 @@ test.describe("US2 商城与购物车(T026)", () => {
 
     await page.getByRole("link", { name: `E2E 测试坐骑 ${RUN}` }).click();
     await expect(page).toHaveURL(new RegExp(`/shop/${ITEM_SLUG}$`));
-    await page.getByLabel("选择角色").selectOption("10");
+    await pickOption(page.getByLabel("选择角色"), { value: "10" });
     await page.getByRole("button", { name: "加入购物车" }).click();
     await expect(page.getByRole("status")).toContainText("已加入购物车");
 
@@ -159,7 +160,7 @@ test.describe("US2 商城与购物车(T026)", () => {
   }) => {
     await login(page);
     await page.goto(`/shop/${ITEM_SLUG}`);
-    await page.getByLabel("选择角色").selectOption("10");
+    await pickOption(page.getByLabel("选择角色"), { value: "10" });
     // 同一 tick 内连触发两次点击,验证 ref 互斥(而非异步 state)兜住重复提交
     await page.getByRole("button", { name: "加入购物车" }).evaluate((el) => {
       (el as HTMLButtonElement).click();
@@ -186,7 +187,7 @@ test.describe("US2 商城与购物车(T026)", () => {
     await expect(page).toHaveURL(/\/account\/overview$/);
 
     await page.goto(`/shop/${ITEM_SLUG}`);
-    await page.getByLabel("选择角色").selectOption("10");
+    await pickOption(page.getByLabel("选择角色"), { value: "10" });
 
     // 模拟 access cookie 过期被浏览器丢弃:只剩 refresh cookie
     const ctx = page.context();
@@ -216,7 +217,7 @@ test.describe("US2 商城与购物车(T026)", () => {
   test("物品恢复选物列表显示中文名,无模板行回落 #entry(#174)", async ({ page }) => {
     await login(page);
     await page.goto(`/shop/${RESTORE_SLUG}`);
-    await page.getByLabel("选择角色").selectOption("10");
+    await pickOption(page.getByLabel("选择角色"), { value: "10" });
     // seed:guid 10 → 19019(模板+zhCN)/ 17182(无模板行)
     await expect(page.getByText("限量测试坐骑")).toBeVisible();
     await expect(page.getByText("物品 #17182")).toBeVisible();
@@ -318,7 +319,7 @@ test.describe("US2 商城与购物车(T026)", () => {
   test("购物车/结算页行项表带产品/价格/数量/小计表头(#154)", async ({ page }) => {
     await login(page);
     await page.goto(`/shop/${ITEM_SLUG}`);
-    await page.getByLabel("选择角色").selectOption("10");
+    await pickOption(page.getByLabel("选择角色"), { value: "10" });
     await page.getByRole("button", { name: "加入购物车" }).click();
     await expect(page.getByRole("status")).toContainText("已加入购物车");
 
@@ -348,7 +349,7 @@ test.describe("US2 商城与购物车(T026)", () => {
   test("购物车页显示当前积分与本次需花费积分(#155)", async ({ page }) => {
     await login(page);
     await page.goto(`/shop/${ITEM_SLUG}`);
-    await page.getByLabel("选择角色").selectOption("10");
+    await pickOption(page.getByLabel("选择角色"), { value: "10" });
     await page.getByRole("button", { name: "加入购物车" }).click();
     await expect(page.getByRole("status")).toContainText("已加入购物车");
 

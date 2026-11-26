@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "../../src/generated/business";
+import { pickOption } from "./helpers/ui";
 
 /**
  * 首页配置 E2E(US 首页轮播+最近成就嵌入):
@@ -217,13 +218,12 @@ test("精选商品管理:加入→上下移排序→首页按序展示→移出"
 
   // 加入甲、乙(下拉按 id 选,避免拼接展示文案)
   const select = section.getByLabel("选择商品");
-  await expect(select).toBeEnabled();
-  await select.selectOption(featIds[0]!);
+  await pickOption(select, { value: featIds[0]! });
   await section.getByRole("button", { name: "加入精选" }).click();
   await expect(
     section.getByTestId("featured-row").filter({ hasText: FEAT_NAME_A }),
   ).toBeVisible();
-  await select.selectOption(featIds[1]!);
+  await pickOption(select, { value: featIds[1]! });
   await section.getByRole("button", { name: "加入精选" }).click();
   await expect(
     section.getByTestId("featured-row").filter({ hasText: FEAT_NAME_B }),

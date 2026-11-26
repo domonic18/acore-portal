@@ -2,6 +2,7 @@
 
 import { Check } from "lucide-react";
 import { FOCUS_RING } from "./admin-tokens";
+import { cn } from "@/lib/cn";
 
 /**
  * 勾选 chip(表单内多选项,如文章标签/页内开关项):
@@ -21,11 +22,15 @@ export function CheckChip({
 }) {
   return (
     <label
-      className={`inline-flex cursor-pointer items-center gap-1 whitespace-nowrap rounded-md border px-2.5 py-1 text-[12.5px] transition ${FOCUS_RING} has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#6fb7e0]/60 ${
+      className={cn(
+        "inline-flex cursor-pointer items-center gap-1 whitespace-nowrap rounded-md border px-2.5 py-1 text-[12.5px] transition",
+        FOCUS_RING,
+        "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/60",
         checked
-          ? "border-[#6fb7e0] bg-[#6fb7e0]/15 text-[#a8d9f5]"
-          : "border-[#22385a] bg-[#0b1526] text-[#93b2ce] hover:border-[#6fb7e0]/40 hover:text-[#dcebf7]"
-      } ${className}`}
+          ? "border-primary bg-primary/15 text-primary-bright"
+          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground",
+        className,
+      )}
     >
       <input
         type="checkbox"

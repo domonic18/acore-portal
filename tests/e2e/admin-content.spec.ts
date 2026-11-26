@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "../../src/generated/business";
+import { pickOption } from "./helpers/ui";
 
 /**
  * T034 US4 内容后台 E2E(quickstart S4,SC-206):
@@ -34,10 +35,10 @@ async function createArticle(
   await page.getByLabel(/别名 slug/).fill(input.slug);
   // 显式选「公告」:表单默认类目取列表首项(sort 升序),dev 库残留的测试
   // 分类(sort=0)会压过公告,默认值不可依赖(2026-11-18 实证)
-  await page.getByLabel("分类").selectOption({ label: "公告" });
+  await pickOption(page.getByLabel("分类"), { label: "公告" });
   await page.getByPlaceholder(/正文 Markdown/).fill(input.bodyMd);
   // 非 exact:label 包裹 select,textContent 含 option 文案
-  await page.getByLabel("状态").selectOption(input.status);
+  await pickOption(page.getByLabel("状态"), { value: input.status });
   await page.getByRole("button", { name: "保存" }).click();
   await expect(page).toHaveURL(/\/admin\/articles$/);
 }
@@ -93,7 +94,7 @@ test.describe("发文闭环(T034 SC-206)", () => {
     await page.getByPlaceholder(/正文 Markdown/).fill(PUB_MD);
     // 预览即所见(FR-215):分栏实时预览(输入停顿自动刷新),表格在预览可见
     await expect(page.getByTestId("markdown-preview")).toContainText("第一阶段");
-    await page.getByLabel("状态").selectOption("published");
+    await pickOption(page.getByLabel("状态"), { value: "published" });
     await page.getByRole("button", { name: "保存" }).click();
     await expect(page).toHaveURL(/\/admin\/articles$/);
 

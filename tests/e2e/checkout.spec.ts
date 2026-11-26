@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "../../src/generated/business";
+import { pickOption } from "./helpers/ui";
 
 /**
  * T036 US3 结账 E2E(quickstart S3/SC-101/SC-104):
@@ -26,7 +27,7 @@ async function login(page: Page) {
 
 async function addAndOpenCheckout(page: Page, slug: string) {
   await page.goto(`/shop/${slug}`);
-  await page.getByLabel("选择角色").selectOption("10");
+  await pickOption(page.getByLabel("选择角色"), { value: "10" });
   await page.getByRole("button", { name: "加入购物车" }).click();
   await expect(page.getByRole("status")).toContainText("已加入购物车");
   await page.getByRole("link", { name: "去结算" }).click();
@@ -240,7 +241,7 @@ test.describe("US3 结账支付(T036)", () => {
 
     // 二次加购:软拦截在加购即提示
     await page.goto(`/shop/${LIMIT_SLUG}`);
-    await page.getByLabel("选择角色").selectOption("10");
+    await pickOption(page.getByLabel("选择角色"), { value: "10" });
     await page.getByRole("button", { name: "加入购物车" }).click();
     // Next 的 route announcer 也是 role=alert,按文案收窄避免 strict 冲突
     await expect(
